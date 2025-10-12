@@ -260,20 +260,48 @@ class Poker_Tournament_Import_Shortcodes {
         ));
 
         if ($players) {
+            // Get tournament metadata for ranking calculations
+            $players_count = count($players);
+            $paid_positions = 0;
+            foreach ($players as $player) {
+                if ($player->winnings > 0) $paid_positions++;
+            }
+
+            $final_table_count = min(9, $players_count);
+            $bubble_position = $paid_positions + 1;
+
             echo '<div class="tournament-players">';
-            echo '<h3>' . __('Results', 'poker-tournament-import') . '</h3>';
-            echo '<table class="tournament-results-table">';
+            echo '<h3>' . __('Tournament Results', 'poker-tournament-import') . '</h3>';
+
+            // Add tournament summary
+            echo '<div class="tournament-summary-grid">';
+            echo '<div class="summary-card">';
+            echo '<span class="summary-label">' . __('Entries:', 'poker-tournament-import') . '</span>';
+            echo '<span class="summary-value">' . esc_html($players_count) . '</span>';
+            echo '</div>';
+            echo '<div class="summary-card">';
+            echo '<span class="summary-label">' . __('Paid Positions:', 'poker-tournament-import') . '</span>';
+            echo '<span class="summary-value">' . esc_html($paid_positions) . '</span>';
+            echo '</div>';
+            echo '<div class="summary-card">';
+            echo '<span class="summary-label">' . __('Final Table:', 'poker-tournament-import') . '</span>';
+            echo '<span class="summary-value">' . esc_html($final_table_count) . '</span>';
+            echo '</div>';
+            echo '</div>';
+
+            echo '<table class="tournament-results-table enhanced">';
             echo '<thead>';
             echo '<tr>';
-            echo '<th>' . __('Position', 'poker-tournament-import') . '</th>';
-            echo '<th>' . __('Player', 'poker-tournament-import') . '</th>';
-            echo '<th>' . __('Winnings', 'poker-tournament-import') . '</th>';
-            echo '<th>' . __('Points', 'poker-tournament-import') . '</th>';
+            echo '<th class="position-col">' . __('Pos', 'poker-tournament-import') . '</th>';
+            echo '<th class="player-col">' . __('Player', 'poker-tournament-import') . '</th>';
+            echo '<th class="winnings-col">' . __('Winnings', 'poker-tournament-import') . '</th>';
+            echo '<th class="points-col">' . __('Points', 'poker-tournament-import') . '</th>';
+            echo '<th class="achievements-col">' . __('Achievements', 'poker-tournament-import') . '</th>';
             echo '</tr>';
             echo '</thead>';
             echo '<tbody>';
 
-            foreach ($players as $player) {
+            foreach ($players as $index => $player) {
                 $player_post = get_posts(array(
                     'post_type' => 'player',
                     'meta_key' => '_player_uuid',
@@ -282,17 +310,105 @@ class Poker_Tournament_Import_Shortcodes {
                 ));
 
                 $player_name = !empty($player_post) ? $player_post[0]->post_title : __('Unknown Player', 'poker-tournament-import');
+                $player_id = !empty($player_post) ? $player_post[0]->ID : 0;
 
-                echo '<tr>';
-                echo '<td>' . esc_html($player->finish_position) . '</td>';
-                echo '<td>' . esc_html($player_name) . '</td>';
-                echo '<td>' . esc_html(number_format($player->winnings, 2)) . '</td>';
-                echo '<td>' . esc_html(number_format($player->points, 2)) . '</td>';
+                // Determine row class based on position
+                $row_class = '';
+                $position_badge = '';
+                $achievements = array();
+
+                if ($player->finish_position == 1) {
+                    $row_class = 'gold-medal';
+                    $position_badge = '🥇';
+                    $achievements[] = '<span class="achievement-badge winner" title="' . __('Champion!', 'poker-tournament-import') . '">🏆</span>';
+                } elseif ($player->finish_position == 2) {
+                    $row_class = 'silver-medal';
+                    $position_badge = '🥈';
+                    $achievements[] = '<span class="achievement-badge runner-up" title="' . __('Runner-up', 'poker-tournament-import') . '">🥈</span>';
+                } elseif ($player->finish_position == 3) {
+                    $row_class = 'bronze-medal';
+                    $position_badge = '🥉';
+                    $achievements[] = '<span class="achievement-badge third-place" title="' . __('Third Place', 'poker-tournament-import') . '">🥉</span>';
+                } elseif ($player->finish_position <= $final_table_count) {
+                    $row_class = 'final-table';
+                    $achievements[] = '<span class="achievement-badge final-table" title="' . __('Final Table', 'poker-tournament-import') . '">🎯</span>';
+                } elseif ($player->finish_position == $bubble_position && $paid_positions > 0) {
+                    $row_class = 'bubble';
+                    $achievements[] = '<span class="achievement-badge bubble" title="' . __('Bubble Finish', 'poker-tournament-import') . '">💭</span>';
+                }
+
+                // Add elimination achievement
+                if ($player->hits > 0) {
+                    $achievements[] = '<span class="achievement-badge eliminations" title="' . sprintf(_n('%d Elimination', '%d Eliminations', $player->hits, 'poker-tournament-import'), $player->hits) . '">⚔️</span>';
+                }
+
+                echo '<tr class="' . esc_attr($row_class) . '">';
+
+                // Position with badge
+                echo '<td class="position-cell">';
+                if ($position_badge) {
+                    echo '<span class="position-badge">' . esc_html($position_badge) . '</span>';
+                }
+                echo '<span class="position-number">' . esc_html($player->finish_position) . get_ordinal_suffix($player->finish_position) . '</span>';
+                echo '</td>';
+
+                // Player with link
+                echo '<td class="player-cell">';
+                if ($player_id > 0) {
+                    echo '<a href="' . esc_url(get_permalink($player_id)) . '" class="player-link">';
+                    echo '<span class="player-avatar">' . esc_html(substr($player_name, 0, 2)) . '</span>';
+                    echo '<span class="player-name">' . esc_html($player_name) . '</span>';
+                    echo '</a>';
+                } else {
+                    echo '<span class="player-avatar unknown">?</span>';
+                    echo '<span class="player-name">' . esc_html($player_name) . '</span>';
+                }
+                echo '</td>';
+
+                // Winnings
+                echo '<td class="winnings-cell">';
+                if ($player->winnings > 0) {
+                    echo '<span class="winnings-amount">' . esc_html('$' . number_format($player->winnings, 0)) . '</span>';
+                } else {
+                    echo '<span class="no-winnings">-</span>';
+                }
+                echo '</td>';
+
+                // Points with highlighting
+                echo '<td class="points-cell">';
+                if ($player->points > 0) {
+                    echo '<span class="points-amount ' . ($player->points >= 100 ? 'high-points' : '') . '">' . esc_html(number_format($player->points, 1)) . '</span>';
+                } else {
+                    echo '<span class="no-points">-</span>';
+                }
+                echo '</td>';
+
+                // Achievements
+                echo '<td class="achievements-cell">';
+                if (!empty($achievements)) {
+                    echo '<div class="achievements-list">' . implode('', $achievements) . '</div>';
+                }
+                echo '</td>';
+
                 echo '</tr>';
             }
 
             echo '</tbody>';
             echo '</table>';
+
+            // Add legend
+            echo '<div class="results-legend">';
+            echo '<h4>' . __('Achievement Legend', 'poker-tournament-import') . '</h4>';
+            echo '<div class="legend-items">';
+            echo '<span class="legend-item">🏆 ' . __('Champion', 'poker-tournament-import') . '</span>';
+            echo '<span class="legend-item">🥈 ' . __('Runner-up', 'poker-tournament-import') . '</span>';
+            echo '<span class="legend-item">🥉 ' . __('Third Place', 'poker-tournament-import') . '</span>';
+            echo '<span class="legend-item">🎯 ' . __('Final Table', 'poker-tournament-import') . '</span>';
+            echo '<span class="legend-item">💭 ' . __('Bubble', 'poker-tournament-import') . '</span>';
+            echo '<span class="legend-item">⚔️ ' . __('Eliminations', 'poker-tournament-import') . '</span>';
+            echo '</div>';
+            echo '</div>';
+
             echo '</div>';
         }
     }

@@ -284,3 +284,4 @@ npm run build
 - Use transients for computed statistics
 - Optimize image handling for tournament displays
 - Consider background processing for large imports
+- When a new feature is implemented, create a new version of the install .zip file

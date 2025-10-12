@@ -684,3 +684,668 @@
         background-color: #2d2d2d;
     }
 }
+
+/* Tabbed Interface Styles */
+.series-tabs-container {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border: 1px solid #e0e0e0;
+    overflow: hidden;
+}
+
+.series-tabs-nav {
+    display: flex;
+    background: #f8f9fa;
+    border-bottom: 1px solid #e0e0e0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.series-tab-btn {
+    background: none;
+    border: none;
+    padding: 16px 24px;
+    font-size: 16px;
+    font-weight: 500;
+    color: #666;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.3s ease;
+    white-space: nowrap;
+    border-bottom: 3px solid transparent;
+}
+
+.series-tab-btn:hover {
+    background: rgba(76, 175, 80, 0.1);
+    color: #333;
+}
+
+.series-tab-btn.active {
+    color: #4CAF50;
+    background: white;
+    border-bottom-color: #4CAF50;
+}
+
+.series-tab-btn.active::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: #4CAF50;
+}
+
+.series-tabs-content {
+    padding: 32px;
+    min-height: 400px;
+}
+
+/* Series Overview Styles */
+.series-overview-content {
+    max-width: 100%;
+}
+
+.series-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    margin-bottom: 32px;
+}
+
+.series-stats-grid .stat-card {
+    background: #f8f9fa;
+    padding: 24px;
+    border-radius: 8px;
+    text-align: center;
+    border: 1px solid #e0e0e0;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.series-stats-grid .stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.series-stats-grid .stat-number {
+    font-size: 32px;
+    font-weight: 700;
+    color: #4CAF50;
+    margin-bottom: 8px;
+    font-family: 'Courier New', monospace;
+}
+
+.series-stats-grid .stat-label {
+    font-size: 14px;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 500;
+}
+
+.best-player-card {
+    background: linear-gradient(135deg, #4CAF50, #45a049);
+    color: white;
+    padding: 24px;
+    border-radius: 8px;
+    margin-bottom: 32px;
+}
+
+.best-player-card h3 {
+    margin: 0 0 16px 0;
+    font-size: 20px;
+    font-weight: 600;
+}
+
+.player-info {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.player-avatar {
+    width: 48px;
+    height: 48px;
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: bold;
+}
+
+.player-details {
+    flex: 1;
+}
+
+.player-name {
+    color: white;
+    text-decoration: none;
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    display: block;
+}
+
+.player-name:hover {
+    text-decoration: underline;
+}
+
+.player-stats {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    font-size: 14px;
+}
+
+.player-points,
+.player-winnings,
+.player-best {
+    background: rgba(255, 255, 255, 0.15);
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+.recent-tournaments-section h3 {
+    font-size: 20px;
+    margin-bottom: 20px;
+    color: #333;
+}
+
+.recent-tournaments-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.recent-tournament-item {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    border: 1px solid #e0e0e0;
+    transition: all 0.2s ease;
+}
+
+.recent-tournament-item:hover {
+    transform: translateX(4px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.tournament-info {
+    margin-bottom: 12px;
+}
+
+.tournament-name a {
+    color: #333;
+    text-decoration: none;
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    display: block;
+}
+
+.tournament-name a:hover {
+    color: #4CAF50;
+}
+
+.tournament-meta {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    font-size: 14px;
+    color: #666;
+}
+
+.tournament-winner {
+    background: #e8f5e8;
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-size: 14px;
+    display: inline-block;
+}
+
+.winner-label {
+    color: #666;
+    margin-right: 4px;
+}
+
+.winner-name {
+    font-weight: 600;
+    color: #333;
+}
+
+/* Series Results Styles */
+.series-results-table-wrapper {
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    margin-bottom: 20px;
+}
+
+.series-results-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+.series-results-table thead {
+    background: linear-gradient(135deg, #34495e, #2c3e50);
+    color: white;
+}
+
+.series-results-table th {
+    padding: 16px 12px;
+    text-align: left;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border: none;
+}
+
+.series-results-table td {
+    padding: 14px 12px;
+    border-bottom: 1px solid #eee;
+    vertical-align: middle;
+}
+
+.series-results-table tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+.series-results-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.tournament-name {
+    font-weight: 500;
+}
+
+.tournament-prize {
+    font-family: 'Courier New', monospace;
+    font-weight: 600;
+    color: #27ae60;
+}
+
+.btn-small {
+    display: inline-block;
+    padding: 6px 12px;
+    background: #4CAF50;
+    color: white;
+    text-decoration: none;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    border: none;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.btn-small:hover {
+    background: #45a049;
+}
+
+.series-results-more {
+    text-align: center;
+    padding: 20px;
+}
+
+.load-more-results {
+    background: #4CAF50;
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.load-more-results:hover {
+    background: #45a049;
+}
+
+/* Series Statistics Styles */
+.series-leaderboard-wrapper {
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.series-leaderboard-wrapper h3 {
+    background: #f8f9fa;
+    padding: 20px;
+    margin: 0;
+    font-size: 18px;
+    color: #333;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.leaderboard-table-wrapper {
+    overflow-x: auto;
+}
+
+.leaderboard-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+.leaderboard-table thead {
+    background: linear-gradient(135deg, #34495e, #2c3e50);
+    color: white;
+}
+
+.leaderboard-table th {
+    padding: 12px 8px;
+    text-align: left;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border: none;
+    font-size: 12px;
+}
+
+.leaderboard-table td {
+    padding: 12px 8px;
+    border-bottom: 1px solid #eee;
+    vertical-align: middle;
+}
+
+.leaderboard-table tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+.leaderboard-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.leaderboard-table .gold {
+    background: linear-gradient(135deg, #fff9c4, #ffeb3b);
+}
+
+.leaderboard-table .silver {
+    background: linear-gradient(135deg, #f5f5f5, #e0e0e0);
+}
+
+.leaderboard-table .bronze {
+    background: linear-gradient(135deg, #fff3e0, #ffe0b2);
+}
+
+.rank {
+    text-align: center;
+    font-weight: 700;
+    min-width: 60px;
+}
+
+.rank-number {
+    font-size: 16px;
+}
+
+.rank-medal {
+    font-size: 20px;
+    display: block;
+    margin-bottom: 4px;
+}
+
+.player-link {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-decoration: none;
+    color: #333;
+    font-weight: 500;
+}
+
+.player-link:hover {
+    color: #4CAF50;
+}
+
+.player-avatar {
+    width: 28px;
+    height: 28px;
+    background: #4CAF50;
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.winnings {
+    font-family: 'Courier New', monospace;
+    font-weight: 600;
+    color: #27ae60;
+}
+
+.points {
+    font-family: 'Courier New', monospace;
+    font-weight: 600;
+    color: #3498db;
+}
+
+.best-finish,
+.avg-finish {
+    font-weight: 600;
+    color: #e74c3c;
+}
+
+/* Series Players Styles */
+.players-search {
+    margin-bottom: 24px;
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.players-search input {
+    flex: 1;
+    min-width: 200px;
+    padding: 12px 16px;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    font-size: 14px;
+}
+
+.search-results-count {
+    color: #666;
+    font-size: 14px;
+    white-space: nowrap;
+}
+
+.players-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+.player-card {
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border: 1px solid #e0e0e0;
+    transition: all 0.2s ease;
+}
+
+.player-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+.player-link {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+}
+
+.player-link:hover {
+    text-decoration: none;
+}
+
+.player-card-unlinked {
+    opacity: 0.7;
+}
+
+.player-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.player-avatar {
+    width: 40px;
+    height: 40px;
+    background: #4CAF50;
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: bold;
+    flex-shrink: 0;
+}
+
+.player-details {
+    flex: 1;
+}
+
+.player-name {
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+    margin: 0 0 4px 0;
+}
+
+.player-stats {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+}
+
+.stat-item {
+    text-align: center;
+    padding: 8px;
+    background: #f8f9fa;
+    border-radius: 4px;
+}
+
+.stat-value {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 2px;
+}
+
+.stat-label {
+    font-size: 11px;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Mobile Responsive for Tabs */
+@media (max-width: 768px) {
+    .series-tabs-nav {
+        padding: 0 16px;
+    }
+
+    .series-tab-btn {
+        padding: 12px 16px;
+        font-size: 14px;
+    }
+
+    .series-tabs-content {
+        padding: 20px;
+    }
+
+    .series-stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 16px;
+    }
+
+    .series-stats-grid .stat-number {
+        font-size: 24px;
+    }
+
+    .player-info {
+        flex-direction: column;
+        text-align: center;
+        gap: 8px;
+    }
+
+    .player-stats {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+
+    .tournament-meta {
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .players-search {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .players-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 480px) {
+    .series-tabs-content {
+        padding: 16px;
+    }
+
+    .series-stats-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+
+    .series-stats-grid .stat-card {
+        padding: 16px;
+    }
+
+    .series-stats-grid .stat-number {
+        font-size: 20px;
+    }
+
+    .best-player-card {
+        padding: 16px;
+    }
+
+    .player-stats {
+        font-size: 12px;
+    }
+
+    .series-results-table {
+        font-size: 12px;
+    }
+
+    .series-results-table th,
+    .series-results-table td {
+        padding: 8px 6px;
+    }
+
+    .leaderboard-table {
+        font-size: 12px;
+    }
+
+    .leaderboard-table th,
+    .leaderboard-table td {
+        padding: 6px 4px;
+    }
+}

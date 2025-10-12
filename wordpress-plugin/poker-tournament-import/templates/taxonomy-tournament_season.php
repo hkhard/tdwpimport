@@ -1,8 +1,8 @@
 <?php
 /**
- * Tournament Series Taxonomy Template
+ * Tournament Season Taxonomy Template
  *
- * This template displays a single tournament series with
+ * This template displays a single tournament season with
  * tabbed interface for overview, results, statistics, and players.
  *
  * @package Poker Tournament Import
@@ -15,39 +15,39 @@ if (!defined('ABSPATH')) {
 
 get_header(); ?>
 
-<div class="poker-series-wrapper">
+<div class="poker-season-wrapper">
     <main id="primary" class="site-main">
         <?php while (have_posts()) : the_post(); ?>
 
-            <article id="post-<?php the_ID(); ?>" <?php post_class('series-single'); ?>
+            <article id="post-<?php the_ID(); ?>" <?php post_class('season-single'); ?>
 
-                <!-- Series Header -->
-                <header class="series-single-header">
-                    <div class="series-title-section">
-                        <h1 class="series-title"><?php the_title(); ?></h1>
-                        <div class="series-subtitle">
-                            <?php _e('Tournament Series', 'poker-tournament-import'); ?>
+                <!-- Season Header -->
+                <header class="season-single-header">
+                    <div class="season-title-section">
+                        <h1 class="season-title"><?php the_title(); ?></h1>
+                        <div class="season-subtitle">
+                            <?php _e('Tournament Season', 'poker-tournament-import'); ?>
                         </div>
                         <?php if (get_the_content()) : ?>
-                            <div class="series-description-brief">
+                            <div class="season-description-brief">
                                 <?php echo wp_trim_words(get_the_content(), 30); ?>
                             </div>
                         <?php endif; ?>
                     </div>
 
-                    <div class="series-actions">
-                        <button class="print-series" onclick="window.print()">
-                            <i class="icon-print"></i> <?php _e('Print Series', 'poker-tournament-import'); ?>
+                    <div class="season-actions">
+                        <button class="print-season" onclick="window.print()">
+                            <i class="icon-print"></i> <?php _e('Print Season', 'poker-tournament-import'); ?>
                         </button>
-                        <button class="export-series" data-series-id="<?php the_ID(); ?>" data-format="csv">
+                        <button class="export-season" data-season-id="<?php the_ID(); ?>" data-format="csv">
                             <i class="icon-download"></i> <?php _e('Export All', 'poker-tournament-import'); ?>
                         </button>
                     </div>
                 </header>
 
                 <!-- Tabbed Interface -->
-                <div class="series-content-area">
-                    <?php echo do_shortcode('[series_tabs series_id="' . get_the_ID() . '"]'); ?>
+                <div class="season-content-area">
+                    <?php echo do_shortcode('[season_tabs season_id="' . get_the_ID() . '"]'); ?>
                 </div>
 
             </article>
@@ -56,50 +56,50 @@ get_header(); ?>
     </main>
 </div>
 
-<!-- Series Header Styles -->
+<!-- Season Header Styles -->
 <style>
-.poker-series-wrapper {
+.poker-season-wrapper {
     max-width: 1200px;
     margin: 0 auto;
     padding: 20px;
 }
 
-.series-single-header {
+.season-single-header {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
     margin-bottom: 40px;
     padding: 40px;
-    background: linear-gradient(135deg, #4CAF50, #45a049);
+    background: linear-gradient(135deg, #3498db, #2980b9);
     color: white;
     border-radius: 12px;
 }
 
-.series-title {
+.season-title {
     font-size: 36px;
     font-weight: 700;
     margin: 0 0 8px 0;
 }
 
-.series-subtitle {
+.season-subtitle {
     font-size: 18px;
     opacity: 0.9;
     margin-bottom: 16px;
 }
 
-.series-description-brief {
+.season-description-brief {
     font-size: 16px;
     line-height: 1.5;
     opacity: 0.8;
 }
 
-.series-actions {
+.season-actions {
     display: flex;
     gap: 12px;
 }
 
-.print-series,
-.export-series {
+.print-season,
+.export-season {
     background: rgba(255, 255, 255, 0.2);
     color: white;
     border: 1px solid rgba(255, 255, 255, 0.3);
@@ -111,23 +111,23 @@ get_header(); ?>
     transition: all 0.2s ease;
 }
 
-.print-series:hover,
-.export-series:hover {
+.print-season:hover,
+.export-season:hover {
     background: rgba(255, 255, 255, 0.3);
 }
 
-.series-content-area {
+.season-content-area {
     margin-top: 20px;
 }
 
 @media (max-width: 768px) {
-    .series-single-header {
+    .season-single-header {
         flex-direction: column;
         gap: 16px;
         text-align: center;
     }
 
-    .series-actions {
+    .season-actions {
         justify-content: center;
     }
 }

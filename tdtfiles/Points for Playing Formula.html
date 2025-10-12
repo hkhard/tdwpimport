@@ -1,0 +1,1155 @@
+<!DOCTYPE html>
+<!-- saved from url=(0071)file:///C:/Users/orf/AppData/Local/Temp/2025912-10380-mxxwvt.nw5rq.html -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+<title>
+Points for Playing Formula
+</title>
+<style>
+.section, .header { font-family: Segoe UI; font-size: 16pt; font-weight: bold }
+.code, .variable { font-family: Courier New; font-size: 11pt }
+.variable { background-color: #ccc; white-space: nowrap; vertical-align: top }
+.description { font-family: Segoe UI; font-size: 11pt; vertical-align: top }
+.header { font-size: 11pt; background-color: #ccc }
+</style></head>
+
+<body>
+<div class="section">
+Tournament Information
+ 
+Variables
+</div>
+<table border="1" style="border-collapse: collapse">
+<tbody><tr>
+<td class="variable">
+addOnsAllowed
+</td>
+<td class="description">
+1 (true) if add-ons are currently allowed, 0 (false) otherwise.
+</td>
+</tr>
+<tr>
+<td class="variable">
+addOnsLastRound
+</td>
+<td class="description">
+The last (final) round that add-ons are allowed.
+</td>
+</tr>
+<tr>
+<td class="variable">
+addOnsLeft
+</td>
+<td class="description">
+The number of add-ons remaining.
+</td>
+</tr>
+<tr>
+<td class="variable">
+addOnsMaxPerPlayer
+</td>
+<td class="description">
+The maximum number of add-ons allowed per-player.
+</td>
+</tr>
+<tr>
+<td class="variable">
+addOnsMaxTotal
+</td>
+<td class="description">
+The maximum total number of add-ons allowed (for all players).
+</td>
+</tr>
+<tr>
+<td class="variable">
+addOnsMinPlayers
+</td>
+<td class="description">
+The minimum number of players that must be in the tournament for add-ons to be allowed.
+</td>
+</tr>
+<tr>
+<td class="variable">
+addOnsOver
+</td>
+<td class="description">
+1 (true) if the add-on period has expired, 0 (false) otherwise.
+</td>
+</tr>
+<tr>
+<td class="variable">
+addOnsSecondsLeft
+</td>
+<td class="description">
+The amount of time, in seconds, remaining until the add-on period ends (if the "Disable all add-ons after round" restriction is configured).
+</td>
+</tr>
+<tr>
+<td class="variable">
+ante
+</td>
+<td class="description">
+The amount of the ante in the current round.
+</td>
+</tr>
+<tr>
+<td class="variable">
+bigBlind
+</td>
+<td class="description">
+The amount of the big blind in the current round.
+</td>
+</tr>
+<tr>
+<td class="variable">
+bountyTotal
+</td>
+<td class="description">
+The total amount of money collected for bounty chips.
+</td>
+</tr>
+<tr>
+<td class="variable">
+breakNum
+</td>
+<td class="description">
+The current break number, or 0 if the first break has not yet occurred.  If currently in a round, will be the number of the most recent break.
+</td>
+</tr>
+<tr>
+<td class="variable">
+bustsUntilFinalTable
+</td>
+<td class="description">
+The number of players that must bust out of the tournament before all remaining players will be at the final table.  Note that this calculation is made based on a best estimate of which table will ultimately be the final table, which could change depending on tournament conditions.
+</td>
+</tr>
+<tr>
+<td class="variable">
+bustsUntilMoney
+</td>
+<td class="description">
+The number of players that must bust out of the tournament before all remaining players will be "in the money"  A player is "in the money" if they have been awarded a prize based on the rank they have achieved.
+</td>
+</tr>
+<tr>
+<td class="variable">
+buyins
+</td>
+<td class="description">
+The number of players that have bought-in to the tournament. (aliases: numberofplayers, n)
+</td>
+</tr>
+<tr>
+<td class="variable">
+chipCount
+</td>
+<td class="description">
+The current chip count (total chips in play; includes any adjustment as designated on the Game tab).
+</td>
+</tr>
+<tr>
+<td class="variable">
+chipCountAdjustment
+</td>
+<td class="description">
+The value of the "Adjust chip count by" field on the Game tab.
+</td>
+</tr>
+<tr>
+<td class="variable">
+chipUp
+</td>
+<td class="description">
+1 (true) if the current level is a break and has been designated as a Chip Up break.
+</td>
+</tr>
+<tr>
+<td class="variable">
+clockPaused
+</td>
+<td class="description">
+1 (true) if the tournament clock is currently paused, 0 (false) otherwise.
+</td>
+</tr>
+<tr>
+<td class="variable">
+clockPausedSeconds
+</td>
+<td class="description">
+The number of seconds for which the tournament clock has been paused.
+</td>
+</tr>
+<tr>
+<td class="variable">
+defaultAddOnChips
+</td>
+<td class="description">
+The chips received for an add-on, as listed on the Game tab.
+</td>
+</tr>
+<tr>
+<td class="variable">
+defaultAddOnFee
+</td>
+<td class="description">
+The fee (price) of an add-on, as listed on the Game tab.
+</td>
+</tr>
+<tr>
+<td class="variable">
+defaultAddOnRake
+</td>
+<td class="description">
+The rake applied to add-ons, as listed on the Game tab.
+</td>
+</tr>
+<tr>
+<td class="variable">
+defaultBuyinChips
+</td>
+<td class="description">
+The chips received at buy-in, as listed on the Game tab.
+</td>
+</tr>
+<tr>
+<td class="variable">
+defaultBuyinFee
+</td>
+<td class="description">
+The fee (price) of a buy-in, as listed on the Game tab.
+</td>
+</tr>
+<tr>
+<td class="variable">
+defaultBuyinRake
+</td>
+<td class="description">
+The rake applied to buy-ins, as listed on the Game tab.
+</td>
+</tr>
+<tr>
+<td class="variable">
+defaultRebuyChips
+</td>
+<td class="description">
+The chips received for a rebuy, as listed on the Game tab.
+</td>
+</tr>
+<tr>
+<td class="variable">
+defaultRebuyFee
+</td>
+<td class="description">
+The fee (price) of a rebuy, as listed on the Game tab.
+</td>
+</tr>
+<tr>
+<td class="variable">
+defaultRebuyRake
+</td>
+<td class="description">
+The rake applied to rebuys, as listed on the Game tab.
+</td>
+</tr>
+<tr>
+<td class="variable">
+firstAnteAmount
+</td>
+<td class="description">
+The ante amount in the first round with a non-zero ante.
+</td>
+</tr>
+<tr>
+<td class="variable">
+firstAnteRound
+</td>
+<td class="description">
+The round number of the first round with a non-zero ante.
+</td>
+</tr>
+<tr>
+<td class="variable">
+fixedRake
+</td>
+<td class="description">
+The portion of the Fixed Rake that can be attributed to this player (the fixed rake divided by the number of players).
+</td>
+</tr>
+<tr>
+<td class="variable">
+gameName
+</td>
+<td class="description">
+The name of the game for the current round.
+</td>
+</tr>
+<tr>
+<td class="variable">
+gameType
+</td>
+<td class="description">
+A number indicating the game type for the current round: 0 indicates limit play; 1 indicates pot limit play; 2 indicates no limit play.
+</td>
+</tr>
+<tr>
+<td class="variable">
+guaranteedPot
+</td>
+<td class="description">
+The guaranteed pot amount, as listed on the Game tab.
+</td>
+</tr>
+<tr>
+<td class="variable">
+hasMoreBreaks
+</td>
+<td class="description">
+1 (true) if the schedule has at least one break after the current level.
+</td>
+</tr>
+<tr>
+<td class="variable">
+hasMoreRounds
+</td>
+<td class="description">
+1 (true) if the schedule has at least one round after the current level.
+</td>
+</tr>
+<tr>
+<td class="variable">
+houseAdds
+</td>
+<td class="description">
+The amount that must be added to the pot in order to reach the guaranteed pot amount.
+</td>
+</tr>
+<tr>
+<td class="variable">
+houseContribution
+</td>
+<td class="description">
+The house contribution amount, as listed on the Game tab.
+</td>
+</tr>
+<tr>
+<td class="variable">
+inTheMoneyRank
+</td>
+<td class="description">
+The highest rank necessary in order for a player to be "in the money".  A player is "in the money" if they have been awarded a prize based on the rank they have achieved. (aliases: mr)
+</td>
+</tr>
+<tr>
+<td class="variable">
+isBreak
+</td>
+<td class="description">
+1 (true) if currently in a break, 0 (false) if currently in a round.
+</td>
+</tr>
+<tr>
+<td class="variable">
+isRound
+</td>
+<td class="description">
+1 (true) if currently in a round, 0 (false) if currently in a break.
+</td>
+</tr>
+<tr>
+<td class="variable">
+lastPlayerBustOutTime
+</td>
+<td class="description">
+The time-of-day of the most recent player bust-out.  This is in the same format as the "time" variable (number of seconds that have passed since January 1, 1970).
+</td>
+</tr>
+<tr>
+<td class="variable">
+lastPlayerMoveTime
+</td>
+<td class="description">
+The time-of-day that the last player movement suggestion was accepted.  This is in the same format as the "time" variable (number of seconds that have passed since January 1, 1970).
+</td>
+</tr>
+<tr>
+<td class="variable">
+lastScreenChangeTime
+</td>
+<td class="description">
+The time-of-day of the most recent screen change.  This is in the same format as the "time" variable (number of seconds that have passed since January 1, 1970).
+</td>
+</tr>
+<tr>
+<td class="variable">
+level
+</td>
+<td class="description">
+The current level number.
+</td>
+</tr>
+<tr>
+<td class="variable">
+levelDuration
+</td>
+<td class="description">
+The number of minutes the current level (round or break) is configured to last.
+</td>
+</tr>
+<tr>
+<td class="variable">
+limit1
+</td>
+<td class="description">
+The amount of the limit1 value in the current round.
+</td>
+</tr>
+<tr>
+<td class="variable">
+limit2
+</td>
+<td class="description">
+The amount of the limit2 value in the current round.
+</td>
+</tr>
+<tr>
+<td class="variable">
+limit3
+</td>
+<td class="description">
+The amount of the limit3 value in the current round.
+</td>
+</tr>
+<tr>
+<td class="variable">
+limit4
+</td>
+<td class="description">
+The amount of the limit4 value in the current round.
+</td>
+</tr>
+<tr>
+<td class="variable">
+limit5
+</td>
+<td class="description">
+The amount of the limit5 value in the current round.
+</td>
+</tr>
+<tr>
+<td class="variable">
+limit6
+</td>
+<td class="description">
+The amount of the limit6 value in the current round.
+</td>
+</tr>
+<tr>
+<td class="variable">
+limit7
+</td>
+<td class="description">
+The amount of the limit7 value in the current round.
+</td>
+</tr>
+<tr>
+<td class="variable">
+limit8
+</td>
+<td class="description">
+The amount of the limit8 value in the current round.
+</td>
+</tr>
+<tr>
+<td class="variable">
+nextAnte
+</td>
+<td class="description">
+The amount of the ante in the next round.
+</td>
+</tr>
+<tr>
+<td class="variable">
+nextBigBlind
+</td>
+<td class="description">
+The amount of the big blind in the next round.
+</td>
+</tr>
+<tr>
+<td class="variable">
+nextChipUp
+</td>
+<td class="description">
+1 (true) if the next break has been designated as a Chip Up break.
+</td>
+</tr>
+<tr>
+<td class="variable">
+nextGameName
+</td>
+<td class="description">
+The name of the game for the next round.
+</td>
+</tr>
+<tr>
+<td class="variable">
+nextGameType
+</td>
+<td class="description">
+A number indicating the game type for the next round: 0 indicates limit play; 1 indicates pot limit play; 2 indicates no limit play.
+</td>
+</tr>
+<tr>
+<td class="variable">
+nextIsBreak
+</td>
+<td class="description">
+1 (true) if the next level in the schedule is a break, 0 (false) if the next level in the schedule is a round.
+</td>
+</tr>
+<tr>
+<td class="variable">
+nextIsRound
+</td>
+<td class="description">
+1 (true) if the next level in the schedule is a round, 0 (false) if the next level in the schedule is a break.
+</td>
+</tr>
+<tr>
+<td class="variable">
+nextLevelDuration
+</td>
+<td class="description">
+The number of minutes the next level (round or break) is configured to last.
+</td>
+</tr>
+<tr>
+<td class="variable">
+nextLimit1
+</td>
+<td class="description">
+The amount of the limit1 in the next round.
+</td>
+</tr>
+<tr>
+<td class="variable">
+nextLimit2
+</td>
+<td class="description">
+The amount of the limit2 in the next round.
+</td>
+</tr>
+<tr>
+<td class="variable">
+nextLimit3
+</td>
+<td class="description">
+The amount of the limit3 in the next round.
+</td>
+</tr>
+<tr>
+<td class="variable">
+nextLimit4
+</td>
+<td class="description">
+The amount of the limit4 in the next round.
+</td>
+</tr>
+<tr>
+<td class="variable">
+nextLimit5
+</td>
+<td class="description">
+The amount of the limit5 in the next round.
+</td>
+</tr>
+<tr>
+<td class="variable">
+nextLimit6
+</td>
+<td class="description">
+The amount of the limit6 in the next round.
+</td>
+</tr>
+<tr>
+<td class="variable">
+nextLimit7
+</td>
+<td class="description">
+The amount of the limit7 in the next round.
+</td>
+</tr>
+<tr>
+<td class="variable">
+nextLimit8
+</td>
+<td class="description">
+The amount of the limit8 in the next round.
+</td>
+</tr>
+<tr>
+<td class="variable">
+nextSmallBlind
+</td>
+<td class="description">
+The amount of the small blind in the next round.
+</td>
+</tr>
+<tr>
+<td class="variable">
+numberOfLeagueMembers
+</td>
+<td class="description">
+The number of players in your tournament who are members of the league to which the tournament is assigned. (aliases: nm)
+</td>
+</tr>
+<tr>
+<td class="variable">
+playersLeft
+</td>
+<td class="description">
+The number of players currently still in the tournament. (aliases: players)
+</td>
+</tr>
+<tr>
+<td class="variable">
+pot
+</td>
+<td class="description">
+The current prize pool or pot. (aliases: prizepool, pp)
+</td>
+</tr>
+<tr>
+<td class="variable">
+preGuaranteedPot
+</td>
+<td class="description">
+The pot amount as computed before adding any to reach the specified guaranteed pot.
+</td>
+</tr>
+<tr>
+<td class="variable">
+rebuysAllowed
+</td>
+<td class="description">
+1 (true) if rebuys are currently allowed, 0 (false) otherwise.
+</td>
+</tr>
+<tr>
+<td class="variable">
+rebuysLastRound
+</td>
+<td class="description">
+The last (final) round that rebuys are allowed.
+</td>
+</tr>
+<tr>
+<td class="variable">
+rebuysLeft
+</td>
+<td class="description">
+The number of rebuys remaining.
+</td>
+</tr>
+<tr>
+<td class="variable">
+rebuysMaxPerPlayer
+</td>
+<td class="description">
+The maximum number of rebuys allowed per-player.
+</td>
+</tr>
+<tr>
+<td class="variable">
+rebuysMaxTotal
+</td>
+<td class="description">
+The maximum total number of rebuys allowed (for all players).
+</td>
+</tr>
+<tr>
+<td class="variable">
+rebuysMinPlayers
+</td>
+<td class="description">
+The minimum number of players that must be in the tournament for rebuys to be allowed.
+</td>
+</tr>
+<tr>
+<td class="variable">
+rebuysOver
+</td>
+<td class="description">
+1 (true) if the rebuy period has expired, 0 (false) otherwise.
+</td>
+</tr>
+<tr>
+<td class="variable">
+rebuysSecondsLeft
+</td>
+<td class="description">
+The amount of time, in seconds, remaining until the rebuy period ends (if the "Disable all rebuys after round" restriction is configured).
+</td>
+</tr>
+<tr>
+<td class="variable">
+restrictBounties
+</td>
+<td class="description">
+1 (true) if "Restrict bounties" is currently checked, 0 (false) otherwise.
+</td>
+</tr>
+<tr>
+<td class="variable">
+roundNum
+</td>
+<td class="description">
+The current round number.  If currently in a break, will be the number of the most recent round.
+</td>
+</tr>
+<tr>
+<td class="variable">
+secondsElapsed
+</td>
+<td class="description">
+The number of seconds that have elapsed since the start of the current level (or countdown).
+</td>
+</tr>
+<tr>
+<td class="variable">
+secondsLeft
+</td>
+<td class="description">
+The number of seconds remaining on the tournament clock.
+</td>
+</tr>
+<tr>
+<td class="variable">
+smallBlind
+</td>
+<td class="description">
+The amount of the small blind in the current round.
+</td>
+</tr>
+<tr>
+<td class="variable">
+state
+</td>
+<td class="description">
+A number indicating the state, or stage, of the tournament: 0 indicates the tournament has not started; 1 indicates a pre-tournament countdown; 2 indicates the tournament is currently in progress; 3 indicates the tournament has ended.
+</td>
+</tr>
+<tr>
+<td class="variable">
+stateDesc
+</td>
+<td class="description">
+Text indicating the state, or stage, of the tournament: "before" indicates the tournament has not started; "countdown" indicates a pre-tournament countdown; "inprogress" indicates the tournament is currently in progress; "after" indicates the tournament has ended.
+</td>
+</tr>
+<tr>
+<td class="variable">
+tablesLeft
+</td>
+<td class="description">
+The number of tables currently in use. (aliases: tables)
+</td>
+</tr>
+<tr>
+<td class="variable">
+time
+</td>
+<td class="description">
+The current time-of-day, in internal format.  This is a simple integer that counts the number of seconds that have passed since midnight, January 1, 1970.
+</td>
+</tr>
+<tr>
+<td class="variable">
+timeOfDay
+</td>
+<td class="description">
+The current time-of-day, in military-style time, including seconds.  8am = 80000; 2pm = 140000; 3:45 pm and 15 seconds = 154515.
+</td>
+</tr>
+<tr>
+<td class="variable">
+totalAddOns
+</td>
+<td class="description">
+The total number of add-ons bought by all players. (aliases: totalnumberofaddons, tna)
+</td>
+</tr>
+<tr>
+<td class="variable">
+totalAddOnsAmount
+</td>
+<td class="description">
+The total amount collected from all add-ons.
+</td>
+</tr>
+<tr>
+<td class="variable">
+totalAddOnsChips
+</td>
+<td class="description">
+The total number of chips received from all add-ons.
+</td>
+</tr>
+<tr>
+<td class="variable">
+totalAddOnsRake
+</td>
+<td class="description">
+The total amount raked from all add-ons.
+</td>
+</tr>
+<tr>
+<td class="variable">
+totalBuyinsAmount
+</td>
+<td class="description">
+The total amount collected from all buy-ins.
+</td>
+</tr>
+<tr>
+<td class="variable">
+totalBuyinsChips
+</td>
+<td class="description">
+The total number of chips received from all buy-ins.
+</td>
+</tr>
+<tr>
+<td class="variable">
+totalBuyinsRake
+</td>
+<td class="description">
+The total amount raked from all buy-ins.
+</td>
+</tr>
+<tr>
+<td class="variable">
+totalFixedRake
+</td>
+<td class="description">
+The total amount collected by the Fixed Rake.
+</td>
+</tr>
+<tr>
+<td class="variable">
+totalRebuys
+</td>
+<td class="description">
+The total number of rebuys bought by all players. (aliases: totalnumberofrebuys, tnr)
+</td>
+</tr>
+<tr>
+<td class="variable">
+totalRebuysAmount
+</td>
+<td class="description">
+The total amount collected from all rebuys.
+</td>
+</tr>
+<tr>
+<td class="variable">
+totalRebuysChips
+</td>
+<td class="description">
+The total number of chips received from all rebuys.
+</td>
+</tr>
+<tr>
+<td class="variable">
+totalRebuysRake
+</td>
+<td class="description">
+The total amount raked from all rebuys.
+</td>
+</tr>
+<tr>
+<td class="variable">
+unadjustedChipCount
+</td>
+<td class="description">
+The current chip count not including any adjustment as designated on the Game tab.
+</td>
+</tr>
+<tr>
+<td class="variable">
+usePlayerBountyChips
+</td>
+<td class="description">
+1 (true) if "Use player bounty chips" is currently checked, 0 (false) otherwise.
+</td>
+</tr>
+</tbody></table>
+<div><p></p></div>
+<div class="section">
+Player Information
+ 
+Variables
+</div>
+<table border="1" style="border-collapse: collapse">
+<tbody><tr>
+<td class="variable">
+addOnCost
+</td>
+<td class="description">
+The total amount the player paid for all add-ons purchased during the tournament. (aliases: ac)
+</td>
+</tr>
+<tr>
+<td class="variable">
+addOnRake
+</td>
+<td class="description">
+The total amount raked from all add-ons purchased by this player. (aliases: ar)
+</td>
+</tr>
+<tr>
+<td class="variable">
+bountyChipCost
+</td>
+<td class="description">
+The amount the player paid for all bounty chips purchased. (aliases: bcc)
+</td>
+</tr>
+<tr>
+<td class="variable">
+bountyMoneyKept
+</td>
+<td class="description">
+The total amount of money this player paid for bounty chips, but kept because the bounty chips purchased were not won by other players. (aliases: bmk)
+</td>
+</tr>
+<tr>
+<td class="variable">
+bountyWinnings
+</td>
+<td class="description">
+The amount of money won by this player by busting other players out of the tournament. (aliases: bw)
+</td>
+</tr>
+<tr>
+<td class="variable">
+buyinCost
+</td>
+<td class="description">
+The amount the player paid to buy-in to the tournament. (aliases: bc)
+</td>
+</tr>
+<tr>
+<td class="variable">
+buyinRake
+</td>
+<td class="description">
+The amount raked from the player's buy-in. (aliases: br)
+</td>
+</tr>
+<tr>
+<td class="variable">
+chipStack
+</td>
+<td class="description">
+The player's current chip stack, or chip count.
+</td>
+</tr>
+<tr>
+<td class="variable">
+finalTable
+</td>
+<td class="description">
+1 (true) if this player made the final table, 0 (false) otherwise.
+</td>
+</tr>
+<tr>
+<td class="variable">
+ID
+</td>
+<td class="description">
+The player's ID field.
+</td>
+</tr>
+<tr>
+<td class="variable">
+inLeague
+</td>
+<td class="description">
+1 (true) if this player is a member of the league to which the tournament is assigned, 0 (false) otherwise.
+</td>
+</tr>
+<tr>
+<td class="variable">
+inTheMoney
+</td>
+<td class="description">
+1 (true) if this player has ranked "in the money", 0 (false) otherwise.  A player is "in the money" if they have been awarded a prize based on the rank they have achieved. (aliases: m, placed)
+</td>
+</tr>
+<tr>
+<td class="variable">
+internalID
+</td>
+<td class="description">
+The internal ID used to uniquely identify this player.
+</td>
+</tr>
+<tr>
+<td class="variable">
+leagueRank
+</td>
+<td class="description">
+If this player is a member of the league to which the tournament is assigned, then this value ranks this player relative to other players who are also members of the league.  This value is 0 otherwise.
+</td>
+</tr>
+<tr>
+<td class="variable">
+numberOfAddOns
+</td>
+<td class="description">
+The number of add-ons for a player. (aliases: addons, na)
+</td>
+</tr>
+<tr>
+<td class="variable">
+numberOfBountiesKept
+</td>
+<td class="description">
+The number of bounty chips a player has kept. (aliases: nbk)
+</td>
+</tr>
+<tr>
+<td class="variable">
+numberOfBountiesWon
+</td>
+<td class="description">
+The number of bounty chips a player has won. (aliases: nb)
+</td>
+</tr>
+<tr>
+<td class="variable">
+numberOfBountyChips
+</td>
+<td class="description">
+The number of bounty chips the player bought. (aliases: nbc)
+</td>
+</tr>
+<tr>
+<td class="variable">
+numberOfHits
+</td>
+<td class="description">
+The number of hits a player has made. (aliases: nh)
+</td>
+</tr>
+<tr>
+<td class="variable">
+numberOfRebuys
+</td>
+<td class="description">
+The number of rebuys for a player. (aliases: rebuys, nr)
+</td>
+</tr>
+<tr>
+<td class="variable">
+playersAtSameTable
+</td>
+<td class="description">
+The number of players sitting at the table with this player (including this player; if the player is sitting alone, the value will be 1).
+</td>
+</tr>
+<tr>
+<td class="variable">
+playingTime
+</td>
+<td class="description">
+The number of seconds that this player was active (not busted out) in the tournament.
+</td>
+</tr>
+<tr>
+<td class="variable">
+position
+</td>
+<td class="description">
+The position of a player.  The position is the inverse of the rank, and describes the order, relative to other players, in which the player busted out of the tournament.  The first player to bust out of a tournament has a position of 1.  The second player to bust out has a position of 2.  And so on.
+</td>
+</tr>
+<tr>
+<td class="variable">
+prizeWinnings
+</td>
+<td class="description">
+The amount of money won by this player by qualifying for one or more prizes. (aliases: pw)
+</td>
+</tr>
+<tr>
+<td class="variable">
+rank
+</td>
+<td class="description">
+The rank of a player. (aliases: r)
+</td>
+</tr>
+<tr>
+<td class="variable">
+rebuyCost
+</td>
+<td class="description">
+The total amount the player paid for all rebuys purchased during the tournament. (aliases: rc)
+</td>
+</tr>
+<tr>
+<td class="variable">
+rebuyRake
+</td>
+<td class="description">
+The total amount raked from all rebuys purchased by this player. (aliases: rr)
+</td>
+</tr>
+<tr>
+<td class="variable">
+roundOut
+</td>
+<td class="description">
+The round in which this player busted out of the tournament. (aliases: ro)
+</td>
+</tr>
+<tr>
+<td class="variable">
+take
+</td>
+<td class="description">
+The total profit for this player (the total amount won minus the total amount paid). (aliases: t)
+</td>
+</tr>
+<tr>
+<td class="variable">
+totalCost
+</td>
+<td class="description">
+The total amount the player paid for participating in the tournament. (aliases: tc)
+</td>
+</tr>
+<tr>
+<td class="variable">
+totalRake
+</td>
+<td class="description">
+The total amount raked from all money this player has paid into the tournament. (aliases: tr)
+</td>
+</tr>
+<tr>
+<td class="variable">
+totalWinnings
+</td>
+<td class="description">
+The total amount of money won by this player in this tournament. (aliases: tw)
+</td>
+</tr>
+</tbody></table>
+<div><p></p></div>
+<div class="section">Functions</div><table border="1" style="border-collapse: collapse"><tbody><tr><td class="header">Function</td><td class="header">Description</td><td class="header">Example</td></tr><tr><td class="variable">abs()</td><td class="description">Returns the absolute value of a number.</td><td class="description"><span class="code">abs(-3)</span> returns <span class="code">3</span></td></tr><tr><td class="variable">acos()</td><td class="description">Returns the arccosine of a number (in radians).</td><td class="description"><span class="code">acos(.1)</span> returns <span class="code">1.4706289056333368</span></td></tr><tr><td class="variable">asin()</td><td class="description">Returns the arcsine of a number (in radians).</td><td class="description"><span class="code">asin(.1)</span> returns <span class="code">0.1001674211615598</span></td></tr><tr><td class="variable">atan()</td><td class="description">Returns the arctangent of a number (in radians).</td><td class="description"><span class="code">atan(.1)</span> returns <span class="code">0.09966865249116204</span></td></tr><tr><td class="variable">ceil()</td><td class="description">The ceiling of a number, or the smallest integer greater than or equal to a number.</td><td class="description"><span class="code">ceil(2.2)</span> returns <span class="code">3</span><p><span class="code">ceil(2)</span> returns <span class="code">2</span></p></td></tr><tr><td class="variable">cos()</td><td class="description">The cosine of a number.</td><td class="description"><span class="code">cos(1)</span> returns <span class="code">0.5403023058681398</span></td></tr><tr><td class="variable">exp()</td><td class="description">The E (Euler's constant) raised to the power of a number.</td><td class="description"><span class="code">exp(1)</span> returns <span class="code">2.718281828459045</span></td></tr><tr><td class="variable">floor()</td><td class="description">The floor of a number, or the largest integer less than or equal to a number.</td><td class="description"><span class="code">floor(2.2)</span> returns <span class="code">2</span><p><span class="code">floor(2)</span> returns <span class="code">2</span></p></td></tr><tr><td class="variable">log()</td><td class="description">The natural logarithm of a number.  If a single parameter is provided, then base E is assumed.  If a second parameter is provided, it will be used as the base.</td><td class="description"><span class="code">log(2)</span> returns <span class="code">0.6931471805599453</span><p><span class="code">log10(2, 10)</span> returns <span class="code">0.30102999566398114</span></p></td></tr><tr><td class="variable">ln()</td><td class="description">The natural logarithm of a number.  This is an alias of the log() function.</td><td class="description"></td></tr><tr><td class="variable">log10()</td><td class="description">The logarithm (base 10) of a number.</td><td class="description"><span class="code">log10(2)</span> returns <span class="code">0.30102999566398114</span></td></tr><tr><td class="variable">max()</td><td class="description">The greater of two numbers.</td><td class="description"><span class="code">max(2, 5)</span> returns <span class="code">5</span></td></tr><tr><td class="variable">min()</td><td class="description">The lesser of two numbers.</td><td class="description"><span class="code">min(2, 5)</span> returns <span class="code">2</span></td></tr><tr><td class="variable">pow()</td><td class="description">An exponent of a number. This function takes two parameters: a base and an exponent.  The value returned is the base raised to the power of the exponent.</td><td class="description"><span class="code">pow(2, 5)</span> returns <span class="code">32</span> (2 raised to the power of 5)<p><span class="code">pow(5, 2)</span> returns <span class="code">25</span> (5 raised to the power of 2)</p></td></tr><tr><td class="variable">power()</td><td class="description">This function is the same as the pow() function, and is provided only for convenience.</td><td class="description"></td></tr><tr><td class="variable">random()</td><td class="description">A random number between 0 and 1.</td><td class="description"><span class="code">random()</span> returns a value such as <span class="code">0.14851873902445567</span></td></tr><tr><td class="variable">round()</td><td class="description">The value of a number rounded to the precision specified by the second parameter.  If a second parameter is omitted, it is assumed to be zero and thus the first parameter will be rounded to the nearest integer.</td><td class="description"><span class="code">round(2.2)</span> returns <span class="code">2</span><p><span class="code">round(2.7)</span> returns <span class="code">3</span></p><p><span class="code">round(1.55, 1)</span> returns <span class="code">1.6</span></p><p><span class="code">round(1.55555, 3)</span> returns <span class="code">1.556</span></p></td></tr><tr><td class="variable">roundUpToNearest()</td><td class="description">Rounds the first parameter up to the nearest multiple of the second parameter.</td><td class="description"><span class="code">roundUpToNearest(371, 25)</span> returns <span class="code">375</span><p><span class="code">roundUpToNearest(371, 50)</span> returns <span class="code">400</span></p><p><span class="code">roundUpToNearest(371, 100)</span> returns <span class="code">400</span></p></td></tr><tr><td class="variable">roundToNearest()</td><td class="description">Rounds the first parameter up or down to the nearest multiple of the second parameter.</td><td class="description"><span class="code">roundToNearest(371, 25)</span> returns <span class="code">375</span><p><span class="code">roundToNearest(371, 50)</span> returns <span class="code">350</span></p><p><span class="code">roundToNearest(371, 100)</span> returns <span class="code">400</span></p></td></tr><tr><td class="variable">roundDownToNearest()</td><td class="description">Rounds the first parameter down to the nearest multiple of the second parameter.</td><td class="description"><span class="code">roundDownToNearest(371, 25)</span> returns <span class="code">350</span><p><span class="code">roundDownToNearest(371, 50)</span> returns <span class="code">350</span></p><p><span class="code">roundDownToNearest(371, 100)</span> returns <span class="code">300</span></p></td></tr><tr><td class="variable">sin()</td><td class="description">The sine of a number.</td><td class="description"><span class="code">sin(1)</span> returns <span class="code">0.8414709848078965</span></td></tr><tr><td class="variable">sqrt()</td><td class="description">The square root of a number.</td><td class="description"><span class="code">sqrt(16)</span> returns <span class="code">4</span></td></tr><tr><td class="variable">tan()</td><td class="description">The tangent of a number.</td><td class="description"><span class="code">tan(1)</span> returns <span class="code">1.5574077246549023</span></td></tr><tr><td class="variable">if()</td><td class="description">The if() function takes 3 parameters: if(condition, result-if-true, result-if-false).  If the condition evaluates to true (or a non-zero number), the first result parameter is returned (result-if-true); otherwise, the second conditional parameter is returned (result-if-false).</td><td class="description"><span class="code">if(rank &lt; 3, 10, 0)</span> returns <span class="code">10</span> if the variable rank has a value that is less than 3, and returns 0 otherwise</td></tr><tr><td class="variable">switch()</td><td class="description">The switch() function works similarly to the if() function.  It takes a variable number of parameters.  The first parameter is a conditional value.  Further parameters should be provided in pairs.  The first parameter of each pair is a comparison value, and the second parameter of each pair is a result value.<p>The switch() function compares the conditional value with the first (comparison) value of each pair of parameters following it.  When it locates a matching value, it returns the result parameter of that matching comparison value.</p></td><td class="description"><span class="code">switch(3, 1, 10, 2, 20, 3, 30, 4, 40)</span> <br>In this example, the conditional parameter is the first parameter (3).  The following parameters are pairs of comparison and result values: 1 and 10, 2 and 20, 3 and 30, and 4 and 40.  The conditional parameter is compared to each of the comparison parameters (1, 2, 3, and 4).  When a match is found (3), the pair's result parameter (30) is returned.  Therefore, in this example, 30 would be returned.<p>If no match is found, 0 is returned.  A final parameter may be supplied if you wish a default value (of something other than 0) to be returned when no matching comparison value is found.</p><p><span class="code">switch(6, 1, 10, 2, 20, 3, 30, 4, 40, -1)</span> <br>In this example, the conditional parameter (6) doesn't match any of the comparison parameters (1, 2, 3, 4).  Therefore, the final (default) parameter is returned, -1.</p><p>Of course, in practice it doesn't make sense to provide a literal number as the conditional (first) parameter.  Instead, a variable is usually used.  For example, <span class="code">switch(rank, 1, 100, 2, 70, 3, 40)</span> returns 100 when the <span class="code">rank</span> variable is 1, 70 when the <span class="code">rank</span> variable is 2, and 40 when the <span class="code">rank</span> variable is 3.  This could be used to provide additional bonus points to the top 3 ranks.</p></td></tr><tr><td class="variable">lswitch()</td><td class="description">The lswitch() function (linear switch) is a simpler version of the switch() function.  Instead of taking pairs of values, it assumes the first comparison value is always 1 (one), the second is 2 (two), and so on.  Therefore, only the result value of each value pair needs to be provided.  The final parameter plays the additional role of being the default value, for any comparison values that are not included in the parameter list.</td><td class="description"><span class="code">lswitch(1, 10, 20, 30, 40)</span> <br>In this example, the conditional parameter is the first parameter (1).  The following parameters are all result values: 10, 20, 30, and 40.  The conditional parameter specifies which result value is chosen.  In this case, the conditional value is 1, and therefore the first result value is chosen (10).<p><span class="code">lswitch(4, 10, 20, 30, 40)</span> <br>In this example, the conditional parameter is 4.  Therefore the 4th result value is chosen (40).</p><p><span class="code">lswitch(10, 10, 20, 30, 40)</span> <br>In this example, the conditional parameter is 10.  However, there are only 4 parameters following the conditional parameter.  There is no 10th parameter.  The lswitch() function assumes the final parameter is the default parameter.  Therefore the final parameter is chosen (40).</p></td></tr><tr><td class="variable">assign()</td><td class="description">The assign() function allows you to assign a value to a variable.  The first parameter is the variable name, and the second parameter is the value.  Using the assign() function, you may create new variables, or assign values to existing variables.  Note that the variable name must be enclosed in quotation marks.</td><td class="description"><span class="code">assign("a", 6)</span> assigns the value 6 to the variable a.<p><span class="code">(assign("a", 6); assign("b", 3); a * b)</span> returns <span class="code">18</span></p></td></tr><tr><td class="variable">sum()</td><td class="description">The sum() function returns the sum of all of its parameters.  A list may also be provided as a parameter.</td><td class="description"><span class="code">sum(1, 2, 3, 4, 5, 6)</span> returns <span class="code">21</span></td></tr><tr><td class="variable">product()</td><td class="description">The product() function returns the product of all of its parameters.  A list may also be provided as a parameter.</td><td class="description"><span class="code">product(1, 2, 3, 4, 5, 6)</span> returns <span class="code">720</span></td></tr><tr><td class="variable">average()</td><td class="description">The average() function returns the average of all of its parameters.  A list may also be provided as a parameter.</td><td class="description"><span class="code">average(1, 2, 3, 4, 5, 6)</span> returns <span class="code">3.5</span></td></tr><tr><td class="variable">count()</td><td class="description">The count() function returns a count of the parameters passed to it.  A list may also be provided as a parameter.</td><td class="description"><span class="code">count(1, 2, 3, 4, 5, 6)</span> returns <span class="code">6</span></td></tr><tr><td class="variable">top()</td><td class="description">The top() function takes a count parameter, followed by any number of additional parameters, and returns a list (rather than a typical value).  The first parameter specifies how many items in the list to return.  The list returned will contain only the highest, or top, count values of the list.</td><td class="description"><span class="code">top(5, 1, 2, 3, 4, 5, 6)</span> returns the list [2, 3, 4, 5, 6]</td></tr><tr><td class="variable">bottom()</td><td class="description">The bottom() function is identical to the top() function, except that it returns the lowest, or bottom, count values of the list.</td><td class="description"><span class="code">bottom(5, 1, 2, 3, 4, 5, 6)</span> returns the list [1, 2, 3, 4, 5]</td></tr><tr><td class="variable">oneof()</td><td class="description">The oneof() function returns true if a given value is present in a set of values, and false otherwise.  The first parameter is the value we are searching for, and the remaining parameters (any number of parameters can be used) are the values in which to search.</td><td class="description"><span class="code">oneof(r, 2, 4, 12, 24)</span> returns true if the variable r is equal to 2, 4, 12, or 24, and returns false otherwise</td></tr><tr><td class="variable">index()</td><td class="description">Returns the value of a list at the given index.  Note that indices always begin at 0.</td><td class="description"><span class="code">[ 5, 10, 15, 20, 25 ]</span> <br>When the scores variable is as above:<p><span class="code">index(scores, 0)</span> returns <span class="code">5</span></p><p><span class="code">index(scores, 1)</span> returns <span class="code">10</span></p><p><span class="code">index(scores, 3)</span> returns <span class="code">20</span></p></td></tr><tr><td class="variable">triangle()</td><td class="description">Returns the triangle number for the given value.  A triangle number is the number of objects that are needed to create an equilateral triangle using a specified number of objects per side.</td><td class="description"><span class="code">triangle(1)</span> returns <span class="code">1</span><p><span class="code">triangle(2)</span> returns <span class="code">3</span></p><p><span class="code">triangle(3)</span> returns <span class="code">6</span></p><p><span class="code">triangle(6)</span> returns <span class="code">21</span></p></td></tr><tr><td class="variable">setListLength()</td><td class="description">Sets the length of a list by removing values from the list, or adding additional zero values to the list.</td><td class="description"><span class="code">[ 5, 10, 15 ]</span> <br>When the scores variable is as above:<p><span class="code">setListLength(scores, 0)</span> returns <span class="code">[ ]</span></p><p><span class="code">setListLength(scores, 2)</span> returns <span class="code">[ 5, 10 ]</span></p><p><span class="code">setListLength(scores, 5)</span> returns <span class="code">[ 5, 10, 15, 0, 0 ]</span></p></td></tr><tr><td class="variable">totalForRake()</td><td class="description">Returns the total amount collected for a particular named rake.  The rake name, if provided, must be enclosed in quotation marks.  If no rake name is provided, the total for all rakes will be returned.</td><td class="description"><span class="code">totalForRake("Rake 1")</span> returns the amount of money collected for the rake named "Rake 1".<p><span class="code">totalForRake("Tournament of Champions")</span> returns the amount of money collected for the rake named "Tournament of Champions".</p><p><span class="code">totalForRake()</span> returns the amount of money collected for all rakes.</p></td></tr><tr><td class="variable">buyinProfileFee()</td><td class="description">Returns the buy-in fee for a particular buy-in profile.  The profile name, if provided, must be enclosed in quotation marks.  If no profile name is provided, the buy-in fee for the default profile will be returned.</td><td class="description"><span class="code">buyinProfileFee("Early Arrivers")</span> returns the buy-in fee for the buy-in profile named "Early Arrivers".<p><span class="code">buyinProfileFee()</span> returns the buy-in fee for the default buy-in profile.</p></td></tr><tr><td class="variable">buyinProfileRake()</td><td class="description">Returns the buy-in rake for a particular buy-in profile and a particular rake.  The profile name and rake name, if provided, must be enclosed in quotation marks.  If no profile name is provided, the rake for the default profile will be returned.  If no rake is provided, the default rake will be returned.</td><td class="description"><span class="code">buyinProfileRake("Early Arrivers")</span> returns the default rake for the buy-in profile named "Early Arrivers".<p><span class="code">buyinProfileRake("Early Arrivers", "Year End")</span> returns the "Year End" rake for the buy-in profile named "Early Arrivers".</p><p><span class="code">buyinProfileRake("", "Year End")</span> returns the "Year End" rake for the default buy-in profile.</p><p><span class="code">buyinProfileRake()</span> returns the default rake for the default buy-in profile.</p></td></tr><tr><td class="variable">buyinProfileChips()</td><td class="description">Returns the buy-in chips for a particular buy-in profile.  The profile name, if provided, must be enclosed in quotation marks.  If no profile name is provided, the buy-in chips for the default profile will be returned.</td><td class="description"><span class="code">buyinProfileChips("Early Arrivers")</span> returns the buy-in chips for the buy-in profile named "Early Arrivers".<p><span class="code">buyinProfileChips()</span> returns the buy-in chips for the default buy-in profile.</p></td></tr><tr><td class="variable">buyinProfilePoints()</td><td class="description">Returns the buy-in chips for a particular buy-in profile.  The profile name, if provided, must be enclosed in quotation marks.  If no profile name is provided, the buy-in points for the default profile will be returned.</td><td class="description"><span class="code">buyinProfilePoints("Early Arrivers")</span> returns the buy-in points for the buy-in profile named "Early Arrivers".<p><span class="code">buyinProfilePoints()</span> returns the buy-in points for the default buy-in profile.</p></td></tr><tr><td class="variable">rebuyProfileFee()</td><td class="description">Returns the rebuy fee for a particular rebuy profile.  The profile name, if provided, must be enclosed in quotation marks.  If no profile name is provided, the rebuy fee for the default profile will be returned.</td><td class="description"><span class="code">rebuyProfileFee("Early Arrivers")</span> returns the rebuy fee for the rebuy profile named "Early Arrivers".<p><span class="code">rebuyProfileFee()</span> returns the rebuy fee for the default rebuy profile.</p></td></tr><tr><td class="variable">rebuyProfileRake()</td><td class="description">Returns the rebuy rake for a particular rebuy profile and a particular rake.  The profile name and rake name, if provided, must be enclosed in quotation marks.  If no profile name is provided, the rake for the default profile will be returned.  If no rake is provided, the default rake will be returned.</td><td class="description"><span class="code">rebuyProfileRake("Early Arrivers")</span> returns the default rake for the rebuy profile named "Early Arrivers".<p><span class="code">rebuyProfileRake("Early Arrivers", "Year End")</span> returns the "Year End" rake for the rebuy profile named "Early Arrivers".</p><p><span class="code">rebuyProfileRake("", "Year End")</span> returns the "Year End" rake for the default rebuy profile.</p><p><span class="code">rebuyProfileRake()</span> returns the default rake for the default rebuy profile.</p></td></tr><tr><td class="variable">rebuyProfileChips()</td><td class="description">Returns the rebuy chips for a particular rebuy profile.  The profile name, if provided, must be enclosed in quotation marks.  If no profile name is provided, the rebuy chips for the default profile will be returned.</td><td class="description"><span class="code">rebuyProfileChips("Early Arrivers")</span> returns the rebuy chips for the rebuy profile named "Early Arrivers".<p><span class="code">rebuyProfileChips()</span> returns the rebuy chips for the default rebuy profile.</p></td></tr><tr><td class="variable">rebuyProfilePoints()</td><td class="description">Returns the rebuy chips for a particular rebuy profile.  The profile name, if provided, must be enclosed in quotation marks.  If no profile name is provided, the rebuy points for the default profile will be returned.</td><td class="description"><span class="code">rebuyProfilePoints("Early Arrivers")</span> returns the rebuy points for the rebuy profile named "Early Arrivers".<p><span class="code">rebuyProfilePoints()</span> returns the rebuy points for the default rebuy profile.</p></td></tr><tr><td class="variable">addOnProfileFee()</td><td class="description">Returns the add-on fee for a particular add-on profile.  The profile name, if provided, must be enclosed in quotation marks.  If no profile name is provided, the add-on fee for the default profile will be returned.</td><td class="description"><span class="code">addOnProfileFee("Early Arrivers")</span> returns the add-on fee for the add-on profile named "Early Arrivers".<p><span class="code">addOnProfileFee()</span> returns the add-on fee for the default add-on profile.</p></td></tr><tr><td class="variable">addOnProfileRake()</td><td class="description">Returns the add-on rake for a particular add-on profile and a particular rake.  The profile name and rake name, if provided, must be enclosed in quotation marks.  If no profile name is provided, the rake for the default profile will be returned.  If no rake is provided, the default rake will be returned.</td><td class="description"><span class="code">addOnProfileRake("Early Arrivers")</span> returns the default rake for the add-on profile named "Early Arrivers".<p><span class="code">addOnProfileRake("Early Arrivers", "Year End")</span> returns the "Year End" rake for the add-on profile named "Early Arrivers".</p><p><span class="code">addOnProfileRake("", "Year End")</span> returns the "Year End" rake for the default add-on profile.</p><p><span class="code">addOnProfileRake()</span> returns the default rake for the default add-on profile.</p></td></tr><tr><td class="variable">addOnProfileChips()</td><td class="description">Returns the add-on chips for a particular add-on profile.  The profile name, if provided, must be enclosed in quotation marks.  If no profile name is provided, the add-on chips for the default profile will be returned.</td><td class="description"><span class="code">addOnProfileChips("Early Arrivers")</span> returns the add-on chips for the add-on profile named "Early Arrivers".<p><span class="code">addOnProfileChips()</span> returns the add-on chips for the default add-on profile.</p></td></tr><tr><td class="variable">addOnProfilePoints()</td><td class="description">Returns the add-on chips for a particular add-on profile.  The profile name, if provided, must be enclosed in quotation marks.  If no profile name is provided, the add-on points for the default profile will be returned.</td><td class="description"><span class="code">addOnProfilePoints("Early Arrivers")</span> returns the add-on points for the add-on profile named "Early Arrivers".<p><span class="code">addOnProfilePoints()</span> returns the add-on points for the default add-on profile.</p></td></tr></tbody></table><div><p></p></div>
+<div class="section">Operators</div><table border="1" style="border-collapse: collapse"><tbody><tr><td class="header">Operator</td><td class="header">Description</td><td class="header">Example</td></tr><tr><td class="variable">+</td><td class="description">Addition.  Adds the operand on the left to the operand on the right and returns the sum.</td><td class="description"><span class="code">17 + 33</span> returns <span class="code">50</span></td></tr><tr><td class="variable">-</td><td class="description">Subtraction.  Subtracts the operand on the right from the operand on the left and returns the difference.</td><td class="description"><span class="code">17 - 12</span> returns <span class="code">5</span></td></tr><tr><td class="variable">/</td><td class="description">Division.  Divides the operand on the left by the operand on the right and returns the quotient.</td><td class="description"><span class="code">51 / 3</span> returns <span class="code">17</span></td></tr><tr><td class="variable">*</td><td class="description">Multiplication.  Multiplies the operand on the left by the operand on the right and returns the product.</td><td class="description"><span class="code">12 * 4</span> returns <span class="code">48</span></td></tr><tr><td class="variable">=</td><td class="description">Equals (equivalency).  Compares two operands, resulting in true (or 1) if the operands are equivalent, or false (or 0) if not.</td><td class="description"><span class="code">rank = 1</span> returns true if the player's rank is 1, false otherwise</td></tr><tr><td class="variable">==</td><td class="description">Equals (equivalency).  Same as <b>=</b>.</td><td class="description"></td></tr><tr><td class="variable">is</td><td class="description">Equals (equivalency).  Same as <b>=</b>.</td><td class="description"></td></tr><tr><td class="variable">not</td><td class="description">Not (negation).  Inverts the following operand, turning true (or 1) into false (or 0).</td><td class="description"><span class="code">!1</span> returns <span class="code">0</span></td></tr><tr><td class="variable">!</td><td class="description">Not (negation).  Same as <b>not</b>.</td><td class="description"></td></tr><tr><td class="variable">!=</td><td class="description">Does not equal.  Compares two operands, resulting in true if the operands are not equivalent, or false if they are equivalent.</td><td class="description"><span class="code">1 != 1</span> returns <span class="code">false</span><p><span class="code">10 != 20</span> returns <span class="code">true</span></p></td></tr><tr><td class="variable">&gt;</td><td class="description">Greater than.  Compares two operands, resulting in true if the operand on the left is greater in value than the operand on the right.</td><td class="description"><span class="code">10 &gt; 20</span> returns <span class="code">false</span></td></tr><tr><td class="variable">&lt;</td><td class="description">Less than.  Compares two operands, resulting in true if the operand on the left is less in value than the operand on the right.</td><td class="description"><span class="code">10 &lt; 20</span> returns <span class="code">true</span></td></tr><tr><td class="variable">&gt;=</td><td class="description">Greater than or equal to.  Compares two operands, resulting in true if the operand on the left is greater than or equal in value to the operand on the right.</td><td class="description"><span class="code">10 &gt;= 5</span> returns <span class="code">true</span><p><span class="code">10 &gt;= 10</span> returns <span class="code">true</span></p></td></tr><tr><td class="variable">&lt;=</td><td class="description">Less than or equal to.  Compares two operands, resulting in true if the operand on the left is less than or equal in value to the operand on the right.</td><td class="description"><span class="code">10 &lt;= 5</span> returns <span class="code">false</span><p><span class="code">10 &lt;= 10</span> returns <span class="code">true</span></p><p><span class="code">10 &lt;= 20</span> returns <span class="code">true</span></p></td></tr><tr><td class="variable">and</td><td class="description">Logical and.  Compares two operands, resulting in true if both the operand on the left and the operand on the right are true (or non-zero).</td><td class="description"><span class="code"> 1 and 0</span> returns <span class="code">false</span><p><span class="code">1 and 1</span> returns <span class="code">true</span></p><p><span class="code">(10 &gt; 5) and (20 != 10)</span> returns <span class="code">true</span></p></td></tr><tr><td class="variable">&amp;&amp;</td><td class="description">Logical and.  Same as <b>and</b>.</td><td class="description"></td></tr><tr><td class="variable">or</td><td class="description">Logical or.  Compares two operands, resulting in true if either operand is true (or non-zero).</td><td class="description"><span class="code">1 or 1</span> returns <span class="code">true</span><p><span class="code">1 or 0</span> returns <span class="code">true</span></p><p><span class="code">0 or 0</span> returns <span class="code">false</span></p><p><span class="code">(10 &gt; 5) or (20 = 10)</span> returns <span class="code">true</span></p></td></tr><tr><td class="variable">||</td><td class="description">Logical or.  Same as <b>or</b>.</td><td class="description"></td></tr><tr><td class="variable">%</td><td class="description">Modulus.  The modulus operator returns the first operand modulo the second operand.  Modulo is the remainder of dividing the first operand by the second operand.</td><td class="description"><span class="code">12 % 5</span> returns <span class="code">2</span><p><span class="code">25 % 5</span> returns <span class="code">0</span></p></td></tr></tbody></table><div><p></p></div>
+
+</body></html>
