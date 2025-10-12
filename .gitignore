@@ -1,0 +1,79 @@
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# WordPress specific
+wp-content/plugins/poker-tournament-import-v2.zip
+wp-content/uploads/
+wp-config.php
+wp-content/advanced-cache.php
+wp-content/backup-db/
+wp-content/cache/
+wp-content/backups/
+wp-content/blogs/
+wp-content/upgrade/
+wp-content/mu-plugins/
+wp-content/object-cache.php
+wp-content/wp-cache-config.php
+
+# Logs
+*.log
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+*.lcov
+
+# nycov test coverage
+.nyc_output
+
+# Dependency directories
+node_modules/
+jspm_packages/
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# dotenv environment variables file
+.env
+.env.test
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Composer
+/vendor/
+composer.lock
+
+# Claude Code files
+.claude/
+
+# Local development
+*.local
