@@ -26,6 +26,7 @@ class Poker_Tournament_Import_Shortcodes {
         add_shortcode('series_statistics', array($this, 'series_statistics_shortcode'));
         add_shortcode('series_players', array($this, 'series_players_shortcode'));
         add_shortcode('series_leaderboard', array($this, 'series_leaderboard_shortcode'));
+        add_shortcode('series_standings', array($this, 'series_standings_shortcode'));
 
         // Tab navigation shortcode
         add_shortcode('series_tabs', array($this, 'series_tabs_shortcode'));
@@ -36,6 +37,7 @@ class Poker_Tournament_Import_Shortcodes {
         add_shortcode('season_results', array($this, 'season_results_shortcode'));
         add_shortcode('season_statistics', array($this, 'season_statistics_shortcode'));
         add_shortcode('season_players', array($this, 'season_players_shortcode'));
+        add_shortcode('season_standings', array($this, 'season_standings_shortcode'));
     }
 
     /**
@@ -1897,6 +1899,374 @@ class Poker_Tournament_Import_Shortcodes {
                 <p><?php _e('No players found in this season.', 'poker-tournament-import'); ?></p>
             <?php endif; ?>
         </div>
+        <?php
+        return ob_get_clean();
+    }
+}
+
+/**
+     * Series standings shortcode
+     * Usage: [series_standings id="123" formula="season_total" show_details="true"]
+     */
+    public function series_standings_shortcode($atts) {
+        $atts = shortcode_atts(
+            array(
+                'id' => 0,
+                'formula' => '',
+                'show_details' => 'false',
+                'show_export' => 'true'
+            ),
+            $atts,
+            'series_standings'
+        );
+
+        $series_id = intval($atts['id']);
+        if ($series_id === 0) {
+            return '<p>' . __('Series ID required', 'poker-tournament-import') . '</p>';
+        }
+
+        $series = get_post($series_id);
+        if (!$series || $series->post_type !== 'tournament_series') {
+            return '<p>' . __('Series not found', 'poker-tournament-import') . '</p>';
+        }
+
+        // Initialize series standings calculator
+        $standings_calculator = new Poker_Series_Standings_Calculator();
+        $formula_key = !empty($atts['formula']) ? $atts['formula'] : null;
+
+        ob_start();
+        ?>
+        <div class="series-standings-container">
+            <div class="standings-header">
+                <h2><?php echo esc_html($series->post_title); ?> - <?php _e('Standings', 'poker-tournament-import'); ?></h2>
+
+                <?php if ($atts['show_export'] === 'true'): ?>
+                <div class="standings-actions">
+                    <button class="export-standings" data-series-id="<?php echo esc_attr($series_id); ?>" data-formula="<?php echo esc_attr($formula_key); ?>">
+                        <?php _e('Export CSV', 'poker-tournament-import'); ?>
+                    </button>
+                    <button class="print-standings" onclick="window.print()">
+                        <?php _e('Print', 'poker-tournament-import'); ?>
+                    </button>
+                </div>
+                <?php endif; ?>
+            </div>
+
+            <!-- Formula Information -->
+            <?php if ($formula_key): ?>
+            <div class="formula-info">
+                <p><strong><?php _e('Formula:', 'poker-tournament-import'); ?></strong> <?php echo esc_html($formula_key); ?></p>
+            </div>
+            <?php endif; ?>
+
+            <!-- Series Statistics -->
+            <?php
+            $series_stats = $standings_calculator->get_series_statistics($series_id);
+            if (!empty($series_stats)):
+            ?>
+            <div class="series-stats-summary">
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <span class="stat-value"><?php echo esc_html($series_stats['total_players']); ?></span>
+                        <span class="stat-label"><?php _e('Players', 'poker-tournament-import'); ?></span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value"><?php echo esc_html($series_stats['total_tournaments']); ?></span>
+                        <span class="stat-label"><?php _e('Tournaments', 'poker-tournament-import'); ?></span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value">$<?php echo esc_html(number_format($series_stats['total_winnings'], 0)); ?></span>
+                        <span class="stat-label"><?php _e('Total Winnings', 'poker-tournament-import'); ?></span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value"><?php echo esc_html(number_format($series_stats['avg_points_per_player'], 1)); ?></span>
+                        <span class="stat-label"><?php _e('Avg Points', 'poker-tournament-import'); ?></span>
+                    </div>
+                </div>
+            </div>
+            <?php endif; ?>
+
+            <!-- Standings Table -->
+            <?php
+            $standings_calculator->display_series_standings_table(
+                $series_id,
+                $formula_key,
+                $atts['show_details'] === 'true'
+            );
+            ?>
+
+            <!-- Tie-breaker Legend -->
+            <div class="tie-breaker-legend">
+                <h4><?php _e('Tie-breaker Order', 'poker-tournament-import'); ?></h4>
+                <ol>
+                    <li><?php _e('Most First Place Finishes', 'poker-tournament-import'); ?></li>
+                    <li><?php _e('Most Top 3 Finishes', 'poker-tournament-import'); ?></li>
+                    <li><?php _e('Most Top 5 Finishes', 'poker-tournament-import'); ?></li>
+                    <li><?php _e('Best Single Tournament Points', 'poker-tournament-import'); ?></li>
+                    <li><?php _e('Highest Total Winnings', 'poker-tournament-import'); ?></li>
+                    <li><?php _e('Most Tournaments Played', 'poker-tournament-import'); ?></li>
+                    <li><?php _e('Best Average Finish (lower is better)', 'poker-tournament-import'); ?></li>
+                </ol>
+            </div>
+        </div>
+
+        <style>
+        .series-standings-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .standings-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #eee;
+        }
+        .standings-actions {
+            display: flex;
+            gap: 10px;
+        }
+        .export-standings,
+        .print-standings {
+            background: #0073aa;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+        .export-standings:hover,
+        .print-standings:hover {
+            background: #005a87;
+        }
+        .formula-info {
+            background: #f0f8ff;
+            padding: 10px 15px;
+            border-left: 4px solid #0073aa;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+        .series-stats-summary {
+            margin-bottom: 30px;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            background: #f9f9f9;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        .stat-item {
+            text-align: center;
+        }
+        .stat-value {
+            display: block;
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+        }
+        .stat-label {
+            display: block;
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+            margin-top: 5px;
+        }
+        .tie-breaker-legend {
+            margin-top: 30px;
+            padding: 15px;
+            background: #f9f9f9;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        .tie-breaker-legend h4 {
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+        .tie-breaker-legend ol {
+            margin: 0;
+            padding-left: 20px;
+        }
+        .tie-breaker-legend li {
+            margin-bottom: 5px;
+        }
+        @media (max-width: 768px) {
+            .standings-header {
+                flex-direction: column;
+                gap: 15px;
+                text-align: center;
+            }
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        </style>
+
+        <script>
+        jQuery(document).ready(function($) {
+            $('.export-standings').click(function() {
+                var seriesId = $(this).data('series-id');
+                var formula = $(this).data('formula');
+
+                $.post(ajaxurl, {
+                    action: 'poker_export_standings',
+                    series_id: seriesId,
+                    formula: formula,
+                    nonce: '<?php echo wp_create_nonce('poker_export_standings'); ?>'
+                }, function(response) {
+                    if (response.success) {
+                        // Create download link
+                        var link = document.createElement('a');
+                        link.href = response.data.download_url;
+                        link.download = response.data.filename;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                    } else {
+                        alert('Export failed: ' + response.data.message);
+                    }
+                });
+            });
+        });
+        </script>
+        <?php
+        return ob_get_clean();
+    }
+
+    /**
+     * Season standings shortcode
+     * Usage: [season_standings id="123" formula="season_total" show_details="true"]
+     */
+    public function season_standings_shortcode($atts) {
+        $atts = shortcode_atts(
+            array(
+                'id' => 0,
+                'formula' => '',
+                'show_details' => 'false',
+                'show_export' => 'true'
+            ),
+            $atts,
+            'season_standings'
+        );
+
+        $season_id = intval($atts['id']);
+        if ($season_id === 0) {
+            return '<p>' . __('Season ID required', 'poker-tournament-import') . '</p>';
+        }
+
+        $season = get_post($season_id);
+        if (!$season || $season->post_type !== 'tournament_season') {
+            return '<p>' . __('Season not found', 'poker-tournament-import') . '</p>';
+        }
+
+        // For now, use series standings calculator with season context
+        $standings_calculator = new Poker_Series_Standings_Calculator();
+        $formula_key = !empty($atts['formula']) ? $atts['formula'] : null;
+
+        ob_start();
+        ?>
+        <div class="season-standings-container">
+            <div class="standings-header">
+                <h2><?php echo esc_html($season->post_title); ?> - <?php _e('Standings', 'poker-tournament-import'); ?></h2>
+
+                <?php if ($atts['show_export'] === 'true'): ?>
+                <div class="standings-actions">
+                    <button class="export-standings" data-season-id="<?php echo esc_attr($season_id); ?>" data-formula="<?php echo esc_attr($formula_key); ?>">
+                        <?php _e('Export CSV', 'poker-tournament-import'); ?>
+                    </button>
+                    <button class="print-standings" onclick="window.print()">
+                        <?php _e('Print', 'poker-tournament-import'); ?>
+                    </button>
+                </div>
+                <?php endif; ?>
+            </div>
+
+            <?php if ($formula_key): ?>
+            <div class="formula-info">
+                <p><strong><?php _e('Formula:', 'poker-tournament-import'); ?></strong> <?php echo esc_html($formula_key); ?></p>
+            </div>
+            <?php endif; ?>
+
+            <!-- Use series standings for season -->
+            <?php
+            // Get series associated with this season and show standings
+            $series_query = new WP_Query(array(
+                'post_type' => 'tournament_series',
+                'meta_query' => array(
+                    array(
+                        'key' => '_season_id',
+                        'value' => $season_id,
+                        'compare' => '='
+                    )
+                ),
+                'posts_per_page' => 1
+            ));
+
+            if ($series_query->have_posts()) {
+                $series = $series_query->next_post();
+                $standings_calculator->display_series_standings_table(
+                    $series->ID,
+                    $formula_key,
+                    $atts['show_details'] === 'true'
+                );
+            } else {
+                echo '<p>' . __('No series found for this season.', 'poker-tournament-import') . '</p>';
+            }
+            ?>
+        </div>
+
+        <style>
+        /* Use same styles as series standings */
+        .season-standings-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .standings-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #eee;
+        }
+        .standings-actions {
+            display: flex;
+            gap: 10px;
+        }
+        .export-standings,
+        .print-standings {
+            background: #0073aa;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+        .export-standings:hover,
+        .print-standings:hover {
+            background: #005a87;
+        }
+        .formula-info {
+            background: #f0f8ff;
+            padding: 10px 15px;
+            border-left: 4px solid #0073aa;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+        @media (max-width: 768px) {
+            .standings-header {
+                flex-direction: column;
+                gap: 15px;
+                text-align: center;
+            }
+        }
+        </style>
         <?php
         return ob_get_clean();
     }

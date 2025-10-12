@@ -3,7 +3,7 @@
  * Plugin Name: Poker Tournament Import
  * Plugin URI: https://nikielhard.se/tdwpimport
  * Description: Import and display poker tournament results from Tournament Director (.tdt) files
- * Version: 1.6.1
+ * Version: 1.6.2
  * Author: Hans Kästel Hård
  * Author URI: https://nikielhard.se/tdwpimport
  * License: GPL v2 or later
@@ -20,7 +20,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('POKER_TOURNAMENT_IMPORT_VERSION', '1.6.1');
+define('POKER_TOURNAMENT_IMPORT_VERSION', '1.6.2');
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -61,6 +61,7 @@ class Poker_Tournament_Import {
         $this->includes();
         $this->init_post_types();
         $this->init_taxonomies();
+        $this->init_formula_validator();
 
         // Frontend assets
         add_action('wp_enqueue_scripts', array($this, 'enqueue_frontend_assets'));
@@ -69,6 +70,15 @@ class Poker_Tournament_Import {
         if (is_admin()) {
             require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/class-admin.php';
             new Poker_Tournament_Import_Admin();
+
+            // Initialize shortcode help page
+            require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/shortcode-help.php';
+            $shortcode_help = new Poker_Shortcode_Help_Page();
+            $shortcode_help->add_help_admin_menu();
+
+            // Initialize shortcode helper meta boxes
+            require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/shortcode-helper.php';
+            new Poker_Shortcode_Helper();
         }
 
         // AJAX handlers for tabbed interface
@@ -76,6 +86,15 @@ class Poker_Tournament_Import {
         add_action('wp_ajax_nopriv_poker_series_tab_content', array($this, 'ajax_series_tab_content'));
         add_action('wp_ajax_poker_series_load_more', array($this, 'ajax_series_load_more'));
         add_action('wp_ajax_nopriv_poker_series_load_more', array($this, 'ajax_series_load_more'));
+
+        // AJAX handlers for formula validator
+        add_action('wp_ajax_poker_validate_formula', array($this, 'ajax_validate_formula'));
+        add_action('wp_ajax_poker_save_formula', array($this, 'ajax_save_formula'));
+        add_action('wp_ajax_poker_delete_formula', array($this, 'ajax_delete_formula'));
+        add_action('wp_ajax_poker_get_formula', array($this, 'ajax_get_formula'));
+
+        // AJAX handlers for series standings
+        add_action('wp_ajax_poker_export_standings', array($this, 'ajax_export_standings'));
     }
 
     /**
@@ -132,6 +151,8 @@ class Poker_Tournament_Import {
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/class-post-types.php';
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/class-shortcodes.php';
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/class-debug.php';
+        require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/class-formula-validator.php';
+        require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/class-series-standings.php';
     }
 
     /**
@@ -149,6 +170,13 @@ class Poker_Tournament_Import {
         // Load and initialize the taxonomy class
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/class-taxonomies.php';
         $this->taxonomies = new Poker_Tournament_Import_Taxonomies();
+    }
+
+    /**
+     * Initialize formula validator
+     */
+    private function init_formula_validator() {
+        $this->formula_validator = new Poker_Tournament_Formula_Validator();
     }
 
     /**
@@ -304,6 +332,212 @@ class Poker_Tournament_Import {
         $output = ob_get_clean();
         echo $output;
         wp_die();
+    }
+
+    /**
+     * AJAX handler for formula validation
+     */
+    public function ajax_validate_formula() {
+        check_ajax_referer('poker_formula_validator', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_die(__('You do not have sufficient permissions to access this page.', 'poker-tournament-import'));
+        }
+
+        $formula = sanitize_textarea_field($_POST['formula']);
+        $test_data = $_POST['test_data'];
+
+        if (empty($formula)) {
+            echo '<div class="error"><p>' . __('Formula cannot be empty.', 'poker-tournament-import') . '</p></div>';
+            wp_die();
+        }
+
+        $validator = new Poker_Tournament_Formula_Validator();
+        $validation = $validator->validate_formula($formula);
+
+        // Prepare test data
+        $prepared_data = array(
+            'total_players' => intval($test_data['n'] ?? 20),
+            'finish_position' => intval($test_data['r'] ?? 3),
+            'hits' => intval($test_data['hits'] ?? 0),
+            'total_money' => floatval($test_data['total_money'] ?? 2000),
+            'total_buyins' => intval($test_data['total_buyins'] ?? 20),
+            'total_buyins_amount' => floatval($test_data['total_money'] ?? 2000),
+            'total_rebuys_amount' => 0,
+            'total_addons_amount' => 0,
+        );
+
+        $calculation = $validator->calculate_formula($formula, $prepared_data);
+
+        // Display results
+        $output = '<div class="validation-results">';
+
+        if ($validation['valid']) {
+            $output .= '<div class="success"><p>✅ <strong>' . __('Formula is valid!', 'poker-tournament-import') . '</strong></p></div>';
+
+            if (!empty($validation['warnings'])) {
+                $output .= '<div class="warning"><p><strong>' . __('Warnings:', 'poker-tournament-import') . '</strong></p><ul>';
+                foreach ($validation['warnings'] as $warning) {
+                    $output .= '<li>' . esc_html($warning) . '</li>';
+                }
+                $output .= '</ul></div>';
+            }
+
+            if ($calculation['success']) {
+                $output .= '<div class="calculation-result">';
+                $output .= '<h4>' . __('Test Result:', 'poker-tournament-import') . '</h4>';
+                $output .= '<p><strong>' . __('Calculated Points:', 'poker-tournament-import') . '</strong> ' . esc_html(number_format($calculation['result'], 2)) . '</p>';
+
+                if (!empty($calculation['variables'])) {
+                    $output .= '<h4>' . __('Variables Used:', 'poker-tournament-import') . '</h4>';
+                    $output .= '<table class="wp-list-table widefat striped" style="max-width: 400px;">';
+                    $output .= '<thead><tr><th>Variable</th><th>Value</th></tr></thead><tbody>';
+
+                    $important_vars = array('n', 'r', 'hits', 'monies', 'avgBC', 'T33', 'T80', 'points');
+                    foreach ($important_vars as $var) {
+                        if (isset($calculation['variables'][$var])) {
+                            $value = $calculation['variables'][$var];
+                            if (is_float($value)) {
+                                $value = number_format($value, 2);
+                            }
+                            $output .= '<tr><td><code>' . esc_html($var) . '</code></td><td>' . esc_html($value) . '</td></tr>';
+                        }
+                    }
+                    $output .= '</tbody></table>';
+                }
+                $output .= '</div>';
+            } else {
+                $output .= '<div class="error"><p><strong>' . __('Calculation Error:', 'poker-tournament-import') . '</strong> ' . esc_html($calculation['error']) . '</p></div>';
+            }
+        } else {
+            $output .= '<div class="error"><p><strong>' . __('Formula is invalid:', 'poker-tournament-import') . '</strong></p><ul>';
+            foreach ($validation['errors'] as $error) {
+                $output .= '<li>' . esc_html($error) . '</li>';
+            }
+            $output .= '</ul></div>';
+        }
+
+        $output .= '</div>';
+        echo $output;
+        wp_die();
+    }
+
+    /**
+     * AJAX handler for saving formulas
+     */
+    public function ajax_save_formula() {
+        check_ajax_referer('poker_formula_manager', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_die(__('You do not have sufficient permissions to access this page.', 'poker-tournament-import'));
+        }
+
+        $name = sanitize_text_field($_POST['formula_name']);
+        $formula_data = array(
+            'name' => sanitize_text_field($_POST['display_name']),
+            'description' => sanitize_textarea_field($_POST['description']),
+            'formula' => sanitize_textarea_field($_POST['formula']),
+            'dependencies' => sanitize_textarea_field($_POST['dependencies']),
+            'category' => sanitize_text_field($_POST['category'])
+        );
+
+        $validator = new Poker_Tournament_Formula_Validator();
+        $validation = $validator->validate_formula($formula_data['formula']);
+
+        if (!$validation['valid']) {
+            wp_send_json_error(array(
+                'message' => __('Formula is invalid and cannot be saved.', 'poker-tournament-import'),
+                'errors' => $validation['errors']
+            ));
+        }
+
+        $validator->save_formula($name, $formula_data);
+        wp_send_json_success(array(
+            'message' => __('Formula saved successfully!', 'poker-tournament-import')
+        ));
+    }
+
+    /**
+     * AJAX handler for deleting formulas
+     */
+    public function ajax_delete_formula() {
+        check_ajax_referer('poker_formula_manager', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_die(__('You do not have sufficient permissions to access this page.', 'poker-tournament-import'));
+        }
+
+        $name = sanitize_text_field($_POST['formula_name']);
+        $validator = new Poker_Tournament_Formula_Validator();
+
+        if ($validator->delete_formula($name)) {
+            wp_send_json_success(array(
+                'message' => __('Formula deleted successfully!', 'poker-tournament-import')
+            ));
+        } else {
+            wp_send_json_error(array(
+                'message' => __('Formula not found or cannot be deleted.', 'poker-tournament-import')
+            ));
+        }
+    }
+
+    /**
+     * AJAX handler for getting formula data
+     */
+    public function ajax_get_formula() {
+        check_ajax_referer('poker_formula_manager', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_die(__('You do not have sufficient permissions to access this page.', 'poker-tournament-import'));
+        }
+
+        $name = sanitize_text_field($_POST['formula_key']);
+        $validator = new Poker_Tournament_Formula_Validator();
+        $formula = $validator->get_formula($name);
+
+        if ($formula) {
+            wp_send_json_success(array(
+                'data' => $formula
+            ));
+        } else {
+            wp_send_json_error(array(
+                'message' => __('Formula not found.', 'poker-tournament-import')
+            ));
+        }
+    }
+
+    /**
+     * AJAX handler for exporting standings
+     */
+    public function ajax_export_standings() {
+        check_ajax_referer('poker_export_standings', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_die(__('You do not have sufficient permissions to access this page.', 'poker-tournament-import'));
+        }
+
+        $series_id = intval($_POST['series_id']);
+        $formula_key = sanitize_text_field($_POST['formula']);
+
+        $standings_calculator = new Poker_Series_Standings_Calculator();
+        $csv_file = $standings_calculator->export_series_standings_csv($series_id, $formula_key);
+
+        if ($csv_file && file_exists($csv_file)) {
+            // Create download URL
+            $upload_dir = wp_upload_dir();
+            $relative_path = str_replace($upload_dir['basedir'], '', $csv_file);
+            $download_url = $upload_dir['baseurl'] . $relative_path;
+            $filename = basename($csv_file);
+
+            wp_send_json_success(array(
+                'download_url' => $download_url,
+                'filename' => $filename
+            ));
+        } else {
+            wp_send_json_error(array(
+                'message' => __('Failed to generate CSV file.', 'poker-tournament-import')
+            ));
+        }
     }
 }
 

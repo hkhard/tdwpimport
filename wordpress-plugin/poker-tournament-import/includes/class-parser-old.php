@@ -1,9 +1,8 @@
 <?php
 /**
- * TDT File Parser Class with Formula Integration
+ * TDT File Parser Class
  *
  * Parses Tournament Director (.tdt) files and extracts tournament data
- * Now integrated with customizable formula validation system
  */
 
 // Prevent direct file access
@@ -85,7 +84,7 @@ class Poker_Tournament_Parser {
         // Calculate rankings and winnings
         $data['players'] = $this->calculate_player_rankings($data['players']);
 
-        // Calculate Tournament Director points using formula system
+        // Calculate Tournament Director points
         $data['players'] = $this->calculate_tournament_points($data['players'], $data['financial']);
 
         // Calculate actual winnings
@@ -403,7 +402,7 @@ class Poker_Tournament_Parser {
     }
 
     /**
-     * Calculate Tournament Director points for all players using formula system
+     * Calculate Tournament Director points for all players
      */
     private function calculate_tournament_points($players, $financial) {
         $total_players = count($players);
@@ -411,8 +410,6 @@ class Poker_Tournament_Parser {
         // Calculate total money in tournament
         $total_money = 0;
         $total_buyins = 0;
-        $total_rebuys = 0;
-        $total_addons = 0;
 
         foreach ($players as $player) {
             $player_total = 0;
@@ -423,79 +420,46 @@ class Poker_Tournament_Parser {
             $total_buyins += count($player['buyins']);
         }
 
-        // Initialize formula validator
-        $formula_validator = new Poker_Tournament_Formula_Validator();
+        $avg_buyin = $total_buyins > 0 ? $total_money / $total_buyins : 0;
 
-        // Get active tournament points formula
-        $active_formula = get_option('poker_active_tournament_formula', 'tournament_points');
-        $formula_data = $formula_validator->get_formula($active_formula);
-
-        // Fallback to default if formula not found
-        if (!$formula_data) {
-            $formula_data = $formula_validator->get_formula('tournament_points');
-        }
-
-        if (!$formula_data) {
-            // Hardcoded fallback formula if all else fails
-            $formula_data = array(
-                'formula' => 'assign("points", round(10 * (sqrt(n) / sqrt(r)) * (1 + log(avgBC + 0.25))) + (numberofHits * 10))',
-                'dependencies' => array(
-                    'assign("T33", round(n/3))',
-                    'assign("T80", floor(n*0.9))',
-                    'assign("monies", totalBuyInsAmount + totalRebuysAmount + totalAddOnsAmount)',
-                    'assign("avgBC", monies/buyins)',
-                    'assign("numberofHits", hits)'
-                )
-            );
-        }
-
-        // Calculate points for each player
         foreach ($players as $uuid => $player) {
-            // Prepare tournament data for formula calculation
-            $tournament_data = array(
-                'total_players' => $total_players,
-                'finish_position' => $player['finish_position'],
-                'hits' => $player['hits'],
-                'total_money' => $total_money,
-                'total_buyins' => $total_buyins,
-                'total_rebuys' => $total_rebuys,
-                'total_addons' => $total_addons,
-                'total_buyins_amount' => $total_money,
-                'total_rebuys_amount' => $total_rebuys * ($financial['rebuy_amount'] ?? 0),
-                'total_addons_amount' => $total_addons * ($financial['addon_amount'] ?? 0),
-                'buyin_amount' => $financial['buyin_amount'] ?? ($total_money / $total_buyins),
-                'fee_amount' => $financial['fee_amount'] ?? 0,
-                'prize_pool' => $total_money,
-                'winnings' => $player['winnings'] ?? 0
+            $r = $player['finish_position'];
+            $n = $total_players;
+            $numberofHits = $player['hits'];
+
+            // Tournament Director points formula
+            // assign("points", 1)
+            // assign("T33", Round(n/3))
+            // assign("T80", Floor(n*0.9))
+            // assign("monies", totalBuyInsAmount + totalRebuysAmount + totalAddOnsAmount)
+            // assign("avgBC", monies/buyins)
+            // assign("temp", 10*(sqrt(n)/sqrt( (T33 + 1) ))*(1+log(avgBC+0.25))+ (numberofHits * 10))
+            // IF (T80 > r and T33 < r, assign("points", round(temp * pow(0.66, (r-T33))) +(numberofHits * 10) ), (IF (T33 >= r, assign (\"points\", (round(10*(sqrt(n)/sqrt(r))*(1+log(avgBC+0.25)))+(numberofHits * 10))))))
+
+            $T33 = round($n / 3);
+            $T80 = floor($n * 0.9);
+
+            $points = 1; // Base points
+
+            if ($T80 > $r && $T33 < $r) {
+                // Middle positions with decay
+                $temp = 10 * (sqrt($n) / sqrt($T33 + 1)) * (1 + log($avg_buyin + 0.25)) + ($numberofHits * 10);
+                $points = round($temp * pow(0.66, ($r - $T33))) + ($numberofHits * 10);
+            } elseif ($T33 >= $r) {
+                // Top positions
+                $points = round(10 * (sqrt($n) / sqrt($r)) * (1 + log($avg_buyin + 0.25))) + ($numberofHits * 10);
+            }
+
+            $players[$uuid]['points'] = $points;
+            $players[$uuid]['points_calculation'] = array(
+                'n' => $n,
+                'r' => $r,
+                'T33' => $T33,
+                'T80' => $T80,
+                'avg_buyin' => $avg_buyin,
+                'hits' => $numberofHits,
+                'final_points' => $points
             );
-
-            // Build complete formula with dependencies
-            $complete_formula = '';
-            if (!empty($formula_data['dependencies'])) {
-                $complete_formula = implode(';', $formula_data['dependencies']) . ';';
-            }
-            $complete_formula .= $formula_data['formula'];
-
-            // Calculate points using formula system
-            $result = $formula_validator->calculate_formula($complete_formula, $tournament_data, 'tournament');
-
-            if ($result['success']) {
-                $players[$uuid]['points'] = $result['result'];
-                $players[$uuid]['points_calculation'] = array(
-                    'formula_used' => $active_formula,
-                    'variables' => $result['variables'],
-                    'final_points' => $result['result'],
-                    'warnings' => $result['warnings'] ?? array()
-                );
-            } else {
-                // Fallback to basic calculation if formula fails
-                $players[$uuid]['points'] = max(1, $total_players - $player['finish_position'] + 1);
-                $players[$uuid]['points_calculation'] = array(
-                    'formula_used' => 'fallback',
-                    'error' => $result['error'],
-                    'final_points' => $players[$uuid]['points']
-                );
-            }
         }
 
         return $players;

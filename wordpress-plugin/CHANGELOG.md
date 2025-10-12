@@ -1,5 +1,29 @@
 # Poker Tournament Import Changelog
 
+## Version 1.6.2 - (October 12, 2025)
+
+### 📚 Comprehensive Documentation System
+- **NEW**: Complete shortcode integration documentation page with step-by-step guides
+- **NEW**: Shortcode helper meta boxes for tournaments, series, seasons, and players
+- **NEW**: Block Editor, Classic Editor, and HTML Editor integration guides
+- **NEW**: Troubleshooting section and advanced usage examples
+- **NEW**: Professional responsive styling with navigation and search
+- **NEW**: Copy-to-clipboard functionality for shortcode examples
+- **ENHANCEMENT**: Complete help system accessible from admin menu
+
+## Version 1.6.1 - (October 12, 2025)
+
+### 🔧 Critical Fixes & Major Features
+- **FIXED**: Critical parameter mismatch in series/season taxonomy templates (id → series_id/season_id)
+- **NEW**: Complete taxonomy system with tournament_type, tournament_format, tournament_category
+- **NEW**: Tournament rankings system with achievement badges (🏆🥈🥉🎯💭⚔️)
+- **NEW**: Formula Validation System supporting Tournament Director syntax
+- **NEW**: Series Standings Calculator with advanced 7-level tie-breaker logic
+- **NEW**: Admin interface for customizable formula management
+- **NEW**: CSV export functionality for series standings
+- **ENHANCEMENT**: Professional tournament results display with position indicators
+- **DATABASE**: Added `hits` column for elimination tracking
+
 ## Version 1.6.0 - (October 12, 2025)
 
 ### 🎯 MAJOR NEW FEATURES
