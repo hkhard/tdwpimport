@@ -440,7 +440,7 @@ class Poker_Series_Standings_Calculator {
             return;
         }
 
-        echo '<div class="series-standings-table">';
+              echo '<div class="series-standings-table" id="series-standings-' . esc_attr($series_id) . '">';
         echo '<table class="wp-list-table widefat fixed striped">';
         echo '<thead>';
         echo '<tr>';

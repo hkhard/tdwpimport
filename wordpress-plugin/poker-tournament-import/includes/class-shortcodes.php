@@ -291,7 +291,7 @@ class Poker_Tournament_Import_Shortcodes {
             echo '</div>';
             echo '</div>';
 
-            echo '<table class="tournament-results-table enhanced">';
+                        echo '<table class="tournament-results-table enhanced" id="tournament-results-' . esc_attr($tournament_id) . '">';
             echo '<thead>';
             echo '<tr>';
             echo '<th class="position-col">' . __('Pos', 'poker-tournament-import') . '</th>';
@@ -688,7 +688,7 @@ class Poker_Tournament_Import_Shortcodes {
 
         ob_start();
         ?>
-        <div class="series-tabs-container" data-series-id="<?php echo esc_attr($series_id); ?>">
+        <div class="series-tabs-container" id="series-tabs-<?php echo esc_attr($series_id); ?>" data-series-id="<?php echo esc_attr($series_id); ?>">
             <div class="series-tabs-nav">
                 <?php foreach ($tabs as $tab_key => $tab_label): ?>
                     <button class="series-tab-btn <?php echo $atts['active'] === $tab_key ? 'active' : ''; ?>"
@@ -809,7 +809,7 @@ class Poker_Tournament_Import_Shortcodes {
 
         ob_start();
         ?>
-        <div class="series-overview-content">
+        <div class="series-overview-content" id="series-overview-<?php echo esc_attr($series_id); ?>">
             <!-- Statistics Cards -->
             <div class="series-stats-grid">
                 <div class="stat-card">
@@ -832,7 +832,7 @@ class Poker_Tournament_Import_Shortcodes {
 
             <!-- Best Player -->
             <?php if ($top_player): ?>
-            <div class="best-player-card">
+            <div class="best-player-card" id="series-best-player-<?php echo esc_attr($series_id); ?>">
                 <h3><?php _e('Best Player', 'poker-tournament-import'); ?></h3>
                 <div class="player-info">
                     <div class="player-avatar"><?php echo substr($top_player['name'], 0, 2); ?></div>
@@ -851,7 +851,7 @@ class Poker_Tournament_Import_Shortcodes {
             <?php endif; ?>
 
             <!-- Recent Tournaments -->
-            <div class="recent-tournaments-section">
+            <div class="recent-tournaments-section" id="recent-tournaments-<?php echo esc_attr($series_id); ?>">
                 <h3><?php _e('Recent Tournaments', 'poker-tournament-import'); ?></h3>
                 <?php
                 $recent_tournaments = array_slice($series_tournaments, 0, intval($atts['limit']));
@@ -940,7 +940,7 @@ class Poker_Tournament_Import_Shortcodes {
 
         ob_start();
         ?>
-        <div class="series-results-content">
+        <div class="series-results-content" id="series-results-<?php echo esc_attr($series_id); ?>">
             <?php if (!empty($series_tournaments)): ?>
                 <div class="series-results-table-wrapper">
                     <table class="series-results-table">
@@ -1081,7 +1081,7 @@ class Poker_Tournament_Import_Shortcodes {
 
         ob_start();
         ?>
-        <div class="series-statistics-content">
+        <div class="series-statistics-content" id="series-statistics-<?php echo esc_attr($series_id); ?>">
             <?php if (!empty($leaderboard)): ?>
                 <div class="series-leaderboard-wrapper">
                     <h3><?php _e('Series Leaderboard', 'poker-tournament-import'); ?></h3>
@@ -1326,10 +1326,10 @@ class Poker_Tournament_Import_Shortcodes {
 
         ob_start();
         ?>
-        <div class="series-tabs-container" data-series-id="<?php echo esc_attr($season_id); ?>">
-            <div class="series-tabs-nav">
+        <div class="season-tabs-container" id="season-tabs-<?php echo esc_attr($season_id); ?>" data-season-id="<?php echo esc_attr($season_id); ?>">
+            <div class="season-tabs-nav">
                 <?php foreach ($tabs as $tab_key => $tab_label): ?>
-                    <button class="series-tab-btn <?php echo $atts['active'] === $tab_key ? 'active' : ''; ?>"
+                    <button class="season-tab-btn <?php echo $atts['active'] === $tab_key ? 'active' : ''; ?>"
                             data-tab="<?php echo esc_attr($tab_key); ?>">
                         <?php echo esc_html($tab_label); ?>
                     </button>
@@ -1445,9 +1445,9 @@ class Poker_Tournament_Import_Shortcodes {
 
         ob_start();
         ?>
-        <div class="series-overview-content">
+        <div class="season-overview-content" id="season-overview-<?php echo esc_attr($season_id); ?>">
             <!-- Statistics Cards -->
-            <div class="series-stats-grid">
+            <div class="season-stats-grid" id="season-stats-<?php echo esc_attr($season_id); ?>">
                 <div class="stat-card">
                     <div class="stat-number"><?php echo esc_html($total_tournaments); ?></div>
                     <div class="stat-label"><?php _e('Tournaments', 'poker-tournament-import'); ?></div>
@@ -1468,7 +1468,7 @@ class Poker_Tournament_Import_Shortcodes {
 
             <!-- Best Player -->
             <?php if ($top_player): ?>
-            <div class="best-player-card">
+            <div class="best-player-card" id="season-best-player-<?php echo esc_attr($season_id); ?>">
                 <h3><?php _e('Best Player', 'poker-tournament-import'); ?></h3>
                 <div class="player-info">
                     <div class="player-avatar"><?php echo substr($top_player['name'], 0, 2); ?></div>
@@ -1487,7 +1487,7 @@ class Poker_Tournament_Import_Shortcodes {
             <?php endif; ?>
 
             <!-- Recent Tournaments -->
-            <div class="recent-tournaments-section">
+            <div class="recent-tournaments-section" id="recent-tournaments-<?php echo esc_attr($season_id); ?>">
                 <h3><?php _e('Recent Tournaments', 'poker-tournament-import'); ?></h3>
                 <?php
                 $recent_tournaments = array_slice($season_tournaments, 0, intval($atts['limit']));
@@ -1576,7 +1576,7 @@ class Poker_Tournament_Import_Shortcodes {
 
         ob_start();
         ?>
-        <div class="series-results-content">
+        <div class="season-results-content" id="season-results-<?php echo esc_attr($season_id); ?>">
             <?php if (!empty($season_tournaments)): ?>
                 <div class="series-results-table-wrapper">
                     <table class="series-results-table">
@@ -1709,7 +1709,7 @@ class Poker_Tournament_Import_Shortcodes {
 
         ob_start();
         ?>
-        <div class="series-statistics-content">
+        <div class="season-statistics-content" id="season-statistics-<?php echo esc_attr($season_id); ?>">
             <?php if (!empty($leaderboard)): ?>
                 <div class="series-leaderboard-wrapper">
                     <h3><?php _e('Season Leaderboard', 'poker-tournament-import'); ?></h3>
