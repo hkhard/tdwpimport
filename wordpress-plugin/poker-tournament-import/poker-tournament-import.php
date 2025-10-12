@@ -1,11 +1,11 @@
 <?php
 /**
  * Plugin Name: Poker Tournament Import
- * Plugin URI: https://example.com/poker-tournament-import
+ * Plugin URI: https://nikielhard.se/tdwpimport
  * Description: Import and display poker tournament results from Tournament Director (.tdt) files
- * Version: 1.0.0
- * Author: Your Name
- * Author URI: https://example.com
+ * Version: 1.3.1
+ * Author: Hans Kästel Hård
+ * Author URI: https://nikielhard.se/tdwpimport
  * License: GPL v2 or later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain: poker-tournament-import
@@ -20,7 +20,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('POKER_TOURNAMENT_IMPORT_VERSION', '1.0.0');
+define('POKER_TOURNAMENT_IMPORT_VERSION', '1.3.1');
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -87,6 +87,7 @@ class Poker_Tournament_Import {
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/class-parser.php';
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/class-post-types.php';
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/class-shortcodes.php';
+        require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/class-debug.php';
     }
 
     /**
