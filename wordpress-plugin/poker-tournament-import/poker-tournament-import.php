@@ -3,7 +3,7 @@
  * Plugin Name: Poker Tournament Import
  * Plugin URI: https://nikielhard.se/tdwpimport
  * Description: Import and display poker tournament results from Tournament Director (.tdt) files
- * Version: 1.3.1
+ * Version: 1.5.0
  * Author: Hans Kästel Hård
  * Author URI: https://nikielhard.se/tdwpimport
  * License: GPL v2 or later
@@ -20,7 +20,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('POKER_TOURNAMENT_IMPORT_VERSION', '1.3.1');
+define('POKER_TOURNAMENT_IMPORT_VERSION', '1.5.0');
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -62,6 +62,9 @@ class Poker_Tournament_Import {
         $this->init_post_types();
         $this->init_taxonomies();
 
+        // Frontend assets
+        add_action('wp_enqueue_scripts', array($this, 'enqueue_frontend_assets'));
+
         // Admin hooks
         if (is_admin()) {
             require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/class-admin.php';
@@ -77,6 +80,26 @@ class Poker_Tournament_Import {
             'poker-tournament-import',
             false,
             dirname(plugin_basename(__FILE__)) . '/languages'
+        );
+    }
+
+    /**
+     * Enqueue frontend styles and scripts
+     */
+    public function enqueue_frontend_assets() {
+        wp_enqueue_style(
+            'poker-tournament-import-frontend',
+            POKER_TOURNAMENT_IMPORT_PLUGIN_URL . 'assets/css/frontend.css',
+            array(),
+            POKER_TOURNAMENT_IMPORT_VERSION
+        );
+
+        wp_enqueue_script(
+            'poker-tournament-import-frontend',
+            POKER_TOURNAMENT_IMPORT_PLUGIN_URL . 'assets/js/frontend.js',
+            array('jquery'),
+            POKER_TOURNAMENT_IMPORT_VERSION,
+            true
         );
     }
 

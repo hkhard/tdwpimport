@@ -1,0 +1,686 @@
+/**
+ * Frontend Styles for Poker Tournament Import
+ * Responsive tournament results display
+ */
+
+/* Tournament Results Container */
+.tournament-results,
+.tournament-series,
+.player-profile {
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 12px;
+    padding: 24px;
+    margin: 20px 0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Tournament Header */
+.tournament-results h2,
+.tournament-series h2,
+.player-profile h2 {
+    color: #1a1a1a;
+    font-size: 28px;
+    font-weight: 700;
+    margin: 0 0 20px 0;
+    padding-bottom: 12px;
+    border-bottom: 3px solid #4CAF50;
+}
+
+/* Tournament Header with Actions */
+.tournament-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 20px;
+}
+
+.tournament-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.print-tournament,
+.export-tournament {
+    background: #3498db;
+    color: white;
+    padding: 8px 16px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.print-tournament:hover,
+.export-tournament:hover {
+    background: #2980b9;
+    transform: translateY(-1px);
+}
+
+.export-tournament {
+    background: #27ae60;
+}
+
+.export-tournament:hover {
+    background: #229954;
+}
+
+.tournament-results h3,
+.tournament-series h3,
+.player-profile h3 {
+    color: #333;
+    font-size: 20px;
+    font-weight: 600;
+    margin: 24px 0 16px 0;
+}
+
+/* Tournament Metadata */
+.tournament-meta {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    margin: 0 0 20px 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+}
+
+.meta-item {
+    display: flex;
+    flex-direction: column;
+    padding: 12px;
+    background: white;
+    border-radius: 6px;
+    border: 1px solid #e0e0e0;
+    transition: all 0.2s ease;
+}
+
+.meta-item:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.meta-item.highlight {
+    background: linear-gradient(135deg, #e8f5e8, #f0f8f0);
+    border-color: #4CAF50;
+}
+
+.meta-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+}
+
+.meta-value {
+    font-size: 16px;
+    font-weight: 700;
+    color: #333;
+}
+
+.meta-value a {
+    color: #4CAF50;
+    text-decoration: none;
+}
+
+.meta-value a:hover {
+    text-decoration: underline;
+}
+
+/* Tournament Statistics */
+.tournament-statistics {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    margin: 20px 0;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+}
+
+.stat-card {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    border: 1px solid #e0e0e0;
+    text-align: center;
+    transition: all 0.2s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.stat-number {
+    font-size: 28px;
+    font-weight: 700;
+    color: #4CAF50;
+    margin-bottom: 8px;
+    font-family: 'Courier New', monospace;
+}
+
+.stat-label {
+    font-size: 14px;
+    color: #666;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Player Tournament History */
+.player-tournament-history {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    margin: 20px 0;
+}
+
+.player-history-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 16px;
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.player-history-table thead {
+    background: linear-gradient(135deg, #34495e, #2c3e50);
+    color: white;
+}
+
+.player-history-table th {
+    padding: 12px 8px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.player-history-table td {
+    padding: 10px 8px;
+    border-bottom: 1px solid #eee;
+    font-size: 14px;
+}
+
+.player-history-table tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+.player-history-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.player-history-table td:first-child {
+    font-weight: 600;
+    color: #2c3e50;
+    text-align: center;
+    min-width: 60px;
+}
+
+.player-history-table td:nth-child(3) {
+    color: #666;
+    font-size: 13px;
+}
+
+.player-history-table td:nth-child(4),
+.player-history-table td:nth-child(5) {
+    font-family: 'Courier New', monospace;
+    font-weight: 600;
+}
+
+.player-history-table td:nth-child(4) {
+    color: #27ae60;
+    text-align: right;
+}
+
+.player-history-table td:nth-child(5) {
+    color: #3498db;
+    text-align: center;
+}
+
+/* Tournament Description */
+.tournament-description,
+.series-description {
+    background: #fafbfc;
+    padding: 20px;
+    border-radius: 8px;
+    border-left: 4px solid #4CAF50;
+    margin: 20px 0;
+    font-size: 15px;
+    line-height: 1.6;
+    color: #444;
+}
+
+/* Results Table */
+.tournament-results-table,
+.player-stats-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    background: #fff;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.tournament-results-table thead,
+.player-stats-table thead {
+    background: linear-gradient(135deg, #2c3e50, #34495e);
+    color: white;
+}
+
+.tournament-results-table th,
+.player-stats-table th {
+    padding: 16px 12px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border: none;
+}
+
+.tournament-results-table td,
+.player-stats-table td {
+    padding: 14px 12px;
+    border-bottom: 1px solid #eee;
+    font-size: 15px;
+}
+
+.tournament-results-table tbody tr,
+.player-stats-table tbody tr {
+    transition: background-color 0.2s ease;
+}
+
+.tournament-results-table tbody tr:hover,
+.player-stats-table tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+.tournament-results-table tbody tr:last-child td,
+.player-stats-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* Position Styling */
+.tournament-results-table td:first-child {
+    font-weight: 700;
+    color: #2c3e50;
+    text-align: center;
+    background: #f8f9fa;
+    min-width: 80px;
+}
+
+/* Winner Highlight */
+.tournament-results-table tbody tr:first-child {
+    background: linear-gradient(135deg, #fff9c4, #fff3cd);
+    font-weight: 600;
+}
+
+.tournament-results-table tbody tr:first-child td:first-child {
+    background: linear-gradient(135deg, #4CAF50, #45a049);
+    color: white;
+}
+
+/* Final Table Highlight (Top 9) */
+.tournament-results-table tbody tr:nth-child(-n+9) {
+    border-left: 3px solid #4CAF50;
+}
+
+/* Prize Money Styling */
+.tournament-results-table td:nth-child(3) {
+    font-weight: 600;
+    color: #27ae60;
+    text-align: right;
+    font-family: 'Courier New', monospace;
+}
+
+/* Points Styling */
+.tournament-results-table td:nth-child(4) {
+    font-weight: 600;
+    color: #3498db;
+    text-align: center;
+    font-family: 'Courier New', monospace;
+}
+
+/* Player Statistics */
+.player-stats {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    margin: 20px 0;
+}
+
+.player-stats-table {
+    margin-top: 16px;
+}
+
+.player-stats-table td {
+    padding: 12px 16px;
+}
+
+.player-stats-table td:first-child {
+    font-weight: 600;
+    color: #333;
+    min-width: 200px;
+}
+
+.player-stats-table td:last-child {
+    font-weight: 700;
+    color: #2c3e50;
+    text-align: right;
+    font-family: 'Courier New', monospace;
+}
+
+/* Series Tournaments */
+.series-tournaments {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    margin: 20px 0;
+}
+
+.series-tournaments ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.series-tournaments li {
+    padding: 12px 0;
+    border-bottom: 1px solid #e0e0e0;
+    transition: background-color 0.2s ease;
+}
+
+.series-tournaments li:last-child {
+    border-bottom: none;
+}
+
+.series-tournaments li:hover {
+    background: #f0f0f0;
+    padding-left: 12px;
+}
+
+.series-tournaments a {
+    color: #4CAF50;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 16px;
+}
+
+.series-tournaments a:hover {
+    color: #45a049;
+    text-decoration: underline;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .tournament-results,
+    .tournament-series,
+    .player-profile {
+        padding: 16px;
+        margin: 16px 0;
+    }
+
+    .tournament-results h2,
+    .tournament-series h2,
+    .player-profile h2 {
+        font-size: 24px;
+    }
+
+    .tournament-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .tournament-actions {
+        margin-top: 16px;
+        justify-content: center;
+    }
+
+    .tournament-meta {
+        grid-template-columns: 1fr;
+        gap: 12px;
+        padding: 16px;
+    }
+
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+    }
+
+    .stat-card {
+        padding: 16px;
+    }
+
+    .stat-number {
+        font-size: 24px;
+    }
+
+    .tournament-results-table,
+    .player-stats-table,
+    .player-history-table {
+        font-size: 14px;
+        display: block;
+        overflow-x: auto;
+        white-space: nowrap;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .tournament-results-table th,
+    .player-stats-table th,
+    .player-history-table th,
+    .tournament-results-table td,
+    .player-stats-table td,
+    .player-history-table td {
+        padding: 8px 6px;
+        min-width: 80px;
+    }
+
+    .player-stats-table td:first-child {
+        min-width: 150px;
+    }
+}
+
+@media (max-width: 480px) {
+    .tournament-results,
+    .tournament-series,
+    .player-profile {
+        padding: 12px;
+        margin: 12px 0;
+        border-radius: 8px;
+    }
+
+    .tournament-results h2,
+    .tournament-series h2,
+    .player-profile h2 {
+        font-size: 20px;
+        margin-bottom: 16px;
+    }
+
+    .tournament-description,
+    .series-description {
+        padding: 16px;
+        font-size: 14px;
+    }
+
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .tournament-actions {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .print-tournament,
+    .export-tournament {
+        width: 100%;
+        text-align: center;
+    }
+
+    .tournament-results-table th,
+    .player-stats-table th,
+    .player-history-table th {
+        font-size: 12px;
+        padding: 6px 4px;
+    }
+
+    .tournament-results-table td,
+    .player-stats-table td,
+    .player-history-table td {
+        font-size: 13px;
+        padding: 6px 4px;
+    }
+}
+
+/* Loading States */
+.tournament-loading {
+    text-align: center;
+    padding: 40px;
+    color: #666;
+}
+
+.tournament-loading::before {
+    content: '';
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #4CAF50;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-right: 12px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Print Styles */
+@media print {
+    .tournament-results,
+    .tournament-series,
+    .player-profile {
+        box-shadow: none;
+        border: 1px solid #ccc;
+        break-inside: avoid;
+    }
+
+    .tournament-results h2,
+    .tournament-series h2,
+    .player-profile h2 {
+        page-break-after: avoid;
+        color: #000;
+    }
+
+    .tournament-results-table,
+    .player-stats-table {
+        page-break-inside: avoid;
+    }
+
+    .tournament-results-table thead,
+    .player-stats-table thead {
+        background: #f0f0f0 !important;
+        color: #000 !important;
+    }
+}
+
+/* Accessibility Improvements */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Focus States */
+.tournament-results-table a:focus,
+.series-tournaments a:focus {
+    outline: 2px solid #4CAF50;
+    outline-offset: 2px;
+}
+
+/* High Contrast Mode */
+@media (prefers-contrast: high) {
+    .tournament-results,
+    .tournament-series,
+    .player-profile {
+        border: 2px solid #000;
+    }
+
+    .tournament-results h2,
+    .tournament-series h2,
+    .player-profile h2 {
+        color: #000;
+    }
+
+    .tournament-results-table thead,
+    .player-stats-table thead {
+        background: #000;
+        color: #fff;
+    }
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+    .tournament-results,
+    .tournament-series,
+    .player-profile {
+        background: #1e1e1e;
+        border-color: #444;
+        color: #fff;
+    }
+
+    .tournament-meta {
+        background: #2d2d2d;
+    }
+
+    .tournament-description,
+    .series-description {
+        background: #2d2d2d;
+        border-left-color: #4CAF50;
+        color: #ddd;
+    }
+
+    .tournament-results-table,
+    .player-stats-table {
+        background: #1e1e1e;
+        color: #fff;
+    }
+
+    .tournament-results-table thead,
+    .player-stats-table thead {
+        background: #333;
+    }
+
+    .tournament-results-table td,
+    .player-stats-table td {
+        border-bottom-color: #444;
+    }
+
+    .tournament-results-table tbody tr:hover,
+    .player-stats-table tbody tr:hover {
+        background-color: #2d2d2d;
+    }
+}
