@@ -449,6 +449,87 @@ jQuery(document).ready(function($) {
         }
     });
 
+    // Tournament chronology reconstruction functions
+    window.attemptChronologicalReconstruction = function(tournamentId) {
+        const $resultsContainer = $('#reconstruction-results-' + tournamentId);
+
+        $resultsContainer.html('<p><strong>Attempting chronological reconstruction...</strong></p>').show();
+
+        $.ajax({
+            url: ajaxurl,
+            type: 'POST',
+            data: {
+                action: 'poker_reconstruct_chronology',
+                tournament_id: tournamentId,
+                nonce: pokerImport.nonce || ''
+            },
+            success: function(response) {
+                if (response.success) {
+                    $resultsContainer.html('<div class="success-message" style="background: #d4edda; border: 1px solid #c3e6cb; padding: 10px; border-radius: 4px; margin: 10px 0;">' +
+                        '<strong>✅ ' + response.data.message + '</strong></div>' +
+                        '<button type="button" class="button button-small" onclick="location.reload()">Refresh Page to See Results</button>');
+                } else {
+                    $resultsContainer.html('<div class="error-message" style="background: #f8d7da; border: 1px solid #f5c6cb; padding: 10px; border-radius: 4px; margin: 10px 0;">' +
+                        '<strong>❌ ' + (response.data.message || 'Reconstruction failed') + '</strong></div>');
+                }
+            },
+            error: function() {
+                $resultsContainer.html('<div class="error-message" style="background: #f8d7da; border: 1px solid #f5c6cb; padding: 10px; border-radius: 4px; margin: 10px 0;">' +
+                    '<strong>❌ Network error during reconstruction</strong></div>');
+            }
+        });
+    };
+
+    window.showTdtUploadInterface = function(tournamentId) {
+        const $resultsContainer = $('#reconstruction-results-' + tournamentId);
+
+        $resultsContainer.html(`
+            <div style="background: #f8f9fa; border: 1px solid #dee2e6; padding: 15px; border-radius: 4px; margin: 10px 0;">
+                <h4>Upload Original .tdt File</h4>
+                <p>Upload the original Tournament Director file to enable perfect chronological processing.</p>
+                <form id="tdt-upload-form-${tournamentId}" enctype="multipart/form-data">
+                    <input type="file" name="tdt_file" accept=".tdt" required style="margin: 10px 0;">
+                    <br>
+                    <button type="submit" class="button button-primary">Upload and Process</button>
+                    <button type="button" class="button" onclick="$('#reconstruction-results-${tournamentId}').hide()">Cancel</button>
+                </form>
+            </div>
+        `).show();
+
+        // Handle form submission
+        $(`#tdt-upload-form-${tournamentId}`).on('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            formData.append('action', 'poker_upload_tdt_for_tournament');
+            formData.append('tournament_id', tournamentId);
+            formData.append('nonce', pokerImport.nonce || '');
+
+            $resultsContainer.html('<p><strong>Uploading and processing .tdt file...</strong></p>');
+
+            $.ajax({
+                url: ajaxurl,
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function(response) {
+                    if (response.success) {
+                        $resultsContainer.html('<div class="success-message" style="background: #d4edda; border: 1px solid #c3e6cb; padding: 10px; border-radius: 4px; margin: 10px 0;">' +
+                            '<strong>✅ ' + response.data.message + '</strong></div>' +
+                            '<button type="button" class="button button-small" onclick="location.reload()">Refresh Page to See Results</button>');
+                    } else {
+                        $resultsContainer.html('<div class="error-message" style="background: #f8d7da; border: 1px solid #f5c6cb; padding: 10px; border-radius: 4px; margin: 10px 0;">' +
+                            '<strong>❌ ' + (response.data.message || 'Upload failed') + '</strong></div>');
+                    }
+                },
+                error: function() {
+                    $resultsContainer.html('<div class="error-message" style="background: #f8d7da; border: 1px solid #f5c6cb; padding: 10px; border-radius: 4px; margin: 10px 0;">' +
+                        '<strong>❌ Network error during upload</strong></div>');
+                }
+            });
+        });
+    };
+
     // Console log for debugging
     console.log('Poker Tournament Import Frontend JavaScript loaded');
 });

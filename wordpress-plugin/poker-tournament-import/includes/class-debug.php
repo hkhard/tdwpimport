@@ -33,7 +33,7 @@ class Poker_Tournament_Import_Debug {
         self::log('PHP Version: ' . PHP_VERSION);
         self::log('WordPress Version: ' . get_bloginfo('version'));
         self::log('Plugin Version: 1.0.1');
-        self::log('Server Info: ' . $_SERVER['SERVER_SOFTWARE'] ?? 'Unknown');
+        self::log('Server Info: ' . (isset($_SERVER['SERVER_SOFTWARE']) ? $_SERVER['SERVER_SOFTWARE'] : 'Unknown'));
     }
 
     /**
@@ -117,6 +117,31 @@ class Poker_Tournament_Import_Debug {
      */
     public static function log_wp_operation($operation, $result = null) {
         self::log("📝 WP Operation: {$operation}", $result);
+    }
+
+    /**
+     * Log GameHistoryItem processing
+     */
+    public static function log_game_history($type, $data = null) {
+        self::log("🎮 GameHistory: {$type}", $data);
+    }
+
+    /**
+     * Log winner detection
+     */
+    public static function log_winner_detection($winner_name, $source, $timestamp = null) {
+        $message = "🏆 Winner Detected: {$winner_name} (Source: {$source})";
+        if ($timestamp) {
+            $message .= " at {$timestamp}";
+        }
+        self::log($message);
+    }
+
+    /**
+     * Log elimination processing
+     */
+    public static function log_elimination($eliminated, $eliminator, $source = 'unknown') {
+        self::log("⚔️  Elimination: {$eliminated} eliminated by {$eliminator} (Source: {$source})");
     }
 
     /**

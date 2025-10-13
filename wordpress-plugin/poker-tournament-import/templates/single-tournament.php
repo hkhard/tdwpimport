@@ -13,6 +13,148 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+/**
+ * CRITICAL FIX: Get tournament winner information using chronological processing
+ * This function tries to get real-time winner data using the new GameHistory processing
+ * before falling back to stored data (which may be incorrect)
+ */
+function get_tournament_winner_info($tournament_id) {
+    // Try to get real-time tournament results first
+    $realtime_results = get_realtime_tournament_results($tournament_id);
+    if ($realtime_results && !empty($realtime_results['players'])) {
+        // Find the winner (position 1) from real-time data
+        foreach ($realtime_results['players'] as $uuid => $player) {
+            if (isset($player['finish_position']) && $player['finish_position'] === 1) {
+                return array(
+                    'name' => $player['nickname'] ?? 'Unknown',
+                    'uuid' => $uuid,
+                    'finish_position' => 1,
+                    'winnings' => $player['winnings'] ?? 0,
+                    'processing_type' => 'chronological',
+                    'source' => $player['winner_source'] ?? 'chronological_game_history',
+                    'points' => $player['points'] ?? 0
+                );
+            }
+        }
+    }
+
+    // Fallback to stored database data
+    global $wpdb;
+    $tournament_uuid = get_post_meta($tournament_id, 'tournament_uuid', true) ?:
+                      get_post_meta($tournament_id, '_tournament_uuid', true);
+
+    if ($tournament_uuid) {
+        $table_name = $wpdb->prefix . 'poker_tournament_players';
+        $winner = $wpdb->get_row($wpdb->prepare(
+            "SELECT player_id, winnings, points FROM $table_name
+             WHERE tournament_id = %s AND finish_position = 1
+             LIMIT 1",
+            $tournament_uuid
+        ));
+
+        if ($winner) {
+            // Try to get player name
+            $player_name = 'Unknown Player';
+            $player_posts = get_posts(array(
+                'post_type' => 'player',
+                'meta_key' => 'player_uuid',
+                'meta_value' => $winner->player_id,
+                'numberposts' => 1
+            ));
+
+            if (!empty($player_posts)) {
+                $player_name = $player_posts[0]->post_title;
+            }
+
+            return array(
+                'name' => $player_name,
+                'uuid' => $winner->player_id,
+                'finish_position' => 1,
+                'winnings' => $winner->winnings ?? 0,
+                'processing_type' => 'stored',
+                'source' => 'stored_database',
+                'points' => $winner->points ?? 0
+            );
+        }
+    }
+
+    return null;
+}
+
+/**
+ * Get real-time tournament results using chronological processing
+ * This function replicates the logic from the shortcode class
+ */
+function get_realtime_tournament_results($tournament_id) {
+    // CRITICAL FIX: Get raw TDT content for real-time chronological processing
+    $raw_content = get_post_meta($tournament_id, '_tournament_raw_content', true);
+
+    if (!$raw_content) {
+        return null;
+    }
+
+    try {
+        // Initialize parser
+        $parser = new Poker_Tournament_Parser();
+
+        // Use reflection to access private methods for real-time processing
+        $reflection = new ReflectionClass($parser);
+
+        // Extract GameHistory from raw TDT content
+        if ($reflection->hasMethod('extract_game_history')) {
+            $extract_game_history = $reflection->getMethod('extract_game_history');
+            $extract_game_history->setAccessible(true);
+            $game_history = $extract_game_history->invoke($parser, $raw_content);
+
+            // Extract players from raw TDT content
+            if ($reflection->hasMethod('extract_players')) {
+                $extract_players = $reflection->getMethod('extract_players');
+                $extract_players->setAccessible(true);
+                $players = $extract_players->invoke($parser, $raw_content);
+
+                // Process players with chronological GameHistory
+                if ($reflection->hasMethod('calculate_player_rankings')) {
+                    $calculate_rankings = $reflection->getMethod('calculate_player_rankings');
+                    $calculate_rankings->setAccessible(true);
+                    $players = $calculate_rankings->invoke($parser, $players, $game_history);
+
+                    return array(
+                        'players' => $players,
+                        'game_history' => $game_history,
+                        'metadata' => extract_basic_metadata($raw_content)
+                    );
+                }
+            }
+        }
+    } catch (Exception $e) {
+        // Log error but don't break the template
+        error_log('Real-time tournament processing failed: ' . $e->getMessage());
+    }
+
+    return null;
+}
+
+/**
+ * Extract basic metadata from tournament data
+ */
+function extract_basic_metadata($tournament_data) {
+    $metadata = array();
+
+    if (preg_match('/UUID:\s*"([^"]+)"/', $tournament_data, $matches)) {
+        $metadata['uuid'] = $matches[1];
+    }
+
+    if (preg_match('/Title:\s*"([^"]+)"/', $tournament_data, $matches)) {
+        $metadata['title'] = $matches[1];
+    }
+
+    if (preg_match('/StartTime:\s*(\d+)/', $tournament_data, $matches)) {
+        $metadata['start_time'] = date('Y-m-d H:i:s', $matches[1] / 1000);
+    }
+
+    return $metadata;
+}
+
 get_header(); ?>
 
 <div class="poker-tournament-wrapper">
@@ -105,6 +247,164 @@ get_header(); ?>
                         </div>
                     </div>
                 </section>
+
+                <!-- CRITICAL FIX: Winner Information Section -->
+                <section class="tournament-winner-section">
+                    <?php
+                    // Try to get real-time winner information
+                    $winner_info = $this->get_tournament_winner_info(get_the_ID());
+                    if ($winner_info):
+                    ?>
+                        <div class="winner-highlight <?php echo esc_attr($winner_info['processing_type']); ?>">
+                            <div class="winner-trophy">🏆</div>
+                            <div class="winner-details">
+                                <h2><?php _e('Tournament Champion', 'poker-tournament-import'); ?></h2>
+                                <div class="winner-name"><?php echo esc_html($winner_info['name']); ?></div>
+                                <?php if (isset($winner_info['winnings']) && $winner_info['winnings'] > 0): ?>
+                                    <div class="winner-prize"><?php echo esc_html($currency . number_format($winner_info['winnings'], 0)); ?></div>
+                                <?php endif; ?>
+                                <div class="winner-source">
+                                    <?php if ($winner_info['processing_type'] === 'chronological'): ?>
+                                        <span class="chronological-badge">⚡ <?php _e('Verified by GameHistory Chronological Processing', 'poker-tournament-import'); ?></span>
+                                    <?php else: ?>
+                                        <span class="legacy-badge">📊 <?php _e('Based on Stored Tournament Data', 'poker-tournament-import'); ?></span>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                        </div>
+                    <?php endif; ?>
+                </section>
+
+                <style>
+                /* CRITICAL FIX: Tournament Winner Section Styling */
+                .tournament-winner-section {
+                    margin: 30px 0;
+                }
+
+                .winner-highlight {
+                    background: linear-gradient(135deg, #fff9e6 0%, #ffedcc 100%);
+                    border: 2px solid #d4a574;
+                    border-radius: 12px;
+                    padding: 30px;
+                    text-align: center;
+                    box-shadow: 0 4px 20px rgba(212, 165, 116, 0.3);
+                    position: relative;
+                    overflow: hidden;
+                }
+
+                .winner-highlight.chronological {
+                    background: linear-gradient(135deg, #e7f3ff 0%, #cce7ff 100%);
+                    border-color: #2271b1;
+                    box-shadow: 0 4px 20px rgba(34, 113, 177, 0.3);
+                }
+
+                .winner-highlight.stored {
+                    background: linear-gradient(135deg, #fef7f7 0%, #fce8e8 100%);
+                    border-color: #d63638;
+                    box-shadow: 0 4px 20px rgba(214, 54, 56, 0.3);
+                }
+
+                .winner-trophy {
+                    font-size: 48px;
+                    margin-bottom: 15px;
+                    animation: pulse 2s infinite;
+                }
+
+                @keyframes pulse {
+                    0% { transform: scale(1); }
+                    50% { transform: scale(1.1); }
+                    100% { transform: scale(1); }
+                }
+
+                .winner-details h2 {
+                    margin: 0 0 10px 0;
+                    color: #2c3e50;
+                    font-size: 28px;
+                    font-weight: 700;
+                }
+
+                .winner-name {
+                    font-size: 32px;
+                    font-weight: 800;
+                    color: #1a1a1a;
+                    margin-bottom: 8px;
+                    text-transform: uppercase;
+                    letter-spacing: 1px;
+                }
+
+                .winner-prize {
+                    font-size: 24px;
+                    font-weight: 600;
+                    color: #27ae60;
+                    margin-bottom: 15px;
+                }
+
+                .winner-source {
+                    margin-top: 10px;
+                }
+
+                .chronological-badge {
+                    background: #2271b1;
+                    color: white;
+                    padding: 8px 16px;
+                    border-radius: 20px;
+                    font-size: 14px;
+                    font-weight: 500;
+                    display: inline-block;
+                }
+
+                .legacy-badge {
+                    background: #d63638;
+                    color: white;
+                    padding: 8px 16px;
+                    border-radius: 20px;
+                    font-size: 14px;
+                    font-weight: 500;
+                    display: inline-block;
+                }
+
+                .processing-notice {
+                    background: #e7f3ff;
+                    border: 1px solid #2271b1;
+                    border-radius: 4px;
+                    padding: 10px;
+                    margin-bottom: 20px;
+                    font-size: 14px;
+                }
+
+                .processing-notice strong {
+                    color: #2271b1;
+                }
+
+                /* Mobile Responsive */
+                @media (max-width: 768px) {
+                    .winner-highlight {
+                        padding: 20px;
+                    }
+
+                    .winner-trophy {
+                        font-size: 36px;
+                    }
+
+                    .winner-details h2 {
+                        font-size: 24px;
+                    }
+
+                    .winner-name {
+                        font-size: 24px;
+                    }
+
+                    .winner-prize {
+                        font-size: 20px;
+                    }
+
+                    .chronological-badge,
+                    .legacy-badge {
+                        font-size: 12px;
+                        padding: 6px 12px;
+                    }
+                }
+                </style>
 
                 <!-- Tournament Content -->
                 <section class="tournament-content-section">

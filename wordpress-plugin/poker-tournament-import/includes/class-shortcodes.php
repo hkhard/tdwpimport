@@ -258,6 +258,27 @@ class Poker_Tournament_Import_Shortcodes {
     private function render_tournament_players($tournament_id) {
         global $wpdb;
 
+        // DEBUG: Log processing attempt
+        Poker_Tournament_Import_Debug::log("Attempting to render tournament players for tournament ID: {$tournament_id}");
+
+        // CRITICAL FIX: Try to get real-time chronological results first
+        $realtime_results = $this->get_realtime_tournament_results($tournament_id);
+        if ($realtime_results) {
+            Poker_Tournament_Import_Debug::log_success("Using real-time chronological processing for tournament ID: {$tournament_id}");
+            $this->render_realtime_players($realtime_results, $tournament_id);
+            return;
+        }
+
+        // DEBUG: Log why real-time processing failed
+        $raw_content = get_post_meta($tournament_id, '_tournament_raw_content', true);
+        if (!$raw_content) {
+            Poker_Tournament_Import_Debug::log_warning("FALLBACK: No raw TDT content found for tournament ID: {$tournament_id} - tournament was imported before v2.1.3");
+        } else {
+            Poker_Tournament_Import_Debug::log_error("FALLBACK: Real-time processing failed for tournament ID: {$tournament_id} despite having raw content");
+        }
+
+        // Fallback to old method if real-time processing fails
+        Poker_Tournament_Import_Debug::log("FALLBACK: Using database method (buy-in order) for tournament ID: {$tournament_id}");
         $table_name = $wpdb->prefix . 'poker_tournament_players';
         $players = $wpdb->get_results($wpdb->prepare(
             "SELECT * FROM $table_name WHERE tournament_id = %s ORDER BY finish_position ASC",
@@ -277,6 +298,28 @@ class Poker_Tournament_Import_Shortcodes {
 
             echo '<div class="tournament-players">';
             echo '<h3>' . __('Tournament Results', 'poker-tournament-import') . '</h3>';
+
+            // CRITICAL FIX: Add enhanced fallback notice with actionable solutions
+            echo '<div class="processing-notice" style="background: #fef7f7; border: 1px solid #d63638; border-radius: 4px; padding: 15px; margin-bottom: 20px;">';
+            echo '<p><strong>⚠️ Using Legacy Database Results</strong> - This tournament is showing results in buy-in order because it was imported before version 2.1.3.</p>';
+
+            // Add tournament ID for debugging
+            echo '<p><small><strong>Tournament ID:</strong> ' . esc_html($tournament_id) . '</small></p>';
+
+            // Add actionable solutions
+            echo '<div class="solution-options" style="margin-top: 10px;">';
+            echo '<p><strong>Solutions:</strong></p>';
+            echo '<ol style="margin: 5px 0; padding-left: 20px;">';
+            echo '<li><button type="button" class="button button-small" onclick="attemptChronologicalReconstruction(' . esc_js($tournament_id) . ')">Try Chronological Reconstruction</button></li>';
+            echo '<li><button type="button" class="button button-small" onclick="showTdtUploadInterface(' . esc_js($tournament_id) . ')">Upload Original .tdt File</button></li>';
+            echo '<li><a href="' . admin_url('admin.php?page=poker-data-mart-cleaner&tab=migration') . '" class="button button-small">Use Migration Tools</a></li>';
+            echo '</ol>';
+            echo '</div>';
+
+            echo '</div>';
+
+            // Add hidden container for reconstruction results
+            echo '<div id="reconstruction-results-' . esc_attr($tournament_id) . '" style="display: none; margin: 15px 0;"></div>';
 
             // Add tournament summary
             echo '<div class="tournament-summary-grid">';
@@ -3983,6 +4026,251 @@ class Poker_Tournament_Import_Shortcodes {
         }
 
         return $active_series;
+    }
+
+    /**
+     * CRITICAL FIX: Get real-time tournament results using chronological GameHistory processing
+     * This replaces the old stored data that was calculated using incorrect bust-out timestamps
+     */
+    private function get_realtime_tournament_results($tournament_id) {
+        // CRITICAL FIX: Get raw TDT content for real-time chronological processing
+        $raw_content = get_post_meta($tournament_id, '_tournament_raw_content', true);
+
+        if (!$raw_content) {
+            Poker_Tournament_Import_Debug::log_warning("No raw TDT content found for tournament ID: {$tournament_id}");
+            return null;
+        }
+
+        Poker_Tournament_Import_Debug::log("Processing real-time tournament results from raw TDT content for tournament ID: {$tournament_id}");
+
+        try {
+            // Initialize parser
+            $parser = new Poker_Tournament_Parser();
+
+            // Use reflection to access private methods for real-time processing
+            $reflection = new ReflectionClass($parser);
+
+            // Extract GameHistory from raw TDT content
+            if ($reflection->hasMethod('extract_game_history')) {
+                $extract_game_history = $reflection->getMethod('extract_game_history');
+                $extract_game_history->setAccessible(true);
+                $game_history = $extract_game_history->invoke($parser, $raw_content);
+
+                // Extract players from raw TDT content
+                if ($reflection->hasMethod('extract_players')) {
+                    $extract_players = $reflection->getMethod('extract_players');
+                    $extract_players->setAccessible(true);
+                    $players = $extract_players->invoke($parser, $raw_content);
+
+                    // Process players with chronological GameHistory
+                    if ($reflection->hasMethod('calculate_player_rankings')) {
+                        $calculate_rankings = $reflection->getMethod('calculate_player_rankings');
+                        $calculate_rankings->setAccessible(true);
+                        $players = $calculate_rankings->invoke($parser, $players, $game_history);
+
+                        Poker_Tournament_Import_Debug::log_success("Real-time chronological processing completed for tournament ID: {$tournament_id}");
+
+                        return array(
+                            'players' => $players,
+                            'game_history' => $game_history,
+                            'metadata' => $this->extract_basic_metadata($raw_content)
+                        );
+                    }
+                }
+            }
+        } catch (Exception $e) {
+            Poker_Tournament_Import_Debug::log_error("Real-time processing failed: " . $e->getMessage());
+        }
+
+        return null;
+    }
+
+    /**
+     * Extract basic metadata from tournament data
+     */
+    private function extract_basic_metadata($tournament_data) {
+        $metadata = array();
+
+        // Extract basic info using regex patterns
+        if (preg_match('/UUID:\s*"([^"]+)"/', $tournament_data, $matches)) {
+            $metadata['uuid'] = $matches[1];
+        }
+
+        if (preg_match('/Title:\s*"([^"]+)"/', $tournament_data, $matches)) {
+            $metadata['title'] = $matches[1];
+        }
+
+        if (preg_match('/StartTime:\s*(\d+)/', $tournament_data, $matches)) {
+            $metadata['start_time'] = date('Y-m-d H:i:s', $matches[1] / 1000);
+        }
+
+        return $metadata;
+    }
+
+    /**
+     * Render real-time tournament players with correct chronological results
+     */
+    private function render_realtime_players($realtime_results, $tournament_id) {
+        $players = $realtime_results['players'];
+        $metadata = $realtime_results['metadata'];
+
+        if (empty($players)) {
+            echo '<p>' . __('No player data available.', 'poker-tournament-import') . '</p>';
+            return;
+        }
+
+        // Sort players by finish position
+        uasort($players, function($a, $b) {
+            return $a['finish_position'] - $b['finish_position'];
+        });
+
+        $players_count = count($players);
+        $paid_positions = 0;
+        foreach ($players as $player) {
+            if (isset($player['winnings']) && $player['winnings'] > 0) $paid_positions++;
+        }
+
+        $final_table_count = min(9, $players_count);
+        $bubble_position = $paid_positions + 1;
+
+        echo '<div class="tournament-players realtime-chronological">';
+        echo '<h3>' . __('Tournament Results (Chronological Processing)', 'poker-tournament-import') . '</h3>';
+
+        // Add processing notice
+        echo '<div class="processing-notice" style="background: #e7f3ff; border: 1px solid #2271b1; border-radius: 4px; padding: 10px; margin-bottom: 20px;">';
+        echo '<p><strong>🎯 Using Enhanced Chronological Processing</strong> - Results calculated from GameHistory events for maximum accuracy.</p>';
+        if (isset($metadata['title'])) {
+            echo '<p><small>Tournament: ' . esc_html($metadata['title']) . '</small></p>';
+        }
+        echo '</div>';
+
+        // Add tournament summary
+        echo '<div class="tournament-summary-grid">';
+        echo '<div class="summary-card">';
+        echo '<span class="summary-label">' . __('Entries:', 'poker-tournament-import') . '</span>';
+        echo '<span class="summary-value">' . esc_html($players_count) . '</span>';
+        echo '</div>';
+        echo '<div class="summary-card">';
+        echo '<span class="summary-label">' . __('Paid Positions:', 'poker-tournament-import') . '</span>';
+        echo '<span class="summary-value">' . esc_html($paid_positions) . '</span>';
+        echo '</div>';
+        echo '<div class="summary-card">';
+        echo '<span class="summary-label">' . __('Final Table:', 'poker-tournament-import') . '</span>';
+        echo '<span class="summary-value">' . esc_html($final_table_count) . '</span>';
+        echo '</div>';
+        echo '</div>';
+
+        echo '<table class="tournament-results-table enhanced" id="tournament-results-' . esc_attr($tournament_id) . '">';
+        echo '<thead>';
+        echo '<tr>';
+        echo '<th class="position-col">' . __('Pos', 'poker-tournament-import') . '</th>';
+        echo '<th class="player-col">' . __('Player', 'poker-tournament-import') . '</th>';
+        echo '<th class="winnings-col">' . __('Winnings', 'poker-tournament-import') . '</th>';
+        echo '<th class="points-col">' . __('Points', 'poker-tournament-import') . '</th>';
+        echo '<th class="achievements-col">' . __('Achievements', 'poker-tournament-import') . '</th>';
+        echo '</tr>';
+        echo '</thead>';
+        echo '<tbody>';
+
+        foreach ($players as $uuid => $player) {
+            $player_name = $player['nickname'] ?? __('Unknown Player', 'poker-tournament-import');
+
+            // Determine row class based on position
+            $row_class = '';
+            $position_badge = '';
+            $achievements = array();
+
+            if ($player['finish_position'] == 1) {
+                $row_class = 'gold-medal';
+                $position_badge = '🥇';
+                $achievements[] = '<span class="achievement-badge winner" title="' . __('Champion!', 'poker-tournament-import') . '">🏆</span>';
+
+                // Add winner source info
+                if (isset($player['winner_source'])) {
+                    $achievements[] = '<span class="achievement-badge chronological" title="Winner determined by: ' . esc_attr($player['winner_source']) . '">⚡</span>';
+                }
+            } elseif ($player['finish_position'] == 2) {
+                $row_class = 'silver-medal';
+                $position_badge = '🥈';
+                $achievements[] = '<span class="achievement-badge runner-up" title="' . __('Runner-up', 'poker-tournament-import') . '">🥈</span>';
+            } elseif ($player['finish_position'] == 3) {
+                $row_class = 'bronze-medal';
+                $position_badge = '🥉';
+                $achievements[] = '<span class="achievement-badge third-place" title="' . __('Third Place', 'poker-tournament-import') . '">🥉</span>';
+            } elseif ($player['finish_position'] <= $final_table_count) {
+                $row_class = 'final-table';
+                $achievements[] = '<span class="achievement-badge final-table" title="' . __('Final Table', 'poker-tournament-import') . '">🎯</span>';
+            } elseif ($player['finish_position'] == $bubble_position && $paid_positions > 0) {
+                $row_class = 'bubble';
+                $achievements[] = '<span class="achievement-badge bubble" title="' . __('Bubble Finish', 'poker-tournament-import') . '">💭</span>';
+            }
+
+            // Add elimination achievement with chronological data
+            if (isset($player['elimination_count']) && $player['elimination_count'] > 0) {
+                $achievements[] = '<span class="achievement-badge eliminations" title="' . sprintf(_n('%d Elimination', '%d Eliminations', $player['elimination_count'], 'poker-tournament-import'), $player['elimination_count']) . '">⚔️</span>';
+            } elseif (isset($player['hits']) && $player['hits'] > 0) {
+                $achievements[] = '<span class="achievement-badge eliminations" title="' . sprintf(_n('%d Elimination', '%d Eliminations', $player['hits'], 'poker-tournament-import'), $player['hits']) . '">⚔️</span>';
+            }
+
+            echo '<tr class="' . esc_attr($row_class) . '">';
+
+            // Position with badge
+            echo '<td class="position-cell">';
+            if ($position_badge) {
+                echo '<span class="position-badge">' . esc_html($position_badge) . '</span>';
+            }
+            echo '<span class="position-number">' . esc_html($player['finish_position']) . get_ordinal_suffix($player['finish_position']) . '</span>';
+            echo '</td>';
+
+            // Player name
+            echo '<td class="player-cell">';
+            echo '<div class="player-name">' . esc_html($player_name) . '</div>';
+
+            // Add elimination details if available from chronological processing
+            if (isset($player['elimination_details'])) {
+                $elim_details = $player['elimination_details'];
+                echo '<div class="elimination-info">';
+                echo '<span class="eliminated-by">by ' . esc_html($elim_details['eliminated_by_name']) . '</span>';
+                echo '</div>';
+            }
+            echo '</td>';
+
+            // Winnings
+            echo '<td class="winnings-cell">';
+            $winnings = $player['winnings'] ?? 0;
+            $currency = get_post_meta($tournament_id, '_currency', true) ?: '$';
+            if ($winnings > 0) {
+                echo '<span class="winnings-amount">' . esc_html($currency . number_format($winnings, 0)) . '</span>';
+            } else {
+                echo '<span class="winnings-none">-</span>';
+            }
+            echo '</td>';
+
+            // Points
+            echo '<td class="points-cell">';
+            $points = $player['points'] ?? 0;
+            if ($points > 0) {
+                echo '<span class="points-amount">' . esc_html(number_format($points, 1)) . '</span>';
+            } else {
+                echo '<span class="points-none">-</span>';
+            }
+            echo '</td>';
+
+            // Achievements
+            echo '<td class="achievements-cell">';
+            if (!empty($achievements)) {
+                echo '<div class="achievements-list">';
+                echo implode('', $achievements);
+                echo '</div>';
+            }
+            echo '</td>';
+
+            echo '</tr>';
+        }
+
+        echo '</tbody>';
+        echo '</table>';
+        echo '</div>';
     }
 }
 

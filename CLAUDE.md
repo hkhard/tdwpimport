@@ -285,3 +285,5 @@ npm run build
 - Optimize image handling for tournament displays
 - Consider background processing for large imports
 - When a new feature is implemented, create a new version of the install .zip file
+- we never use _ prefixes for our own variable names
+- In plan mode, always try to use pseudo code to describe what needs to be done

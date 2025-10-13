@@ -1013,18 +1013,29 @@ class Poker_Statistics_Engine {
         ));
 
         if ($existing) {
+            // Calculate new totals safely
+            $new_total_tournaments = $existing->total_tournaments + 1;
+            $new_total_revenue = $existing->total_revenue + $revenue;
+            $new_total_players = $existing->total_players + $players_count;
+            $new_total_profit = $existing->total_profit + $profit;
+
+            // Calculate averages safely, preventing division by zero
+            $avg_profit_per_tournament = $new_total_tournaments > 0 ? $new_total_profit / $new_total_tournaments : 0;
+            $avg_revenue_per_player = $new_total_players > 0 ? $new_total_revenue / $new_total_players : 0;
+            $profit_margin_percentage = $new_total_revenue > 0 ? ($new_total_profit / $new_total_revenue) * 100 : 0;
+
             // Update existing record
             $wpdb->update(
                 $analytics_table,
                 array(
-                    'total_tournaments' => $existing->total_tournaments + 1,
-                    'total_revenue' => $existing->total_revenue + $revenue,
+                    'total_tournaments' => $new_total_tournaments,
+                    'total_revenue' => $new_total_revenue,
                     'total_costs' => $existing->total_costs + $costs,
-                    'total_profit' => $existing->total_profit + $profit,
-                    'average_profit_per_tournament' => ($existing->total_profit + $profit) / ($existing->total_tournaments + 1),
-                    'total_players' => $existing->total_players + $players_count,
-                    'average_revenue_per_player' => ($existing->total_revenue + $revenue) / ($existing->total_players + $players_count),
-                    'profit_margin_percentage' => (($existing->total_profit + $profit) / ($existing->total_revenue + $revenue)) * 100,
+                    'total_profit' => $new_total_profit,
+                    'average_profit_per_tournament' => $avg_profit_per_tournament,
+                    'total_players' => $new_total_players,
+                    'average_revenue_per_player' => $avg_revenue_per_player,
+                    'profit_margin_percentage' => $profit_margin_percentage,
                     'updated_at' => current_time('mysql')
                 ),
                 array('analytics_period' => $current_period),
@@ -1043,7 +1054,7 @@ class Poker_Statistics_Engine {
                     'total_profit' => $profit,
                     'average_profit_per_tournament' => $profit,
                     'total_players' => $players_count,
-                    'average_revenue_per_player' => $revenue / $players_count,
+                    'average_revenue_per_player' => $players_count > 0 ? $revenue / $players_count : 0,
                     'profit_margin_percentage' => ($revenue > 0) ? ($profit / $revenue) * 100 : 0,
                     'currency_code' => 'USD'
                 ),
@@ -1062,7 +1073,7 @@ class Poker_Statistics_Engine {
         $tournament_date = get_post_meta(get_the_ID(), '_tournament_date', true) ?: date('Y-m-d');
         $buy_in_amount = floatval($tournament_data['buy_in'] ?? 0);
 
-        if (!empty($tournament_data['players'])) {
+        if (!empty($tournament_data['players']) && is_array($tournament_data['players'])) {
             foreach ($tournament_data['players'] as $player_data) {
                 $player_uuid = $player_data['uuid'] ?? '';
                 $winnings = floatval($player_data['winnings'] ?? 0);
