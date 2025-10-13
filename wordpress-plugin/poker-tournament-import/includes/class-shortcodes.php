@@ -38,6 +38,9 @@ class Poker_Tournament_Import_Shortcodes {
         add_shortcode('season_statistics', array($this, 'season_statistics_shortcode'));
         add_shortcode('season_players', array($this, 'season_players_shortcode'));
         add_shortcode('season_standings', array($this, 'season_standings_shortcode'));
+
+        // Dashboard shortcode
+        add_shortcode('poker_dashboard', array($this, 'poker_dashboard_shortcode'));
     }
 
     /**
@@ -147,7 +150,7 @@ class Poker_Tournament_Import_Shortcodes {
      */
     private function render_tournament_results($tournament, $atts) {
         // Get comprehensive tournament data
-        $tournament_uuid = get_post_meta($tournament->ID, '_tournament_uuid', true);
+        $tournament_uuid = get_post_meta($tournament->ID, 'tournament_uuid', true);
         $tournament_date = get_post_meta($tournament->ID, '_tournament_date', true);
         $buy_in = get_post_meta($tournament->ID, '_buy_in', true);
         $players_count = get_post_meta($tournament->ID, '_players_count', true);
@@ -215,14 +218,14 @@ class Poker_Tournament_Import_Shortcodes {
         if ($prize_pool) {
             echo '<div class="meta-item highlight">';
             echo '<span class="meta-label">' . __('Prize Pool:', 'poker-tournament-import') . '</span>';
-            echo '<span class="meta-value">' . esc_html($currency . number_format($prize_pool, 2)) . '</span>';
+            echo '<span class="meta-value">' . esc_html($currency . number_format(floatval($prize_pool ?: 0), 2)) . '</span>';
             echo '</div>';
         }
 
         if ($total_winnings > 0) {
             echo '<div class="meta-item">';
             echo '<span class="meta-label">' . __('Total Paid:', 'poker-tournament-import') . '</span>';
-            echo '<span class="meta-value">' . esc_html($currency . number_format($total_winnings, 2)) . '</span>';
+            echo '<span class="meta-value">' . esc_html($currency . number_format(floatval($total_winnings ?: 0), 2)) . '</span>';
             echo '</div>';
         }
 
@@ -258,7 +261,7 @@ class Poker_Tournament_Import_Shortcodes {
         $table_name = $wpdb->prefix . 'poker_tournament_players';
         $players = $wpdb->get_results($wpdb->prepare(
             "SELECT * FROM $table_name WHERE tournament_id = %s ORDER BY finish_position ASC",
-            get_post_meta($tournament_id, '_tournament_uuid', true)
+            get_post_meta($tournament_id, 'tournament_uuid', true)
         ));
 
         if ($players) {
@@ -306,7 +309,7 @@ class Poker_Tournament_Import_Shortcodes {
             foreach ($players as $index => $player) {
                 $player_post = get_posts(array(
                     'post_type' => 'player',
-                    'meta_key' => '_player_uuid',
+                    'meta_key' => 'player_uuid',
                     'meta_value' => $player->player_id,
                     'numberposts' => 1
                 ));
@@ -481,7 +484,7 @@ class Poker_Tournament_Import_Shortcodes {
         global $wpdb;
 
         $table_name = $wpdb->prefix . 'poker_tournament_players';
-        $player_uuid = get_post_meta($player_id, '_player_uuid', true);
+        $player_uuid = get_post_meta($player_id, 'player_uuid', true);
 
         if (!$player_uuid) {
             return;
@@ -538,7 +541,7 @@ class Poker_Tournament_Import_Shortcodes {
             "SELECT tp.*, p.post_title as tournament_name, p.post_date,
                     pm.meta_value as tournament_date
             FROM $table_name tp
-            LEFT JOIN {$wpdb->posts} p ON tp.tournament_id = (SELECT meta_value FROM {$wpdb->postmeta} WHERE post_id = p.ID AND meta_key = '_tournament_uuid')
+            LEFT JOIN {$wpdb->posts} p ON tp.tournament_id = (SELECT meta_value FROM {$wpdb->postmeta} WHERE post_id = p.ID AND meta_key = 'tournament_uuid')
             LEFT JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id AND pm.meta_key = '_tournament_date'
             WHERE tp.player_id = %s
             ORDER BY tp.finish_position ASC
@@ -754,7 +757,7 @@ class Poker_Tournament_Import_Shortcodes {
         foreach ($series_tournaments as $tournament) {
             $players_count = get_post_meta($tournament->ID, '_players_count', true);
             $prize_pool = get_post_meta($tournament->ID, '_prize_pool', true);
-            $tournament_uuid = get_post_meta($tournament->ID, '_tournament_uuid', true);
+            $tournament_uuid = get_post_meta($tournament->ID, 'tournament_uuid', true);
 
             $total_players += intval($players_count);
             $total_prize_pool += floatval($prize_pool);
@@ -790,7 +793,7 @@ class Poker_Tournament_Import_Shortcodes {
                     "SELECT p.ID, p.post_title
                      FROM {$wpdb->postmeta} pm
                      LEFT JOIN {$wpdb->posts} p ON pm.post_id = p.ID
-                     WHERE pm.meta_key = '_player_uuid' AND pm.meta_value = %s
+                     WHERE pm.meta_key = 'player_uuid' AND pm.meta_value = %s
                      LIMIT 1",
                     $top_player_data->player_id
                 ));
@@ -821,11 +824,11 @@ class Poker_Tournament_Import_Shortcodes {
                     <div class="stat-label"><?php _e('Unique Players', 'poker-tournament-import'); ?></div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-number">$<?php echo esc_html(number_format($total_prize_pool, 0)); ?></div>
+                    <div class="stat-number">$<?php echo esc_html(number_format(floatval($total_prize_pool ?: 0), 0)); ?></div>
                     <div class="stat-label"><?php _e('Total Prize Pool', 'poker-tournament-import'); ?></div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-number">$<?php echo esc_html(number_format($avg_prize_pool, 0)); ?></div>
+                    <div class="stat-number">$<?php echo esc_html(number_format(floatval($avg_prize_pool ?: 0), 0)); ?></div>
                     <div class="stat-label"><?php _e('Average Prize Pool', 'poker-tournament-import'); ?></div>
                 </div>
             </div>
@@ -859,7 +862,7 @@ class Poker_Tournament_Import_Shortcodes {
                 ?>
                     <div class="recent-tournaments-list">
                         <?php foreach ($recent_tournaments as $tournament):
-                            $tournament_uuid = get_post_meta($tournament->ID, '_tournament_uuid', true);
+                            $tournament_uuid = get_post_meta($tournament->ID, 'tournament_uuid', true);
                             $players_count = get_post_meta($tournament->ID, '_players_count', true);
                             $prize_pool = get_post_meta($tournament->ID, '_prize_pool', true);
                             $tournament_date = get_post_meta($tournament->ID, '_tournament_date', true);
@@ -871,7 +874,7 @@ class Poker_Tournament_Import_Shortcodes {
                                 $winner = $wpdb->get_row($wpdb->prepare(
                                     "SELECT p.post_title
                                      FROM $table_name tp
-                                     LEFT JOIN {$wpdb->postmeta} pm ON pm.meta_value = tp.player_id AND pm.meta_key = '_player_uuid'
+                                     LEFT JOIN {$wpdb->postmeta} pm ON pm.meta_value = tp.player_id AND pm.meta_key = 'player_uuid'
                                      LEFT JOIN {$wpdb->posts} p ON pm.post_id = p.ID
                                      WHERE tp.tournament_id = %s AND tp.finish_position = 1
                                      LIMIT 1",
@@ -888,7 +891,7 @@ class Poker_Tournament_Import_Shortcodes {
                                     <div class="tournament-meta">
                                         <span class="tournament-date"><?php echo $tournament_date ? esc_html(date_i18n('M j, Y', strtotime($tournament_date))) : esc_html(get_the_date('M j, Y', $tournament->ID)); ?></span>
                                         <span class="tournament-players"><?php echo esc_html($players_count); ?> <?php _e('players', 'poker-tournament-import'); ?></span>
-                                        <span class="tournament-prize"><?php echo esc_html($currency . number_format($prize_pool, 0)); ?></span>
+                                        <span class="tournament-prize"><?php echo esc_html($currency . number_format(floatval($prize_pool ?: 0), 0)); ?></span>
                                     </div>
                                 </div>
                                 <?php if ($winner_name): ?>
@@ -960,7 +963,7 @@ class Poker_Tournament_Import_Shortcodes {
                             $table_name = $wpdb->prefix . 'poker_tournament_players';
 
                             foreach ($series_tournaments as $tournament):
-                                $tournament_uuid = get_post_meta($tournament->ID, '_tournament_uuid', true);
+                                $tournament_uuid = get_post_meta($tournament->ID, 'tournament_uuid', true);
                                 $players_count = get_post_meta($tournament->ID, '_players_count', true);
                                 $prize_pool = get_post_meta($tournament->ID, '_prize_pool', true);
                                 $tournament_date = get_post_meta($tournament->ID, '_tournament_date', true);
@@ -972,7 +975,7 @@ class Poker_Tournament_Import_Shortcodes {
                                     $winner = $wpdb->get_row($wpdb->prepare(
                                         "SELECT p.post_title
                                          FROM $table_name tp
-                                         LEFT JOIN {$wpdb->postmeta} pm ON pm.meta_value = tp.player_id AND pm.meta_key = '_player_uuid'
+                                         LEFT JOIN {$wpdb->postmeta} pm ON pm.meta_value = tp.player_id AND pm.meta_key = 'player_uuid'
                                          LEFT JOIN {$wpdb->posts} p ON pm.post_id = p.ID
                                          WHERE tp.tournament_id = %s AND tp.finish_position = 1
                                          LIMIT 1",
@@ -991,7 +994,7 @@ class Poker_Tournament_Import_Shortcodes {
                                         <?php echo $tournament_date ? esc_html(date_i18n('M j, Y', strtotime($tournament_date))) : esc_html(get_the_date('M j, Y', $tournament->ID)); ?>
                                     </td>
                                     <td class="tournament-players"><?php echo esc_html($players_count ?: '--'); ?></td>
-                                    <td class="tournament-prize"><?php echo esc_html($currency . number_format($prize_pool ?: 0, 0)); ?></td>
+                                    <td class="tournament-prize"><?php echo esc_html($currency . number_format(floatval($prize_pool ?: 0), 0)); ?></td>
                                     <td class="tournament-winner">
                                         <?php if ($winner_name): ?>
                                             <a href="#" class="winner-link"><?php echo esc_html($winner_name); ?></a>
@@ -1055,7 +1058,7 @@ class Poker_Tournament_Import_Shortcodes {
 
         $tournament_uuids = array();
         foreach ($series_tournaments as $tournament_id) {
-            $uuid = get_post_meta($tournament_id, '_tournament_uuid', true);
+            $uuid = get_post_meta($tournament_id, 'tournament_uuid', true);
             if ($uuid) $tournament_uuids[] = $uuid;
         }
 
@@ -1104,7 +1107,7 @@ class Poker_Tournament_Import_Shortcodes {
                                         "SELECT p.ID, p.post_title
                                          FROM {$wpdb->postmeta} pm
                                          LEFT JOIN {$wpdb->posts} p ON pm.post_id = p.ID
-                                         WHERE pm.meta_key = '_player_uuid' AND pm.meta_value = %s
+                                         WHERE pm.meta_key = 'player_uuid' AND pm.meta_value = %s
                                          LIMIT 1",
                                         $player->player_id
                                     ));
@@ -1180,7 +1183,7 @@ class Poker_Tournament_Import_Shortcodes {
 
         $tournament_uuids = array();
         foreach ($series_tournaments as $tournament_id) {
-            $uuid = get_post_meta($tournament_id, '_tournament_uuid', true);
+            $uuid = get_post_meta($tournament_id, 'tournament_uuid', true);
             if ($uuid) $tournament_uuids[] = $uuid;
         }
 
@@ -1219,7 +1222,7 @@ class Poker_Tournament_Import_Shortcodes {
                             "SELECT p.ID, p.post_title
                              FROM {$wpdb->postmeta} pm
                              LEFT JOIN {$wpdb->posts} p ON pm.post_id = p.ID
-                             WHERE pm.meta_key = '_player_uuid' AND pm.meta_value = %s
+                             WHERE pm.meta_key = 'player_uuid' AND pm.meta_value = %s
                              LIMIT 1",
                             $player->player_id
                         ));
@@ -1391,7 +1394,7 @@ class Poker_Tournament_Import_Shortcodes {
         foreach ($season_tournaments as $tournament) {
             $players_count = get_post_meta($tournament->ID, '_players_count', true);
             $prize_pool = get_post_meta($tournament->ID, '_prize_pool', true);
-            $tournament_uuid = get_post_meta($tournament->ID, '_tournament_uuid', true);
+            $tournament_uuid = get_post_meta($tournament->ID, 'tournament_uuid', true);
 
             $total_players += intval($players_count);
             $total_prize_pool += floatval($prize_pool);
@@ -1426,7 +1429,7 @@ class Poker_Tournament_Import_Shortcodes {
                     "SELECT p.ID, p.post_title
                      FROM {$wpdb->postmeta} pm
                      LEFT JOIN {$wpdb->posts} p ON pm.post_id = p.ID
-                     WHERE pm.meta_key = '_player_uuid' AND pm.meta_value = %s
+                     WHERE pm.meta_key = 'player_uuid' AND pm.meta_value = %s
                      LIMIT 1",
                     $top_player_data->player_id
                 ));
@@ -1457,11 +1460,11 @@ class Poker_Tournament_Import_Shortcodes {
                     <div class="stat-label"><?php _e('Unique Players', 'poker-tournament-import'); ?></div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-number">$<?php echo esc_html(number_format($total_prize_pool, 0)); ?></div>
+                    <div class="stat-number">$<?php echo esc_html(number_format(floatval($total_prize_pool ?: 0), 0)); ?></div>
                     <div class="stat-label"><?php _e('Total Prize Pool', 'poker-tournament-import'); ?></div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-number">$<?php echo esc_html(number_format($avg_prize_pool, 0)); ?></div>
+                    <div class="stat-number">$<?php echo esc_html(number_format(floatval($avg_prize_pool ?: 0), 0)); ?></div>
                     <div class="stat-label"><?php _e('Average Prize Pool', 'poker-tournament-import'); ?></div>
                 </div>
             </div>
@@ -1495,7 +1498,7 @@ class Poker_Tournament_Import_Shortcodes {
                 ?>
                     <div class="recent-tournaments-list">
                         <?php foreach ($recent_tournaments as $tournament):
-                            $tournament_uuid = get_post_meta($tournament->ID, '_tournament_uuid', true);
+                            $tournament_uuid = get_post_meta($tournament->ID, 'tournament_uuid', true);
                             $players_count = get_post_meta($tournament->ID, '_players_count', true);
                             $prize_pool = get_post_meta($tournament->ID, '_prize_pool', true);
                             $tournament_date = get_post_meta($tournament->ID, '_tournament_date', true);
@@ -1507,7 +1510,7 @@ class Poker_Tournament_Import_Shortcodes {
                                 $winner = $wpdb->get_row($wpdb->prepare(
                                     "SELECT p.post_title
                                      FROM $table_name tp
-                                     LEFT JOIN {$wpdb->postmeta} pm ON pm.meta_value = tp.player_id AND pm.meta_key = '_player_uuid'
+                                     LEFT JOIN {$wpdb->postmeta} pm ON pm.meta_value = tp.player_id AND pm.meta_key = 'player_uuid'
                                      LEFT JOIN {$wpdb->posts} p ON pm.post_id = p.ID
                                      WHERE tp.tournament_id = %s AND tp.finish_position = 1
                                      LIMIT 1",
@@ -1524,7 +1527,7 @@ class Poker_Tournament_Import_Shortcodes {
                                     <div class="tournament-meta">
                                         <span class="tournament-date"><?php echo $tournament_date ? esc_html(date_i18n('M j, Y', strtotime($tournament_date))) : esc_html(get_the_date('M j, Y', $tournament->ID)); ?></span>
                                         <span class="tournament-players"><?php echo esc_html($players_count); ?> <?php _e('players', 'poker-tournament-import'); ?></span>
-                                        <span class="tournament-prize"><?php echo esc_html($currency . number_format($prize_pool, 0)); ?></span>
+                                        <span class="tournament-prize"><?php echo esc_html($currency . number_format(floatval($prize_pool ?: 0), 0)); ?></span>
                                     </div>
                                 </div>
                                 <?php if ($winner_name): ?>
@@ -1596,7 +1599,7 @@ class Poker_Tournament_Import_Shortcodes {
                             $table_name = $wpdb->prefix . 'poker_tournament_players';
 
                             foreach ($season_tournaments as $tournament):
-                                $tournament_uuid = get_post_meta($tournament->ID, '_tournament_uuid', true);
+                                $tournament_uuid = get_post_meta($tournament->ID, 'tournament_uuid', true);
                                 $players_count = get_post_meta($tournament->ID, '_players_count', true);
                                 $prize_pool = get_post_meta($tournament->ID, '_prize_pool', true);
                                 $tournament_date = get_post_meta($tournament->ID, '_tournament_date', true);
@@ -1608,7 +1611,7 @@ class Poker_Tournament_Import_Shortcodes {
                                     $winner = $wpdb->get_row($wpdb->prepare(
                                         "SELECT p.post_title
                                          FROM $table_name tp
-                                         LEFT JOIN {$wpdb->postmeta} pm ON pm.meta_value = tp.player_id AND pm.meta_key = '_player_uuid'
+                                         LEFT JOIN {$wpdb->postmeta} pm ON pm.meta_value = tp.player_id AND pm.meta_key = 'player_uuid'
                                          LEFT JOIN {$wpdb->posts} p ON pm.post_id = p.ID
                                          WHERE tp.tournament_id = %s AND tp.finish_position = 1
                                          LIMIT 1",
@@ -1627,7 +1630,7 @@ class Poker_Tournament_Import_Shortcodes {
                                         <?php echo $tournament_date ? esc_html(date_i18n('M j, Y', strtotime($tournament_date))) : esc_html(get_the_date('M j, Y', $tournament->ID)); ?>
                                     </td>
                                     <td class="tournament-players"><?php echo esc_html($players_count ?: '--'); ?></td>
-                                    <td class="tournament-prize"><?php echo esc_html($currency . number_format($prize_pool ?: 0, 0)); ?></td>
+                                    <td class="tournament-prize"><?php echo esc_html($currency . number_format(floatval($prize_pool ?: 0), 0)); ?></td>
                                     <td class="tournament-winner">
                                         <?php if ($winner_name): ?>
                                             <a href="#" class="winner-link"><?php echo esc_html($winner_name); ?></a>
@@ -1683,7 +1686,7 @@ class Poker_Tournament_Import_Shortcodes {
 
         $tournament_uuids = array();
         foreach ($season_tournaments as $tournament_id) {
-            $uuid = get_post_meta($tournament_id, '_tournament_uuid', true);
+            $uuid = get_post_meta($tournament_id, 'tournament_uuid', true);
             if ($uuid) $tournament_uuids[] = $uuid;
         }
 
@@ -1732,7 +1735,7 @@ class Poker_Tournament_Import_Shortcodes {
                                         "SELECT p.ID, p.post_title
                                          FROM {$wpdb->postmeta} pm
                                          LEFT JOIN {$wpdb->posts} p ON pm.post_id = p.ID
-                                         WHERE pm.meta_key = '_player_uuid' AND pm.meta_value = %s
+                                         WHERE pm.meta_key = 'player_uuid' AND pm.meta_value = %s
                                          LIMIT 1",
                                         $player->player_id
                                     ));
@@ -1808,7 +1811,7 @@ class Poker_Tournament_Import_Shortcodes {
 
         $tournament_uuids = array();
         foreach ($season_tournaments as $tournament_id) {
-            $uuid = get_post_meta($tournament_id, '_tournament_uuid', true);
+            $uuid = get_post_meta($tournament_id, 'tournament_uuid', true);
             if ($uuid) $tournament_uuids[] = $uuid;
         }
 
@@ -1847,7 +1850,7 @@ class Poker_Tournament_Import_Shortcodes {
                             "SELECT p.ID, p.post_title
                              FROM {$wpdb->postmeta} pm
                              LEFT JOIN {$wpdb->posts} p ON pm.post_id = p.ID
-                             WHERE pm.meta_key = '_player_uuid' AND pm.meta_value = %s
+                             WHERE pm.meta_key = 'player_uuid' AND pm.meta_value = %s
                              LIMIT 1",
                             $player->player_id
                         ));
@@ -1902,9 +1905,8 @@ class Poker_Tournament_Import_Shortcodes {
         <?php
         return ob_get_clean();
     }
-}
 
-/**
+    /**
      * Series standings shortcode
      * Usage: [series_standings id="123" formula="season_total" show_details="true"]
      */
@@ -2269,6 +2271,1718 @@ class Poker_Tournament_Import_Shortcodes {
         </style>
         <?php
         return ob_get_clean();
+    }
+
+    /**
+     * Modern Poker Dashboard shortcode
+     * Usage: [poker_dashboard view="overview" limit="10" show_stats="true"]
+     */
+    public function poker_dashboard_shortcode($atts) {
+        $atts = shortcode_atts(
+            array(
+                'view' => 'overview',
+                'limit' => 10,
+                'show_stats' => 'true',
+                'drill_through' => 'true'
+            ),
+            $atts,
+            'poker_dashboard'
+        );
+
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'poker_tournament_players';
+
+        // Get global statistics
+        $global_stats = $this->get_dashboard_statistics();
+        $recent_tournaments = $this->get_recent_tournaments(intval($atts['limit']));
+
+        // **PHASE 1: Enhanced Player Data**
+        if (class_exists('Poker_Statistics_Engine')) {
+            $stats_engine = Poker_Statistics_Engine::get_instance();
+            $player_leaderboard = $stats_engine->get_player_leaderboard(intval($atts['limit']));
+            $participation_trends = $stats_engine->get_player_participation_trends(30);
+        } else {
+            $player_leaderboard = $this->get_top_players(intval($atts['limit']));
+            $participation_trends = array();
+        }
+
+        // Get active series for dashboard
+        $active_series = $this->get_active_series(5);
+
+        // **DEBUG**: Log data availability for troubleshooting
+        if (current_user_can('manage_options')) {
+            error_log("Poker Dashboard Debug: Player Leaderboard Count: " . count($player_leaderboard));
+            error_log("Poker Dashboard Debug: Active Series Count: " . count($active_series));
+            error_log("Poker Dashboard Debug: Recent Tournaments Count: " . count($recent_tournaments));
+
+            if (empty($player_leaderboard)) {
+                error_log("Poker Dashboard Debug: Player leaderboard empty - checking if statistics engine exists: " . (class_exists('Poker_Statistics_Engine') ? 'YES' : 'NO'));
+            }
+
+            if (empty($active_series)) {
+                error_log("Poker Dashboard Debug: Active series empty - checking tournament series count: " . wp_count_posts('tournament_series')->publish);
+            }
+        }
+
+        ob_start();
+        ?>
+        <div class="poker-dashboard-container" id="poker-dashboard-main">
+
+            <!-- Dashboard Header -->
+            <header class="dashboard-header">
+                <div class="dashboard-title">
+                    <h1><?php _e('Poker Tournament Dashboard', 'poker-tournament-import'); ?></h1>
+                    <p class="dashboard-subtitle"><?php _e('Complete tournament analytics and insights', 'poker-tournament-import'); ?></p>
+                </div>
+                <div class="dashboard-actions">
+                    <button class="dashboard-refresh" id="refresh-statistics" onclick="refreshStatistics()">
+                        <i class="icon-refresh"></i> <span class="button-text"><?php _e('Refresh Statistics', 'poker-tournament-import'); ?></span>
+                    </button>
+                    <button class="dashboard-export" data-export="dashboard">
+                        <i class="icon-download"></i> <?php _e('Export', 'poker-tournament-import'); ?>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Navigation Tabs -->
+            <nav class="dashboard-nav">
+                <div class="nav-tabs">
+                    <button class="nav-tab active" data-view="overview">
+                        <i class="icon-dashboard"></i> <?php _e('Overview', 'poker-tournament-import'); ?>
+                    </button>
+                    <button class="nav-tab" data-view="tournaments">
+                        <i class="icon-trophy"></i> <?php _e('Tournaments', 'poker-tournament-import'); ?>
+                    </button>
+                    <button class="nav-tab" data-view="players">
+                        <i class="icon-users"></i> <?php _e('Players', 'poker-tournament-import'); ?>
+                    </button>
+                    <button class="nav-tab" data-view="series">
+                        <i class="icon-series"></i> <?php _e('Series', 'poker-tournament-import'); ?>
+                    </button>
+                    <button class="nav-tab" data-view="analytics">
+                        <i class="icon-chart"></i> <?php _e('Analytics', 'poker-tournament-import'); ?>
+                    </button>
+                </div>
+            </nav>
+
+            <!-- Dashboard Content -->
+            <main class="dashboard-content">
+
+                <!-- Overview Tab -->
+                <div class="dashboard-tab active" id="overview-tab">
+
+                    <!-- Key Statistics Cards -->
+                    <section class="dashboard-stats-grid">
+                        <div class="stat-card primary clickable" data-drill="tournaments">
+                            <div class="stat-icon">🏆</div>
+                            <div class="stat-number"><?php echo esc_html($global_stats['total_tournaments']); ?></div>
+                            <div class="stat-label"><?php _e('Total Tournaments', 'poker-tournament-import'); ?></div>
+                            <div class="stat-change">+<?php echo esc_html($global_stats['recent_tournaments']); ?> <?php _e('this month', 'poker-tournament-import'); ?></div>
+                        </div>
+
+                        <div class="stat-card success clickable" data-drill="players">
+                            <div class="stat-icon">👥</div>
+                            <div class="stat-number"><?php echo esc_html($global_stats['total_players']); ?></div>
+                            <div class="stat-label"><?php _e('Unique Players', 'poker-tournament-import'); ?></div>
+                            <div class="stat-change">+<?php echo esc_html($global_stats['new_players']); ?> <?php _e('new players', 'poker-tournament-import'); ?></div>
+                        </div>
+
+                        <div class="stat-card info clickable" data-drill="prizes">
+                            <div class="stat-icon">💰</div>
+                            <div class="stat-number">$<?php echo esc_html(number_format(floatval($global_stats['total_prize_pool'] ?: 0), 0)); ?></div>
+                            <div class="stat-label"><?php _e('Total Prize Pool', 'poker-tournament-import'); ?></div>
+                            <div class="stat-change">$<?php echo esc_html(number_format(floatval($global_stats['avg_prize_pool'] ?: 0), 0)); ?> <?php _e('average', 'poker-tournament-import'); ?></div>
+                        </div>
+
+                        <div class="stat-card warning clickable" data-drill="events">
+                            <div class="stat-icon">📅</div>
+                            <div class="stat-number"><?php echo esc_html($global_stats['active_series']); ?></div>
+                            <div class="stat-label"><?php _e('Active Series', 'poker-tournament-import'); ?></div>
+                            <div class="stat-change"><?php echo esc_html($global_stats['upcoming_events']); ?> <?php _e('upcoming', 'poker-tournament-import'); ?></div>
+                        </div>
+                    </section>
+
+                    <!-- Recent Activity Grid -->
+                    <section class="dashboard-grid">
+                        <!-- Recent Tournaments -->
+                        <div class="dashboard-card">
+                            <div class="card-header">
+                                <h3><?php _e('Recent Tournaments', 'poker-tournament-import'); ?></h3>
+                                <button class="card-action" data-drill="all-tournaments">
+                                    <?php _e('View All', 'poker-tournament-import'); ?> →
+                                </button>
+                            </div>
+                            <div class="card-content">
+                                <?php if (!empty($recent_tournaments)): ?>
+                                    <div class="tournaments-list">
+                                        <?php foreach ($recent_tournaments as $tournament): ?>
+                                            <div class="tournament-item clickable" data-tournament-id="<?php echo esc_attr($tournament->ID); ?>">
+                                                <div class="tournament-info">
+                                                    <div class="tournament-name"><?php echo esc_html($tournament->post_title); ?></div>
+                                                    <div class="tournament-meta">
+                                                        <span class="date"><?php echo esc_html(date_i18n('M j', strtotime($tournament->tournament_date))); ?></span>
+                                                        <span class="players"><?php echo esc_html($tournament->players_count); ?> <?php _e('players', 'poker-tournament-import'); ?></span>
+                                                        <span class="prize">$<?php echo esc_html(number_format(floatval($tournament->prize_pool ?: 0), 0)); ?></span>
+                                                    </div>
+                                                </div>
+                                                <div class="tournament-winner">
+                                                    <?php if ($tournament->winner_name): ?>
+                                                        <span class="winner-avatar"><?php echo substr($tournament->winner_name, 0, 2); ?></span>
+                                                        <span class="winner-name"><?php echo esc_html($tournament->winner_name); ?></span>
+                                                    <?php else: ?>
+                                                        <span class="no-winner">--</span>
+                                                    <?php endif; ?>
+                                                </div>
+                                            </div>
+                                        <?php endforeach; ?>
+                                    </div>
+                                <?php else: ?>
+                                    <p class="no-data"><?php _e('No recent tournaments found.', 'poker-tournament-import'); ?></p>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+
+                        <!-- Top Players -->
+                        <div class="dashboard-card">
+                            <div class="card-header">
+                                <h3><?php _e('Top Players', 'poker-tournament-import'); ?></h3>
+                                <button class="card-action" data-drill="leaderboard">
+                                    <?php _e('Full Leaderboard', 'poker-tournament-import'); ?> →
+                                </button>
+                            </div>
+                            <div class="card-content">
+                                <?php if (!empty($player_leaderboard)): ?>
+                                    <div class="players-list">
+                                        <?php foreach ($player_leaderboard as $index => $player): ?>
+                                            <div class="player-item clickable" data-player-id="<?php echo esc_attr($player->player_post_id); ?>">
+                                                <div class="player-rank"><?php echo esc_html($index + 1); ?></div>
+                                                <div class="player-avatar"><?php echo esc_html(substr($player->player_name, 0, 2)); ?></div>
+                                                <div class="player-info">
+                                                    <div class="player-name"><?php echo esc_html($player->player_name); ?></div>
+                                                    <div class="player-stats">
+                                                        <span class="winnings">$<?php echo esc_html(number_format($player->total_winnings, 0)); ?></span>
+                                                        <span class="tournaments"><?php echo esc_html($player->tournaments_played); ?> <?php _e('events', 'poker-tournament-import'); ?></span>
+                                                    </div>
+                                                </div>
+                                                <div class="player-achievement">
+                                                    <?php if ($player->best_finish == 1): ?>
+                                                        <span class="badge gold">🏆</span>
+                                                    <?php elseif ($player->best_finish <= 3): ?>
+                                                        <span class="badge bronze">🥈</span>
+                                                    <?php endif; ?>
+                                                </div>
+                                            </div>
+                                        <?php endforeach; ?>
+                                    </div>
+                                <?php else: ?>
+                                    <p class="no-data"><?php _e('No player data available.', 'poker-tournament-import'); ?></p>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+
+                        <!-- Active Series -->
+                        <div class="dashboard-card">
+                            <div class="card-header">
+                                <h3><?php _e('Active Series', 'poker-tournament-import'); ?></h3>
+                                <button class="card-action" data-drill="all-series">
+                                    <?php _e('All Series', 'poker-tournament-import'); ?> →
+                                </button>
+                            </div>
+                            <div class="card-content">
+                                <?php if (!empty($active_series)): ?>
+                                    <div class="series-list">
+                                        <?php foreach ($active_series as $series): ?>
+                                            <div class="series-item clickable" data-series-id="<?php echo esc_attr($series->ID); ?>">
+                                                <div class="series-info">
+                                                    <div class="series-name"><?php echo esc_html($series->post_title); ?></div>
+                                                    <div class="series-meta">
+                                                        <span class="tournaments"><?php echo esc_html($series->tournament_count); ?> <?php _e('tournaments', 'poker-tournament-import'); ?></span>
+                                                        <span class="players"><?php echo esc_html($series->player_count); ?> <?php _e('players', 'poker-tournament-import'); ?></span>
+                                                    </div>
+                                                </div>
+                                                <div class="series-progress">
+                                                    <div class="progress-bar">
+                                                        <div class="progress-fill" style="width: <?php echo esc_attr($series->progress_percent); ?>%"></div>
+                                                    </div>
+                                                    <span class="progress-text"><?php echo esc_html($series->progress_percent); ?>%</span>
+                                                </div>
+                                            </div>
+                                        <?php endforeach; ?>
+                                    </div>
+                                <?php else: ?>
+                                    <p class="no-data"><?php _e('No active series found.', 'poker-tournament-import'); ?></p>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+
+                        <!-- Quick Actions -->
+                        <div class="dashboard-card">
+                            <div class="card-header">
+                                <h3><?php _e('Quick Actions', 'poker-tournament-import'); ?></h3>
+                            </div>
+                            <div class="card-content">
+                                <div class="quick-actions-grid">
+                                    <button class="quick-action-btn" data-action="import">
+                                        <i class="icon-upload"></i>
+                                        <span><?php _e('Import Tournament', 'poker-tournament-import'); ?></span>
+                                    </button>
+                                    <button class="quick-action-btn" data-action="create-series">
+                                        <i class="icon-plus"></i>
+                                        <span><?php _e('Create Series', 'poker-tournament-import'); ?></span>
+                                    </button>
+                                    <button class="quick-action-btn" data-action="view-calendar">
+                                        <i class="icon-calendar"></i>
+                                        <span><?php _e('Tournament Calendar', 'poker-tournament-import'); ?></span>
+                                    </button>
+                                    <button class="quick-action-btn" data-action="generate-report">
+                                        <i class="icon-report"></i>
+                                        <span><?php _e('Generate Report', 'poker-tournament-import'); ?></span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+
+                <!-- Tournaments Tab (Loaded via AJAX) -->
+                <div class="dashboard-tab" id="tournaments-tab">
+                    <div class="loading-spinner">
+                        <i class="icon-spinner"></i> <?php _e('Loading tournaments...', 'poker-tournament-import'); ?>
+                    </div>
+                </div>
+
+                <!-- Players Tab -->
+                <div class="dashboard-tab" id="players-tab">
+                    <!-- **PHASE 1: Enhanced Player Statistics** -->
+
+                    <!-- Player Stats Summary -->
+                    <section class="dashboard-stats-grid">
+                        <div class="stat-card primary">
+                            <div class="stat-icon">👥</div>
+                            <div class="stat-number"><?php echo esc_html($global_stats['total_unique_players']); ?></div>
+                            <div class="stat-label"><?php _e('Total Players', 'poker-tournament-import'); ?></div>
+                        </div>
+
+                        <div class="stat-card success">
+                            <div class="stat-icon">🎯</div>
+                            <div class="stat-number"><?php echo esc_html(number_format(floatval($global_stats['average_finish_position'] ?: 0), 1)); ?></div>
+                            <div class="stat-label"><?php _e('Average Finish', 'poker-tournament-import'); ?></div>
+                        </div>
+
+                        <div class="stat-card info">
+                            <div class="stat-icon">💰</div>
+                            <div class="stat-number">$<?php echo esc_html(number_format(floatval($global_stats['total_payouts'] ?: 0), 0)); ?></div>
+                            <div class="stat-label"><?php _e('Total Payouts', 'poker-tournament-import'); ?></div>
+                        </div>
+
+                        <div class="stat-card warning">
+                            <div class="stat-icon">🏆</div>
+                            <div class="stat-number">$<?php echo esc_html(number_format(floatval($global_stats['highest_single_payout'] ?: 0), 0)); ?></div>
+                            <div class="stat-label"><?php _e('Highest Payout', 'poker-tournament-import'); ?></div>
+                        </div>
+                    </section>
+
+                    <!-- Player Leaderboard -->
+                    <section class="dashboard-grid">
+                        <div class="dashboard-card full-width">
+                            <div class="card-header">
+                                <h3><?php _e('Top Players by Winnings', 'poker-tournament-import'); ?></h3>
+                                <button class="card-action" data-drill="all-players">
+                                    <?php _e('View All Players', 'poker-tournament-import'); ?> →
+                                </button>
+                            </div>
+                            <div class="card-content">
+                                <?php if (!empty($player_leaderboard)): ?>
+                                    <div class="player-leaderboard-table">
+                                        <div class="table-header">
+                                            <div class="header-rank"><?php _e('Rank', 'poker-tournament-import'); ?></div>
+                                            <div class="header-player"><?php _e('Player', 'poker-tournament-import'); ?></div>
+                                            <div class="header-tournaments"><?php _e('Tournaments', 'poker-tournament-import'); ?></div>
+                                            <div class="header-winnings"><?php _e('Winnings', 'poker-tournament-import'); ?></div>
+                                            <div class="header-best"><?php _e('Best Finish', 'poker-tournament-import'); ?></div>
+                                            <div class="header-avg"><?php _e('Avg Finish', 'poker-tournament-import'); ?></div>
+                                        </div>
+                                        <?php foreach ($player_leaderboard as $index => $player): ?>
+                                            <div class="table-row" data-player-id="<?php echo esc_attr($player->player_id); ?>">
+                                                <div class="rank-cell"><?php echo $index + 1; ?></div>
+                                                <div class="player-cell">
+                                                    <?php if ($player->player_post_id): ?>
+                                                        <a href="<?php echo esc_url(get_permalink($player->player_post_id)); ?>"
+                                                           class="player-link drill-through"
+                                                           data-drill-type="player"
+                                                           data-player-id="<?php echo esc_attr($player->player_id); ?>"
+                                                           data-player-post-id="<?php echo esc_attr($player->player_post_id); ?>">
+                                                            <?php echo esc_html($player->player_name); ?>
+                                                        </a>
+                                                    <?php else: ?>
+                                                        <span class="player-name drill-through"
+                                                              data-drill-type="player"
+                                                              data-player-id="<?php echo esc_attr($player->player_id); ?>"
+                                                              style="color: #0073aa; cursor: pointer; text-decoration: underline;">
+                                                            <?php echo esc_html($player->player_name); ?>
+                                                        </span>
+                                                    <?php endif; ?>
+                                                </div>
+                                                <div class="tournaments-cell"><?php echo esc_html($player->tournaments_played); ?></div>
+                                                <div class="winnings-cell">$<?php echo esc_html(number_format(floatval($player->total_winnings), 0)); ?></div>
+                                                <div class="best-finish-cell"><?php echo esc_html($player->best_finish); ?></div>
+                                                <div class="avg-finish-cell"><?php echo esc_html(number_format(floatval($player->avg_finish), 1)); ?></div>
+                                            </div>
+                                        <?php endforeach; ?>
+                                    </div>
+                                <?php else: ?>
+                                    <p class="no-data"><?php _e('No player data available. Import tournaments to see player statistics.', 'poker-tournament-import'); ?></p>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Participation Trends -->
+                    <?php if (!empty($participation_trends)): ?>
+                    <section class="dashboard-card">
+                        <div class="card-header">
+                            <h3><?php _e('30-Day Participation Trends', 'poker-tournament-import'); ?></h3>
+                        </div>
+                        <div class="card-content">
+                            <div class="trends-chart">
+                                <?php foreach (array_slice($participation_trends, 0, 7) as $trend): ?>
+                                    <div class="trend-item">
+                                        <div class="trend-date"><?php echo esc_html(date('M j', strtotime($trend->date))); ?></div>
+                                        <div class="trend-stats">
+                                            <span class="trend-players"><?php echo esc_html($trend->unique_players); ?> players</span>
+                                            <span class="trend-entries"><?php echo esc_html($trend->total_entries); ?> entries</span>
+                                        </div>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                    </section>
+                    <?php endif; ?>
+                </div>
+
+                <!-- Series Tab (Loaded via AJAX) -->
+                <div class="dashboard-tab" id="series-tab">
+                    <div class="loading-spinner">
+                        <i class="icon-spinner"></i> <?php _e('Loading series...', 'poker-tournament-import'); ?>
+                    </div>
+                </div>
+
+                <!-- Analytics Tab (Loaded via AJAX) -->
+                <div class="dashboard-tab" id="analytics-tab">
+                    <div class="loading-spinner">
+                        <i class="icon-spinner"></i> <?php _e('Loading analytics...', 'poker-tournament-import'); ?>
+                    </div>
+                </div>
+
+            </main>
+        </div>
+
+        <!-- Dashboard Styles -->
+        <style>
+        .poker-dashboard-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        .dashboard-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .dashboard-title h1 {
+            margin: 0 0 5px 0;
+            font-size: 32px;
+            font-weight: 700;
+            color: #1a1a1a;
+        }
+
+        .dashboard-subtitle {
+            margin: 0;
+            color: #666;
+            font-size: 16px;
+        }
+
+        .dashboard-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        .dashboard-refresh,
+        .dashboard-export {
+            background: #fff;
+            border: 2px solid #e0e0e0;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .dashboard-refresh:hover,
+        .dashboard-export:hover {
+            border-color: #0073aa;
+            background: #f0f8ff;
+        }
+
+        .dashboard-nav {
+            margin-bottom: 30px;
+        }
+
+        .nav-tabs {
+            display: flex;
+            background: #fff;
+            border-radius: 12px;
+            padding: 4px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .nav-tab {
+            flex: 1;
+            padding: 12px 20px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            color: #666;
+            border-radius: 8px;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .nav-tab.active {
+            background: #0073aa;
+            color: white;
+        }
+
+        .nav-tab:hover:not(.active) {
+            background: #f5f5f5;
+        }
+
+        .dashboard-tab {
+            display: none;
+        }
+
+        .dashboard-tab.active {
+            display: block;
+        }
+
+        .dashboard-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: #fff;
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card.clickable {
+            cursor: pointer;
+        }
+
+        .stat-card.clickable:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+        }
+
+        .stat-card.primary { border-left: 4px solid #0073aa; }
+        .stat-card.success { border-left: 4px solid #46b450; }
+        .stat-card.info { border-left: 4px solid #666; }
+        .stat-card.warning { border-left: 4px solid #ffb900; }
+
+        .stat-icon {
+            font-size: 32px;
+            margin-bottom: 12px;
+        }
+
+        .stat-number {
+            font-size: 36px;
+            font-weight: 700;
+            color: #1a1a1a;
+            margin-bottom: 4px;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+
+        .stat-change {
+            color: #46b450;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 24px;
+        }
+
+        .dashboard-card {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .card-header h3 {
+            margin: 0;
+            font-size: 18px;
+            font-weight: 600;
+            color: #1a1a1a;
+        }
+
+        .card-action {
+            background: none;
+            border: none;
+            color: #0073aa;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        .card-action:hover {
+            color: #005a87;
+        }
+
+        .card-content {
+            padding: 20px;
+        }
+
+        .tournaments-list,
+        .players-list,
+        .series-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .tournament-item,
+        .player-item,
+        .series-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            border-radius: 8px;
+            transition: background 0.2s;
+            cursor: pointer;
+        }
+
+        .tournament-item:hover,
+        .player-item:hover,
+        .series-item:hover {
+            background: #f8f9fa;
+        }
+
+        .tournament-name,
+        .player-name,
+        .series-name {
+            font-weight: 500;
+            color: #1a1a1a;
+            margin-bottom: 4px;
+        }
+
+        .tournament-meta,
+        .player-stats,
+        .series-meta {
+            display: flex;
+            gap: 12px;
+            font-size: 12px;
+            color: #666;
+        }
+
+        .winner-avatar,
+        .player-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #0073aa;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 600;
+            margin-right: 8px;
+        }
+
+        .player-rank {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #f0f0f0;
+            color: #666;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 600;
+            margin-right: 8px;
+        }
+
+        .badge.gold { color: #ffb900; }
+        .badge.bronze { color: #cd7f32; }
+
+        .series-progress {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .progress-bar {
+            width: 60px;
+            height: 6px;
+            background: #f0f0f0;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: #46b450;
+            transition: width 0.3s;
+        }
+
+        .progress-text {
+            font-size: 12px;
+            color: #666;
+            font-weight: 500;
+        }
+
+        .quick-actions-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+
+        .quick-action-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            padding: 20px;
+            border: 2px solid #f0f0f0;
+            border-radius: 8px;
+            background: #fff;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .quick-action-btn:hover {
+            border-color: #0073aa;
+            background: #f0f8ff;
+        }
+
+        .quick-action-btn i {
+            font-size: 24px;
+            color: #0073aa;
+        }
+
+        .quick-action-btn span {
+            font-size: 12px;
+            font-weight: 500;
+            color: #1a1a1a;
+            text-align: center;
+        }
+
+        .loading-spinner {
+            text-align: center;
+            padding: 60px;
+            color: #666;
+        }
+
+        .no-data {
+            text-align: center;
+            color: #666;
+            font-style: italic;
+            margin: 20px 0;
+        }
+
+        @media (max-width: 768px) {
+            .dashboard-header {
+                flex-direction: column;
+                gap: 16px;
+                text-align: center;
+            }
+
+            .nav-tabs {
+                flex-direction: column;
+            }
+
+            .dashboard-stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .quick-actions-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* **PHASE 1: Player Leaderboard Table Styles** */
+        .player-leaderboard-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+
+        .table-header {
+            display: grid;
+            grid-template-columns: 60px 1fr 120px 120px 100px 100px;
+            background: #f8f9fa;
+            border-bottom: 2px solid #dee2e6;
+            font-weight: 600;
+            color: #495057;
+            padding: 12px 8px;
+            font-size: 14px;
+        }
+
+        .table-row {
+            display: grid;
+            grid-template-columns: 60px 1fr 120px 120px 100px 100px;
+            border-bottom: 1px solid #e9ecef;
+            padding: 12px 8px;
+            align-items: center;
+            transition: background-color 0.2s ease;
+        }
+
+        .table-row:hover {
+            background-color: #f8f9fa;
+        }
+
+        .table-row:nth-child(even) {
+            background-color: #fdfdfd;
+        }
+
+        .rank-cell {
+            font-weight: 600;
+            color: #0073aa;
+            text-align: center;
+        }
+
+        .player-cell {
+            font-weight: 500;
+        }
+
+        .player-link {
+            color: #0073aa;
+            text-decoration: none;
+            transition: color 0.2s ease;
+        }
+
+        .player-link:hover {
+            color: #005a87;
+            text-decoration: underline;
+        }
+
+        .tournaments-cell {
+            text-align: center;
+            color: #6c757d;
+        }
+
+        .winnings-cell {
+            font-weight: 600;
+            color: #28a745;
+            text-align: right;
+        }
+
+        .best-finish-cell {
+            text-align: center;
+            color: #17a2b8;
+        }
+
+        .avg-finish-cell {
+            text-align: center;
+            color: #6c757d;
+        }
+
+        /* Participation Trends Styles */
+        .trends-chart {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .trend-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border-left: 4px solid #0073aa;
+        }
+
+        .trend-date {
+            font-weight: 600;
+            color: #495057;
+            min-width: 60px;
+        }
+
+        .trend-stats {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .trend-players,
+        .trend-entries {
+            font-size: 14px;
+            color: #6c757d;
+        }
+
+        .trend-players {
+            color: #0073aa;
+            font-weight: 500;
+        }
+
+        /* Mobile responsive for player table */
+        @media (max-width: 768px) {
+            .table-header,
+            .table-row {
+                grid-template-columns: 40px 1fr 80px 80px;
+            }
+
+            .header-rank,
+            .rank-cell {
+                grid-column: 1;
+            }
+
+            .header-player,
+            .player-cell {
+                grid-column: 2;
+            }
+
+            .header-winnings,
+            .winnings-cell {
+                grid-column: 3;
+            }
+
+            .header-best,
+            .best-finish-cell {
+                grid-column: 4;
+            }
+
+            .header-tournaments,
+            .tournaments-cell,
+            .header-avg,
+            .avg-finish-cell {
+                display: none;
+            }
+
+            .trend-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 5px;
+            }
+
+            .trend-stats {
+                align-self: stretch;
+                justify-content: space-between;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .table-header,
+            .table-row {
+                padding: 8px 4px;
+                font-size: 12px;
+            }
+
+            .trend-item {
+                padding: 8px 12px;
+            }
+        }
+
+        /* **PHASE 1: Player Details Modal Styles** */
+        .player-details-modal,
+        .loading-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10000;
+            display: none;
+        }
+
+        .modal-backdrop {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(2px);
+        }
+
+        .player-details-modal .modal-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            border-radius: 12px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+        }
+
+        .loading-modal .modal-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            border-radius: 8px;
+            padding: 30px;
+            text-align: center;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 24px 16px;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .modal-header h2 {
+            margin: 0;
+            color: #1a1a1a;
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 28px;
+            cursor: pointer;
+            color: #6c757d;
+            padding: 0;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+        }
+
+        .modal-close:hover {
+            background: #f8f9fa;
+            color: #495057;
+        }
+
+        .modal-body {
+            padding: 24px;
+        }
+
+        .player-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+
+        .player-stat {
+            background: #f8f9fa;
+            padding: 16px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .player-stat label {
+            display: block;
+            font-size: 12px;
+            color: #6c757d;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            font-weight: 500;
+        }
+
+        .player-stat span {
+            display: block;
+            font-size: 18px;
+            font-weight: 600;
+            color: #1a1a1a;
+        }
+
+        .recent-tournaments h3 {
+            margin: 0 0 16px 0;
+            color: #1a1a1a;
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .tournament-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .tournament-result {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border-left: 3px solid #0073aa;
+        }
+
+        .tournament-name {
+            font-weight: 500;
+            color: #1a1a1a;
+            flex: 1;
+        }
+
+        .finish-position {
+            color: #0073aa;
+            font-weight: 600;
+            margin: 0 16px;
+        }
+
+        .winnings {
+            color: #28a745;
+            font-weight: 600;
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #0073aa;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #0073aa;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            z-index: 10001;
+            display: none;
+            font-weight: 500;
+        }
+
+        .notification.error {
+            background: #dc3545;
+        }
+
+        .notification.success {
+            background: #28a745;
+        }
+
+        /* Mobile responsive for modal */
+        @media (max-width: 768px) {
+            .player-details-modal .modal-content {
+                width: 95%;
+                max-height: 90vh;
+            }
+
+            .modal-header {
+                padding: 16px 20px 12px;
+            }
+
+            .modal-header h2 {
+                font-size: 20px;
+            }
+
+            .modal-body {
+                padding: 20px;
+            }
+
+            .player-stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 12px;
+            }
+
+            .player-stat {
+                padding: 12px;
+            }
+
+            .player-stat span {
+                font-size: 16px;
+            }
+
+            .tournament-result {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 4px;
+            }
+
+            .finish-position,
+            .winnings {
+                margin: 0;
+            }
+
+            .notification {
+                left: 20px;
+                right: 20px;
+                top: 10px;
+            }
+        }
+        </style>
+
+        <!-- Dashboard JavaScript -->
+        <script>
+        jQuery(document).ready(function($) {
+            // Tab navigation
+            $('.nav-tab').click(function() {
+                const view = $(this).data('view');
+
+                // Update active tab
+                $('.nav-tab').removeClass('active');
+                $(this).addClass('active');
+
+                // Update content
+                $('.dashboard-tab').removeClass('active');
+                $(`#${view}-tab`).addClass('active');
+
+                // Load content via AJAX if not overview
+                if (view !== 'overview') {
+                    loadDashboardContent(view);
+                }
+            });
+
+            // Drill-through functionality
+            $('.clickable, .tournament-item, .player-item, .series-item').click(function() {
+                const drillType = $(this).data('drill') || $(this).data('tournament-id') || $(this).data('player-id') || $(this).data('series-id');
+                handleDrillThrough($(this));
+            });
+
+            // **PHASE 1: Player Drill-through Handler**
+            $('.drill-through').click(function(e) {
+                e.preventDefault();
+                const drillType = $(this).data('drill-type');
+                const playerId = $(this).data('player-id');
+                const playerPostId = $(this).data('player-post-id');
+
+                if (drillType === 'player') {
+                    handlePlayerDrillThrough(playerId, playerPostId, $(this));
+                }
+            });
+
+            // Quick actions
+            $('.quick-action-btn').click(function() {
+                const action = $(this).data('action');
+                handleQuickAction(action);
+            });
+
+            // Load dashboard content
+            function loadDashboardContent(view) {
+                const $tab = $(`#${view}-tab`);
+                $tab.html('<div class="loading-spinner"><i class="icon-spinner"></i> Loading...</div>');
+
+                $.post(ajaxurl, {
+                    action: 'poker_dashboard_load_content',
+                    view: view,
+                    nonce: '<?php echo wp_create_nonce('poker_dashboard_nonce'); ?>'
+                }, function(response) {
+                    if (response.success) {
+                        $tab.html(response.data.content);
+                    } else {
+                        $tab.html('<div class="error">Failed to load content</div>');
+                    }
+                }).fail(function() {
+                    $tab.html('<div class="error">Connection error</div>');
+                });
+            }
+
+            // Handle drill-through navigation
+            function handleDrillThrough($element) {
+                const tournamentId = $element.data('tournament-id');
+                const playerId = $element.data('player-id');
+                const seriesId = $element.data('series-id');
+                const drillType = $element.data('drill');
+
+                if (tournamentId) {
+                    // Navigate to tournament page
+                    window.location.href = $element.data('tournament-url') || `?p=${tournamentId}`;
+                } else if (playerId) {
+                    // Navigate to player profile
+                    window.location.href = $element.data('player-url') || `?p=${playerId}`;
+                } else if (seriesId) {
+                    // Navigate to series page
+                    window.location.href = $element.data('series-url') || `?p=${seriesId}`;
+                } else if (drillType) {
+                    // Load detailed view
+                    loadDetailedView(drillType);
+                }
+            }
+
+            // **PHASE 1: Handle Player Drill-through**
+            function handlePlayerDrillThrough(playerId, playerPostId, $element) {
+                // Show loading state
+                const playerName = $element.text().trim();
+                showLoadingModal(`Loading ${playerName}'s detailed profile...`);
+
+                // If player has a WordPress post, navigate to it
+                if (playerPostId) {
+                    window.location.href = $element.attr('href') || `?p=${playerPostId}`;
+                    return;
+                }
+
+                // Otherwise, load player details via AJAX
+                $.post(ajaxurl, {
+                    action: 'poker_get_player_details',
+                    player_id: playerId,
+                    nonce: '<?php echo wp_create_nonce('poker_player_details'); ?>'
+                }, function(response) {
+                    hideLoadingModal();
+                    if (response.success) {
+                        showPlayerDetailsModal(response.data);
+                    } else {
+                        showNotification('Failed to load player details', 'error');
+                    }
+                }).fail(function() {
+                    hideLoadingModal();
+                    showNotification('Connection error while loading player details', 'error');
+                });
+            }
+
+            // Show player details modal
+            function showPlayerDetailsModal(playerData) {
+                const modal = `
+                    <div class="player-details-modal" id="player-details-modal">
+                        <div class="modal-backdrop" onclick="closePlayerDetailsModal()"></div>
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h2>${playerData.player_name}</h2>
+                                <button class="modal-close" onclick="closePlayerDetailsModal()">&times;</button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="player-stats-grid">
+                                    <div class="player-stat">
+                                        <label>Total Tournaments</label>
+                                        <span>${playerData.tournaments_played || 0}</span>
+                                    </div>
+                                    <div class="player-stat">
+                                        <label>Total Winnings</label>
+                                        <span>$${number_format(playerData.total_winnings || 0, 0)}</span>
+                                    </div>
+                                    <div class="player-stat">
+                                        <label>Best Finish</label>
+                                        <span>${playerData.best_finish || '-'}</span>
+                                    </div>
+                                    <div class="player-stat">
+                                        <label>Average Finish</label>
+                                        <span>${number_format(playerData.avg_finish || 0, 1)}</span>
+                                    </div>
+                                    <div class="player-stat">
+                                        <label>Total Points</label>
+                                        <span>${number_format(playerData.total_points || 0, 0)}</span>
+                                    </div>
+                                    <div class="player-stat">
+                                        <label>Highest Payout</label>
+                                        <span>$${number_format(playerData.highest_payout || 0, 0)}</span>
+                                    </div>
+                                </div>
+                                ${playerData.recent_tournaments ? `
+                                    <div class="recent-tournaments">
+                                        <h3>Recent Tournament Results</h3>
+                                        <div class="tournament-list">
+                                            ${playerData.recent_tournaments.map(tournament => `
+                                                <div class="tournament-result">
+                                                    <span class="tournament-name">${tournament.tournament_name}</span>
+                                                    <span class="finish-position">Position: ${tournament.finish_position}</span>
+                                                    <span class="winnings">$${number_format(tournament.winnings || 0, 0)}</span>
+                                                </div>
+                                            `).join('')}
+                                        </div>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+                $('body').append(modal);
+                $('#player-details-modal').fadeIn(300);
+            }
+
+            // Close player details modal
+            function closePlayerDetailsModal() {
+                $('#player-details-modal').fadeOut(300, function() {
+                    $(this).remove();
+                });
+            }
+
+            // Show loading modal
+            function showLoadingModal(message) {
+                const modal = `
+                    <div class="loading-modal" id="loading-modal">
+                        <div class="modal-backdrop"></div>
+                        <div class="modal-content">
+                            <div class="loading-spinner"></div>
+                            <p>${message}</p>
+                        </div>
+                    </div>
+                `;
+                $('body').append(modal);
+                $('#loading-modal').fadeIn(200);
+            }
+
+            // Hide loading modal
+            function hideLoadingModal() {
+                $('#loading-modal').fadeOut(200, function() {
+                    $(this).remove();
+                });
+            }
+
+            // Show notification
+            function showNotification(message, type = 'info') {
+                const notification = `
+                    <div class="notification ${type}" id="notification">
+                        ${message}
+                    </div>
+                `;
+                $('body').append(notification);
+                $('#notification').fadeIn(300).delay(3000).fadeOut(300, function() {
+                    $(this).remove();
+                });
+            }
+
+            // Handle quick actions
+            function handleQuickAction(action) {
+                switch(action) {
+                    case 'import':
+                        window.location.href = '<?php echo admin_url("admin.php?page=poker-tournament-import"); ?>';
+                        break;
+                    case 'create-series':
+                        // Open create series modal
+                        break;
+                    case 'view-calendar':
+                        loadDetailedView('calendar');
+                        break;
+                    case 'generate-report':
+                        generateReport();
+                        break;
+                }
+            }
+
+            // Load detailed views
+            function loadDetailedView(type) {
+                const $tab = $('#tournaments-tab'); // Reuse tournaments tab for detailed views
+                $('.nav-tab').removeClass('active');
+                $('.nav-tab[data-view="tournaments"]').addClass('active');
+                $('.dashboard-tab').removeClass('active');
+                $tab.addClass('active');
+
+                $tab.html('<div class="loading-spinner"><i class="icon-spinner"></i> Loading...</div>');
+
+                $.post(ajaxurl, {
+                    action: 'poker_dashboard_detailed_view',
+                    type: type,
+                    nonce: '<?php echo wp_create_nonce('poker_dashboard_nonce'); ?>'
+                }, function(response) {
+                    if (response.success) {
+                        $tab.html(response.data.content);
+                    } else {
+                        $tab.html('<div class="error">Failed to load content</div>');
+                    }
+                });
+            }
+
+            // Generate report
+            function generateReport() {
+                $.post(ajaxurl, {
+                    action: 'poker_dashboard_generate_report',
+                    nonce: '<?php echo wp_create_nonce('poker_dashboard_nonce'); ?>'
+                }, function(response) {
+                    if (response.success) {
+                        // Download report
+                        const link = document.createElement('a');
+                        link.href = response.data.download_url;
+                        link.download = response.data.filename;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                    } else {
+                        alert('Failed to generate report: ' + response.data.message);
+                    }
+                });
+            }
+
+            // Auto-refresh every 5 minutes
+            setInterval(function() {
+                if ($('.nav-tab.active').data('view') === 'overview') {
+                    location.reload();
+                }
+            }, 300000);
+        });
+
+        // Statistics refresh function
+        function refreshStatistics() {
+            const $button = $('#refresh-statistics');
+            const $icon = $button.find('.icon-refresh');
+
+            // Show loading state
+            $button.prop('disabled', true);
+            $icon.addClass('spinning');
+            $button.find('.button-text').text('<?php _e('Refreshing...', 'poker-tournament-import'); ?>');
+
+            $.ajax({
+                url: pokerImport.ajaxUrl,
+                type: 'POST',
+                data: {
+                    action: 'poker_refresh_statistics',
+                    nonce: '<?php echo wp_create_nonce('poker_refresh_statistics'); ?>'
+                },
+                success: function(response) {
+                    if (response.success) {
+                        // Show success message
+                        const $alert = $('<div class="notice notice-success is-dismissible"><p>' + response.data.message + '</p></div>');
+                        $('.poker-dashboard-container').prepend($alert);
+
+                        // Remove alert after 3 seconds
+                        setTimeout(function() {
+                            $alert.fadeOut();
+                        }, 3000);
+
+                        // Reload the page to show updated stats
+                        setTimeout(function() {
+                            location.reload();
+                        }, 1000);
+                    } else {
+                        // Show error message
+                        const $alert = $('<div class="notice notice-error is-dismissible"><p>' + response.data.message + '</p></div>');
+                        $('.poker-dashboard-container').prepend($alert);
+                    }
+                },
+                error: function() {
+                    // Show generic error message
+                    const $alert = $('<div class="notice notice-error is-dismissible"><p><?php _e('Failed to refresh statistics. Please try again.', 'poker-tournament-import'); ?></p></div>');
+                    $('.poker-dashboard-container').prepend($alert);
+                },
+                complete: function() {
+                    // Restore button state
+                    $button.prop('disabled', false);
+                    $icon.removeClass('spinning');
+                    $button.find('.button-text').text('<?php _e('Refresh Statistics', 'poker-tournament-import'); ?>');
+                }
+            });
+        }
+        </script>
+        <?php
+        return ob_get_clean();
+    }
+
+    /**
+     * Get dashboard statistics
+     */
+    private function get_dashboard_statistics() {
+        // Use the statistics engine for fast data retrieval
+        $stats_engine = Poker_Statistics_Engine::get_instance();
+
+        // Get the core statistics from data mart
+        $stats = $stats_engine->get_dashboard_statistics();
+
+        // Ensure all expected keys exist with fallbacks
+        return array(
+            'total_tournaments' => intval($stats['total_tournaments']),
+            'total_players' => intval($stats['total_players']),
+            'total_prize_pool' => floatval($stats['total_prize_pool']),
+            'avg_prize_pool' => floatval($stats['avg_prize_pool']),
+            'recent_tournaments' => intval($stats['recent_tournaments_30d']),
+            'new_players' => intval($stats['new_players_30d']),
+            'active_series' => intval($stats['active_series']),
+            'upcoming_events' => 0, // TODO: Calculate upcoming events
+            'last_updated' => $stats['last_updated']
+        );
+    }
+
+    /**
+     * Get recent tournaments for dashboard
+     */
+    private function get_recent_tournaments($limit = 10) {
+        $recent_tournaments = get_posts(array(
+            'post_type' => 'tournament',
+            'posts_per_page' => $limit,
+            'orderby' => 'date',
+            'order' => 'DESC'
+        ));
+
+        foreach ($recent_tournaments as $tournament) {
+            $tournament->tournament_date = get_post_meta($tournament->ID, '_tournament_date', true);
+            $tournament->players_count = get_post_meta($tournament->ID, '_players_count', true);
+            $tournament->prize_pool = get_post_meta($tournament->ID, '_prize_pool', true); // Fixed: added underscore
+
+            // Get winner
+            $tournament_uuid = get_post_meta($tournament->ID, 'tournament_uuid', true);
+            if ($tournament_uuid) {
+                global $wpdb;
+                $table_name = $wpdb->prefix . 'poker_tournament_players';
+                $winner = $wpdb->get_row($wpdb->prepare(
+                    "SELECT p.post_title as winner_name
+                     FROM $table_name tp
+                     LEFT JOIN {$wpdb->postmeta} pm ON pm.meta_value = tp.player_id AND pm.meta_key = 'player_uuid'
+                     LEFT JOIN {$wpdb->posts} p ON pm.post_id = p.ID
+                     WHERE tp.tournament_id = %s AND tp.finish_position = 1
+                     LIMIT 1",
+                    $tournament_uuid
+                ));
+                $tournament->winner_name = $winner ? $winner->winner_name : '';
+            } else {
+                $tournament->winner_name = '';
+            }
+        }
+
+        return $recent_tournaments;
+    }
+
+    /**
+     * Get top players for dashboard
+     */
+    private function get_top_players($limit = 10) {
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'poker_tournament_players';
+
+        $top_players = $wpdb->get_results($wpdb->prepare(
+            "SELECT tp.player_id,
+                    COUNT(*) as tournaments_played,
+                    SUM(tp.winnings) as total_winnings,
+                    SUM(tp.points) as total_points,
+                    MIN(tp.finish_position) as best_finish
+             FROM $table_name tp
+             GROUP BY tp.player_id
+             ORDER BY total_winnings DESC, total_points DESC
+             LIMIT %d",
+            $limit
+        ));
+
+        // Get player post information
+        foreach ($top_players as $player) {
+            $player_post = $wpdb->get_row($wpdb->prepare(
+                "SELECT p.ID as player_post_id, p.post_title as player_name
+                 FROM {$wpdb->postmeta} pm
+                 LEFT JOIN {$wpdb->posts} p ON pm.post_id = p.ID
+                 WHERE pm.meta_key = 'player_uuid' AND pm.meta_value = %s
+                 LIMIT 1",
+                $player->player_id
+            ));
+
+            if ($player_post) {
+                $player->player_post_id = $player_post->player_post_id;
+                $player->player_name = $player_post->player_name;
+            } else {
+                $player->player_post_id = null;
+                $player->player_name = $player->player_id;
+            }
+        }
+
+        return $top_players;
+    }
+
+    /**
+     * Get active series for dashboard
+     */
+    private function get_active_series($limit = 5) {
+        $active_series = get_posts(array(
+            'post_type' => 'tournament_series',
+            'posts_per_page' => $limit,
+            'orderby' => 'modified',
+            'order' => 'DESC'
+        ));
+
+        foreach ($active_series as $series) {
+            // Get tournament count with correct field name
+            $tournament_posts = get_posts(array(
+                'post_type' => 'tournament',
+                'meta_query' => array(
+                    'relation' => 'OR',
+                    array(
+                        'key' => 'series_id',
+                        'value' => $series->ID,
+                        'compare' => '='
+                    ),
+                    array(
+                        'key' => '_series_id',
+                        'value' => $series->ID,
+                        'compare' => '='
+                    )
+                ),
+                'posts_per_page' => -1,
+                'fields' => 'ids'
+            ));
+            $series->tournament_count = count($tournament_posts);
+
+            // Calculate unique players in series
+            $player_ids = array();
+            foreach ($tournament_posts as $tournament_id) {
+                $tournament_uuid = get_post_meta($tournament_id, 'tournament_uuid', true);
+                if ($tournament_uuid) {
+                    global $wpdb;
+                    $players_in_tournament = $wpdb->get_col($wpdb->prepare(
+                        "SELECT DISTINCT player_id FROM {$wpdb->prefix}poker_tournament_players WHERE tournament_id = %s",
+                        $tournament_uuid
+                    ));
+                    $player_ids = array_merge($player_ids, $players_in_tournament);
+                }
+            }
+            $series->player_count = count(array_unique($player_ids));
+
+            // Calculate progress (based on tournaments vs expected or recent activity)
+            $recent_tournaments = 0;
+            foreach ($tournament_posts as $tournament_id) {
+                $tournament_date = get_post_meta($tournament_id, '_tournament_date', true);
+                if ($tournament_date && strtotime($tournament_date) > strtotime('-30 days')) {
+                    $recent_tournaments++;
+                }
+            }
+            $series->progress_percent = $series->tournament_count > 0 ?
+                min(100, round(($recent_tournaments / max(1, $series->tournament_count)) * 100)) : 0;
+        }
+
+        return $active_series;
     }
 }
 

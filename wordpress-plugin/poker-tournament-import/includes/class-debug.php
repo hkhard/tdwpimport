@@ -124,9 +124,15 @@ class Poker_Tournament_Import_Debug {
      */
     public static function log_error($message, $exception = null) {
         self::log("❌ ERROR: {$message}");
-        if ($exception) {
+        if ($exception && is_object($exception)) {
             self::log("Exception: " . $exception->getMessage());
             self::log("Trace: " . $exception->getTraceAsString());
+        } elseif ($exception) {
+            if (is_array($exception)) {
+                self::log("Exception Data: " . print_r($exception, true));
+            } else {
+                self::log("Exception: " . (string) $exception);
+            }
         }
     }
 

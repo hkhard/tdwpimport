@@ -463,7 +463,7 @@ class Poker_Tournament_Parser {
                 'total_buyins_amount' => $total_money,
                 'total_rebuys_amount' => $total_rebuys * ($financial['rebuy_amount'] ?? 0),
                 'total_addons_amount' => $total_addons * ($financial['addon_amount'] ?? 0),
-                'buyin_amount' => $financial['buyin_amount'] ?? ($total_money / $total_buyins),
+                'buyin_amount' => $financial['buyin_amount'] ?? ($total_buyins > 0 ? $total_money / $total_buyins : 0),
                 'fee_amount' => $financial['fee_amount'] ?? 0,
                 'prize_pool' => $total_money,
                 'winnings' => $player['winnings'] ?? 0

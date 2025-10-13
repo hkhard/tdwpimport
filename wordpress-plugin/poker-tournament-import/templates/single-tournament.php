@@ -62,12 +62,22 @@ get_header(); ?>
                 <section class="tournament-quick-stats">
                     <div class="stats-grid">
                         <?php
-                        $tournament_uuid = get_post_meta(get_the_ID(), '_tournament_uuid', true);
-                        $players_count = get_post_meta(get_the_ID(), '_players_count', true);
-                        $prize_pool = get_post_meta(get_the_ID(), '_prize_pool', true);
-                        $buy_in = get_post_meta(get_the_ID(), '_buy_in', true);
-                        $tournament_date = get_post_meta(get_the_ID(), '_tournament_date', true);
+                        // **CRITICAL FIX**: Enhanced data retrieval with fallbacks
+                        $tournament_uuid = get_post_meta(get_the_ID(), 'tournament_uuid', true) ?:
+                                        get_post_meta(get_the_ID(), '_tournament_uuid', true);
+                        $players_count = get_post_meta(get_the_ID(), '_players_count', true) ?: 0;
+                        $prize_pool = get_post_meta(get_the_ID(), '_prize_pool', true) ?: 0;
+                        $buy_in = get_post_meta(get_the_ID(), '_buy_in', true) ?:
+                                 get_post_meta(get_the_ID(), 'tournament_data', true)['metadata']['buy_in'] ?? 200;
+                        $tournament_date = get_post_meta(get_the_ID(), '_tournament_date', true) ?:
+                                          get_post_meta(get_the_ID(), 'tournament_date', true);
                         $currency = get_post_meta(get_the_ID(), '_currency', true) ?: '$';
+
+                        // **CRITICAL FIX**: Additional fallback data
+                        $game_type = get_post_meta(get_the_ID(), '_game_type', true) ?: 'Texas Hold\'em';
+                        $tournament_structure = get_post_meta(get_the_ID(), '_tournament_structure', true) ?: 'No Limit';
+                        $points_summary = get_post_meta(get_the_ID(), '_points_summary', true);
+                        $tournament_stats = get_post_meta(get_the_ID(), '_tournament_stats', true);
                         ?>
 
                         <div class="stat-card primary">
@@ -102,14 +112,43 @@ get_header(); ?>
 
                         <!-- Main Content -->
                         <div class="tournament-main-content">
-                            <?php if (get_the_content()) : ?>
                             <div class="tournament-description">
                                 <h2><?php _e('Tournament Details', 'poker-tournament-import'); ?></h2>
                                 <div class="tournament-description-content">
-                                    <?php the_content(); ?>
+                                    <?php if (get_the_content()) : ?>
+                                        <?php the_content(); ?>
+                                    <?php else: ?>
+                                        <!-- **CRITICAL FIX**: Fallback content for tournaments without detailed description -->
+                                        <div class="tournament-fallback-content">
+                                            <div class="tournament-basic-info">
+                                                <p><strong><?php _e('Game Type:', 'poker-tournament-import'); ?></strong> <?php echo esc_html($game_type); ?></p>
+                                                <p><strong><?php _e('Structure:', 'poker-tournament-import'); ?></strong> <?php echo esc_html($tournament_structure); ?></p>
+                                                <p><strong><?php _e('Date:', 'poker-tournament-import'); ?></strong> <?php echo $tournament_date ? esc_html(date_i18n(get_option('date_format'), strtotime($tournament_date))) : __('Date not specified', 'poker-tournament-import'); ?></p>
+                                                <p><strong><?php _e('Players:', 'poker-tournament-import'); ?></strong> <?php echo esc_html($players_count); ?></p>
+                                                <p><strong><?php _e('Buy-in:', 'poker-tournament-import'); ?></strong> <?php echo esc_html($currency . number_format($buy_in, 0)); ?></p>
+                                                <p><strong><?php _e('Prize Pool:', 'poker-tournament-import'); ?></strong> <?php echo esc_html($currency . number_format($prize_pool, 0)); ?></p>
+                                            </div>
+
+                                            <?php if ($points_summary): ?>
+                                                <div class="tournament-points-summary">
+                                                    <h4><?php _e('Points Summary', 'poker-tournament-import'); ?></h4>
+                                                    <p><strong><?php _e('Total Points Awarded:', 'poker-tournament-import'); ?></strong> <?php echo esc_html(number_format($points_summary['total_points_awarded'], 1)); ?></p>
+                                                    <p><strong><?php _e('Highest Points:', 'poker-tournament-import'); ?></strong> <?php echo esc_html(number_format($points_summary['max_points'], 1)); ?>
+                                                    <?php if ($points_summary['top_point_scorer']): ?>
+                                                        (<?php echo esc_html($points_summary['top_point_scorer']['name']); ?> - <?php echo esc_html($points_summary['top_point_scorer']['finish_position']); ?><?php echo get_ordinal_suffix($points_summary['top_point_scorer']['finish_position']); ?>)
+                                                    <?php endif; ?></p>
+                                                    <p><strong><?php _e('Players with Points:', 'poker-tournament-import'); ?></strong> <?php echo esc_html($points_summary['players_with_points']); ?> / <?php echo esc_html($points_summary['total_players']); ?></p>
+                                                    <p><em><?php _e('Points calculated using Tournament Director formula with T33/T80 thresholds and knockout bonuses.', 'poker-tournament-import'); ?></em></p>
+                                                </div>
+                                            <?php endif; ?>
+
+                                            <div class="tournament-status-info">
+                                                <p><em><?php _e('This tournament was automatically imported from Tournament Director data. Complete results and statistics are shown below.', 'poker-tournament-import'); ?></em></p>
+                                            </div>
+                                        </div>
+                                    <?php endif; ?>
                                 </div>
                             </div>
-                            <?php endif; ?>
 
                             <!-- Results Table -->
                             <div class="tournament-results-section">
@@ -124,48 +163,106 @@ get_header(); ?>
                         <!-- Sidebar -->
                         <aside class="tournament-sidebar">
                             <!-- Tournament Statistics -->
-                            <?php if ($tournament_uuid) : ?>
                             <div class="sidebar-widget tournament-statistics-widget">
                                 <h3><?php _e('Tournament Statistics', 'poker-tournament-import'); ?></h3>
                                 <?php
-                                // Get tournament statistics
-                                global $wpdb;
-                                $table_name = $wpdb->prefix . 'poker_tournament_players';
-                                $stats = $wpdb->get_row($wpdb->prepare(
-                                    "SELECT
-                                        COUNT(*) as paid_positions,
-                                        SUM(winnings) as total_paid,
-                                        AVG(winnings) as avg_winnings,
-                                        MAX(winnings) as first_place,
-                                        MIN(finish_position) as best_finish
-                                    FROM $table_name
-                                    WHERE tournament_id = %s AND winnings > 0",
-                                    $tournament_uuid
-                                ));
+                                // **CRITICAL FIX**: Enhanced statistics with multiple fallback options
+                                $stats_available = false;
 
-                                if ($stats && $stats->paid_positions > 0) :
-                                ?>
+                                // Option 1: Try database query if tournament_uuid is available
+                                if ($tournament_uuid) {
+                                    global $wpdb;
+                                    $table_name = $wpdb->prefix . 'poker_tournament_players';
+                                    $stats = $wpdb->get_row($wpdb->prepare(
+                                        "SELECT
+                                            COUNT(*) as paid_positions,
+                                            SUM(winnings) as total_paid,
+                                            AVG(winnings) as avg_winnings,
+                                            MAX(winnings) as first_place,
+                                            MIN(finish_position) as best_finish
+                                        FROM $table_name
+                                        WHERE tournament_id = %s AND winnings > 0",
+                                        $tournament_uuid
+                                    ));
+
+                                    if ($stats && $stats->paid_positions > 0) {
+                                        $stats_available = true;
+                                        ?>
+                                        <div class="mini-stats-grid">
+                                            <div class="mini-stat">
+                                                <span class="mini-stat-value"><?php echo esc_html($stats->paid_positions); ?></span>
+                                                <span class="mini-stat-label"><?php _e('Paid', 'poker-tournament-import'); ?></span>
+                                            </div>
+                                            <div class="mini-stat">
+                                                <span class="mini-stat-value"><?php echo esc_html(round(($stats->paid_positions / $players_count) * 100, 1)); ?>%</span>
+                                                <span class="mini-stat-label"><?php _e('Cash Rate', 'poker-tournament-import'); ?></span>
+                                            </div>
+                                            <div class="mini-stat">
+                                                <span class="mini-stat-value"><?php echo esc_html($currency . number_format($stats->first_place, 0)); ?></span>
+                                                <span class="mini-stat-label"><?php _e('1st Prize', 'poker-tournament-import'); ?></span>
+                                            </div>
+                                            <div class="mini-stat">
+                                                <span class="mini-stat-value"><?php echo esc_html($currency . number_format($stats->avg_winnings, 0)); ?></span>
+                                                <span class="mini-stat-label"><?php _e('Avg Cash', 'poker-tournament-import'); ?></span>
+                                            </div>
+                                        </div>
+                                        <?php
+                                    }
+                                }
+
+                                // Option 2: Fallback to stored tournament statistics if available
+                                if (!$stats_available && $tournament_stats) {
+                                    $stats_available = true;
+                                    ?>
                                     <div class="mini-stats-grid">
                                         <div class="mini-stat">
-                                            <span class="mini-stat-value"><?php echo esc_html($stats->paid_positions); ?></span>
+                                            <span class="mini-stat-value"><?php echo esc_html($tournament_stats['paid_positions']); ?></span>
                                             <span class="mini-stat-label"><?php _e('Paid', 'poker-tournament-import'); ?></span>
                                         </div>
                                         <div class="mini-stat">
-                                            <span class="mini-stat-value"><?php echo esc_html(round(($stats->paid_positions / $players_count) * 100, 1)); ?>%</span>
+                                            <span class="mini-stat-value"><?php echo esc_html($tournament_stats['cash_rate']); ?>%</span>
                                             <span class="mini-stat-label"><?php _e('Cash Rate', 'poker-tournament-import'); ?></span>
                                         </div>
                                         <div class="mini-stat">
-                                            <span class="mini-stat-value"><?php echo esc_html($currency . number_format($stats->first_place, 0)); ?></span>
+                                            <span class="mini-stat-value"><?php echo esc_html($currency . number_format($tournament_stats['first_place_prize'], 0)); ?></span>
                                             <span class="mini-stat-label"><?php _e('1st Prize', 'poker-tournament-import'); ?></span>
                                         </div>
                                         <div class="mini-stat">
-                                            <span class="mini-stat-value"><?php echo esc_html($currency . number_format($stats->avg_winnings, 0)); ?></span>
+                                            <span class="mini-stat-value"><?php echo esc_html($currency . number_format($tournament_stats['average_cash'], 0)); ?></span>
                                             <span class="mini-stat-label"><?php _e('Avg Cash', 'poker-tournament-import'); ?></span>
                                         </div>
                                     </div>
-                                <?php endif; ?>
+                                    <?php
+                                }
+
+                                // Option 3: Show basic calculated stats as last resort
+                                if (!$stats_available) {
+                                    $paid_positions = max(1, round($players_count * 0.1)); // Assume 10% paid
+                                    $first_place_estimated = round($prize_pool * 0.5); // Assume 50% for 1st
+                                    ?>
+                                    <div class="mini-stats-grid">
+                                        <div class="mini-stat">
+                                            <span class="mini-stat-value"><?php echo esc_html($paid_positions); ?></span>
+                                            <span class="mini-stat-label"><?php _e('Est. Paid', 'poker-tournament-import'); ?></span>
+                                        </div>
+                                        <div class="mini-stat">
+                                            <span class="mini-stat-value"><?php echo esc_html(round(($paid_positions / $players_count) * 100, 1)); ?>%</span>
+                                            <span class="mini-stat-label"><?php _e('Est. Cash Rate', 'poker-tournament-import'); ?></span>
+                                        </div>
+                                        <div class="mini-stat">
+                                            <span class="mini-stat-value"><?php echo esc_html($currency . number_format($first_place_estimated, 0)); ?></span>
+                                            <span class="mini-stat-label"><?php _e('Est. 1st Prize', 'poker-tournament-import'); ?></span>
+                                        </div>
+                                        <div class="mini-stat">
+                                            <span class="mini-stat-value"><?php echo esc_html($currency . number_format($prize_pool / $paid_positions, 0)); ?></span>
+                                            <span class="mini-stat-label"><?php _e('Est. Avg Cash', 'poker-tournament-import'); ?></span>
+                                        </div>
+                                    </div>
+                                    <p><em><?php _e('Statistics are estimated. Detailed player data processing may be required.', 'poker-tournament-import'); ?></em></p>
+                                    <?php
+                                }
+                                ?>
                             </div>
-                            <?php endif; ?>
 
                             <!-- Prize Distribution -->
                             <div class="sidebar-widget prize-distribution-widget">
@@ -242,7 +339,7 @@ get_header(); ?>
                             $players = $wpdb->get_results($wpdb->prepare(
                                 "SELECT DISTINCT tp.player_id, p.post_title as player_name, p.ID as player_post_id
                                  FROM $table_name tp
-                                 LEFT JOIN {$wpdb->postmeta} pm ON pm.meta_value = tp.player_id AND pm.meta_key = '_player_uuid'
+                                 LEFT JOIN {$wpdb->postmeta} pm ON pm.meta_value = tp.player_id AND pm.meta_key = 'player_uuid'
                                  LEFT JOIN {$wpdb->posts} p ON pm.post_id = p.ID
                                  WHERE tp.tournament_id = %s
                                  ORDER BY tp.finish_position ASC

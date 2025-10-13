@@ -58,7 +58,7 @@ get_header(); ?>
                 <section class="player-performance-chart">
                     <h2><?php _e('Performance Overview', 'poker-tournament-import'); ?></h2>
                     <?php
-                    $player_uuid = get_post_meta(get_the_ID(), '_player_uuid', true);
+                    $player_uuid = get_post_meta(get_the_ID(), 'player_uuid', true);
                     global $wpdb;
                     $table_name = $wpdb->prefix . 'poker_tournament_players';
 
@@ -71,9 +71,9 @@ get_header(); ?>
                              FROM $table_name tp
                              LEFT JOIN {$wpdb->postmeta} pm ON pm.post_id = (
                                  SELECT post_id FROM {$wpdb->postmeta}
-                                 WHERE meta_key = '_tournament_uuid' AND meta_value = tp.tournament_id
+                                 WHERE meta_key = 'tournament_uuid' AND meta_value = tp.tournament_id
                                  LIMIT 1
-                             ) AND pm.meta_key = '_tournament_date'
+                             ) AND pm.meta_key = 'tournament_date'
                              LEFT JOIN {$wpdb->posts} p ON pm.post_id = p.ID
                              WHERE tp.player_id = %s
                              ORDER BY pm.meta_value DESC
@@ -182,11 +182,11 @@ get_header(); ?>
                                          FROM $table_name tp
                                          LEFT JOIN {$wpdb->postmeta} pm ON pm.post_id = (
                                              SELECT post_id FROM {$wpdb->postmeta}
-                                             WHERE meta_key = '_tournament_uuid' AND meta_value = tp.tournament_id
+                                             WHERE meta_key = 'tournament_uuid' AND meta_value = tp.tournament_id
                                              LIMIT 1
-                                         ) AND pm.meta_key = '_tournament_date'
+                                         ) AND pm.meta_key = 'tournament_date'
                                          LEFT JOIN {$wpdb->posts} p ON pm.post_id = p.ID
-                                         LEFT JOIN {$wpdb->postmeta} psm ON p.ID = psm.post_id AND psm.meta_key = '_series_id'
+                                         LEFT JOIN {$wpdb->postmeta} psm ON p.ID = psm.post_id AND psm.meta_key = 'series_id'
                                          LEFT JOIN {$wpdb->posts} ps ON psm.meta_value = ps.ID
                                          WHERE tp.player_id = %s
                                          ORDER BY pm.meta_value DESC, tp.finish_position ASC
@@ -289,9 +289,9 @@ get_header(); ?>
                                          FROM $table_name tp
                                          LEFT JOIN {$wpdb->postmeta} pm ON pm.post_id = (
                                              SELECT post_id FROM {$wpdb->postmeta}
-                                             WHERE meta_key = '_tournament_uuid' AND meta_value = tp.tournament_id
+                                             WHERE meta_key = 'tournament_uuid' AND meta_value = tp.tournament_id
                                              LIMIT 1
-                                         ) AND pm.meta_key = '_tournament_date'
+                                         ) AND pm.meta_key = 'tournament_date'
                                          LEFT JOIN {$wpdb->posts} p ON pm.post_id = p.ID
                                          WHERE tp.player_id = %s
                                          ORDER BY pm.meta_value DESC
@@ -345,9 +345,9 @@ get_header(); ?>
                                                 SUM(tp.winnings) as total_winnings,
                                                 MIN(tp.finish_position) as best_finish
                                          FROM $table_name tp
-                                         LEFT JOIN {$wpdb->postmeta} tpm ON tpm.meta_value = tp.tournament_id AND tpm.meta_key = '_tournament_uuid'
+                                         LEFT JOIN {$wpdb->postmeta} tpm ON tpm.meta_value = tp.tournament_id AND tpm.meta_key = 'tournament_uuid'
                                          LEFT JOIN {$wpdb->posts} tp_post ON tpm.post_id = tp_post.ID
-                                         LEFT JOIN {$wpdb->postmeta} spm ON tp_post.ID = spm.post_id AND spm.meta_key = '_series_id'
+                                         LEFT JOIN {$wpdb->postmeta} spm ON tp_post.ID = spm.post_id AND spm.meta_key = 'series_id'
                                          LEFT JOIN {$wpdb->posts} ps ON spm.meta_value = ps.ID
                                          WHERE tp.player_id = %s AND ps.ID IS NOT NULL
                                          GROUP BY ps.ID
@@ -392,7 +392,7 @@ get_header(); ?>
                                     COUNT(*) as shared_tournaments
                              FROM $table_name tp1
                              JOIN $table_name tp2 ON tp1.tournament_id = tp2.tournament_id AND tp1.player_id != tp2.player_id
-                             LEFT JOIN {$wpdb->postmeta} pm ON pm.meta_value = tp2.player_id AND pm.meta_key = '_player_uuid'
+                             LEFT JOIN {$wpdb->postmeta} pm ON pm.meta_value = tp2.player_id AND pm.meta_key = 'player_uuid'
                              LEFT JOIN {$wpdb->posts} p ON pm.post_id = p.ID
                              WHERE tp1.player_id = %s AND p.ID IS NOT NULL
                              GROUP BY tp2.player_id

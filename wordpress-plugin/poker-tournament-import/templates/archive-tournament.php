@@ -119,7 +119,7 @@ get_header(); ?>
 
                         <?php
                         // Get tournament data
-                        $tournament_uuid = get_post_meta(get_the_ID(), '_tournament_uuid', true);
+                        $tournament_uuid = get_post_meta(get_the_ID(), 'tournament_uuid', true);
                         $players_count = get_post_meta(get_the_ID(), '_players_count', true);
                         $prize_pool = get_post_meta(get_the_ID(), '_prize_pool', true);
                         $buy_in = get_post_meta(get_the_ID(), '_buy_in', true);
@@ -135,7 +135,7 @@ get_header(); ?>
                             $winner = $wpdb->get_row($wpdb->prepare(
                                 "SELECT tp.player_id, p.post_title as player_name
                                  FROM $table_name tp
-                                 LEFT JOIN {$wpdb->postmeta} pm ON pm.meta_value = tp.player_id AND pm.meta_key = '_player_uuid'
+                                 LEFT JOIN {$wpdb->postmeta} pm ON pm.meta_value = tp.player_id AND pm.meta_key = 'player_uuid'
                                  LEFT JOIN {$wpdb->posts} p ON pm.post_id = p.ID
                                  WHERE tp.tournament_id = %s AND tp.finish_position = 1
                                  LIMIT 1",
