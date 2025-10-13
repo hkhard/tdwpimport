@@ -206,11 +206,36 @@ class Poker_Tournament_Import_Admin {
                     ));
 
                     if ($recent_tournaments) {
-                        echo '<ul>';
+                        echo '<ul class="recent-tournaments-list">';
                         foreach ($recent_tournaments as $tournament) {
-                            echo '<li>';
+                            // Get tournament data to extract winner
+                            $tournament_data = get_post_meta($tournament->ID, 'tournament_data', true);
+                            $winner = null;
+                            $currency = 'SEK';
+
+                            if ($tournament_data && is_array($tournament_data)) {
+                                $winner = $this->extract_winner_from_tournament_data($tournament_data);
+                                $currency = $this->extract_currency_from_tournament_data($tournament_data);
+                            }
+
+                            echo '<li class="recent-tournament-item">';
+                            echo '<div class="tournament-title">';
                             echo '<a href="' . get_edit_post_link($tournament->ID) . '">' . esc_html($tournament->post_title) . '</a>';
-                            echo ' - ' . get_the_date('M j, Y', $tournament->ID);
+                            echo '</div>';
+
+                            echo '<div class="tournament-meta">';
+                            echo '<span class="tournament-date">' . get_the_date('M j, Y', $tournament->ID) . '</span>';
+
+                            if ($winner) {
+                                echo '<span class="tournament-winner">';
+                                echo '🏆 ' . esc_html($winner['name']);
+                                if ($winner['winnings'] > 0) {
+                                    echo ' (' . esc_html($currency) . number_format($winner['winnings'], 0) . ')';
+                                }
+                                echo '</span>';
+                            }
+                            echo '</div>';
+
                             echo '</li>';
                         }
                         echo '</ul>';
@@ -218,6 +243,46 @@ class Poker_Tournament_Import_Admin {
                         echo '<p>' . __('No tournaments imported yet.', 'poker-tournament-import') . '</p>';
                     }
                     ?>
+                    <style>
+                    .recent-tournaments-list {
+                        list-style: none;
+                        padding: 0;
+                        margin: 0;
+                    }
+                    .recent-tournament-item {
+                        padding: 12px 0;
+                        border-bottom: 1px solid #eee;
+                    }
+                    .recent-tournament-item:last-child {
+                        border-bottom: none;
+                    }
+                    .tournament-title {
+                        font-weight: 600;
+                        margin-bottom: 4px;
+                    }
+                    .tournament-title a {
+                        color: #23282d;
+                        text-decoration: none;
+                    }
+                    .tournament-title a:hover {
+                        color: #0073aa;
+                        text-decoration: underline;
+                    }
+                    .tournament-meta {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        font-size: 13px;
+                        color: #666;
+                    }
+                    .tournament-date {
+                        color: #666;
+                    }
+                    .tournament-winner {
+                        font-weight: 500;
+                        color: #23282d;
+                    }
+                    </style>
                 </div>
 
                 <div class="poker-import-card">
@@ -341,7 +406,9 @@ class Poker_Tournament_Import_Admin {
 
             // Validate the data
             Poker_Tournament_Import_Debug::log('Starting data validation');
-            $errors = $parser->validate_data();
+            $validation_result = $parser->validate_data();
+            $errors = $validation_result['errors'] ?? array();
+            $warnings = $validation_result['warnings'] ?? array();
 
             if (!empty($errors)) {
                 Poker_Tournament_Import_Debug::log_error('Validation failed', $errors);
@@ -354,6 +421,18 @@ class Poker_Tournament_Import_Admin {
                 $this->show_debug_output();
                 return;
             }
+
+            // Display warnings if any
+            if (!empty($warnings)) {
+                Poker_Tournament_Import_Debug::log_warning('Validation warnings found', $warnings);
+                echo '<div class="notice notice-warning"><p>' . __('Warnings found during import:', 'poker-tournament-import') . '</p>';
+                echo '<ul>';
+                foreach ($warnings as $warning) {
+                    echo '<li>' . esc_html($warning) . '</li>';
+                }
+                echo '</ul></div>';
+            }
+
             Poker_Tournament_Import_Debug::log_success('Data validation passed');
 
             // Check for duplicate tournament
@@ -372,7 +451,7 @@ class Poker_Tournament_Import_Admin {
                 Poker_Tournament_Import_Debug::log_function('import_tournament_data');
 
                 // Import the tournament
-                $import_result = $this->import_tournament_data($tournament_data);
+                $import_result = $this->import_tournament_data($tournament_data, $parser);
 
                 Poker_Tournament_Import_Debug::log('Import result', $import_result);
 
@@ -516,9 +595,23 @@ class Poker_Tournament_Import_Admin {
     /**
      * Import tournament data into WordPress posts
      */
-    private function import_tournament_data($tournament_data) {
+    private function import_tournament_data($tournament_data, $parser = null) {
         global $wpdb;
         Poker_Tournament_Import_Debug::log_function('import_tournament_data started');
+
+        // **DEBUG**: Log tournament_data players to track data flow
+        if (!empty($tournament_data['players'])) {
+            $player_sample = array_slice($tournament_data['players'], 0, 3, true);
+            Poker_Tournament_Import_Debug::log('DEBUG: Tournament data players (first 3) at import_tournament_data start:', array_map(function($uuid, $player) {
+                return [
+                    'uuid' => $uuid,
+                    'nickname' => $player['nickname'] ?? 'Unknown',
+                    'finish_position' => $player['finish_position'] ?? 'Unknown',
+                    'winnings' => $player['winnings'] ?? 0,
+                    'points' => $player['points'] ?? 0
+                ];
+            }, array_keys($player_sample), $player_sample));
+        }
 
         try {
             $created_posts = array();
@@ -602,7 +695,8 @@ class Poker_Tournament_Import_Admin {
                 $series_id,
                 $season_id,
                 $player_ids,
-                $status
+                $status,
+                $parser
             );
             Poker_Tournament_Import_Debug::log('Tournament creation result', $tournament_id);
 
@@ -824,13 +918,28 @@ class Poker_Tournament_Import_Admin {
     /**
      * Create tournament post
      */
-    private function create_tournament_post($tournament_data, $series_id = 0, $season_id = 0, $player_ids = array(), $status = 'draft') {
+    private function create_tournament_post($tournament_data, $series_id = 0, $season_id = 0, $player_ids = array(), $status = 'draft', $parser = null) {
         Poker_Tournament_Import_Debug::log_function('create_tournament_post started');
+
+        // **DEBUG**: Log tournament_data players to track data flow
+        if (!empty($tournament_data['players'])) {
+            $player_sample = array_slice($tournament_data['players'], 0, 3, true);
+            Poker_Tournament_Import_Debug::log('DEBUG: Tournament data players (first 3) at create_tournament_post start:', array_map(function($uuid, $player) {
+                return [
+                    'uuid' => $uuid,
+                    'nickname' => $player['nickname'] ?? 'Unknown',
+                    'finish_position' => $player['finish_position'] ?? 'Unknown',
+                    'winnings' => $player['winnings'] ?? 0,
+                    'points' => $player['points'] ?? 0
+                ];
+            }, array_keys($player_sample), $player_sample));
+        }
+
         $metadata = $tournament_data['metadata'];
         Poker_Tournament_Import_Debug::log('Tournament metadata', $metadata);
 
         // **CRITICAL FIX**: Generate meaningful tournament content
-        $content = $this->generate_tournament_content($tournament_data);
+        $content = $this->generate_tournament_content($tournament_data, $parser);
 
         $post_data = array(
             'post_title' => $metadata['title'],
@@ -886,6 +995,15 @@ class Poker_Tournament_Import_Admin {
             // Store full tournament data
             update_post_meta($tournament_id, 'tournament_data', $tournament_data);
             Poker_Tournament_Import_Debug::log('Stored full tournament data');
+
+            // CRITICAL FIX: Store raw TDT content for real-time chronological processing
+            if ($parser) {
+                $raw_content = $parser->get_raw_content();
+                update_post_meta($tournament_id, '_tournament_raw_content', $raw_content);
+                Poker_Tournament_Import_Debug::log('Stored raw TDT content for real-time processing');
+            } else {
+                Poker_Tournament_Import_Debug::log_warning('Parser not available, skipping raw content storage');
+            }
 
             // Store player relationships
             if (!empty($player_ids)) {
@@ -2423,6 +2541,47 @@ class Poker_Tournament_Import_Admin {
     }
 
     /**
+     * Extract winner from tournament data
+     */
+    private function extract_winner_from_tournament_data($tournament_data) {
+        if (empty($tournament_data['players'])) {
+            return null;
+        }
+
+        // Find player with finish_position = 1
+        foreach ($tournament_data['players'] as $player) {
+            if (isset($player['finish_position']) && $player['finish_position'] === 1) {
+                return array(
+                    'name' => $player['nickname'] ?? 'Unknown',
+                    'uuid' => $player['uuid'] ?? '',
+                    'winnings' => $player['winnings'] ?? 0,
+                    'winner_source' => $player['winner_source'] ?? 'unknown',
+                    'winner_declaration' => $player['winner_declaration'] ?? ''
+                );
+            }
+        }
+
+        // If no explicit position 1, find player with highest winnings
+        $max_winnings = 0;
+        $winner = null;
+        foreach ($tournament_data['players'] as $player) {
+            $winnings = floatval($player['winnings'] ?? 0);
+            if ($winnings > $max_winnings) {
+                $max_winnings = $winnings;
+                $winner = array(
+                    'name' => $player['nickname'] ?? 'Unknown',
+                    'uuid' => $player['uuid'] ?? '',
+                    'winnings' => $winnings,
+                    'winner_source' => 'highest_winnings',
+                    'winner_declaration' => ''
+                );
+            }
+        }
+
+        return $winner;
+    }
+
+    /**
      **CRITICAL FIX**: Extract currency from tournament data
      */
     private function extract_currency_from_tournament_data($tournament_data) {
@@ -2531,7 +2690,7 @@ class Poker_Tournament_Import_Admin {
     /**
      **CRITICAL FIX**: Generate meaningful tournament content for display
      */
-    private function generate_tournament_content($tournament_data) {
+    private function generate_tournament_content($tournament_data, $parser = null) {
         $content = '';
         $metadata = $tournament_data['metadata'];
 
@@ -2591,8 +2750,70 @@ class Poker_Tournament_Import_Admin {
         $content .= '<h4>' . __('Results Summary', 'poker-tournament-import') . '</h4>';
 
         if (!empty($tournament_data['players'])) {
+            // **CRITICAL FIX**: Ensure we use chronologically processed player data for post content
+            Poker_Tournament_Import_Debug::log('PHASE 1: About to call ensure_chronological_player_data');
+
+            try {
+                $processed_players = $this->ensure_chronological_player_data($tournament_data, $parser);
+
+                // **CRITICAL DEBUG**: Immediately log the return value
+                Poker_Tournament_Import_Debug::log('PHASE 1: ensure_chronological_player_data returned', [
+                    'has_data' => !empty($processed_players),
+                    'data_type' => gettype($processed_players),
+                    'is_array' => is_array($processed_players),
+                    'count' => is_array($processed_players) ? count($processed_players) : 0,
+                    'first_player_name' => (!empty($processed_players) && is_array($processed_players)) ?
+                        (reset($processed_players)['nickname'] ?? 'Unknown') : 'No data'
+                ]);
+
+            } catch (Exception $e) {
+                Poker_Tournament_Import_Debug::log('PHASE 1: Exception in ensure_chronological_player_data: ' . $e->getMessage());
+                $processed_players = null;
+            }
+
+            // Debug: Log the winner that will be shown in post content
+            Poker_Tournament_Import_Debug::log('PHASE 1: About to check if processed_players is empty', [
+                'is_empty' => empty($processed_players),
+                'is_null' => is_null($processed_players),
+                'is_array' => is_array($processed_players)
+            ]);
+
+            if (!empty($processed_players)) {
+                Poker_Tournament_Import_Debug::log('PHASE 1: Inside conditional check - processed_players is not empty');
+
+                // **CRITICAL FIX**: Get first player from associative array correctly
+                $first_player = reset($processed_players);
+                Poker_Tournament_Import_Debug::log('PHASE 1: Got first player from reset()', [
+                    'first_player_name' => $first_player['nickname'] ?? 'Unknown',
+                    'first_player_position' => $first_player['finish_position'] ?? 'Unknown',
+                    'is_first_player_winner' => ($first_player['finish_position'] ?? null) === 1
+                ]);
+
+                Poker_Tournament_Import_Debug::log('CRITICAL: Post content winner will be: ' . ($first_player['nickname'] ?? 'Unknown') . ' (Position: 1)');
+                Poker_Tournament_Import_Debug::log('CRITICAL: Processed players array type', [
+                    'is_associative' => array_keys($processed_players) !== range(0, count($processed_players) - 1),
+                    'first_player_uuid' => key($processed_players),
+                    'total_players' => count($processed_players)
+                ]);
+            } else {
+                Poker_Tournament_Import_Debug::log('PHASE 1: CRITICAL - processed_players is empty, falling back to original data');
+                Poker_Tournament_Import_Debug::log('PHASE 1: Original tournament_data players', [
+                    'original_count' => count($tournament_data['players']),
+                    'original_first_player' => reset($tournament_data['players'])['nickname'] ?? 'Unknown'
+                ]);
+                // Fallback to original data if processed_players is empty
+                $processed_players = $tournament_data['players'];
+            }
+
             // Show top 3 finishers
-            $top_players = array_slice($tournament_data['players'], 0, 3);
+            // **CRITICAL FIX**: Handle both associative and numeric arrays correctly
+            if (array_keys($processed_players) !== range(0, count($processed_players) - 1)) {
+                // Associative array - convert to numeric array for slicing
+                $top_players = array_slice(array_values($processed_players), 0, 3);
+            } else {
+                // Numeric array - slice normally
+                $top_players = array_slice($processed_players, 0, 3);
+            }
             $content .= '<ol>';
             foreach ($top_players as $index => $player) {
                 $position = intval($index) + 1;
@@ -2794,5 +3015,257 @@ class Poker_Tournament_Import_Admin {
         }
 
         return $stats;
+    }
+
+    /**
+     * **CRITICAL FIX**: Ensure player data is in correct chronological order for post content
+     * This method guarantees that the post content shows the correct winner (chronological order)
+     */
+    private function ensure_chronological_player_data($tournament_data, $parser = null) {
+        Poker_Tournament_Import_Debug::log('ensure_chronological_player_data started');
+
+        // **OPTIMIZATION**: First try to get chronological data directly from parser
+        if ($parser && method_exists($parser, 'get_chronological_players')) {
+            $chronological_players = $parser->get_chronological_players();
+            if ($chronological_players !== null) {
+                Poker_Tournament_Import_Debug::log_success('OPTIMIZATION: Using existing chronological data from parser - no processing needed');
+                return $chronological_players;
+            }
+        }
+
+        // **DEBUG**: Log tournament_data players to track data flow
+        if (!empty($tournament_data['players'])) {
+            $player_sample = array_slice($tournament_data['players'], 0, 3, true);
+            Poker_Tournament_Import_Debug::log('DEBUG: Tournament data players (first 3) at ensure_chronological_player_data start:', array_map(function($uuid, $player) {
+                return [
+                    'uuid' => $uuid,
+                    'nickname' => $player['nickname'] ?? 'Unknown',
+                    'finish_position' => $player['finish_position'] ?? 'Unknown',
+                    'winnings' => $player['winnings'] ?? 0,
+                    'points' => $player['points'] ?? 0
+                ];
+            }, array_keys($player_sample), $player_sample));
+        }
+
+        // First, check if we already have chronologically processed data
+        if (!empty($tournament_data['players']) && is_array($tournament_data['players'])) {
+            // **CRITICAL FIX**: Get first player from associative array (keyed by UUID)
+            $first_player = null;
+            if (!empty($tournament_data['players'])) {
+                // Use reset() to get the first element from associative array
+                $first_player = reset($tournament_data['players']);
+            }
+
+            // **CRITICAL VALIDATION**: Check if first player is actually the winner (finish_position = 1)
+            $first_player_finish_pos = $first_player['finish_position'] ?? null;
+            $is_first_player_winner = ($first_player_finish_pos === 1);
+
+            Poker_Tournament_Import_Debug::log('CRITICAL CHECK: First player finish position', [
+                'first_player' => $first_player['nickname'] ?? 'Unknown',
+                'finish_position' => $first_player_finish_pos,
+                'is_first_player_winner' => $is_first_player_winner,
+                'debug_array_keys' => array_keys($tournament_data['players']),
+                'first_player_uuid' => key($tournament_data['players'])
+            ]);
+
+            // If first player is not the winner, data is definitely NOT chronological
+            if (!$is_first_player_winner) {
+                Poker_Tournament_Import_Debug::log('REJECTING: First player is not finish_position 1 - this is buy-in order, forcing real-time processing');
+                $looks_chronological = false;
+            } else {
+                // Try to determine if this data looks chronologically correct
+                $looks_chronological = $this->validate_chronological_order($tournament_data['players']);
+            }
+
+            Poker_Tournament_Import_Debug::log('Chronological validation result', $looks_chronological ? 'Data looks chronological' : 'Data may not be chronological');
+
+            if ($looks_chronological) {
+                Poker_Tournament_Import_Debug::log_success('Using existing player data (appears chronological)');
+                return $tournament_data['players'];
+            }
+        }
+
+        // If data doesn't look chronological, try real-time processing if parser is available
+        if ($parser && method_exists($parser, 'get_raw_content')) {
+            Poker_Tournament_Import_Debug::log('Attempting real-time chronological processing for post content');
+
+            try {
+                $raw_content = $parser->get_raw_content();
+                if (!empty($raw_content)) {
+                    // Create a new parser instance for real-time processing
+                    $realtime_parser = new Poker_Tournament_Parser();
+                    $realtime_data = $realtime_parser->parse_content($raw_content);
+
+                    if (!empty($realtime_data['players'])) {
+                        $realtime_chronological = $this->validate_chronological_order($realtime_data['players']);
+
+                        if ($realtime_chronological) {
+                            Poker_Tournament_Import_Debug::log_success('Real-time processing successful, using chronological data');
+
+                            // **CRITICAL DEBUG**: Log what we're about to return
+                            $first_returned_player = reset($realtime_data['players']);
+                            Poker_Tournament_Import_Debug::log('PHASE 1: About to return realtime chronological data', [
+                                'player_count' => count($realtime_data['players']),
+                                'first_player_name' => $first_returned_player['nickname'] ?? 'Unknown',
+                                'first_player_position' => $first_returned_player['finish_position'] ?? 'Unknown',
+                                'is_first_player_winner' => ($first_returned_player['finish_position'] ?? null) === 1
+                            ]);
+
+                            return $realtime_data['players'];
+                        } else {
+                            Poker_Tournament_Import_Debug::log_warning('Real-time processing data still not chronological');
+                        }
+                    }
+                }
+            } catch (Exception $e) {
+                Poker_Tournament_Import_Debug::log_error('Real-time processing failed: ' . $e->getMessage());
+            }
+        }
+
+        // Final fallback: sort the existing players data to get closest to chronological order
+        Poker_Tournament_Import_Debug::log_warning('Using fallback sorting to approximate chronological order');
+        return $this->approximate_chronological_order($tournament_data['players']);
+    }
+
+    /**
+     * Validate if player data appears to be in chronological order
+     */
+    private function validate_chronological_order($players) {
+        if (empty($players) || count($players) < 2) {
+            return true; // Single player or empty data is trivially chronological
+        }
+
+        // **CRITICAL FIX**: Handle associative arrays correctly
+        Poker_Tournament_Import_Debug::log('validate_chronological_order: Checking player order', [
+            'player_count' => count($players),
+            'is_associative' => array_keys($players) !== range(0, count($players) - 1),
+            'array_keys_sample' => array_slice(array_keys($players), 0, 3)
+        ]);
+
+        // Check basic logical consistency: first player should have highest winnings or points
+        $first_player = null;
+        if (array_keys($players) !== range(0, count($players) - 1)) {
+            // Associative array - use reset()
+            $first_player = reset($players);
+            Poker_Tournament_Import_Debug::log('validate_chronological_order: Using reset() for associative array', [
+                'first_player_name' => $first_player['nickname'] ?? 'Unknown',
+                'first_player_position' => $first_player['finish_position'] ?? 'Unknown'
+            ]);
+        } else {
+            // Numeric array - use [0]
+            $first_player = $players[0] ?? null;
+            Poker_Tournament_Import_Debug::log('validate_chronological_order: Using [0] for numeric array');
+        }
+
+        if (!$first_player) {
+            Poker_Tournament_Import_Debug::log('validate_chronological_order: No first player found, defaulting to true');
+            return true; // No first player, cannot validate
+        }
+        $first_winnings = floatval($first_player['winnings'] ?? 0);
+        $first_points = floatval($first_player['points'] ?? 0);
+
+        // If first player has highest winnings, likely chronological
+        $max_winnings = 0;
+        foreach ($players as $player) {
+            $winnings = floatval($player['winnings'] ?? 0);
+            if ($winnings > $max_winnings) {
+                $max_winnings = $winnings;
+            }
+        }
+
+        // If first player has max winnings (or close to it), likely chronological
+        $winnings_ratio = $max_winnings > 0 ? $first_winnings / $max_winnings : 0;
+        $looks_chronological = $winnings_ratio >= 0.95; // Allow small rounding differences
+
+        // Additional validation: check if first player has reasonable winner characteristics
+        if ($looks_chronological && $first_winnings > 0) {
+            // Check if first player also has high points (consistent with being a winner)
+            $max_points = 0;
+            foreach ($players as $player) {
+                $points = floatval($player['points'] ?? 0);
+                if ($points > $max_points) {
+                    $max_points = $points;
+                }
+            }
+
+            $first_points = floatval($first_player['points'] ?? 0);
+            $points_ratio = $max_points > 0 ? $first_points / $max_points : 0;
+
+            // Both winnings and points should be high for true chronological data
+            $looks_chronological = $points_ratio >= 0.9; // Stricter validation for points
+        }
+
+        Poker_Tournament_Import_Debug::log('Chronological validation details', [
+            'first_player_winnings' => $first_winnings,
+            'max_winnings' => $max_winnings,
+            'winnings_ratio' => $winnings_ratio,
+            'first_player_points' => $first_points ?? 0,
+            'max_points' => $max_points ?? 0,
+            'points_ratio' => $points_ratio ?? 0,
+            'looks_chronological' => $looks_chronological
+        ]);
+
+        // Special case: if first player has $0 winnings, this is definitely NOT chronological
+        if ($first_winnings == 0 && $max_winnings > 0) {
+            Poker_Tournament_Import_Debug::log('REJECTING: First player has $0 winnings but max winnings > $0 - this is buy-in order');
+            return false;
+        }
+
+        Poker_Tournament_Import_Debug::log('validate_chronological_order: Final result', [
+            'looks_chronological' => $looks_chronological,
+            'first_player_name' => $first_player['nickname'] ?? 'Unknown',
+            'first_player_winnings' => $first_winnings,
+            'max_winnings' => $max_winnings
+        ]);
+
+        return $looks_chronological;
+    }
+
+    /**
+     * Fallback method to approximate chronological order from existing player data
+     */
+    private function approximate_chronological_order($players) {
+        if (empty($players)) {
+            return $players;
+        }
+
+        Poker_Tournament_Import_Debug::log('Approximating chronological order from player data');
+
+        // Sort players by multiple criteria to approximate chronological order
+        usort($players, function($a, $b) {
+            // Primary: by winnings (descending)
+            $winnings_a = floatval($a['winnings'] ?? 0);
+            $winnings_b = floatval($b['winnings'] ?? 0);
+
+            if ($winnings_a !== $winnings_b) {
+                return $winnings_b <=> $winnings_a;
+            }
+
+            // Secondary: by points (descending)
+            $points_a = floatval($a['points'] ?? 0);
+            $points_b = floatval($b['points'] ?? 0);
+
+            if ($points_a !== $points_b) {
+                return $points_b <=> $points_a;
+            }
+
+            // Tertiary: by total buyins (descending - more buyins = played longer)
+            $buyins_a = intval($a['buyins'] ?? 1) + intval($a['rebuys'] ?? 0) + intval($a['addons'] ?? 0);
+            $buyins_b = intval($b['buyins'] ?? 1) + intval($b['rebuys'] ?? 0) + intval($b['addons'] ?? 0);
+
+            return $buyins_b <=> $buyins_a;
+        });
+
+        // Assign finish positions
+        foreach ($players as $index => &$player) {
+            $player['finish_position'] = $index + 1;
+        }
+
+        Poker_Tournament_Import_Debug::log_success('Approximate chronological order completed');
+        if (!empty($players[0])) {
+            Poker_Tournament_Import_Debug::log('Approximated winner: ' . ($players[0]['nickname'] ?? 'Unknown'));
+        }
+
+        return $players;
     }
 }

@@ -3,7 +3,7 @@
  * Plugin Name: Poker Tournament Import
  * Plugin URI: https://nikielhard.se/tdwpimport
  * Description: Import and display poker tournament results from Tournament Director (.tdt) files
- * Version: 2.0.2
+ * Version: 2.2.5-OPTIMIZED
  * Author: Hans Kästel Hård
  * Author URI: https://nikielhard.se/tdwpimport
  * License: GPL v2 or later
@@ -20,7 +20,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('POKER_TOURNAMENT_IMPORT_VERSION', '2.0.2');
+define('POKER_TOURNAMENT_IMPORT_VERSION', '2.2.5-OPTIMIZED');
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -88,6 +88,10 @@ class Poker_Tournament_Import {
             // Initialize shortcode helper meta boxes
             require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/shortcode-helper.php';
             new Poker_Shortcode_Helper();
+
+            // Initialize data mart cleaner
+            require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/class-data-mart-cleaner.php';
+            new Poker_Data_Mart_Cleaner();
         }
 
         // AJAX handlers for tabbed interface
@@ -119,6 +123,22 @@ class Poker_Tournament_Import {
 
         // AJAX handlers for statistics refresh
         add_action('wp_ajax_poker_refresh_statistics', array($this, 'ajax_refresh_statistics'));
+
+        // AJAX handlers for data mart cleaner
+        add_action('wp_ajax_poker_clean_data_mart', array($this, 'ajax_clean_data_mart'));
+
+        // AJAX handlers for tournament chronology reconstruction
+        add_action('wp_ajax_poker_reconstruct_chronology', array($this, 'ajax_reconstruct_chronology'));
+        add_action('wp_ajax_poker_upload_tdt_for_tournament', array($this, 'ajax_upload_tdt_for_tournament'));
+
+        // AJAX handlers for enhanced data mart cleaning
+        add_action('wp_ajax_poker_clean_statistics_enhanced', array($this, 'ajax_clean_statistics_enhanced'));
+        add_action('wp_ajax_poker_clean_financial_enhanced', array($this, 'ajax_clean_financial_enhanced'));
+        add_action('wp_ajax_poker_clean_player_data_enhanced', array($this, 'ajax_clean_player_data_enhanced'));
+        add_action('wp_ajax_poker_clean_analytics_enhanced', array($this, 'ajax_clean_analytics_enhanced'));
+        add_action('wp_ajax_poker_clean_options_enhanced', array($this, 'ajax_clean_options_enhanced'));
+        add_action('wp_ajax_poker_clean_all_enhanced', array($this, 'ajax_clean_all_enhanced'));
+        add_action('wp_ajax_poker_get_cleaning_status', array($this, 'ajax_get_cleaning_status'));
 
         // Hook into tournament creation and updates
         add_action('save_post_tournament', array($this, 'on_tournament_save'), 10, 3);
@@ -1511,6 +1531,509 @@ class Poker_Tournament_Import {
                 error_log("Poker Statistics: Exception during async refresh: " . $e->getMessage());
             }
         }
+    }
+
+    /**
+     * AJAX handler for data mart cleaning
+     */
+    public function ajax_clean_data_mart() {
+        check_ajax_referer('poker_data_mart_cleaner', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_die(__('You do not have sufficient permissions to access this page.', 'poker-tournament-import'));
+        }
+
+        $cleaning_type = isset($_POST['cleaning_type']) ? sanitize_text_field($_POST['cleaning_type']) : '';
+
+        if (empty($cleaning_type)) {
+            wp_send_json_error(array(
+                'message' => __('Cleaning type is required.', 'poker-tournament-import')
+            ));
+        }
+
+        $data_mart_cleaner = new Poker_Data_Mart_Cleaner();
+        $result = false;
+        $message = '';
+
+        switch ($cleaning_type) {
+            case 'statistics':
+                $result = $data_mart_cleaner->clean_statistics_table();
+                $message = $result ? __('Statistics cleaned successfully!', 'poker-tournament-import') : __('Failed to clean statistics.', 'poker-tournament-import');
+                break;
+
+            case 'financial':
+                $result = $data_mart_cleaner->clean_financial_tables();
+                $message = $result ? __('Financial data cleaned successfully!', 'poker-tournament-import') : __('Failed to clean financial data.', 'poker-tournament-import');
+                break;
+
+            case 'player_data':
+                $result = $data_mart_cleaner->clean_player_data();
+                $message = $result ? __('Player data cleaned successfully!', 'poker-tournament-import') : __('Failed to clean player data.', 'poker-tournament-import');
+                break;
+
+            case 'analytics':
+                $result = $data_mart_cleaner->clean_analytics_tables();
+                $message = $result ? __('Analytics cleaned successfully!', 'poker-tournament-import') : __('Failed to clean analytics.', 'poker-tournament-import');
+                break;
+
+            case 'options':
+                $result = $data_mart_cleaner->clean_wordpress_options();
+                $message = $result ? __('Options cleaned successfully!', 'poker-tournament-import') : __('Failed to clean options.', 'poker-tournament-import');
+                break;
+
+            case 'all':
+                $result = $data_mart_cleaner->clean_all_data_mart();
+                $message = $result ? __('All data mart cleaned successfully!', 'poker-tournament-import') : __('Failed to clean data mart.', 'poker-tournament-import');
+                break;
+
+            case 'reset_all':
+                $result = $data_mart_cleaner->reset_all_plugin_data();
+                $message = $result ? __('Complete reset successful!', 'poker-tournament-import') : __('Failed to reset plugin data.', 'poker-tournament-import');
+                break;
+
+            default:
+                wp_send_json_error(array(
+                    'message' => __('Invalid cleaning type.', 'poker-tournament-import')
+                ));
+                break;
+        }
+
+        if ($result) {
+            wp_send_json_success(array(
+                'message' => $message,
+                'stats' => $data_mart_cleaner->get_data_mart_stats()
+            ));
+        } else {
+            wp_send_json_error(array(
+                'message' => $message
+            ));
+        }
+    }
+
+    /**
+     * AJAX handler for chronological reconstruction
+     */
+    public function ajax_reconstruct_chronology() {
+        check_ajax_referer('poker_series_tab_content', 'nonce');
+
+        $tournament_id = intval($_POST['tournament_id']);
+
+        if (empty($tournament_id)) {
+            wp_send_json_error(array(
+                'message' => __('Tournament ID is required.', 'poker-tournament-import')
+            ));
+        }
+
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'poker_tournament_players';
+        $tournament_uuid = get_post_meta($tournament_id, 'tournament_uuid', true);
+
+        if (!$tournament_uuid) {
+            wp_send_json_error(array(
+                'message' => __('Tournament UUID not found.', 'poker-tournament-import')
+            ));
+        }
+
+        // Get current player data
+        $players = $wpdb->get_results($wpdb->prepare(
+            "SELECT * FROM $table_name WHERE tournament_id = %s ORDER BY finish_position ASC",
+            $tournament_uuid
+        ));
+
+        if (empty($players)) {
+            wp_send_json_error(array(
+                'message' => __('No player data found for this tournament.', 'poker-tournament-import')
+            ));
+        }
+
+        // Apply chronological reconstruction algorithm
+        $reconstructed_players = $this->reconstruct_chronological_order($players);
+
+        if ($reconstructed_players) {
+            // Update database with new chronological order
+            foreach ($reconstructed_players as $index => $player) {
+                $new_finish_position = $index + 1;
+                $wpdb->update(
+                    $table_name,
+                    array('finish_position' => $new_finish_position),
+                    array('id' => $player->id),
+                    array('%d'),
+                    array('%d')
+                );
+            }
+
+            // Mark tournament as chronologically processed
+            update_post_meta($tournament_id, '_chronologically_processed', true);
+            update_post_meta($tournament_id, '_chronological_processing_date', current_time('mysql'));
+
+            wp_send_json_success(array(
+                'message' => __('Tournament has been successfully updated with chronological order!', 'poker-tournament-import')
+            ));
+        } else {
+            wp_send_json_error(array(
+                'message' => __('Chronological reconstruction failed. Please upload the original .tdt file.', 'poker-tournament-import')
+            ));
+        }
+    }
+
+    /**
+     * AJAX handler for TDT file upload for existing tournament
+     */
+    public function ajax_upload_tdt_for_tournament() {
+        check_ajax_referer('poker_series_tab_content', 'nonce');
+
+        $tournament_id = intval($_POST['tournament_id']);
+
+        if (empty($tournament_id)) {
+            wp_send_json_error(array(
+                'message' => __('Tournament ID is required.', 'poker-tournament-import')
+            ));
+        }
+
+        if (!isset($_FILES['tdt_file']) || $_FILES['tdt_file']['error'] !== UPLOAD_ERR_OK) {
+            wp_send_json_error(array(
+                'message' => __('File upload failed. Please try again.', 'poker-tournament-import')
+            ));
+        }
+
+        $file = $_FILES['tdt_file'];
+
+        // Validate file type
+        $file_extension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+        if ($file_extension !== 'tdt') {
+            wp_send_json_error(array(
+                'message' => __('Invalid file type. Please upload a .tdt file.', 'poker-tournament-import')
+            ));
+        }
+
+        // Read file content
+        $file_content = file_get_contents($file['tmp_name']);
+        if ($file_content === false) {
+            wp_send_json_error(array(
+                'message' => __('Failed to read uploaded file.', 'poker-tournament-import')
+            ));
+        }
+
+        // Parse the TDT file
+        try {
+            $parser = new Poker_Tournament_Parser();
+            $tournament_data = $parser->parse_content($file_content);
+
+            if (!$tournament_data || empty($tournament_data['players'])) {
+                wp_send_json_error(array(
+                    'message' => __('Invalid or empty TDT file.', 'poker-tournament-import')
+                ));
+            }
+
+            // Store raw TDT content for real-time processing
+            update_post_meta($tournament_id, '_tournament_raw_content', $file_content);
+
+            // Get tournament UUID
+            $tournament_uuid = get_post_meta($tournament_id, 'tournament_uuid', true);
+            if (!$tournament_uuid) {
+                $tournament_uuid = $tournament_data['metadata']['uuid'] ?? uniqid('tournament_');
+                update_post_meta($tournament_id, 'tournament_uuid', $tournament_uuid);
+            }
+
+            // Update player data with chronological order from TDT
+            global $wpdb;
+            $table_name = $wpdb->prefix . 'poker_tournament_players';
+
+            // Clear existing player data for this tournament
+            $wpdb->delete(
+                $table_name,
+                array('tournament_id' => $tournament_uuid),
+                array('%s')
+            );
+
+            // Insert updated player data in chronological order
+            foreach ($tournament_data['players'] as $index => $player) {
+                $wpdb->insert(
+                    $table_name,
+                    array(
+                        'tournament_id' => $tournament_uuid,
+                        'player_id' => $player['id'],
+                        'finish_position' => $index + 1,
+                        'winnings' => $player['winnings'] ?? 0,
+                        'buyins' => $player['buyins'] ?? 1,
+                        'rebuys' => $player['rebuys'] ?? 0,
+                        'addons' => $player['addons'] ?? 0,
+                        'hits' => $player['hits'] ?? 0,
+                        'points' => $player['points'] ?? 0,
+                    ),
+                    array('%s', '%s', '%d', '%f', '%d', '%d', '%d', '%d', '%f')
+                );
+            }
+
+            // Mark tournament as chronologically processed
+            update_post_meta($tournament_id, '_chronologically_processed', true);
+            update_post_meta($tournament_id, '_chronological_processing_date', current_time('mysql'));
+            update_post_meta($tournament_id, '_tdt_file_uploaded', true);
+
+            wp_send_json_success(array(
+                'message' => __('Tournament has been successfully updated with chronological order from the .tdt file!', 'poker-tournament-import')
+            ));
+
+        } catch (Exception $e) {
+            wp_send_json_error(array(
+                'message' => __('Error parsing TDT file: ', 'poker-tournament-import') . $e->getMessage()
+            ));
+        }
+    }
+
+    /**
+     * Reconstruct chronological order from buy-in data
+     */
+    private function reconstruct_chronological_order($players) {
+        if (empty($players)) {
+            return null;
+        }
+
+        // Advanced algorithm to reconstruct elimination order
+        // Sort by multiple criteria to approximate chronological order
+
+        // Primary sort: by winnings (descending - higher winnings = lasted longer)
+        usort($players, function($a, $b) {
+            // First compare winnings
+            $winnings_diff = floatval($b->winnings) - floatval($a->winnings);
+            if (abs($winnings_diff) > 0.01) {
+                return $winnings_diff > 0 ? 1 : -1;
+            }
+
+            // Secondary sort: by points (descending)
+            $points_diff = floatval($b->points) - floatval($a->points);
+            if (abs($points_diff) > 0.01) {
+                return $points_diff > 0 ? 1 : -1;
+            }
+
+            // Tertiary sort: by total buyins (descending - more buyins = played longer)
+            $buyins_diff = ($b->buyins + $b->rebuys + $b->addons) - ($a->buyins + $a->rebuys + $a->addons);
+            if ($buyins_diff !== 0) {
+                return $buyins_diff > 0 ? 1 : -1;
+            }
+
+            // Final sort: keep original order as last resort
+            return $a->finish_position - $b->finish_position;
+        });
+
+        // Validate the reconstructed order makes sense
+        if ($this->is_valid_chronological_order($players)) {
+            return $players;
+        } else {
+            return null;
+        }
+    }
+
+    /**
+     * Validate if the reconstructed order is logical
+     */
+    private function is_valid_chronological_order($players) {
+        if (empty($players) || count($players) < 2) {
+            return true;
+        }
+
+        // Basic validation: winner should have highest winnings
+        $winner = $players[0];
+        foreach (array_slice($players, 1) as $player) {
+            if (floatval($player->winnings) > floatval($winner->winnings)) {
+                return false;
+            }
+        }
+
+        // Additional validation checks can be added here
+        return true;
+    }
+
+    /**
+     * Enhanced AJAX handler for statistics cleaning with real-time feedback
+     */
+    public function ajax_clean_statistics_enhanced() {
+        check_ajax_referer('poker_data_mart_cleaner', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(array(
+                'message' => __('You do not have sufficient permissions to access this page.', 'poker-tournament-import')
+            ));
+        }
+
+        $data_mart_cleaner = new Poker_Data_Mart_Cleaner();
+        $result = $data_mart_cleaner->clean_statistics_table_enhanced();
+
+        if ($result['success']) {
+            wp_send_json_success(array(
+                'message' => __('Statistics table cleaned successfully!', 'poker-tournament-import'),
+                'records_removed' => $result['records_removed'],
+                'verification' => $result['verification']
+            ));
+        } else {
+            wp_send_json_error(array(
+                'message' => __('Failed to clean statistics table.', 'poker-tournament-import'),
+                'error' => $result['error']
+            ));
+        }
+    }
+
+    /**
+     * Enhanced AJAX handler for financial data cleaning
+     */
+    public function ajax_clean_financial_enhanced() {
+        check_ajax_referer('poker_data_mart_cleaner', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(array(
+                'message' => __('You do not have sufficient permissions to access this page.', 'poker-tournament-import')
+            ));
+        }
+
+        $data_mart_cleaner = new Poker_Data_Mart_Cleaner();
+        $result = $data_mart_cleaner->clean_financial_tables_enhanced();
+
+        if ($result['success']) {
+            wp_send_json_success(array(
+                'message' => __('Financial data cleaned successfully!', 'poker-tournament-import'),
+                'tables_cleaned' => $result['tables_cleaned'],
+                'records_removed' => $result['total_records']
+            ));
+        } else {
+            wp_send_json_error(array(
+                'message' => __('Failed to clean financial data.', 'poker-tournament-import'),
+                'errors' => $result['errors']
+            ));
+        }
+    }
+
+    /**
+     * Enhanced AJAX handler for player data cleaning
+     */
+    public function ajax_clean_player_data_enhanced() {
+        check_ajax_referer('poker_data_mart_cleaner', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(array(
+                'message' => __('You do not have sufficient permissions to access this page.', 'poker-tournament-import')
+            ));
+        }
+
+        $data_mart_cleaner = new Poker_Data_Mart_Cleaner();
+        $result = $data_mart_cleaner->clean_player_data_enhanced();
+
+        if ($result['success']) {
+            wp_send_json_success(array(
+                'message' => __('Player data cleaned successfully!', 'poker-tournament-import'),
+                'tables_cleaned' => $result['tables_cleaned'],
+                'records_removed' => $result['total_records']
+            ));
+        } else {
+            wp_send_json_error(array(
+                'message' => __('Failed to clean player data.', 'poker-tournament-import'),
+                'errors' => $result['errors']
+            ));
+        }
+    }
+
+    /**
+     * Enhanced AJAX handler for analytics data cleaning
+     */
+    public function ajax_clean_analytics_enhanced() {
+        check_ajax_referer('poker_data_mart_cleaner', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(array(
+                'message' => __('You do not have sufficient permissions to access this page.', 'poker-tournament-import')
+            ));
+        }
+
+        $data_mart_cleaner = new Poker_Data_Mart_Cleaner();
+        $result = $data_mart_cleaner->clean_analytics_tables_enhanced();
+
+        if ($result['success']) {
+            wp_send_json_success(array(
+                'message' => __('Analytics data cleaned successfully!', 'poker-tournament-import'),
+                'tables_cleaned' => $result['tables_cleaned'],
+                'records_removed' => $result['total_records']
+            ));
+        } else {
+            wp_send_json_error(array(
+                'message' => __('Failed to clean analytics data.', 'poker-tournament-import'),
+                'errors' => $result['errors']
+            ));
+        }
+    }
+
+    /**
+     * Enhanced AJAX handler for options cleaning
+     */
+    public function ajax_clean_options_enhanced() {
+        check_ajax_referer('poker_data_mart_cleaner', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(array(
+                'message' => __('You do not have sufficient permissions to access this page.', 'poker-tournament-import')
+            ));
+        }
+
+        $data_mart_cleaner = new Poker_Data_Mart_Cleaner();
+        $result = $data_mart_cleaner->clean_wordpress_options_enhanced();
+
+        if ($result['success']) {
+            wp_send_json_success(array(
+                'message' => __('WordPress options cleaned successfully!', 'poker-tournament-import'),
+                'options_cleaned' => $result['options_cleaned'],
+                'total_options' => $result['total_options']
+            ));
+        } else {
+            wp_send_json_error(array(
+                'message' => __('Failed to clean WordPress options.', 'poker-tournament-import'),
+                'errors' => $result['errors']
+            ));
+        }
+    }
+
+    /**
+     * Enhanced AJAX handler for cleaning all data mart
+     */
+    public function ajax_clean_all_enhanced() {
+        check_ajax_referer('poker_data_mart_cleaner', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(array(
+                'message' => __('You do not have sufficient permissions to access this page.', 'poker-tournament-import')
+            ));
+        }
+
+        $data_mart_cleaner = new Poker_Data_Mart_Cleaner();
+        $result = $data_mart_cleaner->clean_all_data_mart_enhanced();
+
+        if ($result['success']) {
+            wp_send_json_success(array(
+                'message' => __('All data mart tables cleaned successfully!', 'poker-tournament-import'),
+                'tables_cleaned' => $result['tables_cleaned'],
+                'total_records' => $result['total_records']
+            ));
+        } else {
+            wp_send_json_error(array(
+                'message' => __('Some errors occurred during cleaning.', 'poker-tournament-import'),
+                'errors' => $result['errors']
+            ));
+        }
+    }
+
+    /**
+     * AJAX handler to get real-time cleaning status
+     */
+    public function ajax_get_cleaning_status() {
+        check_ajax_referer('poker_data_mart_cleaner', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(array(
+                'message' => __('You do not have sufficient permissions to access this page.', 'poker-tournament-import')
+            ));
+        }
+
+        $data_mart_cleaner = new Poker_Data_Mart_Cleaner();
+        $status = $data_mart_cleaner->get_real_time_data_mart_status();
+
+        wp_send_json_success($status);
     }
 }
 
