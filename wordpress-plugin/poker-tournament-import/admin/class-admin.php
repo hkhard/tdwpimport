@@ -2595,7 +2595,7 @@ class Poker_Tournament_Import_Admin {
             $top_players = array_slice($tournament_data['players'], 0, 3);
             $content .= '<ol>';
             foreach ($top_players as $index => $player) {
-                $position = $index + 1;
+                $position = intval($index) + 1;
                 $player_name = $player['nickname'] ?? __('Unknown Player', 'poker-tournament-import');
                 $winnings = !empty($player['winnings']) ? $currency . number_format(floatval($player['winnings']), 0) : '$0';
                 $points = !empty($player['points']) ? number_format(floatval($player['points']), 1) : '0';
@@ -2654,7 +2654,7 @@ class Poker_Tournament_Import_Admin {
                     $points_summary['max_points'] = $points;
                     $points_summary['top_point_scorer'] = array(
                         'name' => $player['nickname'] ?? 'Unknown',
-                        'finish_position' => $player['finish_position'] ?? 0,
+                        'finish_position' => intval($player['finish_position'] ?? 0),
                         'points' => $points
                     );
                 }
@@ -2761,7 +2761,7 @@ class Poker_Tournament_Import_Admin {
 
                 if ($winnings > $stats['largest_cash']) {
                     $stats['largest_cash'] = $winnings;
-                    if ($player['finish_position'] == 1) {
+                    if (intval($player['finish_position'] ?? 0) == 1) {
                         $stats['first_place_prize'] = $winnings;
                     }
                 }
