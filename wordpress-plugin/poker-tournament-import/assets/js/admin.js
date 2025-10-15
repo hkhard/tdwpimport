@@ -1,11 +1,11 @@
 /**
  * Admin JavaScript for Poker Tournament Import
- * VERSION: 2.3.25
+ * VERSION: 2.3.26
  */
 
 // Version verification log - will appear first in console
 console.log('========================================');
-console.log('ADMIN.JS VERSION 2.3.25 LOADED');
+console.log('ADMIN.JS VERSION 2.3.26 LOADED');
 console.log('Expected pokerImport structure: {dashboardNonce, refreshNonce, ajaxUrl, adminUrl, messages}');
 console.log('Actual pokerImport:', typeof pokerImport !== 'undefined' ? pokerImport : 'UNDEFINED');
 console.log('========================================');
@@ -1411,10 +1411,6 @@ jQuery(document).ready(function($) {
                                 <span class="status status-${tournament.status}">${tournament.status}</span>
                             </div>
                         </div>
-                        <div class="tournament-actions">
-                            <a href="${tournament.edit_link}" class="button button-small">Edit</a>
-                            <a href="${tournament.view_link}" class="button button-small">View</a>
-                        </div>
                     </div>
                 `;
             });
@@ -1469,9 +1465,6 @@ jQuery(document).ready(function($) {
                                 <span class="stat">Best: ${player.best_finish}${getOrdinalSuffix(player.best_finish)}</span>
                                 <span class="stat ${getRoiClass(player.roi)}">ROI: ${number_format(player.roi, 1)}%</span>
                             </div>
-                        </div>
-                        <div class="player-actions">
-                            <a href="${player.profile_link}" class="button button-small">Profile</a>
                         </div>
                     </div>
                 `;

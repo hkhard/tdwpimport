@@ -3,7 +3,7 @@ Contributors: yourname
 Tags: poker, tournament, import, results
 Requires at least: 6.0
 Tested up to: 6.4
-Stable tag: 2.3.25
+Stable tag: 2.3.26
 Requires PHP: 8.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -75,6 +75,12 @@ Use the following shortcodes:
 
 == Changelog ==
 
+= 2.3.26 - October 15, 2025 =
+🎯 **Dashboard UI Cleanup**
+✅ **REMOVED: Edit/View action buttons** - Removed Edit and View buttons from dashboard Tournaments and Players tabs for cleaner interface
+✅ **IMPROVED: Dashboard focus** - Interface now emphasizes data display over administrative actions
+✅ **ENHANCED: User experience** - Cleaner, less cluttered dashboard with streamlined navigation
+
 = 2.3.25 - October 15, 2025 =
 🎨 **UI/UX Improvements - Tournament Template Legibility Fixes**
 ✅ **FIXED: Elimination info visibility** - Added proper styling for elimination details (now displays in readable gray color)
@@ -129,6 +135,9 @@ Use the following shortcodes:
 * Shortcode support for displaying results
 
 == Upgrade Notice ==
+
+= 2.3.26 =
+**Dashboard UI cleanup.** Removes Edit/View action buttons from dashboard for cleaner, more focused interface. Recommended for all users.
 
 = 2.3.25 =
 **Legibility fixes for tournament templates.** Resolves multiple text visibility issues including elimination info, headings, and tournament title display. Recommended for all users.
