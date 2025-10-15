@@ -2321,6 +2321,44 @@ class Poker_Tournament_Import_Shortcodes {
      * Usage: [poker_dashboard view="overview" limit="10" show_stats="true"]
      */
     public function poker_dashboard_shortcode($atts) {
+        // Prevent execution in admin context to avoid HTML duplication
+        if (is_admin()) {
+            return '<!-- Poker Dashboard shortcode disabled in admin context -->';
+        }
+
+        // Enqueue dashboard scripts when shortcode is used on frontend
+        wp_enqueue_script(
+            'poker-dashboard-frontend',
+            POKER_TOURNAMENT_IMPORT_PLUGIN_URL . 'assets/js/admin.js',
+            array('jquery'),
+            POKER_TOURNAMENT_IMPORT_VERSION . '-' . filemtime(POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'assets/js/admin.js'),
+            true
+        );
+
+        // Define ajaxurl for frontend context
+        wp_add_inline_script(
+            'poker-dashboard-frontend',
+            'var ajaxurl = "' . admin_url('admin-ajax.php') . '";',
+            'before'
+        );
+
+        // Localize script with dashboard nonce and settings
+        wp_localize_script(
+            'poker-dashboard-frontend',
+            'pokerDashboard',
+            array(
+                'dashboardNonce' => wp_create_nonce('poker_dashboard_nonce'),
+                'ajaxUrl' => admin_url('admin-ajax.php'),
+                'messages' => array(
+                    'dashboardError' => __('Error loading dashboard content.', 'poker-tournament-import'),
+                    'loadingTournaments' => __('Loading tournaments...', 'poker-tournament-import'),
+                    'loadingPlayers' => __('Loading players...', 'poker-tournament-import'),
+                    'loadingSeries' => __('Loading series...', 'poker-tournament-import'),
+                    'loadingAnalytics' => __('Loading analytics...', 'poker-tournament-import')
+                )
+            )
+        );
+
         $atts = shortcode_atts(
             array(
                 'view' => 'overview',

@@ -157,13 +157,7 @@ class Poker_Statistics_Engine {
         return $wpdb->query("TRUNCATE TABLE {$this->stats_table}");
     }
 
-    /**
-     * Get total tournaments count
-     */
-    private function get_total_tournaments() {
-        return intval(wp_count_posts('tournament')->publish);
-    }
-
+  
     /**
      * Get unique players count
      */
@@ -179,29 +173,7 @@ class Poker_Statistics_Engine {
         return intval(wp_count_posts('tournament_series')->publish);
     }
 
-    /**
-     * Get total prize pool
-     */
-    private function get_total_prize_pool() {
-        global $wpdb;
-
-        // Try different possible prize pool field names
-        $possible_fields = array('_prize_pool', 'prize_pool', '_tournament_prize_pool', 'tournament_prize_pool');
-
-        foreach ($possible_fields as $field) {
-            $total = $wpdb->get_var($wpdb->prepare(
-                "SELECT SUM(CAST(meta_value AS DECIMAL(10,2))) FROM {$wpdb->postmeta} WHERE meta_key = %s AND meta_value != ''",
-                $field
-            ));
-            if ($total && $total > 0) {
-                error_log("Poker Statistics: Using prize pool field '{$field}' with total {$total}");
-                return floatval($total);
-            }
-        }
-
-        return 0;
-    }
-
+    
     /**
      * Get recent tournaments within days
      */
@@ -394,33 +366,7 @@ class Poker_Statistics_Engine {
         return floatval($total ?: 0);
     }
 
-    /**
-     * Get average players per tournament
-     */
-    private function get_average_players_per_tournament() {
-        global $wpdb;
-
-        // Get average from tournament meta data first
-        $avg_from_meta = $wpdb->get_var(
-            "SELECT AVG(CAST(meta_value AS DECIMAL(10,2)))
-             FROM {$wpdb->postmeta}
-             WHERE meta_key = '_players_count' AND meta_value != ''"
-        );
-
-        if ($avg_from_meta && $avg_from_meta > 0) {
-            return floatval($avg_from_meta);
-        }
-
-        // Fallback: calculate from players table
-        $tournament_count = $this->get_total_tournaments();
-        if ($tournament_count > 0) {
-            $total_entries = $this->get_total_entries();
-            return $total_entries / $tournament_count;
-        }
-
-        return 0;
-    }
-
+    
     /**
      * Get average entry fee
      */
@@ -486,6 +432,353 @@ class Poker_Statistics_Engine {
      */
     private function get_total_unique_players() {
         return $this->get_unique_players();
+    }
+
+    // ========================================
+    // PUBLIC API METHODS FOR DASHBOARD AJAX
+    // ========================================
+
+    /**
+     * Get total tournaments with date filtering
+     */
+    public function get_total_tournaments($start_date = null, $end_date = null, $series_id = 0) {
+        global $wpdb;
+
+        $query = "SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_type = 'tournament' AND post_status = 'publish'";
+        $params = array();
+
+        if ($start_date && $end_date) {
+            $query .= " AND post_date >= %s AND post_date <= %s";
+            $params[] = $start_date . ' 00:00:00';
+            $params[] = $end_date . ' 23:59:59';
+        }
+
+        if (!empty($params)) {
+            $count = $wpdb->get_var($wpdb->prepare($query, $params));
+        } else {
+            $count = $wpdb->get_var($query);
+        }
+
+        return intval($count);
+    }
+
+    /**
+     * Get total players with date filtering
+     */
+    public function get_total_players($start_date = null, $end_date = null, $series_id = 0) {
+        global $wpdb;
+
+        $query = "SELECT COUNT(DISTINCT tp.player_id)
+                 FROM {$this->players_table} tp
+                 LEFT JOIN {$wpdb->postmeta} pm ON pm.meta_value = tp.tournament_id AND pm.meta_key = 'tournament_uuid'
+                 LEFT JOIN {$wpdb->posts} p ON pm.post_id = p.ID
+                 WHERE p.post_status = 'publish'";
+        $params = array();
+
+        if ($start_date && $end_date) {
+            $query .= " AND p.post_date >= %s AND p.post_date <= %s";
+            $params[] = $start_date . ' 00:00:00';
+            $params[] = $end_date . ' 23:59:59';
+        }
+
+        if ($series_id > 0) {
+            $query .= " AND pm.post_id IN (
+                SELECT object_id FROM {$wpdb->term_relationships}
+                WHERE term_taxonomy_id = %d
+            )";
+            $params[] = $series_id;
+        }
+
+        if (!empty($params)) {
+            $count = $wpdb->get_var($wpdb->prepare($query, $params));
+        } else {
+            $count = $wpdb->get_var($query);
+        }
+
+        return intval($count);
+    }
+
+    /**
+     * Get total prize pool with date filtering
+     */
+    public function get_total_prize_pool($start_date = null, $end_date = null, $series_id = 0) {
+        global $wpdb;
+
+        // Try different possible prize pool field names
+        $possible_fields = array('_prize_pool', 'prize_pool', '_tournament_prize_pool', 'tournament_prize_pool');
+
+        foreach ($possible_fields as $field) {
+            $query = "SELECT SUM(CAST(pm.meta_value AS DECIMAL(10,2)))
+                     FROM {$wpdb->postmeta} pm
+                     LEFT JOIN {$wpdb->posts} p ON pm.post_id = p.ID
+                     WHERE pm.meta_key = %s AND pm.meta_value != '' AND p.post_status = 'publish'";
+            $params = array($field);
+
+            if ($start_date && $end_date) {
+                $query .= " AND p.post_date >= %s AND p.post_date <= %s";
+                $params[] = $start_date . ' 00:00:00';
+                $params[] = $end_date . ' 23:59:59';
+            }
+
+            if ($series_id > 0) {
+                $query .= " AND p.ID IN (
+                    SELECT object_id FROM {$wpdb->term_relationships}
+                    WHERE term_taxonomy_id = %d
+                )";
+                $params[] = $series_id;
+            }
+
+            $total = $wpdb->get_var($wpdb->prepare($query, $params));
+            if ($total && $total > 0) {
+                return floatval($total);
+            }
+        }
+
+        return 0;
+    }
+
+    /**
+     * Get average players per tournament with date filtering
+     */
+    public function get_average_players_per_tournament($start_date = null, $end_date = null, $series_id = 0) {
+        $total_tournaments = $this->get_total_tournaments($start_date, $end_date, $series_id);
+        $total_players = $this->get_total_players($start_date, $end_date, $series_id);
+
+        return $total_tournaments > 0 ? $total_players / $total_tournaments : 0;
+    }
+
+    /**
+     * Get average prize pool per tournament with date filtering
+     */
+    public function get_average_prize_pool($start_date = null, $end_date = null, $series_id = 0) {
+        $total_tournaments = $this->get_total_tournaments($start_date, $end_date, $series_id);
+        $total_prize_pool = $this->get_total_prize_pool($start_date, $end_date, $series_id);
+
+        return $total_tournaments > 0 ? $total_prize_pool / $total_tournaments : 0;
+    }
+
+    /**
+     * Get player statistics with pagination and sorting
+     */
+    public function get_player_statistics($page = 1, $per_page = 50, $search = '', $sort = 'total_winnings', $order = 'DESC') {
+        global $wpdb;
+
+        $offset = ($page - 1) * $per_page;
+
+        $query = "SELECT
+                    tp.player_id as player_id,
+                    COUNT(*) as tournaments_played,
+                    SUM(tp.winnings) as total_winnings,
+                    AVG(tp.finish_position) as average_finish,
+                    MIN(tp.finish_position) as best_finish,
+                    SUM(tp.buyins) + SUM(tp.rebuys) + SUM(tp.addons) as total_buyins,
+                    SUM(tp.winnings) - (SUM(tp.buyins) + SUM(tp.rebuys) + SUM(tp.addons)) as net_profit,
+                    CASE
+                        WHEN SUM(tp.buyins) + SUM(tp.rebuys) + SUM(tp.addons) > 0
+                        THEN ((SUM(tp.winnings) - (SUM(tp.buyins) + SUM(tp.rebuys) + SUM(tp.addons))) / (SUM(tp.buyins) + SUM(tp.rebuys) + SUM(tp.addons))) * 100
+                        ELSE 0
+                    END as roi
+                  FROM {$this->players_table} tp
+                  LEFT JOIN {$wpdb->postmeta} pm ON pm.meta_value = tp.player_id AND pm.meta_key = 'player_uuid'
+                  LEFT JOIN {$wpdb->posts} p ON pm.post_id = p.ID";
+
+        $where_clauses = array();
+        $params = array();
+
+        if (!empty($search)) {
+            $where_clauses[] = "p.post_title LIKE %s";
+            $params[] = '%' . $wpdb->esc_like($search) . '%';
+        }
+
+        if (!empty($where_clauses)) {
+            $query .= " WHERE " . implode(' AND ', $where_clauses);
+        }
+
+        $query .= " GROUP BY tp.player_id";
+
+        // Add sorting
+        $valid_sort_fields = array('total_winnings', 'tournaments_played', 'average_finish', 'best_finish', 'net_profit', 'roi');
+        if (in_array($sort, $valid_sort_fields)) {
+            $query .= " ORDER BY {$sort} {$order}";
+        }
+
+        $query .= " LIMIT %d OFFSET %d";
+        $params[] = $per_page;
+        $params[] = $offset;
+
+        return $wpdb->get_results($wpdb->prepare($query, $params));
+    }
+
+    /**
+     * Get total players count for pagination
+     */
+    public function get_total_players_count() {
+        global $wpdb;
+        return intval($wpdb->get_var("SELECT COUNT(DISTINCT player_id) FROM {$this->players_table}"));
+    }
+
+    /**
+     * Get top players by winnings
+     */
+    public function get_top_players($start_date = null, $end_date = null, $series_id = 0, $limit = 10) {
+        global $wpdb;
+
+        $query = "SELECT
+                    tp.player_id as player_id,
+                    p.post_title as player_name,
+                    SUM(tp.winnings) as total_winnings,
+                    COUNT(*) as tournaments_played,
+                    MIN(tp.finish_position) as best_finish
+                  FROM {$this->players_table} tp
+                  LEFT JOIN {$wpdb->postmeta} pm ON pm.meta_value = tp.player_id AND pm.meta_key = 'player_uuid'
+                  LEFT JOIN {$wpdb->posts} p ON pm.post_id = p.ID";
+
+        $where_clauses = array();
+        $params = array();
+
+        if ($start_date && $end_date) {
+            // Add date filtering through tournament UUID lookup
+            $where_clauses[] = "pm_other.post_id IN (
+                SELECT ID FROM {$wpdb->posts}
+                WHERE post_type = 'tournament'
+                AND post_date >= %s AND post_date <= %s
+            )";
+            $params[] = $start_date . ' 00:00:00';
+            $params[] = $end_date . ' 23:59:59';
+        }
+
+        if (!empty($where_clauses)) {
+            $query .= " WHERE " . implode(' AND ', $where_clauses);
+        }
+
+        $query .= " GROUP BY tp.player_id
+                   ORDER BY total_winnings DESC
+                   LIMIT %d";
+        $params[] = $limit;
+
+        return $wpdb->get_results($wpdb->prepare($query, $params));
+    }
+
+    /**
+     * Get monthly player growth statistics
+     */
+    public function get_monthly_player_growth() {
+        global $wpdb;
+
+        return $wpdb->get_results(
+            "SELECT
+                DATE_FORMAT(p.post_date, '%Y-%m') as month,
+                COUNT(DISTINCT tp.player_id) as unique_players,
+                COUNT(*) as total_entries
+             FROM {$this->players_table} tp
+             LEFT JOIN {$wpdb->postmeta} pm ON pm.meta_value = tp.tournament_id AND pm.meta_key = 'tournament_uuid'
+             LEFT JOIN {$wpdb->posts} p ON pm.post_id = p.ID
+             WHERE p.post_date >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+             GROUP BY DATE_FORMAT(p.post_date, '%Y-%m')
+             ORDER BY month DESC"
+        );
+    }
+
+    /**
+     * Get new players count in last N days
+     */
+    public function get_new_players_count($days = 30) {
+        global $wpdb;
+
+        return intval($wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(DISTINCT tp.player_id)
+             FROM {$this->players_table} tp
+             LEFT JOIN {$wpdb->postmeta} pm ON pm.meta_value = tp.tournament_id AND pm.meta_key = 'tournament_uuid'
+             LEFT JOIN {$wpdb->posts} p ON pm.post_id = p.ID
+             WHERE p.post_date >= %s",
+            date('Y-m-d', strtotime("-{$days} days"))
+        )));
+    }
+
+    /**
+     * Get returning players count in last N days
+     */
+    public function get_returning_players_count($days = 30) {
+        global $wpdb;
+
+        // This is a simplified version - returning players are those who played
+        // in the period but had their first tournament before this period
+        return intval($wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(DISTINCT tp.player_id)
+             FROM {$this->players_table} tp
+             LEFT JOIN {$wpdb->postmeta} pm ON pm.meta_value = tp.tournament_id AND pm.meta_key = 'tournament_uuid'
+             LEFT JOIN {$wpdb->posts} p ON pm.post_id = p.ID
+             WHERE p.post_date >= %s
+             AND tp.player_id IN (
+                 SELECT DISTINCT tp2.player_id
+                 FROM {$this->players_table} tp2
+                 LEFT JOIN {$wpdb->postmeta} pm2 ON pm2.meta_value = tp2.tournament_id AND pm2.meta_key = 'tournament_uuid'
+                 LEFT JOIN {$wpdb->posts} p2 ON pm2.post_id = p2.ID
+                 WHERE p2.post_date < %s
+             )",
+            date('Y-m-d', strtotime("-{$days} days")),
+            date('Y-m-d', strtotime("-{$days} days"))
+        )));
+    }
+
+    /**
+     * Get monthly tournament counts
+     */
+    public function get_monthly_tournament_counts() {
+        global $wpdb;
+
+        return $wpdb->get_results(
+            "SELECT
+                DATE_FORMAT(post_date, '%Y-%m') as month,
+                COUNT(*) as tournament_count,
+                AVG(CAST(meta_value AS DECIMAL(10,2))) as avg_players
+             FROM {$wpdb->posts} p
+             LEFT JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id AND pm.meta_key = '_players_count'
+             WHERE p.post_type = 'tournament' AND p.post_status = 'publish'
+             AND p.post_date >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+             GROUP BY DATE_FORMAT(p.post_date, '%Y-%m')
+             ORDER BY month DESC"
+        );
+    }
+
+    /**
+     * Get average tournament size growth
+     */
+    public function get_average_tournament_size_growth() {
+        global $wpdb;
+
+        return $wpdb->get_results(
+            "SELECT
+                DATE_FORMAT(post_date, '%Y-%m') as month,
+                AVG(CAST(meta_value AS DECIMAL(10,2))) as avg_size
+             FROM {$wpdb->posts} p
+             LEFT JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id AND pm.meta_key = '_players_count'
+             WHERE p.post_type = 'tournament' AND p.post_status = 'publish'
+             AND p.post_date >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+             AND meta_value != '' AND meta_value IS NOT NULL
+             GROUP BY DATE_FORMAT(p.post_date, '%Y-%m')
+             ORDER BY month DESC"
+        );
+    }
+
+    /**
+     * Get prize pool growth trends
+     */
+    public function get_prize_pool_growth_trends() {
+        global $wpdb;
+
+        return $wpdb->get_results(
+            "SELECT
+                DATE_FORMAT(post_date, '%Y-%m') as month,
+                SUM(CAST(meta_value AS DECIMAL(10,2))) as total_prize_pool
+             FROM {$wpdb->posts} p
+             LEFT JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id AND pm.meta_key = '_prize_pool'
+             WHERE p.post_type = 'tournament' AND p.post_status = 'publish'
+             AND p.post_date >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+             AND meta_value != '' AND meta_value IS NOT NULL
+             GROUP BY DATE_FORMAT(p.post_date, '%Y-%m')
+             ORDER BY month DESC"
+        );
     }
 
     /**

@@ -251,7 +251,7 @@ jQuery(document).ready(function($) {
                     action: 'poker_series_tab_content',
                     series_id: seriesId,
                     tab: tabName,
-                    nonce: pokerImport.nonce || ''
+                    nonce: pokerImportFrontend.nonce || ''
                 },
                 success: function(response) {
                     $content.html(response).removeClass('loading');
@@ -261,7 +261,7 @@ jQuery(document).ready(function($) {
                 },
                 error: function() {
                     $content.html('<div class="error-message">' +
-                        (pokerImport.messages?.tabError || 'Error loading content. Please try again.') +
+                        (pokerImportFrontend.messages?.tabError || 'Error loading content. Please try again.') +
                         '</div>').removeClass('loading');
                 }
             });
@@ -359,7 +359,7 @@ jQuery(document).ready(function($) {
                     series_id: seriesId,
                     offset: offset,
                     limit: limit,
-                    nonce: pokerImport.nonce || ''
+                    nonce: pokerImportFrontend.nonce || ''
                 },
                 success: function(response) {
                     const $newRows = $(response);
@@ -461,7 +461,7 @@ jQuery(document).ready(function($) {
             data: {
                 action: 'poker_reconstruct_chronology',
                 tournament_id: tournamentId,
-                nonce: pokerImport.nonce || ''
+                nonce: pokerImportFrontend.nonce || ''
             },
             success: function(response) {
                 if (response.success) {
@@ -502,7 +502,7 @@ jQuery(document).ready(function($) {
             const formData = new FormData(this);
             formData.append('action', 'poker_upload_tdt_for_tournament');
             formData.append('tournament_id', tournamentId);
-            formData.append('nonce', pokerImport.nonce || '');
+            formData.append('nonce', pokerImportFrontend.nonce || '');
 
             $resultsContainer.html('<p><strong>Uploading and processing .tdt file...</strong></p>');
 

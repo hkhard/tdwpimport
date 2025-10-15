@@ -26,6 +26,14 @@ class Poker_Tournament_Import_Admin {
         add_action('wp_ajax_poker_dashboard_load_content', array($this, 'handle_dashboard_load_content'));
         add_action('wp_ajax_poker_dashboard_detailed_view', array($this, 'handle_dashboard_detailed_view'));
         add_action('wp_ajax_poker_dashboard_generate_report', array($this, 'handle_dashboard_generate_report'));
+
+        // Dashboard Tabbed Interface AJAX handlers
+        add_action('wp_ajax_poker_load_overview_stats', array($this, 'ajax_load_overview_stats'));
+        add_action('wp_ajax_poker_load_tournaments_data', array($this, 'ajax_load_tournaments_data'));
+        add_action('wp_ajax_poker_load_players_data', array($this, 'ajax_load_players_data'));
+        add_action('wp_ajax_poker_load_series_data', array($this, 'ajax_load_series_data'));
+        add_action('wp_ajax_poker_load_analytics_data', array($this, 'ajax_load_analytics_data'));
+        add_action('wp_ajax_poker_get_leaderboard_data', array($this, 'ajax_get_leaderboard_data'));
     }
 
     /**
@@ -144,7 +152,11 @@ class Poker_Tournament_Import_Admin {
      * Enqueue admin scripts and styles
      */
     public function enqueue_admin_scripts($hook) {
-        if (strpos($hook, 'poker-tournament-import') !== false) {
+        // Debug: Log the actual hook value to identify why scripts aren't loading
+        error_log('Poker Import - Admin Scripts Hook: ' . $hook);
+
+        // Match our admin pages - check for both main plugin pages and migration tools
+        if (strpos($hook, 'poker-tournament-import') !== false || strpos($hook, 'poker-migration-tools') !== false || strpos($hook, 'poker') !== false) {
             wp_enqueue_style(
                 'poker-tournament-import-admin',
                 POKER_TOURNAMENT_IMPORT_PLUGIN_URL . 'assets/css/admin.css',
@@ -152,12 +164,40 @@ class Poker_Tournament_Import_Admin {
                 POKER_TOURNAMENT_IMPORT_VERSION
             );
 
+            // Force cache bust for debugging - use timestamp to ensure fresh load
+            $cache_bust_version = POKER_TOURNAMENT_IMPORT_VERSION . '-' . filemtime(POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'assets/js/admin.js');
+
             wp_enqueue_script(
                 'poker-tournament-import-admin',
                 POKER_TOURNAMENT_IMPORT_PLUGIN_URL . 'assets/js/admin.js',
                 array('jquery'),
-                POKER_TOURNAMENT_IMPORT_VERSION,
+                $cache_bust_version,
                 true
+            );
+
+            // Define ajaxurl globally - must be called immediately after wp_enqueue_script
+            wp_add_inline_script(
+                'poker-tournament-import-admin',
+                'var ajaxurl = "' . admin_url('admin-ajax.php') . '";',
+                'before'
+            );
+
+            // Localize admin script with nonce and other data
+            wp_localize_script(
+                'poker-tournament-import-admin',
+                'pokerImport',
+                array(
+                    'dashboardNonce' => wp_create_nonce('poker_dashboard_nonce'),
+                    'refreshNonce' => wp_create_nonce('poker_refresh_statistics'),
+                    'ajaxUrl' => admin_url('admin-ajax.php'),
+                    'adminUrl' => admin_url(),
+                    'messages' => array(
+                        'dashboardError' => __('Error loading dashboard content. Please try again.', 'poker-tournament-import'),
+                        'refreshError' => __('Error refreshing statistics. Please try again.', 'poker-tournament-import'),
+                        'loading' => __('Loading...', 'poker-tournament-import'),
+                        'noData' => __('No data available', 'poker-tournament-import')
+                    )
+                )
             );
 
             // Enqueue migration tools styles
@@ -173,133 +213,163 @@ class Poker_Tournament_Import_Admin {
     }
 
     /**
-     * Render main dashboard
+     * Render main dashboard with tabbed interface
      */
     public function render_dashboard() {
+        // Get initial statistics
+        $stats_engine = Poker_Statistics_Engine::get_instance();
+        $dashboard_stats = $stats_engine->get_dashboard_statistics();
         ?>
-        <div class="wrap">
-            <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
+        <!-- DEBUG INFO: Plugin Version <?php echo POKER_TOURNAMENT_IMPORT_VERSION; ?> -->
+        <!-- DEBUG INFO: admin.js timestamp: <?php echo filemtime(POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'assets/js/admin.js'); ?> -->
+        <!-- DEBUG INFO: admin.js file path: <?php echo POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'assets/js/admin.js'; ?> -->
+        <!-- DEBUG INFO: User ID: <?php echo get_current_user_id(); ?> -->
+        <!-- DEBUG INFO: User Can Manage Options: <?php echo current_user_can('manage_options') ? 'YES' : 'NO'; ?> -->
 
-            <div class="poker-import-dashboard">
-                <div class="poker-import-card">
-                    <h2><?php _e('Quick Stats', 'poker-tournament-import'); ?></h2>
-                    <div class="stats-grid">
-                        <div class="stat-item">
-                            <span class="stat-number"><?php echo wp_count_posts('tournament')->publish; ?></span>
-                            <span class="stat-label"><?php _e('Tournaments', 'poker-tournament-import'); ?></span>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-number"><?php echo wp_count_posts('player')->publish; ?></span>
-                            <span class="stat-label"><?php _e('Players', 'poker-tournament-import'); ?></span>
-                        </div>
+        <div class="wrap">
+            <h1><?php echo esc_html(get_admin_page_title()); ?> <small style="color:#666;">(v<?php echo POKER_TOURNAMENT_IMPORT_VERSION; ?>-debug)</small></h1>
+
+            <!-- Quick Stats Bar -->
+            <div class="poker-dashboard-stats-bar">
+                <div class="stat-item">
+                    <span class="stat-number"><?php echo intval($dashboard_stats['total_tournaments']); ?></span>
+                    <span class="stat-label"><?php _e('Tournaments', 'poker-tournament-import'); ?></span>
+                    <div class="stat-links">
+                        <a href="<?php echo admin_url('edit.php?post_type=tournament'); ?>" class="stat-link"><?php _e('View all', 'poker-tournament-import'); ?></a>
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number"><?php echo intval($dashboard_stats['total_players']); ?></span>
+                    <span class="stat-label"><?php _e('Players', 'poker-tournament-import'); ?></span>
+                    <div class="stat-links">
+                        <a href="<?php echo admin_url('edit.php?post_type=player'); ?>" class="stat-link"><?php _e('View all', 'poker-tournament-import'); ?></a>
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number"><?php echo intval($dashboard_stats['active_series']); ?></span>
+                    <span class="stat-label"><?php _e('Series', 'poker-tournament-import'); ?></span>
+                    <div class="stat-links">
+                        <a href="<?php echo admin_url('edit.php?post_type=tournament_series'); ?>" class="stat-link"><?php _e('All series', 'poker-tournament-import'); ?></a>
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number"><?php echo esc_html('$' . number_format($dashboard_stats['total_prize_pool'], 0)); ?></span>
+                    <span class="stat-label"><?php _e('Total Prize Pool', 'poker-tournament-import'); ?></span>
+                    <div class="stat-links">
+                        <a href="#" class="stat-link" id="poker-view-leaderboard"><?php _e('Full leaderboard', 'poker-tournament-import'); ?></a>
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number"><?php echo intval($dashboard_stats['recent_tournaments_30d']); ?></span>
+                    <span class="stat-label"><?php _e('Last 30 Days', 'poker-tournament-import'); ?></span>
+                    <div class="stat-links">
+                        <a href="<?php echo admin_url('edit.php?post_type=tournament'); ?>" class="stat-link"><?php _e('Recent', 'poker-tournament-import'); ?></a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tabbed Dashboard Interface -->
+            <div class="poker-dashboard-tabbed-interface">
+                <!-- Tab Navigation -->
+                <div class="poker-dashboard-tabs">
+                    <button class="poker-tab-btn active" data-tab="overview">
+                        <span class="dashicons dashicons-dashboard"></span>
+                        <?php _e('Overview', 'poker-tournament-import'); ?>
+                    </button>
+                    <button class="poker-tab-btn" data-tab="tournaments">
+                        <span class="dashicons dashicons-list-view"></span>
+                        <?php _e('Tournaments', 'poker-tournament-import'); ?>
+                    </button>
+                    <button class="poker-tab-btn" data-tab="players">
+                        <span class="dashicons dashicons-groups"></span>
+                        <?php _e('Players', 'poker-tournament-import'); ?>
+                    </button>
+                    <button class="poker-tab-btn" data-tab="series">
+                        <span class="dashicons dashicons-category"></span>
+                        <?php _e('Series', 'poker-tournament-import'); ?>
+                    </button>
+                    <button class="poker-tab-btn" data-tab="analytics">
+                        <span class="dashicons dashicons-chart-bar"></span>
+                        <?php _e('Analytics', 'poker-tournament-import'); ?>
+                    </button>
+
+                    <!-- Quick Actions -->
+                    <div class="poker-dashboard-actions">
+                        <a href="<?php echo admin_url('admin.php?page=poker-tournament-import-import'); ?>" class="button button-primary">
+                            <span class="dashicons dashicons-upload"></span>
+                            <?php _e('Import Tournament', 'poker-tournament-import'); ?>
+                        </a>
+                        <button class="button poker-refresh-stats" id="poker-refresh-dashboard-stats">
+                            <span class="dashicons dashicons-update"></span>
+                            <?php _e('Refresh', 'poker-tournament-import'); ?>
+                        </button>
                     </div>
                 </div>
 
-                <div class="poker-import-card">
-                    <h2><?php _e('Recent Imports', 'poker-tournament-import'); ?></h2>
-                    <?php
-                    $recent_tournaments = get_posts(array(
-                        'post_type' => 'tournament',
-                        'numberposts' => 5,
-                        'orderby' => 'date',
-                        'order' => 'DESC'
-                    ));
+                <!-- Tab Content Areas -->
+                <div class="poker-dashboard-content">
+                    <!-- Overview Tab -->
+                    <div class="poker-tab-panel active" id="tab-overview">
+                        <div class="poker-dashboard-loading">
+                            <span class="spinner is-active"></span>
+                            <?php _e('Loading overview...', 'poker-tournament-import'); ?>
+                        </div>
+                    </div>
 
-                    if ($recent_tournaments) {
-                        echo '<ul class="recent-tournaments-list">';
-                        foreach ($recent_tournaments as $tournament) {
-                            // Get tournament data to extract winner
-                            $tournament_data = get_post_meta($tournament->ID, 'tournament_data', true);
-                            $winner = null;
-                            $currency = 'SEK';
+                    <!-- Tournaments Tab -->
+                    <div class="poker-tab-panel" id="tab-tournaments">
+                        <div class="poker-dashboard-loading">
+                            <span class="spinner is-active"></span>
+                            <?php _e('Loading tournaments...', 'poker-tournament-import'); ?>
+                        </div>
+                    </div>
 
-                            if ($tournament_data && is_array($tournament_data)) {
-                                $winner = $this->extract_winner_from_tournament_data($tournament_data);
-                                $currency = $this->extract_currency_from_tournament_data($tournament_data);
-                            }
+                    <!-- Players Tab -->
+                    <div class="poker-tab-panel" id="tab-players">
+                        <div class="poker-dashboard-loading">
+                            <span class="spinner is-active"></span>
+                            <?php _e('Loading players...', 'poker-tournament-import'); ?>
+                        </div>
+                    </div>
 
-                            echo '<li class="recent-tournament-item">';
-                            echo '<div class="tournament-title">';
-                            echo '<a href="' . get_edit_post_link($tournament->ID) . '">' . esc_html($tournament->post_title) . '</a>';
-                            echo '</div>';
+                    <!-- Series Tab -->
+                    <div class="poker-tab-panel" id="tab-series">
+                        <div class="poker-dashboard-loading">
+                            <span class="spinner is-active"></span>
+                            <?php _e('Loading series...', 'poker-tournament-import'); ?>
+                        </div>
+                    </div>
 
-                            echo '<div class="tournament-meta">';
-                            echo '<span class="tournament-date">' . get_the_date('M j, Y', $tournament->ID) . '</span>';
-
-                            if ($winner) {
-                                echo '<span class="tournament-winner">';
-                                echo '🏆 ' . esc_html($winner['name']);
-                                if ($winner['winnings'] > 0) {
-                                    echo ' (' . esc_html($currency) . number_format($winner['winnings'], 0) . ')';
-                                }
-                                echo '</span>';
-                            }
-                            echo '</div>';
-
-                            echo '</li>';
-                        }
-                        echo '</ul>';
-                    } else {
-                        echo '<p>' . __('No tournaments imported yet.', 'poker-tournament-import') . '</p>';
-                    }
-                    ?>
-                    <style>
-                    .recent-tournaments-list {
-                        list-style: none;
-                        padding: 0;
-                        margin: 0;
-                    }
-                    .recent-tournament-item {
-                        padding: 12px 0;
-                        border-bottom: 1px solid #eee;
-                    }
-                    .recent-tournament-item:last-child {
-                        border-bottom: none;
-                    }
-                    .tournament-title {
-                        font-weight: 600;
-                        margin-bottom: 4px;
-                    }
-                    .tournament-title a {
-                        color: #23282d;
-                        text-decoration: none;
-                    }
-                    .tournament-title a:hover {
-                        color: #0073aa;
-                        text-decoration: underline;
-                    }
-                    .tournament-meta {
-                        display: flex;
-                        justify-content: space-between;
-                        align-items: center;
-                        font-size: 13px;
-                        color: #666;
-                    }
-                    .tournament-date {
-                        color: #666;
-                    }
-                    .tournament-winner {
-                        font-weight: 500;
-                        color: #23282d;
-                    }
-                    </style>
-                </div>
-
-                <div class="poker-import-card">
-                    <h2><?php _e('Quick Actions', 'poker-tournament-import'); ?></h2>
-                    <p>
-                        <a href="<?php echo admin_url('admin.php?page=poker-tournament-import-import'); ?>" class="button button-primary">
-                            <?php _e('Import New Tournament', 'poker-tournament-import'); ?>
-                        </a>
-                    </p>
-                    <p>
-                        <a href="<?php echo admin_url('post-new.php?post_type=tournament'); ?>" class="button">
-                            <?php _e('Add Tournament Manually', 'poker-tournament-import'); ?>
-                        </a>
-                    </p>
+                    <!-- Analytics Tab -->
+                    <div class="poker-tab-panel" id="tab-analytics">
+                        <div class="poker-dashboard-loading">
+                            <span class="spinner is-active"></span>
+                            <?php _e('Loading analytics...', 'poker-tournament-import'); ?>
+                        </div>
+                    </div>
                 </div>
             </div>
+
+            <!-- Last Updated Notice -->
+            <div class="poker-dashboard-footer">
+                <p class="description">
+                    <?php
+                    if ($dashboard_stats['last_updated']) {
+                        printf(
+                            __('Last updated: %s', 'poker-tournament-import'),
+                            '<strong>' . esc_html(date_i18n('M j, Y g:i A', strtotime($dashboard_stats['last_updated']))) . '</strong>'
+                        );
+                    } else {
+                        _e('Statistics not yet calculated. Refresh to generate.', 'poker-tournament-import');
+                    }
+                    ?>
+                </p>
+            </div>
         </div>
+
+      <!-- Dashboard styles moved to admin.css for better maintainability -->
+
+        <!-- Dashboard functionality moved to admin.js for better maintainability -->
         <?php
     }
 
@@ -3267,5 +3337,502 @@ class Poker_Tournament_Import_Admin {
         }
 
         return $players;
+    }
+
+    /**
+     * AJAX: Load Overview statistics
+     */
+    public function ajax_load_overview_stats() {
+        error_log('========== POKER DASHBOARD DEBUG: ajax_load_overview_stats called ==========');
+        error_log('POST data: ' . print_r($_POST, true));
+
+        check_ajax_referer('poker_dashboard_nonce', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            error_log('POKER DASHBOARD ERROR: Insufficient permissions for user ' . get_current_user_id());
+            wp_send_json_error('Insufficient permissions');
+        }
+
+        $time_range = isset($_POST['time_range']) ? sanitize_text_field($_POST['time_range']) : '30';
+        $series_id = isset($_POST['series_id']) ? intval($_POST['series_id']) : 0;
+
+        try {
+            // Initialize statistics engine
+            if (!class_exists('Poker_Statistics_Engine')) {
+                require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/class-statistics-engine.php';
+            }
+            $stats_engine = Poker_Statistics_Engine::get_instance();
+
+            // Get time-based filtering
+            $days_back = intval($time_range);
+            $start_date = date('Y-m-d', strtotime("-{$days_back} days"));
+            $end_date = date('Y-m-d');
+
+            // Get real statistics from the engine
+            $stats = array(
+                'overview' => array(
+                    'total_tournaments' => $stats_engine->get_total_tournaments($start_date, $end_date, $series_id),
+                    'total_players' => $stats_engine->get_total_players($start_date, $end_date, $series_id),
+                    'total_prizepool' => $stats_engine->get_total_prize_pool($start_date, $end_date, $series_id),
+                    'average_players' => $stats_engine->get_average_players_per_tournament($start_date, $end_date, $series_id),
+                    'average_prizepool' => $stats_engine->get_average_prize_pool($start_date, $end_date, $series_id)
+                ),
+                'trends' => $this->get_overview_trends($stats_engine, $days_back, $series_id),
+                'top_performers' => $this->get_top_performers($stats_engine, $start_date, $end_date, $series_id)
+            );
+
+            wp_send_json_success($stats);
+
+        } catch (Exception $e) {
+            error_log('Poker Dashboard - Overview Stats Error: ' . $e->getMessage());
+            wp_send_json_error('Unable to load overview statistics');
+        }
+    }
+
+    /**
+     * AJAX: Load Tournaments data
+     */
+    public function ajax_load_tournaments_data() {
+        error_log('==========  POKER DASHBOARD DEBUG: ajax_load_tournaments_data called ==========');
+        error_log('POST data: ' . print_r($_POST, true));
+
+        check_ajax_referer('poker_dashboard_nonce', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            error_log('POKER DASHBOARD ERROR: Insufficient permissions for user ' . get_current_user_id());
+            wp_send_json_error('Insufficient permissions');
+        }
+
+        $page = isset($_POST['page']) ? intval($_POST['page']) : 1;
+        $per_page = isset($_POST['per_page']) ? intval($_POST['per_page']) : 25;
+        $search = isset($_POST['search']) ? sanitize_text_field($_POST['search']) : '';
+        $status = isset($_POST['status']) ? sanitize_text_field($_POST['status']) : '';
+
+        error_log('POKER DASHBOARD: Tournaments request - Page: ' . $page . ', Per Page: ' . $per_page);
+
+        try {
+            // Initialize statistics engine
+            if (!class_exists('Poker_Statistics_Engine')) {
+                require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/class-statistics-engine.php';
+            }
+            $stats_engine = Poker_Statistics_Engine::get_instance();
+
+            $args = array(
+                'post_type' => 'tournament',
+                'posts_per_page' => $per_page,
+                'paged' => $page,
+                'orderby' => 'date',
+                'order' => 'DESC'
+            );
+
+            if (!empty($search)) {
+                $args['s'] = $search;
+            }
+
+            if (!empty($status)) {
+                $args['meta_query'] = array(
+                    array(
+                        'key' => '_tournament_status',
+                        'value' => $status
+                    )
+                );
+            }
+
+            $tournaments = get_posts($args);
+            $total_tournaments = wp_count_posts('tournament')->publish;
+
+            $tournament_data = array();
+            foreach ($tournaments as $tournament) {
+                $tournament_data[] = array(
+                    'id' => $tournament->ID,
+                    'title' => $tournament->post_title,
+                    'date' => get_post_meta($tournament->ID, '_tournament_date', true),
+                    'players_count' => get_post_meta($tournament->ID, '_players_count', true),
+                    'prize_pool' => get_post_meta($tournament->ID, '_prize_pool', true),
+                    'status' => get_post_meta($tournament->ID, '_tournament_status', true),
+                    'edit_link' => get_edit_post_link($tournament->ID),
+                    'view_link' => get_permalink($tournament->ID)
+                );
+            }
+
+            $response = array(
+                'tournaments' => $tournament_data,
+                'pagination' => array(
+                    'current_page' => $page,
+                    'total_pages' => ceil($total_tournaments / $per_page),
+                    'total_items' => $total_tournaments,
+                    'per_page' => $per_page
+                )
+            );
+
+            wp_send_json_success($response);
+
+        } catch (Exception $e) {
+            error_log('Poker Dashboard - Tournaments Data Error: ' . $e->getMessage());
+            wp_send_json_error('Unable to load tournaments data');
+        }
+    }
+
+    /**
+     * AJAX: Load Players data
+     */
+    public function ajax_load_players_data() {
+        error_log('========== POKER DASHBOARD DEBUG: ajax_load_players_data called ==========');
+        error_log('POST data: ' . print_r($_POST, true));
+
+        check_ajax_referer('poker_dashboard_nonce', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            error_log('POKER DASHBOARD ERROR: Insufficient permissions for user ' . get_current_user_id());
+            wp_send_json_error('Insufficient permissions');
+        }
+
+        $page = isset($_POST['page']) ? intval($_POST['page']) : 1;
+        $per_page = isset($_POST['per_page']) ? intval($_POST['per_page']) : 50;
+        $search = isset($_POST['search']) ? sanitize_text_field($_POST['search']) : '';
+        $sort = isset($_POST['sort']) ? sanitize_text_field($_POST['sort']) : 'total_winnings';
+        $order = isset($_POST['order']) ? sanitize_text_field($_POST['order']) : 'DESC';
+
+        try {
+            // Initialize statistics engine
+            if (!class_exists('Poker_Statistics_Engine')) {
+                require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/class-statistics-engine.php';
+            }
+            $stats_engine = Poker_Statistics_Engine::get_instance();
+
+            // Get player statistics from the statistics engine
+            $player_stats = $stats_engine->get_player_statistics($page, $per_page, $search, $sort, $order);
+            $total_players = $stats_engine->get_total_players_count();
+
+            $player_data = array();
+            foreach ($player_stats as $player) {
+                $player_data[] = array(
+                    'id' => $player['player_id'],
+                    'name' => $player['player_name'],
+                    'tournaments_played' => $player['tournaments_played'],
+                    'total_winnings' => $player['total_winnings'],
+                    'average_finish' => $player['average_finish'],
+                    'best_finish' => $player['best_finish'],
+                    'total_buyins' => $player['total_buyins'],
+                    'net_profit' => $player['net_profit'],
+                    'roi' => $player['roi'],
+                    'profile_link' => get_permalink($player['player_id'])
+                );
+            }
+
+            $response = array(
+                'players' => $player_data,
+                'pagination' => array(
+                    'current_page' => $page,
+                    'total_pages' => ceil($total_players / $per_page),
+                    'total_items' => $total_players,
+                    'per_page' => $per_page
+                )
+            );
+
+            wp_send_json_success($response);
+
+        } catch (Exception $e) {
+            error_log('Poker Dashboard - Players Data Error: ' . $e->getMessage());
+            wp_send_json_error('Unable to load players data');
+        }
+    }
+
+    /**
+     * AJAX: Load Series data
+     */
+    public function ajax_load_series_data() {
+        error_log('========== POKER DASHBOARD DEBUG: ajax_load_series_data called ==========');
+        error_log('POST data: ' . print_r($_POST, true));
+
+        check_ajax_referer('poker_dashboard_nonce', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            error_log('POKER DASHBOARD ERROR: Insufficient permissions for user ' . get_current_user_id());
+            wp_send_json_error('Insufficient permissions');
+        }
+
+        try {
+            $series_list = get_posts(array(
+                'post_type' => 'tournament_series',
+                'posts_per_page' => -1,
+                'orderby' => 'title',
+                'order' => 'ASC'
+            ));
+
+            $series_data = array();
+            foreach ($series_list as $series) {
+                // Get tournament count
+                $tournament_count = count(get_posts(array(
+                    'post_type' => 'tournament',
+                    'meta_key' => 'series_id',
+                    'meta_value' => $series->ID,
+                    'posts_per_page' => -1,
+                    'fields' => 'ids'
+                )));
+
+                // Get series statistics
+                $series_stats = $this->get_series_statistics($series->ID);
+
+                $series_data[] = array(
+                    'id' => $series->ID,
+                    'title' => $series->post_title,
+                    'tournament_count' => $tournament_count,
+                    'total_players' => $series_stats['total_players'],
+                    'total_prizepool' => $series_stats['total_prizepool'],
+                    'average_players' => $series_stats['average_players'],
+                    'edit_link' => get_edit_post_link($series->ID),
+                    'shortcode' => '[series_overview id="' . $series->ID . '"]'
+                );
+            }
+
+            wp_send_json_success(array('series' => $series_data));
+
+        } catch (Exception $e) {
+            error_log('Poker Dashboard - Series Data Error: ' . $e->getMessage());
+            wp_send_json_error('Unable to load series data');
+        }
+    }
+
+    /**
+     * AJAX: Load Analytics data
+     */
+    public function ajax_load_analytics_data() {
+        error_log('========== POKER DASHBOARD DEBUG: ajax_load_analytics_data called ==========');
+        error_log('POST data: ' . print_r($_POST, true));
+
+        check_ajax_referer('poker_dashboard_nonce', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            error_log('POKER DASHBOARD ERROR: Insufficient permissions for user ' . get_current_user_id());
+            wp_send_json_error('Insufficient permissions');
+        }
+
+        $analytics_type = isset($_POST['analytics_type']) ? sanitize_text_field($_POST['analytics_type']) : 'overview';
+
+        try {
+            // Initialize statistics engine
+            if (!class_exists('Poker_Statistics_Engine')) {
+                require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/class-statistics-engine.php';
+            }
+            $stats_engine = Poker_Statistics_Engine::get_instance();
+
+            $analytics_data = array();
+
+            switch ($analytics_type) {
+                case 'overview':
+                    $analytics_data = $this->get_analytics_overview($stats_engine);
+                    break;
+                case 'prize_distribution':
+                    $analytics_data = $this->get_prize_distribution_analytics($stats_engine);
+                    break;
+                case 'player_trends':
+                    $analytics_data = $this->get_player_trends_analytics($stats_engine);
+                    break;
+                case 'tournament_growth':
+                    $analytics_data = $this->get_tournament_growth_analytics($stats_engine);
+                    break;
+                default:
+                    $analytics_data = $this->get_analytics_overview($stats_engine);
+                    break;
+            }
+
+            wp_send_json_success($analytics_data);
+
+        } catch (Exception $e) {
+            error_log('Poker Dashboard - Analytics Data Error: ' . $e->getMessage());
+            wp_send_json_error('Unable to load analytics data');
+        }
+    }
+
+    /**
+     * AJAX: Get Leaderboard data
+     */
+    public function ajax_get_leaderboard_data() {
+        check_ajax_referer('poker_dashboard_nonce', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Insufficient permissions');
+        }
+
+        try {
+            // Initialize statistics engine
+            if (!class_exists('Poker_Statistics_Engine')) {
+                require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/class-statistics-engine.php';
+            }
+            $stats_engine = Poker_Statistics_Engine::get_instance();
+
+            // Get leaderboard data using existing method
+            $leaderboard_data = $stats_engine->get_player_leaderboard(100); // Top 100 players
+
+            // Map data to match JavaScript expectations
+            $mapped_leaderboard = array();
+            foreach ($leaderboard_data as $player) {
+                $mapped_leaderboard[] = array(
+                    'name' => $player->player_name ?: $player->player_id,
+                    'tournaments_played' => intval($player->tournaments_played),
+                    'total_winnings' => floatval($player->total_winnings),
+                    'best_finish' => intval($player->best_finish),
+                    'avg_finish' => floatval($player->avg_finish),
+                    'total_points' => floatval($player->total_points ?? 0)
+                );
+            }
+
+            wp_send_json_success(array('leaderboard' => $mapped_leaderboard));
+
+        } catch (Exception $e) {
+            error_log('Poker Dashboard - Leaderboard Data Error: ' . $e->getMessage());
+            wp_send_json_error('Unable to load leaderboard data');
+        }
+    }
+
+    // Helper methods for data processing
+
+    /**
+     * Get overview trends data
+     */
+    private function get_overview_trends($stats_engine, $days_back, $series_id) {
+        $current_period_start = date('Y-m-d', strtotime("-{$days_back} days"));
+        $current_period_end = date('Y-m-d');
+        $previous_period_start = date('Y-m-d', strtotime("-" . ($days_back * 2) . " days"));
+        $previous_period_end = date('Y-m-d', strtotime("-{$days_back} days"));
+
+        // Current period stats
+        $current_tournaments = $stats_engine->get_total_tournaments($current_period_start, $current_period_end, $series_id);
+        $current_players = $stats_engine->get_total_players($current_period_start, $current_period_end, $series_id);
+        $current_prizepool = $stats_engine->get_total_prize_pool($current_period_start, $current_period_end, $series_id);
+
+        // Previous period stats
+        $previous_tournaments = $stats_engine->get_total_tournaments($previous_period_start, $previous_period_end, $series_id);
+        $previous_players = $stats_engine->get_total_players($previous_period_start, $previous_period_end, $series_id);
+        $previous_prizepool = $stats_engine->get_total_prize_pool($previous_period_start, $previous_period_end, $series_id);
+
+        // Calculate trends
+        $tournaments_trend = $previous_tournaments > 0 ? (($current_tournaments - $previous_tournaments) / $previous_tournaments) * 100 : 0;
+        $players_trend = $previous_players > 0 ? (($current_players - $previous_players) / $previous_players) * 100 : 0;
+        $prizepool_trend = $previous_prizepool > 0 ? (($current_prizepool - $previous_prizepool) / $previous_prizepool) * 100 : 0;
+
+        return array(
+            'tournaments' => round($tournaments_trend, 1) . '%',
+            'players' => round($players_trend, 1) . '%',
+            'prizepool' => round($prizepool_trend, 1) . '%'
+        );
+    }
+
+    /**
+     * Get top performers data
+     */
+    private function get_top_performers($stats_engine, $start_date, $end_date, $series_id) {
+        $top_players = $stats_engine->get_top_players($start_date, $end_date, $series_id, 5);
+
+        $performers = array();
+        foreach ($top_players as $player) {
+            $performers[] = array(
+                'name' => $player['player_name'],
+                'winnings' => $player['total_winnings'],
+                'tournaments' => $player['tournaments_played'],
+                'best_finish' => $player['best_finish']
+            );
+        }
+
+        return $performers;
+    }
+
+    /**
+     * Get series statistics
+     */
+    private function get_series_statistics($series_id) {
+        global $wpdb;
+
+        $tournaments = get_posts(array(
+            'post_type' => 'tournament',
+            'meta_key' => 'series_id',
+            'meta_value' => $series_id,
+            'posts_per_page' => -1,
+            'fields' => 'ids'
+        ));
+
+        $total_players = 0;
+        $total_prizepool = 0;
+
+        foreach ($tournaments as $tournament_id) {
+            $players = get_post_meta($tournament_id, '_players_count', true);
+            $prizepool = get_post_meta($tournament_id, '_prize_pool', true);
+
+            $total_players += intval($players);
+            $total_prizepool += floatval($prizepool);
+        }
+
+        $tournament_count = count($tournaments);
+        $average_players = $tournament_count > 0 ? $total_players / $tournament_count : 0;
+
+        return array(
+            'total_players' => $total_players,
+            'total_prizepool' => $total_prizepool,
+            'average_players' => round($average_players, 1)
+        );
+    }
+
+    /**
+     * Get analytics overview
+     */
+    private function get_analytics_overview($stats_engine) {
+        return array(
+            'prize_distribution' => $this->get_prize_distribution_analytics($stats_engine),
+            'player_trends' => $this->get_player_trends_analytics($stats_engine),
+            'tournament_growth' => $this->get_tournament_growth_analytics($stats_engine)
+        );
+    }
+
+    /**
+     * Get prize distribution analytics
+     */
+    private function get_prize_distribution_analytics($stats_engine) {
+        global $wpdb;
+
+        $prize_distribution = $wpdb->get_results(
+            "SELECT
+                CASE
+                    WHEN prize_pool < 500 THEN '< $500'
+                    WHEN prize_pool < 1000 THEN '$500-$1,000'
+                    WHEN prize_pool < 2000 THEN '$1,000-$2,000'
+                    WHEN prize_pool < 5000 THEN '$2,000-$5,000'
+                    ELSE '> $5,000'
+                END as prize_range,
+                COUNT(*) as tournament_count
+             FROM (
+                 SELECT SUM(CAST(meta_value AS DECIMAL(10,2))) as prize_pool
+                 FROM {$wpdb->postmeta}
+                 WHERE meta_key = '_prize_pool'
+                 GROUP BY post_id
+             ) as prize_data
+             GROUP BY prize_range
+             ORDER BY MIN(prize_pool)"
+        );
+
+        return $prize_distribution;
+    }
+
+    /**
+     * Get player trends analytics
+     */
+    private function get_player_trends_analytics($stats_engine) {
+        // Get monthly player participation trends
+        return array(
+            'monthly_growth' => $stats_engine->get_monthly_player_growth(),
+            'new_players' => $stats_engine->get_new_players_count(30),
+            'returning_players' => $stats_engine->get_returning_players_count(30)
+        );
+    }
+
+    /**
+     * Get tournament growth analytics
+     */
+    private function get_tournament_growth_analytics($stats_engine) {
+        return array(
+            'monthly_tournaments' => $stats_engine->get_monthly_tournament_counts(),
+            'average_size_growth' => $stats_engine->get_average_tournament_size_growth(),
+            'prize_pool_growth' => $stats_engine->get_prize_pool_growth_trends()
+        );
     }
 }

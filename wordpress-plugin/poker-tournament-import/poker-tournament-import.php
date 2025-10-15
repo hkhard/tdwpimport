@@ -3,7 +3,7 @@
  * Plugin Name: Poker Tournament Import
  * Plugin URI: https://nikielhard.se/tdwpimport
  * Description: Import and display poker tournament results from Tournament Director (.tdt) files
- * Version: 2.2.5-OPTIMIZED
+ * Version: 2.3.18
  * Author: Hans Kästel Hård
  * Author URI: https://nikielhard.se/tdwpimport
  * License: GPL v2 or later
@@ -20,7 +20,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('POKER_TOURNAMENT_IMPORT_VERSION', '2.2.5-OPTIMIZED');
+define('POKER_TOURNAMENT_IMPORT_VERSION', '2.3.18');
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -33,6 +33,13 @@ class Poker_Tournament_Import {
      * Singleton instance
      */
     private static $instance = null;
+
+    /**
+     * PHP 8.2+ compatibility - declare dynamic properties
+     */
+    private $taxonomies;
+    private $formula_validator;
+    private $statistics_engine;
 
     /**
      * Get singleton instance
@@ -68,8 +75,10 @@ class Poker_Tournament_Import {
         // Check for plugin update and refresh statistics if needed
         $this->check_plugin_update();
 
-        // Frontend assets
-        add_action('wp_enqueue_scripts', array($this, 'enqueue_frontend_assets'));
+        // Frontend assets - only load on frontend, NOT in admin
+        if (!is_admin()) {
+            add_action('wp_enqueue_scripts', array($this, 'enqueue_frontend_assets'));
+        }
 
         // Admin hooks
         if (is_admin()) {
@@ -109,13 +118,7 @@ class Poker_Tournament_Import {
         // AJAX handlers for series standings
         add_action('wp_ajax_poker_export_standings', array($this, 'ajax_export_standings'));
 
-        // AJAX handlers for dashboard (accessible to all users)
-        add_action('wp_ajax_poker_dashboard_load_content', array($this, 'ajax_dashboard_load_content'));
-        add_action('wp_ajax_nopriv_poker_dashboard_load_content', array($this, 'ajax_dashboard_load_content'));
-        add_action('wp_ajax_poker_dashboard_detailed_view', array($this, 'ajax_dashboard_detailed_view'));
-        add_action('wp_ajax_nopriv_poker_dashboard_detailed_view', array($this, 'ajax_dashboard_detailed_view'));
-        add_action('wp_ajax_poker_dashboard_generate_report', array($this, 'ajax_dashboard_generate_report'));
-        add_action('wp_ajax_nopriv_poker_dashboard_generate_report', array($this, 'ajax_dashboard_generate_report'));
+        // Dashboard AJAX handlers are now registered in admin/class-admin.php to avoid conflicts
 
         // **PHASE 1: AJAX handlers for player drill-through**
         add_action('wp_ajax_poker_get_player_details', array($this, 'ajax_get_player_details'));
@@ -191,6 +194,11 @@ class Poker_Tournament_Import {
      * Enqueue frontend styles and scripts
      */
     public function enqueue_frontend_assets() {
+        // CRITICAL: Double-check we're not in admin - prevent frontend scripts from loading in dashboard
+        if (is_admin()) {
+            return;
+        }
+
         wp_enqueue_style(
             'poker-tournament-import-frontend',
             POKER_TOURNAMENT_IMPORT_PLUGIN_URL . 'assets/css/frontend.css',
@@ -207,9 +215,10 @@ class Poker_Tournament_Import {
         );
 
         // Localize script with nonce and other data
+        // IMPORTANT: Use pokerImportFrontend to avoid collision with admin pokerImport
         wp_localize_script(
             'poker-tournament-import-frontend',
-            'pokerImport',
+            'pokerImportFrontend',
             array(
                 'nonce' => wp_create_nonce('poker_series_tab_content'),
                 'loadMoreNonce' => wp_create_nonce('poker_series_load_more'),
