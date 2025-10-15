@@ -28,6 +28,15 @@
     border-bottom: 3px solid #4CAF50;
 }
 
+/* Tournament Single Page Title */
+.tournament-title {
+    color: #23282d;
+    font-size: 32px;
+    font-weight: 700;
+    margin: 0 0 12px 0;
+    line-height: 1.2;
+}
+
 /* Tournament Header with Actions */
 .tournament-header {
     display: flex;
@@ -226,7 +235,7 @@
 
 .player-history-table td:first-child {
     font-weight: 600;
-    color: #2c3e50;
+    color: #0073aa;
     text-align: center;
     min-width: 60px;
 }
@@ -243,12 +252,12 @@
 }
 
 .player-history-table td:nth-child(4) {
-    color: #27ae60;
+    color: #28a745;
     text-align: right;
 }
 
 .player-history-table td:nth-child(5) {
-    color: #3498db;
+    color: #0073aa;
     text-align: center;
 }
 
@@ -265,6 +274,29 @@
     color: #444;
 }
 
+/* Elimination Details Styling */
+.elimination-info {
+    margin-top: 4px;
+    font-size: 13px;
+}
+
+.eliminated-by {
+    color: #666;
+    font-style: italic;
+}
+
+/* Tournament Section Headings */
+.tournament-description h2,
+.tournament-results-section h2,
+.tournament-main-content h2 {
+    color: #23282d;
+    font-size: 22px;
+    font-weight: 600;
+    margin: 0 0 16px 0;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #0073aa;
+}
+
 /* Results Table */
 .tournament-results-table,
 .player-stats-table {
@@ -279,8 +311,9 @@
 
 .tournament-results-table thead,
 .player-stats-table thead {
-    background: linear-gradient(135deg, #2c3e50, #34495e);
-    color: white;
+    background: #f5f5f5;
+    color: #1a1a1a;
+    border-bottom: 3px solid #4CAF50;
 }
 
 .tournament-results-table th,
@@ -319,7 +352,7 @@
 /* Position Styling */
 .tournament-results-table td:first-child {
     font-weight: 700;
-    color: #2c3e50;
+    color: #0073aa;
     text-align: center;
     background: #f8f9fa;
     min-width: 80px;
@@ -344,7 +377,7 @@
 /* Prize Money Styling */
 .tournament-results-table td:nth-child(3) {
     font-weight: 600;
-    color: #27ae60;
+    color: #28a745;
     text-align: right;
     font-family: 'Courier New', monospace;
 }
@@ -352,7 +385,7 @@
 /* Points Styling */
 .tournament-results-table td:nth-child(4) {
     font-weight: 600;
-    color: #3498db;
+    color: #0073aa;
     text-align: center;
     font-family: 'Courier New', monospace;
 }
@@ -381,7 +414,7 @@
 
 .player-stats-table td:last-child {
     font-weight: 700;
-    color: #2c3e50;
+    color: #23282d;
     text-align: right;
     font-family: 'Courier New', monospace;
 }
@@ -602,6 +635,91 @@
     .tournament-results-table thead,
     .player-stats-table thead {
         background: #f0f0f0 !important;
+        color: #000 !important;
+        border-bottom: 3px solid #000 !important;
+    }
+
+    .tournament-results-table th,
+    .player-stats-table th {
+        color: #000 !important;
+        font-weight: 700 !important;
+        border: 1px solid #333 !important;
+    }
+
+    .tournament-results-table td,
+    .player-stats-table td {
+        color: #000 !important;
+        border: 1px solid #666 !important;
+    }
+
+    .tournament-results-table tbody tr,
+    .player-stats-table tbody tr {
+        border: 1px solid #666 !important;
+    }
+
+    /* Ensure winnings and points are visible in print */
+    .winnings-cell,
+    .points-cell,
+    .winnings-amount,
+    .points-amount,
+    .winnings-none,
+    .points-none {
+        color: #000 !important;
+        font-weight: 700 !important;
+    }
+
+    /* Player names and positions in print */
+    .player-cell,
+    .position-cell,
+    .player-name,
+    .position-number {
+        color: #000 !important;
+        font-weight: 700 !important;
+    }
+
+    /* Achievements column */
+    .achievements-cell {
+        color: #000 !important;
+    }
+
+    /* Elimination info */
+    .elimination-info,
+    .eliminated-by {
+        color: #000 !important;
+    }
+
+    /* Player Card Print Styles */
+    .player-card {
+        border: 2px solid #333 !important;
+        break-inside: avoid;
+        box-shadow: none !important;
+    }
+
+    .player-avatar {
+        background: #000 !important;
+        color: #fff !important;
+        border: 2px solid #000 !important;
+        font-weight: 700 !important;
+    }
+
+    .player-name {
+        color: #000 !important;
+        font-weight: 700 !important;
+    }
+
+    .players-grid {
+        page-break-inside: avoid;
+    }
+
+    /* Ensure good contrast for all text in print */
+    .tournament-meta,
+    .stat-label,
+    .meta-label {
+        color: #000 !important;
+    }
+
+    .meta-value,
+    .stat-number {
         color: #000 !important;
     }
 }
@@ -972,7 +1090,7 @@
 .tournament-prize {
     font-family: 'Courier New', monospace;
     font-weight: 600;
-    color: #27ae60;
+    color: #28a745;
 }
 
 .btn-small {
@@ -1127,13 +1245,13 @@
 .winnings {
     font-family: 'Courier New', monospace;
     font-weight: 600;
-    color: #27ae60;
+    color: #28a745;
 }
 
 .points {
     font-family: 'Courier New', monospace;
     font-weight: 600;
-    color: #3498db;
+    color: #0073aa;
 }
 
 .best-finish,
@@ -1177,7 +1295,7 @@
     border-radius: 8px;
     padding: 20px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    border: 1px solid #e0e0e0;
+    border: 2px solid #ddd;
     transition: all 0.2s ease;
 }
 
@@ -1210,15 +1328,16 @@
 .player-avatar {
     width: 40px;
     height: 40px;
-    background: #4CAF50;
-    color: white;
+    background: #2e7d32;
+    color: #ffffff;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 14px;
-    font-weight: bold;
+    font-weight: 700;
     flex-shrink: 0;
+    text-transform: uppercase;
 }
 
 .player-details {
@@ -1228,7 +1347,7 @@
 .player-name {
     font-size: 16px;
     font-weight: 600;
-    color: #333;
+    color: #1a1a1a;
     margin: 0 0 4px 0;
 }
 

@@ -3,7 +3,7 @@
  * Plugin Name: Poker Tournament Import
  * Plugin URI: https://nikielhard.se/tdwpimport
  * Description: Import and display poker tournament results from Tournament Director (.tdt) files
- * Version: 2.3.18
+ * Version: 2.3.25
  * Author: Hans Kästel Hård
  * Author URI: https://nikielhard.se/tdwpimport
  * License: GPL v2 or later
@@ -20,7 +20,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('POKER_TOURNAMENT_IMPORT_VERSION', '2.3.18');
+define('POKER_TOURNAMENT_IMPORT_VERSION', '2.3.25');
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -74,6 +74,9 @@ class Poker_Tournament_Import {
 
         // Check for plugin update and refresh statistics if needed
         $this->check_plugin_update();
+
+        // Register custom template loading for our post types
+        add_filter('template_include', array($this, 'load_custom_templates'));
 
         // Frontend assets - only load on frontend, NOT in admin
         if (!is_admin()) {
@@ -1081,7 +1084,6 @@ class Poker_Tournament_Import {
             echo '<th>' . __('Total Points', 'poker-tournament-import') . '</th>';
             echo '<th>' . __('Best Finish', 'poker-tournament-import') . '</th>';
             echo '<th>' . __('Avg Finish', 'poker-tournament-import') . '</th>';
-            echo '<th>' . __('Actions', 'poker-tournament-import') . '</th>';
             echo '</tr>';
             echo '</thead>';
             echo '<tbody>';
@@ -1114,12 +1116,6 @@ class Poker_Tournament_Import {
                 echo '<td>' . esc_html(number_format($player->total_points, 1)) . '</td>';
                 echo '<td>' . esc_html($player->best_finish) . get_ordinal_suffix($player->best_finish) . '</td>';
                 echo '<td>' . esc_html(number_format($player->avg_finish, 1)) . '</td>';
-                echo '<td>';
-                if ($player_post) {
-                    echo '<a href="' . get_edit_post_link($player_post->ID) . '" class="button button-small">' . __('Edit', 'poker-tournament-import') . '</a> ';
-                    echo '<a href="' . get_permalink($player_post->ID) . '" class="button button-small">' . __('View', 'poker-tournament-import') . '</a>';
-                }
-                echo '</td>';
                 echo '</tr>';
             }
 
@@ -2043,6 +2039,46 @@ class Poker_Tournament_Import {
         $status = $data_mart_cleaner->get_real_time_data_mart_status();
 
         wp_send_json_success($status);
+    }
+
+    /**
+     * Load custom templates for our custom post types
+     *
+     * @param string $template The path to the template WordPress will load
+     * @return string The modified template path
+     */
+    public function load_custom_templates($template) {
+        // Check if this is a singular post of our custom post types
+        if (is_singular('player')) {
+            $custom_template = POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'templates/single-player.php';
+            if (file_exists($custom_template)) {
+                return $custom_template;
+            }
+        }
+
+        if (is_singular('tournament')) {
+            $custom_template = POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'templates/single-tournament.php';
+            if (file_exists($custom_template)) {
+                return $custom_template;
+            }
+        }
+
+        if (is_singular('tournament_series')) {
+            $custom_template = POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'templates/taxonomy-tournament_series.php';
+            if (file_exists($custom_template)) {
+                return $custom_template;
+            }
+        }
+
+        if (is_post_type_archive('tournament')) {
+            $custom_template = POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'templates/archive-tournament.php';
+            if (file_exists($custom_template)) {
+                return $custom_template;
+            }
+        }
+
+        // Return original template if none of our conditions match
+        return $template;
     }
 }
 

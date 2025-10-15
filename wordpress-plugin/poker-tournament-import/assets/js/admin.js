@@ -1,11 +1,11 @@
 /**
  * Admin JavaScript for Poker Tournament Import
- * VERSION: 2.3.18
+ * VERSION: 2.3.25
  */
 
 // Version verification log - will appear first in console
 console.log('========================================');
-console.log('ADMIN.JS VERSION 2.3.18 LOADED');
+console.log('ADMIN.JS VERSION 2.3.25 LOADED');
 console.log('Expected pokerImport structure: {dashboardNonce, refreshNonce, ajaxUrl, adminUrl, messages}');
 console.log('Actual pokerImport:', typeof pokerImport !== 'undefined' ? pokerImport : 'UNDEFINED');
 console.log('========================================');
@@ -1081,11 +1081,14 @@ jQuery(document).ready(function($) {
      * Helper function to get ordinal suffix
      */
     function getOrdinalSuffix(number) {
-        const j = number % 10;
         const k = number % 100;
-        if (j === 1 && k !== 11) return 'st';
-        if (j === 2 && k !== 12) return 'nd';
-        if (j === 3 && k !== 13) return 'rd';
+        // Check 11-13 exception FIRST (they always end in 'th')
+        if (k >= 11 && k <= 13) return 'th';
+        // Then check last digit for 1st, 2nd, 3rd
+        const j = number % 10;
+        if (j === 1) return 'st';
+        if (j === 2) return 'nd';
+        if (j === 3) return 'rd';
         return 'th';
     }
 
