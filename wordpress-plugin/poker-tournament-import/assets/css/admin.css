@@ -2,20 +2,6 @@
  * Admin Styles for Poker Tournament Import
  */
 
-/* Menu Icon - Add spade symbol before Poker Import menu */
-#adminmenu li#toplevel_page_poker-tournament-import .wp-menu-name::before {
-    content: '♠ ';
-    font-size: 18px;
-    margin-right: 3px;
-    opacity: 1;
-    display: inline-block;
-}
-
-#adminmenu li#toplevel_page_poker-tournament-import:hover .wp-menu-name::before,
-#adminmenu li#toplevel_page_poker-tournament-import.current .wp-menu-name::before {
-    opacity: 1;
-}
-
 /* Main admin dashboard */
 .poker-import-dashboard {
     display: grid;

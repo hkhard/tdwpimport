@@ -46,7 +46,7 @@ class Poker_Tournament_Import_Admin {
     public function add_admin_menu() {
         add_menu_page(
             __('Poker Tournament Import', 'poker-tournament-import'),
-            __('Poker Import', 'poker-tournament-import'),
+            __('♠ Poker Import', 'poker-tournament-import'),
             'manage_options',
             'poker-tournament-import',
             array($this, 'render_dashboard'),
