@@ -1,11 +1,11 @@
 /**
  * Admin JavaScript for Poker Tournament Import
- * VERSION: 2.4.42
+ * VERSION: 2.4.43
  */
 
 // Version verification log - will appear first in console
 console.log('========================================');
-console.log('ADMIN.JS VERSION 2.4.42 LOADED');
+console.log('ADMIN.JS VERSION 2.4.43 LOADED');
 console.log('Expected pokerImport structure: {dashboardNonce, refreshNonce, ajaxUrl, adminUrl, messages}');
 console.log('Actual pokerImport:', typeof pokerImport !== 'undefined' ? pokerImport : 'UNDEFINED');
 console.log('========================================');
