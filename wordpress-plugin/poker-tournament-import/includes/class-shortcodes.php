@@ -418,7 +418,7 @@ class Poker_Tournament_Import_Shortcodes {
                 // Winnings
                 echo '<td class="winnings-cell">';
                 if ($player->winnings > 0) {
-                    echo '<span class="winnings-amount">' . esc_html('$' . number_format($player->winnings, 0)) . '</span>';
+                    echo '<span class="winnings-amount">' . esc_html(Poker_Tournament_Import_Admin::format_currency($player->winnings)) . '</span>';
                 } else {
                     echo '<span class="no-winnings">-</span>';
                 }
@@ -554,13 +554,13 @@ class Poker_Tournament_Import_Shortcodes {
             echo '<h3>' . __('Career Statistics', 'poker-tournament-import') . '</h3>';
             echo '<table class="player-stats-table">';
             echo '<tr><td>' . __('Tournaments Played:', 'poker-tournament-import') . '</td><td>' . esc_html($stats->tournaments_played) . '</td></tr>';
-            echo '<tr><td>' . __('Total Winnings:', 'poker-tournament-import') . '</td><td>$' . esc_html(number_format($stats->total_winnings, 2)) . '</td></tr>';
+            echo '<tr><td>' . __('Total Winnings:', 'poker-tournament-import') . '</td><td>' . esc_html(Poker_Tournament_Import_Admin::format_currency($stats->total_winnings)) . '</td></tr>';
             echo '<tr><td>' . __('Average Finish:', 'poker-tournament-import') . '</td><td>' . esc_html(number_format($stats->avg_finish, 1)) . '</td></tr>';
             echo '<tr><td>' . __('Total Points:', 'poker-tournament-import') . '</td><td>' . esc_html(number_format($stats->total_points, 2)) . '</td></tr>';
             echo '<tr><td>' . __('Total Eliminations:', 'poker-tournament-import') . '</td><td>' . esc_html($stats->total_hits) . '</td></tr>';
 
             if ($stats->best_cash > 0) {
-                echo '<tr><td>' . __('Best Cash:', 'poker-tournament-import') . '</td><td>$' . esc_html(number_format($stats->best_cash, 2)) . '</td></tr>';
+                echo '<tr><td>' . __('Best Cash:', 'poker-tournament-import') . '</td><td>' . esc_html(Poker_Tournament_Import_Admin::format_currency($stats->best_cash)) . '</td></tr>';
             }
 
             if ($stats->best_finish > 0) {
@@ -619,7 +619,7 @@ class Poker_Tournament_Import_Shortcodes {
                 echo '<td>' . esc_html($tournament->finish_position) . get_ordinal_suffix($tournament->finish_position) . '</td>';
                 echo '<td><a href="' . esc_url($tournament_link) . '">' . esc_html($tournament->tournament_name) . '</a></td>';
                 echo '<td>' . esc_html($display_date) . '</td>';
-                echo '<td>$' . esc_html(number_format($tournament->winnings, 2)) . '</td>';
+                echo '<td>' . esc_html(Poker_Tournament_Import_Admin::format_currency($tournament->winnings)) . '</td>';
                 echo '<td>' . esc_html(number_format($tournament->points, 2)) . '</td>';
                 echo '</tr>';
             }
@@ -694,12 +694,12 @@ class Poker_Tournament_Import_Shortcodes {
             echo '</div>';
 
             echo '<div class="stat-card">';
-            echo '<div class="stat-number">$' . esc_html(number_format($stats->avg_winnings, 0)) . '</div>';
+            echo '<div class="stat-number">' . esc_html(Poker_Tournament_Import_Admin::format_currency($stats->avg_winnings)) . '</div>';
             echo '<div class="stat-label">' . __('Average Cash', 'poker-tournament-import') . '</div>';
             echo '</div>';
 
             echo '<div class="stat-card">';
-            echo '<div class="stat-number">$' . esc_html(number_format($stats->first_place, 0)) . '</div>';
+            echo '<div class="stat-number">' . esc_html(Poker_Tournament_Import_Admin::format_currency($stats->first_place)) . '</div>';
             echo '<div class="stat-label">' . __('First Prize', 'poker-tournament-import') . '</div>';
             echo '</div>';
 
@@ -869,11 +869,11 @@ class Poker_Tournament_Import_Shortcodes {
                     <div class="stat-label"><?php _e('Unique Players', 'poker-tournament-import'); ?></div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-number">$<?php echo esc_html(number_format(floatval($total_prize_pool ?: 0), 0)); ?></div>
+                    <div class="stat-number"><?php echo esc_html(Poker_Tournament_Import_Admin::format_currency(floatval($total_prize_pool ?: 0))); ?></div>
                     <div class="stat-label"><?php _e('Total Prize Pool', 'poker-tournament-import'); ?></div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-number">$<?php echo esc_html(number_format(floatval($avg_prize_pool ?: 0), 0)); ?></div>
+                    <div class="stat-number"><?php echo esc_html(Poker_Tournament_Import_Admin::format_currency(floatval($avg_prize_pool ?: 0))); ?></div>
                     <div class="stat-label"><?php _e('Average Prize Pool', 'poker-tournament-import'); ?></div>
                 </div>
             </div>
@@ -890,7 +890,7 @@ class Poker_Tournament_Import_Shortcodes {
                         </a>
                         <div class="player-stats">
                             <span class="player-points"><?php echo esc_html(number_format($top_player['points'], 0)); ?> <?php _e('points', 'poker-tournament-import'); ?></span>
-                            <span class="player-winnings">$<?php echo esc_html(number_format($top_player['winnings'], 0)); ?></span>
+                            <span class="player-winnings"><?php echo esc_html(Poker_Tournament_Import_Admin::format_currency($top_player['winnings'])); ?></span>
                             <span class="player-best"><?php _e('Best:', 'poker-tournament-import'); ?> <?php echo esc_html($top_player['best_finish']); ?><?php echo get_ordinal_suffix($top_player['best_finish']); ?></span>
                         </div>
                     </div>
@@ -1180,7 +1180,7 @@ class Poker_Tournament_Import_Shortcodes {
                                             <?php endif; ?>
                                         </td>
                                         <td class="tournaments"><?php echo esc_html($player->tournaments_played); ?></td>
-                                        <td class="winnings">$<?php echo esc_html(number_format($player->total_winnings, 0)); ?></td>
+                                        <td class="winnings"><?php echo esc_html(Poker_Tournament_Import_Admin::format_currency($player->total_winnings)); ?></td>
                                         <td class="points"><?php echo esc_html(number_format($player->total_points, 1)); ?></td>
                                         <td class="best-finish"><?php echo esc_html($player->best_finish); ?><?php echo get_ordinal_suffix($player->best_finish); ?></td>
                                         <td class="avg-finish"><?php echo esc_html(number_format($player->avg_finish, 1)); ?></td>
@@ -1284,7 +1284,7 @@ class Poker_Tournament_Import_Shortcodes {
                                                 <span class="stat-label"><?php _e('Tournaments', 'poker-tournament-import'); ?></span>
                                             </span>
                                             <span class="stat-item">
-                                                <span class="stat-value">$<?php echo esc_html(number_format($player->total_winnings, 0)); ?></span>
+                                                <span class="stat-value"><?php echo esc_html(Poker_Tournament_Import_Admin::format_currency($player->total_winnings)); ?></span>
                                                 <span class="stat-label"><?php _e('Winnings', 'poker-tournament-import'); ?></span>
                                             </span>
                                             <span class="stat-item">
@@ -1459,15 +1459,15 @@ class Poker_Tournament_Import_Shortcodes {
         // Get top player
         $top_player = null;
         if (!empty($unique_players)) {
-            $top_player_data = $wpdb->get_row($wpdb->prepare(
+            // No prepare() needed - no dynamic values in query
+            $top_player_data = $wpdb->get_row(
                 "SELECT tp.player_id, SUM(tp.points) as total_points, SUM(tp.winnings) as total_winnings,
                         MIN(tp.finish_position) as best_finish
                  FROM $table_name tp
-                 WHERE tp.player_id IN (SELECT DISTINCT player_id FROM $table_name)
                  GROUP BY tp.player_id
                  ORDER BY total_points DESC, total_winnings DESC
                  LIMIT 1"
-            ));
+            );
 
             if ($top_player_data) {
                 $player_post = $wpdb->get_row($wpdb->prepare(
@@ -1505,11 +1505,11 @@ class Poker_Tournament_Import_Shortcodes {
                     <div class="stat-label"><?php _e('Unique Players', 'poker-tournament-import'); ?></div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-number">$<?php echo esc_html(number_format(floatval($total_prize_pool ?: 0), 0)); ?></div>
+                    <div class="stat-number"><?php echo esc_html(Poker_Tournament_Import_Admin::format_currency(floatval($total_prize_pool ?: 0))); ?></div>
                     <div class="stat-label"><?php _e('Total Prize Pool', 'poker-tournament-import'); ?></div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-number">$<?php echo esc_html(number_format(floatval($avg_prize_pool ?: 0), 0)); ?></div>
+                    <div class="stat-number"><?php echo esc_html(Poker_Tournament_Import_Admin::format_currency(floatval($avg_prize_pool ?: 0))); ?></div>
                     <div class="stat-label"><?php _e('Average Prize Pool', 'poker-tournament-import'); ?></div>
                 </div>
             </div>
@@ -1526,7 +1526,7 @@ class Poker_Tournament_Import_Shortcodes {
                         </a>
                         <div class="player-stats">
                             <span class="player-points"><?php echo esc_html(number_format($top_player['points'], 0)); ?> <?php _e('points', 'poker-tournament-import'); ?></span>
-                            <span class="player-winnings">$<?php echo esc_html(number_format($top_player['winnings'], 0)); ?></span>
+                            <span class="player-winnings"><?php echo esc_html(Poker_Tournament_Import_Admin::format_currency($top_player['winnings'])); ?></span>
                             <span class="player-best"><?php _e('Best:', 'poker-tournament-import'); ?> <?php echo esc_html($top_player['best_finish']); ?><?php echo get_ordinal_suffix($top_player['best_finish']); ?></span>
                         </div>
                     </div>
@@ -1808,7 +1808,7 @@ class Poker_Tournament_Import_Shortcodes {
                                             <?php endif; ?>
                                         </td>
                                         <td class="tournaments"><?php echo esc_html($player->tournaments_played); ?></td>
-                                        <td class="winnings">$<?php echo esc_html(number_format($player->total_winnings, 0)); ?></td>
+                                        <td class="winnings"><?php echo esc_html(Poker_Tournament_Import_Admin::format_currency($player->total_winnings)); ?></td>
                                         <td class="points"><?php echo esc_html(number_format($player->total_points, 1)); ?></td>
                                         <td class="best-finish"><?php echo esc_html($player->best_finish); ?><?php echo get_ordinal_suffix($player->best_finish); ?></td>
                                         <td class="avg-finish"><?php echo esc_html(number_format($player->avg_finish, 1)); ?></td>
@@ -1912,7 +1912,7 @@ class Poker_Tournament_Import_Shortcodes {
                                                 <span class="stat-label"><?php _e('Tournaments', 'poker-tournament-import'); ?></span>
                                             </span>
                                             <span class="stat-item">
-                                                <span class="stat-value">$<?php echo esc_html(number_format($player->total_winnings, 0)); ?></span>
+                                                <span class="stat-value"><?php echo esc_html(Poker_Tournament_Import_Admin::format_currency($player->total_winnings)); ?></span>
                                                 <span class="stat-label"><?php _e('Winnings', 'poker-tournament-import'); ?></span>
                                             </span>
                                             <span class="stat-item">
@@ -2022,7 +2022,7 @@ class Poker_Tournament_Import_Shortcodes {
                         <span class="stat-label"><?php _e('Tournaments', 'poker-tournament-import'); ?></span>
                     </div>
                     <div class="stat-item">
-                        <span class="stat-value">$<?php echo esc_html(number_format($series_stats['total_winnings'], 0)); ?></span>
+                        <span class="stat-value"><?php echo esc_html(Poker_Tournament_Import_Admin::format_currency($series_stats['total_winnings'])); ?></span>
                         <span class="stat-label"><?php _e('Total Winnings', 'poker-tournament-import'); ?></span>
                     </div>
                     <div class="stat-item">
@@ -2472,9 +2472,9 @@ class Poker_Tournament_Import_Shortcodes {
 
                         <div class="stat-card info clickable" data-drill="prizes">
                             <div class="stat-icon">💰</div>
-                            <div class="stat-number">$<?php echo esc_html(number_format(floatval($global_stats['total_prize_pool'] ?: 0), 0)); ?></div>
+                            <div class="stat-number"><?php echo esc_html(Poker_Tournament_Import_Admin::format_currency(floatval($global_stats['total_prize_pool'] ?: 0))); ?></div>
                             <div class="stat-label"><?php _e('Total Prize Pool', 'poker-tournament-import'); ?></div>
-                            <div class="stat-change">$<?php echo esc_html(number_format(floatval($global_stats['avg_prize_pool'] ?: 0), 0)); ?> <?php _e('average', 'poker-tournament-import'); ?></div>
+                            <div class="stat-change"><?php echo esc_html(Poker_Tournament_Import_Admin::format_currency(floatval($global_stats['avg_prize_pool'] ?: 0))); ?> <?php _e('average', 'poker-tournament-import'); ?></div>
                         </div>
 
                         <div class="stat-card warning clickable" data-drill="events">
@@ -2505,7 +2505,7 @@ class Poker_Tournament_Import_Shortcodes {
                                                     <div class="tournament-meta">
                                                         <span class="date"><?php echo esc_html(date_i18n('M j', strtotime($tournament->tournament_date))); ?></span>
                                                         <span class="players"><?php echo esc_html($tournament->players_count); ?> <?php _e('players', 'poker-tournament-import'); ?></span>
-                                                        <span class="prize">$<?php echo esc_html(number_format(floatval($tournament->prize_pool ?: 0), 0)); ?></span>
+                                                        <span class="prize"><?php echo esc_html(Poker_Tournament_Import_Admin::format_currency(floatval($tournament->prize_pool ?: 0))); ?></span>
                                                     </div>
                                                 </div>
                                                 <div class="tournament-winner">
@@ -2543,7 +2543,7 @@ class Poker_Tournament_Import_Shortcodes {
                                                 <div class="player-info">
                                                     <div class="player-name"><?php echo esc_html($player->player_name); ?></div>
                                                     <div class="player-stats">
-                                                        <span class="winnings">$<?php echo esc_html(number_format($player->total_winnings, 0)); ?></span>
+                                                        <span class="winnings"><?php echo esc_html(Poker_Tournament_Import_Admin::format_currency($player->total_winnings)); ?></span>
                                                         <span class="tournaments"><?php echo esc_html($player->tournaments_played); ?> <?php _e('events', 'poker-tournament-import'); ?></span>
                                                     </div>
                                                 </div>
@@ -2654,13 +2654,13 @@ class Poker_Tournament_Import_Shortcodes {
 
                         <div class="stat-card info">
                             <div class="stat-icon">💰</div>
-                            <div class="stat-number">$<?php echo esc_html(number_format(floatval($global_stats['total_payouts'] ?: 0), 0)); ?></div>
+                            <div class="stat-number"><?php echo esc_html(Poker_Tournament_Import_Admin::format_currency(floatval($global_stats['total_payouts'] ?: 0))); ?></div>
                             <div class="stat-label"><?php _e('Total Payouts', 'poker-tournament-import'); ?></div>
                         </div>
 
                         <div class="stat-card warning">
                             <div class="stat-icon">🏆</div>
-                            <div class="stat-number">$<?php echo esc_html(number_format(floatval($global_stats['highest_single_payout'] ?: 0), 0)); ?></div>
+                            <div class="stat-number"><?php echo esc_html(Poker_Tournament_Import_Admin::format_currency(floatval($global_stats['highest_single_payout'] ?: 0))); ?></div>
                             <div class="stat-label"><?php _e('Highest Payout', 'poker-tournament-import'); ?></div>
                         </div>
                     </section>
@@ -2707,7 +2707,7 @@ class Poker_Tournament_Import_Shortcodes {
                                                     <?php endif; ?>
                                                 </div>
                                                 <div class="tournaments-cell"><?php echo esc_html($player->tournaments_played); ?></div>
-                                                <div class="winnings-cell">$<?php echo esc_html(number_format(floatval($player->total_winnings), 0)); ?></div>
+                                                <div class="winnings-cell"><?php echo esc_html(Poker_Tournament_Import_Admin::format_currency(floatval($player->total_winnings))); ?></div>
                                                 <div class="best-finish-cell"><?php echo esc_html($player->best_finish); ?></div>
                                                 <div class="avg-finish-cell"><?php echo esc_html(number_format(floatval($player->avg_finish), 1)); ?></div>
                                             </div>
@@ -3558,6 +3558,9 @@ class Poker_Tournament_Import_Shortcodes {
 
         <!-- Dashboard JavaScript -->
         <script>
+        // Currency symbol for JavaScript usage
+        const pokerCurrencySymbol = '<?php echo esc_js(get_option('poker_currency_symbol', '$')); ?>';
+
         jQuery(document).ready(function($) {
             // Tab navigation
             $('.nav-tab').click(function() {
@@ -3691,7 +3694,7 @@ class Poker_Tournament_Import_Shortcodes {
                                     </div>
                                     <div class="player-stat">
                                         <label>Net Profit</label>
-                                        <span>$${number_format(playerData.total_winnings || 0, 0)}</span>
+                                        <span>${pokerCurrencySymbol}${number_format(playerData.total_winnings || 0, 0)}</span>
                                     </div>
                                     <div class="player-stat">
                                         <label>Best Finish</label>
@@ -3707,7 +3710,7 @@ class Poker_Tournament_Import_Shortcodes {
                                     </div>
                                     <div class="player-stat">
                                         <label>Highest Payout</label>
-                                        <span>$${number_format(playerData.highest_payout || 0, 0)}</span>
+                                        <span>${pokerCurrencySymbol}${number_format(playerData.highest_payout || 0, 0)}</span>
                                     </div>
                                 </div>
                                 ${playerData.recent_tournaments ? `
@@ -3718,7 +3721,7 @@ class Poker_Tournament_Import_Shortcodes {
                                                 <div class="tournament-result">
                                                     <span class="tournament-name">${tournament.tournament_name}</span>
                                                     <span class="finish-position">Position: ${tournament.finish_position}</span>
-                                                    <span class="winnings">$${number_format(tournament.winnings || 0, 0)}</span>
+                                                    <span class="winnings">${pokerCurrencySymbol}${number_format(tournament.winnings || 0, 0)}</span>
                                                 </div>
                                             `).join('')}
                                         </div>
@@ -3976,6 +3979,16 @@ class Poker_Tournament_Import_Shortcodes {
             $roi_count = $roi_exists ? $wpdb->get_var("SELECT COUNT(*) FROM $roi_table") : 0;
             error_log("Top Players Debug - ROI table exists: " . ($roi_exists ? 'YES' : 'NO'));
             error_log("Top Players Debug - ROI table rows: " . $roi_count);
+
+            // Check if ROI table has any non-null net_profit values
+            if ($roi_exists && $roi_count > 0) {
+                $non_null_count = $wpdb->get_var("SELECT COUNT(*) FROM $roi_table WHERE net_profit IS NOT NULL");
+                $positive_profit = $wpdb->get_var("SELECT COUNT(*) FROM $roi_table WHERE net_profit > 0");
+                $sample_data = $wpdb->get_results("SELECT player_id, net_profit, total_invested, total_winnings FROM $roi_table LIMIT 5", ARRAY_A);
+                error_log("Top Players Debug - Non-null net_profit rows: " . $non_null_count);
+                error_log("Top Players Debug - Positive net_profit rows: " . $positive_profit);
+                error_log("Top Players Debug - Sample data: " . print_r($sample_data, true));
+            }
         }
 
         // Query poker_player_roi table for NET PROFIT (winnings - total_invested)
@@ -3995,6 +4008,19 @@ class Poker_Tournament_Import_Shortcodes {
              LIMIT %d",
             $limit
         ));
+
+        // DEBUG: Log query results
+        if (current_user_can('manage_options')) {
+            error_log("Top Players Debug - Query returned " . count($top_players) . " results");
+            if (empty($top_players)) {
+                error_log("Top Players Debug - Query returned empty result set");
+                // Try simpler query without HAVING clause
+                $simple_query = $wpdb->get_results("SELECT player_id, net_profit FROM $roi_table LIMIT 5", ARRAY_A);
+                error_log("Top Players Debug - Simple query results: " . print_r($simple_query, true));
+            } else {
+                error_log("Top Players Debug - First result: " . print_r($top_players[0], true));
+            }
+        }
 
         // Get player post information
         foreach ($top_players as $player) {
@@ -4158,39 +4184,20 @@ class Poker_Tournament_Import_Shortcodes {
         Poker_Tournament_Import_Debug::log("Processing real-time tournament results from raw TDT content for tournament ID: {$tournament_id}");
 
         try {
-            // Initialize parser
+            // Use modern AST-based parsing (same fix as v2.4.26 for single-tournament.php)
             $parser = new Poker_Tournament_Parser();
+            $parsed_data = $parser->parse_content($raw_content);
 
-            // Use reflection to access private methods for real-time processing
-            $reflection = new ReflectionClass($parser);
+            if ($parsed_data && !empty($parsed_data['players'])) {
+                Poker_Tournament_Import_Debug::log_success("Real-time chronological processing completed for tournament ID: {$tournament_id}");
 
-            // Extract GameHistory from raw TDT content
-            if ($reflection->hasMethod('extract_game_history')) {
-                $extract_game_history = $reflection->getMethod('extract_game_history');
-                $extract_game_history->setAccessible(true);
-                $game_history = $extract_game_history->invoke($parser, $raw_content);
-
-                // Extract players from raw TDT content
-                if ($reflection->hasMethod('extract_players')) {
-                    $extract_players = $reflection->getMethod('extract_players');
-                    $extract_players->setAccessible(true);
-                    $players = $extract_players->invoke($parser, $raw_content);
-
-                    // Process players with chronological GameHistory
-                    if ($reflection->hasMethod('calculate_player_rankings')) {
-                        $calculate_rankings = $reflection->getMethod('calculate_player_rankings');
-                        $calculate_rankings->setAccessible(true);
-                        $players = $calculate_rankings->invoke($parser, $players, $game_history);
-
-                        Poker_Tournament_Import_Debug::log_success("Real-time chronological processing completed for tournament ID: {$tournament_id}");
-
-                        return array(
-                            'players' => $players,
-                            'game_history' => $game_history,
-                            'metadata' => $this->extract_basic_metadata($raw_content)
-                        );
-                    }
-                }
+                return array(
+                    'players' => $parsed_data['players'],
+                    'game_history' => $parsed_data['game_history'] ?? null,
+                    'metadata' => $parsed_data['metadata'] ?? $this->extract_basic_metadata($raw_content)
+                );
+            } else {
+                Poker_Tournament_Import_Debug::log_error("Real-time processing failed: No player data found in parsed result");
             }
         } catch (Exception $e) {
             Poker_Tournament_Import_Debug::log_error("Real-time processing failed: " . $e->getMessage());

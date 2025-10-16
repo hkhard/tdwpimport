@@ -618,11 +618,6 @@ class Poker_Tournament_Import {
                             --
                         <?php endif; ?>
                     </td>
-                    <td class="tournament-actions">
-                        <a href="<?php echo get_permalink($tournament->ID); ?>" class="btn-small">
-                            <?php _e('View', 'poker-tournament-import'); ?>
-                        </a>
-                    </td>
                 </tr>
                 <?php
             endforeach;
@@ -1026,7 +1021,6 @@ class Poker_Tournament_Import {
             echo '<th>' . __('Players', 'poker-tournament-import') . '</th>';
             echo '<th>' . __('Prize Pool', 'poker-tournament-import') . '</th>';
             echo '<th>' . __('Winner', 'poker-tournament-import') . '</th>';
-            echo '<th>' . __('Actions', 'poker-tournament-import') . '</th>';
             echo '</tr>';
             echo '</thead>';
             echo '<tbody>';
@@ -1059,10 +1053,6 @@ class Poker_Tournament_Import {
                 echo '<td>' . esc_html($players_count ?: '--') . '</td>';
                 echo '<td>' . esc_html($currency . number_format($prize_pool ?: 0, 0)) . '</td>';
                 echo '<td>' . ($winner_name ? '<a href="#">' . esc_html($winner_name) . '</a>' : '--') . '</td>';
-                echo '<td>';
-                echo '<a href="' . get_edit_post_link($tournament->ID) . '" class="button button-small">' . __('Edit', 'poker-tournament-import') . '</a> ';
-                echo '<a href="' . get_permalink($tournament->ID) . '" class="button button-small">' . __('View', 'poker-tournament-import') . '</a>';
-                echo '</td>';
                 echo '</tr>';
             }
 
@@ -1185,7 +1175,6 @@ class Poker_Tournament_Import {
                 echo '<h4><a href="' . get_edit_post_link($series->ID) . '">' . esc_html($series->post_title) . '</a></h4>';
                 echo '<p>' . sprintf(_n('%d tournament', '%d tournaments', $tournament_count, 'poker-tournament-import'), $tournament_count) . '</p>';
                 echo '<div class="series-actions">';
-                echo '<a href="' . get_edit_post_link($series->ID) . '" class="button button-small">' . __('Edit', 'poker-tournament-import') . '</a> ';
                 echo '[series_overview id="' . $series->ID . '"]';
                 echo '</div>';
                 echo '</div>';

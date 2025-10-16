@@ -46,7 +46,7 @@ class Poker_Tournament_Import_Admin {
     public function add_admin_menu() {
         add_menu_page(
             __('Poker Tournament Import', 'poker-tournament-import'),
-            __('Poker Import', 'poker-tournament-import'),
+            __('♠ Poker Import', 'poker-tournament-import'),
             'manage_options',
             'poker-tournament-import',
             array($this, 'render_dashboard'),
@@ -141,6 +141,28 @@ class Poker_Tournament_Import_Admin {
             )
         );
 
+        register_setting(
+            'poker_tournament_import_settings',
+            'poker_currency_symbol',
+            array(
+                'type' => 'string',
+                'description' => 'Currency symbol or code to display with monetary values',
+                'sanitize_callback' => array($this, 'sanitize_currency_symbol'),
+                'default' => '$',
+            )
+        );
+
+        register_setting(
+            'poker_tournament_import_settings',
+            'poker_currency_position',
+            array(
+                'type' => 'string',
+                'description' => 'Position of currency symbol (prefix or postfix)',
+                'sanitize_callback' => 'sanitize_text_field',
+                'default' => 'prefix',
+            )
+        );
+
         // Handle database repair
         if (isset($_POST['repair_database']) && check_admin_referer('poker_repair_database', 'poker_repair_nonce')) {
             $this->handle_database_repair();
@@ -149,6 +171,32 @@ class Poker_Tournament_Import_Admin {
         // Handle player data repair
         if (isset($_POST['repair_player_data']) && check_admin_referer('poker_repair_player_data', 'poker_repair_player_nonce')) {
             $this->handle_player_data_repair();
+        }
+    }
+
+    /**
+     * Sanitize currency symbol - preserves intentional spaces
+     */
+    public function sanitize_currency_symbol($value) {
+        // Don't trim - allow leading/trailing spaces as they're intentional
+        return wp_kses_post($value);
+    }
+
+    /**
+     * Format currency value with configured symbol and position
+     * Static method so it can be called from anywhere
+     */
+    public static function format_currency($amount) {
+        $symbol = get_option('poker_currency_symbol', '$');
+        $position = get_option('poker_currency_position', 'prefix');
+
+        // Format the amount with 2 decimal places
+        $formatted_amount = number_format((float)$amount, 2, '.', ',');
+
+        if ($position === 'postfix') {
+            return $formatted_amount . $symbol;
+        } else {
+            return $symbol . $formatted_amount;
         }
     }
 
@@ -1035,6 +1083,19 @@ class Poker_Tournament_Import_Admin {
                 // **CRITICAL**: Calculate and store prize pool from tournament data
                 $this->calculate_and_store_prize_pool($tournament_id, $tournament_data);
 
+                // **CRITICAL**: Process player ROI data for this tournament
+                Poker_Tournament_Import_Debug::log('Processing player ROI data for tournament');
+                if (class_exists('Poker_Statistics_Engine')) {
+                    $stats_engine = Poker_Statistics_Engine::get_instance();
+                    $tournament_uuid = $tournament_data['metadata']['uuid'] ?? '';
+                    if ($tournament_uuid) {
+                        $stats_engine->process_player_roi_data($tournament_uuid, $tournament_data);
+                        Poker_Tournament_Import_Debug::log_success('Player ROI data processed successfully');
+                    } else {
+                        Poker_Tournament_Import_Debug::log_warning('No tournament UUID found for ROI processing');
+                    }
+                }
+
                 // **CRITICAL**: Trigger statistics calculation after tournament import
                 Poker_Tournament_Import_Debug::log('Triggering statistics calculation after tournament import');
                 if (class_exists('Poker_Statistics_Engine')) {
@@ -1544,6 +1605,30 @@ class Poker_Tournament_Import_Admin {
                                 <?php _e('Enable debug logging to error log', 'poker-tournament-import'); ?>
                             </label>
                             <p class="description"><?php _e('Write debug information to PHP error log. Check your server error logs.', 'poker-tournament-import'); ?></p>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row"><?php _e('Currency Symbol', 'poker-tournament-import'); ?></th>
+                        <td>
+                            <input type="text" name="poker_currency_symbol" value="<?php echo esc_attr(get_option('poker_currency_symbol', '$')); ?>" class="regular-text">
+                            <p class="description"><?php _e('Currency symbol or code to display with monetary values. Leading/trailing spaces are preserved.', 'poker-tournament-import'); ?></p>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row"><?php _e('Currency Position', 'poker-tournament-import'); ?></th>
+                        <td>
+                            <label>
+                                <input type="radio" name="poker_currency_position" value="prefix" <?php checked(get_option('poker_currency_position', 'prefix'), 'prefix'); ?>>
+                                <?php _e('Prefix (before amount)', 'poker-tournament-import'); ?>
+                            </label>
+                            <br>
+                            <label>
+                                <input type="radio" name="poker_currency_position" value="postfix" <?php checked(get_option('poker_currency_position', 'prefix'), 'postfix'); ?>>
+                                <?php _e('Postfix (after amount)', 'poker-tournament-import'); ?>
+                            </label>
+                            <p class="description"><?php _e('Position of the currency symbol relative to the amount.', 'poker-tournament-import'); ?></p>
                         </td>
                     </tr>
                 </table>
@@ -2492,12 +2577,10 @@ class Poker_Tournament_Import_Admin {
 
         foreach ($tournament_data['players'] as $player_uuid => $player_data) {
             try {
-                // Calculate total buy-ins for this player
+                // Calculate total buy-ins COUNT for this player (not chip amounts!)
                 $total_buyins = 0;
                 if (!empty($player_data['buyins'])) {
-                    foreach ($player_data['buyins'] as $buyin) {
-                        $total_buyins += $buyin['amount'] ?? 0;
-                    }
+                    $total_buyins = count($player_data['buyins']);  // Count entries, not sum chip amounts
                 }
 
                 // Prepare player data to match ACTUAL table structure
@@ -2506,7 +2589,7 @@ class Poker_Tournament_Import_Admin {
                     'player_id' => $player_uuid, // Use player UUID
                     'finish_position' => $player_data['finish_position'] ?? 1,
                     'winnings' => $player_data['winnings'] ?? 0,
-                    'buyins' => $total_buyins,
+                    'buyins' => $total_buyins,  // Store COUNT of entries
                     'rebuys' => 0, // Default to 0 for now
                     'addons' => 0, // Default to 0 for now
                     'points' => $player_data['points'] ?? 0

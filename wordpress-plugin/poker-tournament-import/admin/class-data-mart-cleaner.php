@@ -784,16 +784,6 @@ class Poker_Data_Mart_Cleaner {
                         </button>
                     </div>
 
-                    <!-- Advanced Cleaning -->
-                    <div class="option-group">
-                        <h3><?php _e('Advanced Cleaning', 'poker-tournament-import'); ?></h3>
-                        <p><?php _e('Remove all derived data including player analytics and options.', 'poker-tournament-import'); ?></p>
-
-                        <button type="button" class="button poker-ajax-button" data-action="clean_all">
-                            <?php _e('Clean All Data Mart', 'poker-tournament-import'); ?>
-                        </button>
-                    </div>
-
                     <!-- Complete Reset -->
                     <div class="option-group danger-zone">
                         <h3><?php _e('⚠️ DANGER ZONE - Complete Reset', 'poker-tournament-import'); ?></h3>
