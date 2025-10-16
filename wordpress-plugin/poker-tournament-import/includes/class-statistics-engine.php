@@ -618,45 +618,73 @@ class Poker_Statistics_Engine {
     }
 
     /**
-     * Get top players by winnings
+     * Get top players by winnings (NET PROFIT from ROI table)
      */
     public function get_top_players($start_date = null, $end_date = null, $series_id = 0, $limit = 10) {
         global $wpdb;
+        $roi_table = $wpdb->prefix . 'poker_player_roi';
 
+        // DEBUG: Check if ROI table exists and has data (for admin users only)
+        if (current_user_can('manage_options')) {
+            $roi_exists = $wpdb->get_var("SHOW TABLES LIKE '$roi_table'") === $roi_table;
+            $roi_count = $roi_exists ? $wpdb->get_var("SELECT COUNT(*) FROM $roi_table") : 0;
+            error_log("Statistics Engine - Top Players Debug - ROI table exists: " . ($roi_exists ? 'YES' : 'NO'));
+            error_log("Statistics Engine - Top Players Debug - ROI table rows: " . $roi_count);
+
+            // Check if ROI table has any non-null net_profit values
+            if ($roi_exists && $roi_count > 0) {
+                $non_null_count = $wpdb->get_var("SELECT COUNT(*) FROM $roi_table WHERE net_profit IS NOT NULL");
+                $positive_profit = $wpdb->get_var("SELECT COUNT(*) FROM $roi_table WHERE net_profit > 0");
+                $sample_data = $wpdb->get_results("SELECT player_id, net_profit, total_invested, total_winnings FROM $roi_table LIMIT 5", ARRAY_A);
+                error_log("Statistics Engine - Top Players Debug - Non-null net_profit rows: " . $non_null_count);
+                error_log("Statistics Engine - Top Players Debug - Positive net_profit rows: " . $positive_profit);
+                error_log("Statistics Engine - Top Players Debug - Sample data: " . print_r($sample_data, true));
+            }
+        }
+
+        // Query poker_player_roi table for NET PROFIT (winnings - total_invested)
         $query = "SELECT
-                    tp.player_id as player_id,
+                    roi.player_id,
                     p.post_title as player_name,
-                    SUM(tp.winnings) as total_winnings,
                     COUNT(*) as tournaments_played,
+                    SUM(roi.net_profit) as total_winnings,
                     MIN(tp.finish_position) as best_finish
-                  FROM {$this->players_table} tp
-                  LEFT JOIN {$wpdb->postmeta} pm ON pm.meta_value = tp.player_id AND pm.meta_key = 'player_uuid'
+                  FROM {$roi_table} roi
+                  LEFT JOIN {$this->players_table} tp ON roi.player_id = tp.player_id AND roi.tournament_id = tp.tournament_id
+                  LEFT JOIN {$wpdb->postmeta} pm ON pm.meta_value = roi.player_id AND pm.meta_key = 'player_uuid'
                   LEFT JOIN {$wpdb->posts} p ON pm.post_id = p.ID";
 
         $where_clauses = array();
         $params = array();
 
         if ($start_date && $end_date) {
-            // Add date filtering through tournament UUID lookup
-            $where_clauses[] = "pm_other.post_id IN (
-                SELECT ID FROM {$wpdb->posts}
-                WHERE post_type = 'tournament'
-                AND post_date >= %s AND post_date <= %s
-            )";
-            $params[] = $start_date . ' 00:00:00';
-            $params[] = $end_date . ' 23:59:59';
+            // Add date filtering through tournament date in ROI table
+            $where_clauses[] = "roi.tournament_date >= %s AND roi.tournament_date <= %s";
+            $params[] = $start_date;
+            $params[] = $end_date;
         }
 
         if (!empty($where_clauses)) {
             $query .= " WHERE " . implode(' AND ', $where_clauses);
         }
 
-        $query .= " GROUP BY tp.player_id
+        $query .= " GROUP BY roi.player_id
+                   HAVING total_winnings IS NOT NULL
                    ORDER BY total_winnings DESC
                    LIMIT %d";
         $params[] = $limit;
 
-        return $wpdb->get_results($wpdb->prepare($query, $params));
+        $results = $wpdb->get_results($wpdb->prepare($query, $params));
+
+        // DEBUG: Log results count
+        if (current_user_can('manage_options')) {
+            error_log("Statistics Engine - Top Players Debug - Results count: " . count($results));
+            if (!empty($results)) {
+                error_log("Statistics Engine - Top Players Debug - First result: " . print_r($results[0], true));
+            }
+        }
+
+        return $results;
     }
 
     /**
@@ -789,6 +817,24 @@ class Poker_Statistics_Engine {
 
         $roi_table = $wpdb->prefix . 'poker_player_roi';
 
+        // DEBUG: Check if ROI table exists and has data (for admin users only)
+        if (current_user_can('manage_options')) {
+            $roi_exists = $wpdb->get_var("SHOW TABLES LIKE '$roi_table'") === $roi_table;
+            $roi_count = $roi_exists ? $wpdb->get_var("SELECT COUNT(*) FROM $roi_table") : 0;
+            error_log("Statistics Engine - Player Leaderboard Debug - ROI table exists: " . ($roi_exists ? 'YES' : 'NO'));
+            error_log("Statistics Engine - Player Leaderboard Debug - ROI table rows: " . $roi_count);
+
+            // Check if ROI table has any non-null net_profit values
+            if ($roi_exists && $roi_count > 0) {
+                $non_null_count = $wpdb->get_var("SELECT COUNT(*) FROM $roi_table WHERE net_profit IS NOT NULL");
+                $positive_profit = $wpdb->get_var("SELECT COUNT(*) FROM $roi_table WHERE net_profit > 0");
+                $sample_data = $wpdb->get_results("SELECT player_id, net_profit, total_invested, total_winnings FROM $roi_table LIMIT 5", ARRAY_A);
+                error_log("Statistics Engine - Player Leaderboard Debug - Non-null net_profit rows: " . $non_null_count);
+                error_log("Statistics Engine - Player Leaderboard Debug - Positive net_profit rows: " . $positive_profit);
+                error_log("Statistics Engine - Player Leaderboard Debug - Sample data: " . print_r($sample_data, true));
+            }
+        }
+
         // Query poker_player_roi table for NET PROFIT (winnings - total_invested)
         $leaderboard = $wpdb->get_results($wpdb->prepare(
             "SELECT
@@ -809,6 +855,14 @@ class Poker_Statistics_Engine {
              LIMIT %d",
             $limit
         ));
+
+        // DEBUG: Log results count
+        if (current_user_can('manage_options')) {
+            error_log("Statistics Engine - Player Leaderboard Debug - Results count: " . count($leaderboard));
+            if (!empty($leaderboard)) {
+                error_log("Statistics Engine - Player Leaderboard Debug - First result: " . print_r($leaderboard[0], true));
+            }
+        }
 
         // Add player names from WordPress posts
         foreach ($leaderboard as &$player) {
@@ -1365,23 +1419,60 @@ class Poker_Statistics_Engine {
     /**
      * Process player ROI data for a tournament
      */
-    private function process_player_roi_data($tournament_uuid, $tournament_data) {
+    public function process_player_roi_data($tournament_uuid, $tournament_data) {
         global $wpdb;
 
         $player_roi_table = $wpdb->prefix . 'poker_player_roi';
-        $tournament_date = get_post_meta(get_the_ID(), '_tournament_date', true) ?: date('Y-m-d');
-        $buy_in_amount = floatval($tournament_data['buy_in'] ?? 0);
+
+        // Get tournament post ID from UUID
+        $tournament_post = $wpdb->get_row($wpdb->prepare(
+            "SELECT post_id FROM {$wpdb->postmeta}
+             WHERE meta_key = 'tournament_uuid' AND meta_value = %s LIMIT 1",
+            $tournament_uuid
+        ));
+        $tournament_id = $tournament_post ? $tournament_post->post_id : 0;
+        $tournament_date = $tournament_id ? get_post_meta($tournament_id, '_tournament_date', true) : date('Y-m-d');
+        if (!$tournament_date) {
+            $tournament_date = date('Y-m-d');
+        }
+
+        // Get fee profiles from tournament data
+        $fee_profiles = array();
+        if (!empty($tournament_data['financial']['fee_profiles']) && is_array($tournament_data['financial']['fee_profiles'])) {
+            $fee_profiles = $tournament_data['financial']['fee_profiles'];
+        }
+
+        // Fallback buy-in amount for backward compatibility
+        $fallback_buy_in = floatval($tournament_data['buy_in'] ?? 0);
 
         if (!empty($tournament_data['players']) && is_array($tournament_data['players'])) {
             foreach ($tournament_data['players'] as $player_data) {
                 $player_uuid = $player_data['uuid'] ?? '';
                 $winnings = floatval($player_data['winnings'] ?? 0);
                 $finish_position = intval($player_data['finish_position'] ?? 0);
-                $rebuys = intval($player_data['rebuys'] ?? 0);
-                $addons = intval($player_data['addons'] ?? 0);
 
                 if ($player_uuid) {
-                    $total_invested = $buy_in_amount + ($buy_in_amount * $rebuys * 0.5) + ($buy_in_amount * $addons * 0.3);
+                    // Calculate total invested by summing FeeProfile costs for each buyin
+                    $total_invested = 0;
+
+                    if (!empty($player_data['buyins']) && is_array($player_data['buyins'])) {
+                        // Loop through each buyin and lookup its FeeProfile cost
+                        foreach ($player_data['buyins'] as $buyin) {
+                            $profile_name = $buyin['profile'] ?? 'Standard';
+
+                            // Look up cost from FeeProfile
+                            if (isset($fee_profiles[$profile_name]['fee'])) {
+                                $total_invested += floatval($fee_profiles[$profile_name]['fee']);
+                            } else {
+                                // Fallback: use default buy-in amount
+                                $total_invested += $fallback_buy_in;
+                            }
+                        }
+                    } else {
+                        // Fallback: if no buyins array, use default buy-in × 1
+                        $total_invested = $fallback_buy_in;
+                    }
+
                     $net_profit = $winnings - $total_invested;
                     $roi_percentage = $total_invested > 0 ? ($net_profit / $total_invested) * 100 : 0;
 
@@ -1470,5 +1561,134 @@ class Poker_Statistics_Engine {
         }
 
         return array();
+    }
+
+    /**
+     * **v2.4.34: ONE-TIME MIGRATION** - Populate ROI table from existing tournament data
+     *
+     * This method is called once during plugin upgrade from v2.4.33 to v2.4.34.
+     * It populates the poker_player_roi table by reading existing tournament data
+     * from the poker_tournament_players table and WordPress post meta.
+     */
+    public function migrate_populate_roi_table() {
+        global $wpdb;
+
+        $player_roi_table = $wpdb->prefix . 'poker_player_roi';
+        $start_time = microtime(true);
+        $total_records = 0;
+        $processed_tournaments = 0;
+
+        error_log("ROI Migration: Starting migration to populate poker_player_roi table");
+
+        // Get all tournaments with player data
+        $tournaments = $wpdb->get_results(
+            "SELECT DISTINCT tp.tournament_id
+             FROM {$this->players_table} tp"
+        );
+
+        error_log("ROI Migration: Found " . count($tournaments) . " tournaments with player data");
+
+        foreach ($tournaments as $tournament) {
+            $tournament_uuid = $tournament->tournament_id;
+
+            // Get tournament post ID from meta
+            $tournament_post = $wpdb->get_row($wpdb->prepare(
+                "SELECT post_id
+                 FROM {$wpdb->postmeta}
+                 WHERE meta_key = 'tournament_uuid' AND meta_value = %s
+                 LIMIT 1",
+                $tournament_uuid
+            ));
+
+            if (!$tournament_post) {
+                error_log("ROI Migration: Skipping tournament {$tournament_uuid} - no post found");
+                continue;
+            }
+
+            $tournament_id = $tournament_post->post_id;
+
+            // Get tournament buy-in amount from post meta
+            $buy_in_amount = floatval(get_post_meta($tournament_id, '_buy_in', true));
+            if ($buy_in_amount == 0) {
+                // Try alternative field names
+                $buy_in_amount = floatval(get_post_meta($tournament_id, 'buy_in', true));
+            }
+            if ($buy_in_amount == 0) {
+                $buy_in_amount = floatval(get_post_meta($tournament_id, '_tournament_buy_in', true));
+            }
+
+            // Get tournament date
+            $tournament_date = get_post_meta($tournament_id, '_tournament_date', true);
+            if (!$tournament_date) {
+                $tournament_date = get_the_date('Y-m-d', $tournament_id);
+            }
+
+            // Get all players for this tournament
+            $players = $wpdb->get_results($wpdb->prepare(
+                "SELECT player_id, winnings, buyins, rebuys, addons, finish_position
+                 FROM {$this->players_table}
+                 WHERE tournament_id = %s",
+                $tournament_uuid
+            ));
+
+            // Process each player
+            foreach ($players as $player) {
+                $player_uuid = $player->player_id;
+                $winnings = floatval($player->winnings);
+                $finish_position = intval($player->finish_position);
+                $buyins = intval($player->buyins) ?: 1;  // Default to 1 if 0
+                $rebuys = intval($player->rebuys);
+                $addons = intval($player->addons);
+
+                // Calculate total invested (per buyin events)
+                // Buy-in amounts are stored at face value in localized currency
+                if ($buy_in_amount > 0) {
+                    $total_invested = $buy_in_amount * ($buyins + $rebuys + $addons);
+                } else {
+                    // Fallback: estimate $20 per entry
+                    $total_invested = 20.0 * ($buyins + $rebuys + $addons);
+                }
+
+                $net_profit = $winnings - $total_invested;
+                $roi_percentage = $total_invested > 0 ? ($net_profit / $total_invested) * 100 : 0;
+
+                // Insert ROI record
+                $result = $wpdb->replace(
+                    $player_roi_table,
+                    array(
+                        'player_id' => $player_uuid,
+                        'tournament_id' => $tournament_uuid,
+                        'total_invested' => $total_invested,
+                        'total_winnings' => $winnings,
+                        'net_profit' => $net_profit,
+                        'roi_percentage' => $roi_percentage,
+                        'finish_position' => $finish_position,
+                        'tournament_date' => $tournament_date
+                    ),
+                    array('%s', '%s', '%f', '%f', '%f', '%f', '%d', '%s')
+                );
+
+                if ($result !== false) {
+                    $total_records++;
+                }
+            }
+
+            $processed_tournaments++;
+
+            // Log progress every 10 tournaments
+            if ($processed_tournaments % 10 == 0) {
+                error_log("ROI Migration: Processed {$processed_tournaments} tournaments, created {$total_records} ROI records");
+            }
+        }
+
+        $elapsed_time = round((microtime(true) - $start_time) * 1000, 2);
+        error_log("ROI Migration: COMPLETE - Processed {$processed_tournaments} tournaments, created {$total_records} ROI records in {$elapsed_time}ms");
+
+        return array(
+            'success' => true,
+            'tournaments_processed' => $processed_tournaments,
+            'records_created' => $total_records,
+            'elapsed_ms' => $elapsed_time
+        );
     }
 }

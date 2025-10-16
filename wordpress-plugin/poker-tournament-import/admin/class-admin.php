@@ -178,7 +178,14 @@ class Poker_Tournament_Import_Admin {
      * Sanitize currency symbol - preserves intentional spaces
      */
     public function sanitize_currency_symbol($value) {
+        // v2.4.42: Check if preserved value was sent via JavaScript
+        if (isset($_POST['poker_currency_symbol_preserved'])) {
+            $value = $_POST['poker_currency_symbol_preserved'];
+            error_log('Poker Import - Using preserved currency value: ' . json_encode($value));
+        }
+
         // Don't trim - allow leading/trailing spaces as they're intentional
+        // Use wp_kses_post to allow safe HTML entities but preserve whitespace
         return wp_kses_post($value);
     }
 

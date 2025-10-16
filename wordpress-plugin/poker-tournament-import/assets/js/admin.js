@@ -1,11 +1,11 @@
 /**
  * Admin JavaScript for Poker Tournament Import
- * VERSION: 2.3.26
+ * VERSION: 2.4.42
  */
 
 // Version verification log - will appear first in console
 console.log('========================================');
-console.log('ADMIN.JS VERSION 2.3.26 LOADED');
+console.log('ADMIN.JS VERSION 2.4.42 LOADED');
 console.log('Expected pokerImport structure: {dashboardNonce, refreshNonce, ajaxUrl, adminUrl, messages}');
 console.log('Actual pokerImport:', typeof pokerImport !== 'undefined' ? pokerImport : 'UNDEFINED');
 console.log('========================================');
@@ -1705,6 +1705,58 @@ jQuery(document).ready(function($) {
         return html;
     }
     } // END initDashboardTabs
+
+    // ========================================
+    // **CURRENCY SYMBOL SPACE PRESERVATION**
+    // ========================================
+
+    // Preserve leading/trailing spaces in currency symbol input
+    const currencyInput = $('input[name="poker_currency_symbol"]');
+    if (currencyInput.length > 0) {
+        console.log('[Currency] Currency symbol input found, initializing space preservation');
+
+        // Store original value with spaces
+        let preservedValue = currencyInput.val();
+
+        // On focus, show visual indicator for spaces
+        currencyInput.on('focus', function() {
+            const value = $(this).val();
+            // Count leading/trailing spaces for visual feedback
+            const leadingSpaces = value.match(/^(\s+)/);
+            const trailingSpaces = value.match(/(\s+)$/);
+
+            if (leadingSpaces || trailingSpaces) {
+                let hint = 'Spaces preserved: ';
+                if (leadingSpaces) hint += leadingSpaces[0].length + ' leading';
+                if (leadingSpaces && trailingSpaces) hint += ', ';
+                if (trailingSpaces) hint += trailingSpaces[0].length + ' trailing';
+
+                console.log('[Currency] ' + hint);
+            }
+        });
+
+        // Store value before form submission
+        currencyInput.closest('form').on('submit', function(e) {
+            // Preserve the exact value with spaces
+            preservedValue = currencyInput.val();
+            console.log('[Currency] Preserving value with spaces:', JSON.stringify(preservedValue));
+
+            // Create a hidden input to carry the exact value
+            const hiddenInput = $('<input>')
+                .attr('type', 'hidden')
+                .attr('name', 'poker_currency_symbol_preserved')
+                .val(preservedValue);
+
+            $(this).append(hiddenInput);
+        });
+
+        // Restore value after page load (in case browser strips it)
+        const storedValue = currencyInput.val();
+        if (storedValue !== preservedValue && preservedValue !== '') {
+            console.log('[Currency] Restoring preserved value');
+            currencyInput.val(preservedValue);
+        }
+    }
 
     // Console log for debugging
     console.log('Poker Tournament Import Admin JavaScript loaded');
