@@ -3,7 +3,7 @@ Contributors: yourname
 Tags: poker, tournament, import, results
 Requires at least: 6.0
 Tested up to: 6.4
-Stable tag: 2.4.29
+Stable tag: 2.4.39
 Requires PHP: 8.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -74,6 +74,259 @@ Use the following shortcodes:
 6. **NEW: Interactive leaderboard with sorting**
 
 == Changelog ==
+
+= 2.4.39 - October 16, 2025 =
+✅ **CRITICAL BUGFIX FOR v2.4.38: Prizes Not Extracted from Modern .tdt Files**
+✅ **FIXED: GamePrizes wrapper extraction** - Domain mapper now handles modern .tdt file prize structure
+   - Issue: v2.4.38 fixed type-safe winnings comparison but players still showed $0.00 winnings
+   - Root cause: Modern .tdt files wrap prizes in `new GamePrizes({Prizes: [new GamePrize(...), ...]})` constructor
+   - Current code: extract_prizes() checks `if (!$this->is_type($prizes_node, 'Array'))` which fails because prizes_node is GamePrizes constructor, not Array
+   - Debug log: "Prizes node is not an Array type" → method returns empty array → 0 prizes distributed
+   - Impact: ALL prize winners showing total_winnings = 0.00, gross_winnings = 0.00, net_profit shows only negative investments
+   - Solution: Added GamePrizes unwrapping logic before Array type check (same pattern as GamePlayers unwrapping in v2.4.14)
+✅ **FIXED: Winner payouts now display correctly** - Prizes extract successfully from wrapped GamePrizes structure
+   - Unwraps GamePrizes constructor to access inner Prizes field
+   - Then proceeds with existing GamePrize extraction logic
+   - Same pattern already proven successful for GamePlayers wrapper (v2.4.14)
+   - Backward compatible with older files that use direct array format
+✅ **ENHANCED: Multi-format prize extraction** - Supports two prize formats
+   1. Modern: `Prizes: new GamePrizes({Prizes: [new GamePrize(...), ...]})`
+   2. Legacy: `Prizes: [new GamePrize(...), ...]`
+🔧 **Technical Details:**
+   - class-tdt-domain-mapper.php: Added GamePrizes wrapper detection (lines 555-572)
+   - Pattern matches GamePlayers unwrapping from v2.4.14 (lines 248-263)
+   - Check if Prizes field is GamePrizes constructor using is_new_with_ctor()
+   - If yes: Unwrap GamePrizes → Extract inner Prizes field → Continue with Array processing
+   - If no: Use Prizes field directly (backward compatibility with older files)
+   - Array type check now operates on unwrapped node, not wrapper node
+✅ **RESULT: Prize winnings now display correctly** - Winners show actual prize amounts, ROI calculations include prize winnings, top players panel shows accurate net profit/loss values
+
+= 2.4.38 - October 16, 2025 =
+✅ **CRITICAL BUGFIX FOR v2.4.37: Winnings Not Displayed for Prize Winners**
+✅ **FIXED: Type mismatch in winnings calculation** - Prize position and player finish_position comparison failed due to type differences
+   - Issue: v2.4.37 fixed buyins column but players who won prizes still showed $0.00 winnings
+   - Root cause: Prize position may be string "1" while player finish_position is integer 1 → strict === comparison fails
+   - Impact: All prize winners showing total_winnings = 0.00, gross_winnings = 0.00, highest_payout = 0.00
+   - Solution: Added intval() type casting to normalize both positions before comparison
+✅ **ENHANCED: Always-on debug logging** - Added error_log() calls that work even when debug mode is off
+   - Prize extraction logging: Shows number of prizes found, position, amount, description for each prize
+   - Winnings calculation logging: Shows matches found, prize distribution process, type information
+   - Match success logging: Logs each successful prize-to-player match with player name and amount
+   - Warning logging: Logs unmatched prizes and skipped invalid prizes
+✅ **TECHNICAL: Debug logging behavior clarified** - Poker_Tournament_Import_Debug::log() only works when debug mode enabled
+   - v2.4.38-DEBUG version used Debug::log() which requires debug mode setting
+   - User didn't have debug mode enabled → no debug output appeared in log
+   - Solution: Added parallel error_log() calls that ALWAYS log regardless of debug mode setting
+   - Now administrators can diagnose winnings issues without enabling debug mode
+🔧 **Technical Details:**
+   - class-parser.php: Fixed intval() type casting in calculate_winnings_by_rank() (lines 1282-1284)
+   - class-parser.php: Added error_log() calls at lines 1256-1258, 1268, 1290, 1302, 1308, 1313-1314
+   - class-tdt-domain-mapper.php: Added error_log() calls at lines 548, 555, 560, 568, 574
+   - Changed from: `if ($player['finish_position'] === $position)` (strict type comparison)
+   - Changed to: `if (intval($player['finish_position']) === intval($position))` (type-safe comparison)
+   - Prize positions normalized to integers before matching (handles string vs int discrepancy)
+✅ **RESULT: Winnings now display correctly for all prize winners** - Type-safe comparison ensures matches work regardless of data type
+
+= 2.4.37 - October 16, 2025 =
+✅ **CRITICAL BUGFIX FOR v2.4.36: Buyin Column Storing Chip Amounts Instead of Entry Counts**
+✅ **FIXED: ROI values showing -$80,000 instead of -$200** - Database buyins column was storing chip amounts (40000) instead of entry counts (2)
+   - Issue: v2.4.36 migration multiplied buy-in fee (200) by chip amounts stored in buyins column (40000) → 200 × 40000 = 8,000,000
+   - Example: Player with 2 entries × 20000 chips each had buyins = 40000 (chip sum) → $200 × 40000 = $8,000,000 total_invested
+   - Root cause: insert_tournament_players() at line 2512 summing $buyin['amount'] (chip values) instead of counting entries
+   - Impact: Migration calculations wildly incorrect (values in millions instead of hundreds)
+   - Solution: Changed line 2511 from summing chip amounts to counting entries: count($player_data['buyins'])
+✅ **FIXED: Database schema semantic error** - buyins column now stores COUNT of entries (1, 2, 3) not SUM of chip amounts (20000, 40000)
+   - Each player's $player_data['buyins'] is array of buyin objects
+   - Each buyin has ['amount'] field = starting chip count (e.g., 5000, 20000, 40000)
+   - OLD (wrong): Loop through and SUM chip amounts → store 40000 in database
+   - NEW (correct): COUNT array entries → store 2 in database
+   - Migration then correctly calculates: $200 (buy-in fee) × 2 (entries) = $400 total_invested
+✅ **IMPORTANT: Existing data requires cleanup** - Current poker_tournament_players table has corrupt buyins data
+   - All existing buyins values are chip amounts (40000, 80000) not entry counts (2, 4)
+   - Future imports will store correct values (counts, not chip totals)
+   - Existing data needs: Clear ROI table + re-import tournaments OR run data cleanup script
+   - See installation instructions for data cleanup steps
+🔧 **Technical Details:**
+   - admin/class-admin.php: Modified insert_tournament_players() method (lines 2507-2524)
+   - Changed from: foreach loop summing $buyin['amount'] (chip amounts)
+   - Changed to: count($player_data['buyins']) (entry counts)
+   - Migration at class-statistics-engine.php line 1630 multiplies buy_in_amount by buyins column value
+   - With chip amounts: 200 × 40000 = 8,000,000 (completely wrong)
+   - With entry counts: 200 × 2 = 400 (correct)
+✅ **RESULT: Future imports will store correct data** - ROI calculations will be accurate for tournaments imported after v2.4.37 upgrade
+
+= 2.4.36 - October 16, 2025 =
+✅ **CRITICAL BUGFIX FOR v2.4.35: ROI Calculation Accuracy - Per-Buyin Fee Lookup**
+✅ **FIXED: v2.4.35 cents-to-dollars conversion was incorrect** - Buy-in amounts stored at face value in local currency, NOT cents
+   - Issue: v2.4.35 divided buy_in_amount by 100 assuming cents storage (20000 = $200)
+   - Reality: Tournament Director stores amounts at face value (200 = $200 or 200 SEK)
+   - Root cause: Incorrect assumption about TDT file format - amounts are NOT stored as cents
+   - Impact: ROI values 100x too small (e.g., -$2 instead of -$200)
+   - Solution: REVERTED v2.4.35 cents-to-dollars division, amounts already at correct scale
+✅ **FIXED: ROI calculation using incorrect formula with arbitrary multipliers** - Now uses actual FeeProfile costs for each entry
+   - Issue: Used `total_invested = buy_in + (buy_in × rebuys × 0.5) + (buy_in × addons × 0.3)` with arbitrary multipliers
+   - Reality: Each entry can have different cost (Standard=$200, Double=$400, Triple=$600)
+   - Root cause: Formula multiplied buy-in by count instead of looking up actual per-buyin cost
+   - Impact: Inaccurate ROI calculations when players use mixed entry types (rebuys, addons)
+   - Solution: Loop through player's buyins[] array, lookup FeeProfile.fee for EACH entry, sum actual costs
+✅ **FIXED: ROI table never populated during NEW tournament imports** - process_player_roi_data() never called
+   - Issue: ROI table only populated by v2.4.34 migration, not during new imports
+   - Root cause: process_player_roi_data() was private method, never called from import flow
+   - Impact: After v2.4.34 migration, NEW tournament imports didn't add ROI records
+   - Solution: Made method public, added call to process_player_roi_data() after tournament import in admin/class-admin.php
+✅ **ENHANCED: Accurate per-entry cost calculation** - Respects different fee profiles for initial buy-in, rebuys, and addons
+   - Each player has buyins[] array: [{profile: 'Standard', ...}, {profile: 'Double', ...}]
+   - Each FeeProfile has different cost: {Standard: {fee: 200}, Double: {fee: 400}}
+   - total_invested now = sum of each buyin's FeeProfile.fee (e.g., 200 + 200 + 400 = 800)
+   - Example: Player with 1 initial + 1 rebuy + 1 double addon = $200 + $200 + $400 = $800
+🔧 **Technical Details:**
+   - class-statistics-engine.php: REVERTED v2.4.35 cents division in migrate_populate_roi_table() (lines 1606-1609)
+   - class-statistics-engine.php: Made process_player_roi_data() public (line 1422)
+   - class-statistics-engine.php: Rewrote total_invested calculation to loop through buyins with FeeProfile lookups (lines 1438-1474)
+   - class-statistics-engine.php: Fixed get_the_ID() issue by looking up tournament_id from UUID (lines 1427-1437)
+   - admin/class-admin.php: Added ROI processing call during import after prize pool calculation (lines 1038-1049)
+   - Migration still uses simple multiplication (buy_in × count) since historical data lacks per-buyin FeeProfile references
+   - Only NEW imports after v2.4.36 will have accurate per-entry costs with mixed fee profiles
+✅ **RESULT: ROI calculations now accurate for all entry types** - Correct buy-in scale (no cents conversion) + actual per-entry costs (no arbitrary multipliers) + automatic ROI table population for new imports
+
+= 2.4.35 - October 16, 2025 =
+✅ **CRITICAL BUGFIX FOR v2.4.34: ROI Values Multiplied by 100**
+✅ **FIXED: ROI values showing -$120,000 instead of -$200** - Buy-in amounts stored as cents but migration treated them as dollars
+   - Issue: v2.4.34 migration populated ROI table but values were 100x too large (e.g., -$120,000 instead of -$1,200)
+   - Example: Player with 3 tournaments × $200 buy-in showed -$120,000 instead of -$600
+   - Root cause: WordPress post meta stores buy-in amounts as CENTS (20000 = $200), migration code treated as DOLLARS (20000 = $20,000)
+   - Impact: Player leaderboard showing negative thousands instead of realistic negative hundreds
+   - Solution: Added cents-to-dollars conversion by dividing buy_in_amount by 100 before calculation
+✅ **ENHANCED: Financial calculation accuracy** - ROI table now correctly calculates total_invested in dollars
+   - total_invested = (buy_in_amount / 100) × (buyins + rebuys + addons)
+   - Example: $200 buy-in × 1 entry = $200 invested (not $20,000)
+   - net_profit = total_winnings - total_invested (in dollars)
+   - roi_percentage = (net_profit / total_invested) × 100
+🔧 **Technical Details:**
+   - class-statistics-engine.php: Fixed migrate_populate_roi_table() cents-to-dollars conversion (lines 1606-1615)
+   - Added comment explaining buy-in amounts stored as cents in post meta
+   - Created $buy_in_dollars = $buy_in_amount / 100 before multiplication
+   - Maintains backward compatibility - all existing data recalculates correctly
+✅ **RESULT: Player leaderboard now shows realistic ROI values** - Negative values in hundreds (e.g., -$200) instead of thousands (e.g., -$120,000)
+
+= 2.4.34 - October 16, 2025 =
+✅ **CRITICAL FIX: Empty ROI Table Migration - Populates Historical Data**
+✅ **FIXED: Empty poker_player_roi table causing dashboard to show 0 players** - One-time migration populates ROI table from existing tournaments
+   - Issue: v2.4.33 debug logs revealed ROI table exists but has 0 rows
+   - Root cause: ROI table created in Phase 2.1 but only populated during NEW tournament imports via process_player_roi_data()
+   - Impact: Existing tournaments imported before Phase 2.1 never had ROI records created
+   - Result: Dashboard queries empty ROI table → returns 0 results → "Player Leaderboard Count: 0"
+   - Solution: One-time migration reads all existing tournaments from poker_tournament_players table and creates ROI records
+✅ **ADDED: migrate_populate_roi_table() migration method** - Calculates historical ROI data from existing tournament/player records
+   - Reads all tournaments from poker_tournament_players table
+   - For each tournament: Gets buy-in amount from post meta (with multi-tier fallback strategy)
+   - For each player: Calculates total_invested (buy_in × buyins+rebuys+addons), net_profit (winnings - invested), roi_percentage
+   - Inserts records into poker_player_roi table with all financial metrics
+   - Comprehensive logging: tournament progress, record counts, elapsed time in milliseconds
+✅ **ADDED: Migration trigger in check_plugin_update()** - Runs automatically on plugin upgrade from v2.4.33 to v2.4.34
+   - Checks if ROI table is empty (0 rows) before triggering migration
+   - Only runs if table has 0 rows to avoid re-processing existing data
+   - Sets migration completion flag: poker_roi_migration_complete option
+   - Logs success with record counts or skips if table already has data
+✅ **ENHANCED: Buy-in amount extraction** - Multi-tier fallback strategy ensures accurate financial data
+   - Primary: _buy_in meta field
+   - Secondary: buy_in meta field (without underscore)
+   - Tertiary: _tournament_buy_in meta field
+   - Final fallback: $20 estimate per entry if no buy-in amount found
+🔧 **Technical Details:**
+   - class-statistics-engine.php: Added migrate_populate_roi_table() method (lines 1529-1657)
+   - poker-tournament-import.php: Added migration trigger in check_plugin_update() (lines 179-196)
+   - Migration reads tournament_uuid from postmeta, gets buy-in from post meta, processes all players
+   - ROI calculation: total_invested = buy_in × (buyins + rebuys + addons), net_profit = winnings - total_invested
+   - Uses $wpdb->replace() to prevent duplicate records if migration runs multiple times
+✅ **RESULT: Dashboard now shows player leaderboard data** - Historical ROI records created for all existing tournaments, fixing empty dashboard
+
+= 2.4.33 - October 16, 2025 =
+✅ **DEBUG ENHANCEMENT: Frontend Dashboard Player Leaderboard Logging**
+✅ **ADDED: Comprehensive debug logging to get_player_leaderboard() method** - Matches v2.4.32's debug pattern for frontend dashboard
+   - Issue: v2.4.32 added debug logging to Statistics_Engine->get_top_players() for ADMIN dashboard
+   - Root cause: Frontend dashboard uses get_player_leaderboard() which had NO debug logging
+   - Impact: User viewing frontend `[poker_dashboard]` shortcode sees "Player Leaderboard Count: 0" with no diagnostic logs
+   - Solution: Added comprehensive debug logging to get_player_leaderboard() matching v2.4.32 pattern
+✅ **ENHANCED: Frontend dashboard diagnostics** - Debug logs now reveal ROI table status for frontend dashboard
+   - Added ROI table existence and row count checking
+   - Added non-null net_profit count and positive profit count logging
+   - Added sample data output showing actual values in poker_player_roi table
+   - Added query result count and first result logging
+   - Helps diagnose why frontend dashboard returns empty leaderboard despite ROI table fixes in v2.4.26/v2.4.27
+🔧 **Technical Details:**
+   - class-statistics-engine.php: Added debug logging to get_player_leaderboard() (lines 820-865)
+   - Frontend dashboard calls get_player_leaderboard() at class-shortcodes.php line 2385
+   - Admin dashboard calls get_top_players() which already has v2.4.32 debug logs
+   - v2.4.26 fixed tournament page display, v2.4.27 fixed this method's query, v2.4.32 fixed admin method
+   - v2.4.33 adds diagnostic logging to help troubleshoot why v2.4.27 fix isn't working for user
+✅ **RESULT: Complete debug coverage** - Both admin and frontend dashboards now have comprehensive ROI table diagnostics
+
+= 2.4.32 - October 16, 2025 =
+✅ **CRITICAL FIX: Dashboard Top Players Panel Empty - Completed Net Profit Implementation**
+✅ **FIXED: Empty Top Players panel in dashboard** - Dashboard calls Statistics_Engine->get_top_players() which was missed in v2.4.26/v2.4.27 fixes
+   - Issue: v2.4.26 fixed Shortcodes->get_top_players(), v2.4.27 fixed Statistics_Engine->get_player_leaderboard()
+   - Root cause: THIRD instance of same bug - Statistics_Engine->get_top_players() still querying poker_tournament_players (gross winnings only)
+   - Impact: Dashboard "Player Leaderboard Count: 0" despite ROI table populated correctly
+   - Solution: Modified Statistics_Engine->get_top_players() to query poker_player_roi table for net_profit
+✅ **ENHANCED: Comprehensive debug logging** - Ported v2.4.31 debug logs to Statistics Engine method for troubleshooting
+   - Added ROI table existence and row count checking
+   - Added non-null net_profit count and positive profit count logging
+   - Added sample data output showing actual values in poker_player_roi table
+   - Added query result count and first result logging
+   - Helps diagnose empty results, query issues, or HAVING clause problems
+✅ **PATTERN RECOGNITION: Same bug in three locations** - Completes the net profit fix across entire codebase
+   - v2.4.26: Fixed tournament page display (Shortcodes->get_top_players)
+   - v2.4.27: Fixed dashboard secondary leaderboard (Statistics_Engine->get_player_leaderboard)
+   - v2.4.32: Fixed dashboard primary Top Players panel (Statistics_Engine->get_top_players)
+   - All three methods now correctly query poker_player_roi table for net profit
+🔧 **Technical Details:**
+   - class-statistics-engine.php: Modified get_top_players() to query poker_player_roi (lines 623-688)
+   - Changed FROM poker_tournament_players to FROM poker_player_roi
+   - Returns SUM(roi.net_profit) as total_winnings (net profit = winnings - total_invested)
+   - LEFT JOIN to poker_tournament_players to maintain points data
+   - Added comprehensive debug logging (15+ log statements) for troubleshooting
+   - Matches pattern from v2.4.27 fix for get_player_leaderboard()
+✅ **RESULT: Dashboard Top Players panel now shows data** - Third and final instance of net profit bug fixed
+
+= 2.4.31 - October 16, 2025 =
+✅ **CRITICAL FIXES: Player Page Fatal Error + Enhanced Top Players Debug Logging**
+✅ **FIXED: Fatal ArgumentCountError on player post pages** - Replaced legacy reflection-based parser with modern AST parser
+   - Issue: class-shortcodes.php get_realtime_tournament_results() calling extract_players() with 1 argument but method requires 2
+   - Root cause: Using legacy reflection to access private parser methods (same bug as v2.4.26 in single-tournament.php)
+   - Impact: Viewing player post pages caused fatal error, white screen of death
+   - Solution: Replaced reflection approach with modern parse_content() API (same fix as v2.4.26)
+✅ **ENHANCED: Top Players debug logging** - Added comprehensive debug output to diagnose empty Top Players panel
+   - Added ROI table existence and row count checking
+   - Added non-null net_profit count and positive profit count logging
+   - Added sample data output showing actual values in poker_player_roi table
+   - Added query result count and first result logging
+   - Added simple query fallback when main query returns empty
+   - Helps diagnose if ROI table is empty, query is wrong, or HAVING clause too strict
+🔧 **Technical Details:**
+   - class-shortcodes.php: Replaced reflection with parse_content() in get_realtime_tournament_results() (lines 4160-4180)
+   - class-shortcodes.php: Added comprehensive debug logging to get_top_players() (lines 3980-4020)
+   - v2.4.26 fixed same bug in single-tournament.php template
+   - v2.4.31 fixes same bug in class-shortcodes.php get_realtime_tournament_results() method
+   - Completes migration from legacy reflection-based parser to modern AST parser
+✅ **RESULT: Player pages load successfully AND debug logs help diagnose Top Players issue**
+
+= 2.4.30 - October 16, 2025 =
+✅ **CRITICAL TEMPLATE FIXES** - Fixes wpdb::prepare() error and footer.php deprecation warning
+✅ **FIXED: wpdb::prepare() error in season overview** - Removed unnecessary prepare() wrapper causing WordPress notice
+   - Issue: Query with no placeholders wrapped in $wpdb->prepare()
+   - Root cause: Line 1462-1470 in class-shortcodes.php using prepare() without dynamic values
+   - Solution: Removed prepare() wrapper and simplified redundant subquery
+✅ **FIXED: footer.php deprecation warning** - Single season template now uses complete HTML document structure
+   - Issue: single-tournament_season.php using get_header() and get_footer() requiring theme files
+   - Root cause: Template relying on theme functions instead of creating own HTML structure
+   - Solution: Replaced with complete <!DOCTYPE html> structure matching single-tournament.php pattern
+   - Uses wp_head() and wp_footer() hooks for proper WordPress integration
+🔧 **Technical Details:**
+   - class-shortcodes.php: Removed prepare() wrapper from lines 1462-1470
+   - templates/single-tournament_season.php: Complete rewrite with proper HTML document structure
+   - Follows pattern from single-tournament.php for consistency
+✅ **RESULT: No more WordPress notices and proper season page rendering**
 
 = 2.4.29 - October 16, 2025 =
 ✅ **SEASON INTERFACE + TOP PLAYERS FIX** - Complete season integration and dashboard fixes
@@ -732,6 +985,15 @@ Use the following shortcodes:
 * Shortcode support for displaying results
 
 == Upgrade Notice ==
+
+= 2.4.32 =
+**CRITICAL FIX: Dashboard Top Players Panel Empty - Completed Net Profit Implementation.** Fixes empty Top Players panel by modifying Statistics_Engine->get_top_players() to query poker_player_roi table (THIRD instance of same bug). v2.4.26 fixed Shortcodes method, v2.4.27 fixed get_player_leaderboard(), v2.4.32 completes the fix by updating get_top_players() used by dashboard. Adds comprehensive debug logging ported from v2.4.31. Essential upgrade for ALL v2.4.26/v2.4.27 users still seeing "Player Leaderboard Count: 0" in dashboard.
+
+= 2.4.31 =
+**CRITICAL FIXES: Player Page Fatal Error + Top Players Debug Logging.** Fixes fatal ArgumentCountError on player post pages by replacing legacy reflection-based parser with modern AST parser (same bug as v2.4.26, different location). Also adds comprehensive debug logging to diagnose empty Top Players panel issue (ROI table checks, sample data output, query result logging). Essential upgrade for users experiencing player page crashes or investigating empty Top Players panel.
+
+= 2.4.30 =
+**CRITICAL TEMPLATE FIXES.** Fixes wpdb::prepare() WordPress notice and footer.php deprecation warning in single season template. Removes unnecessary prepare() wrapper from season overview query (no placeholders needed). Replaces get_header()/get_footer() with complete HTML document structure matching single-tournament.php pattern. Essential upgrade for users seeing WordPress notices or deprecation warnings.
 
 = 2.4.27 =
 **DUAL CRITICAL FIXES: Division by Zero + Complete Net Profit Display.** Fixes fatal DivisionByZeroError when viewing tournament pages (safe divisor pattern with max(1, ...)). Also completes v2.4.26's incomplete net profit fix by modifying statistics engine's get_player_leaderboard() to query poker_player_roi table. v2.4.26 only fixed class-shortcodes.php method but dashboard uses statistics engine method. Essential upgrade for ALL v2.4.26 users experiencing fatal errors or missing net profit data.

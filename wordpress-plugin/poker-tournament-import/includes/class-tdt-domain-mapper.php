@@ -545,23 +545,55 @@ class Poker_Tournament_Domain_Mapper {
         $prizes = array();
 
         if (!isset($entries['Prizes'])) {
+            error_log("Poker Import - WARNING: No Prizes field found in tournament entries");
+            Poker_Tournament_Import_Debug::log_warning("No Prizes field found in tournament entries");
             return $prizes;
         }
 
-        $prizes_node = $entries['Prizes'];
+        $prizes_wrapper = $entries['Prizes'];
+
+        // v2.4.39: Check if wrapped in GamePrizes constructor (modern format)
+        if ($this->is_new_with_ctor($prizes_wrapper, 'GamePrizes')) {
+            error_log("Poker Import - Found GamePrizes wrapper, unwrapping...");
+            // Extract the inner GamePrizes object
+            $game_prizes_obj = $this->expect_object($prizes_wrapper['arg']);
+            $gp_entries = $game_prizes_obj['entries'];
+
+            // Get the inner Prizes field
+            if (!isset($gp_entries['Prizes'])) {
+                error_log("Poker Import - WARNING: No Prizes field inside GamePrizes wrapper");
+                return $prizes;
+            }
+
+            $prizes_node = $gp_entries['Prizes'];
+        } else {
+            // Direct array format (older files)
+            $prizes_node = $prizes_wrapper;
+        }
+
+        // Now check if the unwrapped node is an Array
         if (!$this->is_type($prizes_node, 'Array')) {
+            error_log("Poker Import - WARNING: Prizes node is not an Array type");
+            Poker_Tournament_Import_Debug::log_warning("Prizes node is not an Array type");
             return $prizes;
         }
 
-        foreach ($prizes_node['items'] as $prize_item) {
+        error_log("Poker Import - Found Prizes array with " . count($prizes_node['items']) . " items");
+        Poker_Tournament_Import_Debug::log("Found Prizes array with " . count($prizes_node['items']) . " items");
+
+        foreach ($prizes_node['items'] as $i => $prize_item) {
             if ($this->is_new_with_ctor($prize_item, 'GamePrize')) {
                 $prize = $this->extract_game_prize($prize_item);
                 if ($prize) {
                     $prizes[] = $prize;
+                    error_log("Poker Import - Prize #" . ($i+1) . ": Position {$prize['position']}, Amount \${$prize['calculated_amount']}, Description: {$prize['description']}");
+                    Poker_Tournament_Import_Debug::log("  Prize #" . ($i+1) . ": Position {$prize['position']}, Amount \${$prize['calculated_amount']}, Description: {$prize['description']}");
                 }
             }
         }
 
+        error_log("Poker Import - Extracted " . count($prizes) . " prizes from AST");
+        Poker_Tournament_Import_Debug::log_success("Extracted " . count($prizes) . " prizes from AST");
         return $prizes;
     }
 

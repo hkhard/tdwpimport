@@ -3,7 +3,7 @@
  * Plugin Name: Poker Tournament Import
  * Plugin URI: https://nikielhard.se/tdwpimport
  * Description: Import and display poker tournament results from Tournament Director (.tdt) files
- * Version: 2.4.29
+ * Version: 2.4.39
  * Author: Hans Kästel Hård
  * Author URI: https://nikielhard.se/tdwpimport
  * License: GPL v2 or later
@@ -20,7 +20,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('POKER_TOURNAMENT_IMPORT_VERSION', '2.4.29');
+define('POKER_TOURNAMENT_IMPORT_VERSION', '2.4.39');
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -174,6 +174,25 @@ class Poker_Tournament_Import {
                     update_option('poker_statistics_last_refresh', current_time('mysql'));
                 } else {
                     error_log("Poker Import: Failed to refresh statistics after plugin update");
+                }
+
+                // **v2.4.34: ONE-TIME MIGRATION** - Populate ROI table if empty
+                global $wpdb;
+                $roi_table = $wpdb->prefix . 'poker_player_roi';
+                $roi_count = $wpdb->get_var("SELECT COUNT(*) FROM $roi_table");
+
+                if ($roi_count == 0) {
+                    error_log("ROI Migration: ROI table is empty, triggering migration");
+                    $migration_result = $stats_engine->migrate_populate_roi_table();
+
+                    if ($migration_result['success']) {
+                        error_log("ROI Migration: SUCCESS - {$migration_result['records_created']} records created from {$migration_result['tournaments_processed']} tournaments");
+                        update_option('poker_roi_migration_complete', POKER_TOURNAMENT_IMPORT_VERSION);
+                    } else {
+                        error_log("ROI Migration: FAILED - See previous log entries for details");
+                    }
+                } else {
+                    error_log("ROI Migration: Skipped - ROI table already has {$roi_count} records");
                 }
             }
 
