@@ -260,8 +260,8 @@ class Poker_Tournament_Import_Admin {
         $player_count = wp_count_posts('player');
         $total_players = $player_count->publish + $player_count->draft + $player_count->private;
 
-        $series_count = wp_count_posts('tournament_series');
-        $total_series = $series_count->publish + $series_count->draft + $series_count->private;
+        $season_count = wp_count_posts('tournament_season');
+        $total_seasons = $season_count->publish + $season_count->draft + $season_count->private;
 
         // Get formula count
         $validator = new Poker_Tournament_Formula_Validator();
@@ -286,6 +286,26 @@ class Poker_Tournament_Import_Admin {
             'order' => 'DESC',
             'post_status' => array('publish', 'draft', 'private')
         ));
+
+        // Get all seasons with tournament counts
+        $all_seasons = get_posts(array(
+            'post_type' => 'tournament_season',
+            'posts_per_page' => -1,
+            'orderby' => 'date',
+            'order' => 'DESC',
+            'post_status' => array('publish', 'draft', 'private')
+        ));
+
+        // Calculate tournament count for each season
+        foreach ($all_seasons as $season) {
+            $season->tournament_count = count(get_posts(array(
+                'post_type' => 'tournament',
+                'meta_key' => '_season_id',
+                'meta_value' => $season->ID,
+                'posts_per_page' => -1,
+                'post_status' => array('publish', 'draft', 'private')
+            )));
+        }
         ?>
         <div class="wrap">
             <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
@@ -307,10 +327,10 @@ class Poker_Tournament_Import_Admin {
                 </div>
 
                 <div class="poker-stat-card" style="background: #fff; border: 1px solid #c3c4c7; border-radius: 4px; padding: 20px; box-shadow: 0 1px 1px rgba(0,0,0,.04);">
-                    <div class="dashicons dashicons-category" style="font-size: 48px; color: #d63638; opacity: 0.3; float: right;"></div>
-                    <h3 style="margin: 0 0 10px 0; color: #50575e; font-size: 14px; font-weight: 400;"><?php _e('Series', 'poker-tournament-import'); ?></h3>
-                    <div style="font-size: 32px; font-weight: 600; color: #1d2327; margin-bottom: 10px;"><?php echo number_format($total_series); ?></div>
-                    <a href="<?php echo admin_url('edit.php?post_type=tournament_series'); ?>" class="button button-small"><?php _e('View All', 'poker-tournament-import'); ?></a>
+                    <div class="dashicons dashicons-calendar-alt" style="font-size: 48px; color: #d63638; opacity: 0.3; float: right;"></div>
+                    <h3 style="margin: 0 0 10px 0; color: #50575e; font-size: 14px; font-weight: 400;"><?php _e('Seasons', 'poker-tournament-import'); ?></h3>
+                    <div style="font-size: 32px; font-weight: 600; color: #1d2327; margin-bottom: 10px;"><?php echo number_format($total_seasons); ?></div>
+                    <a href="<?php echo admin_url('edit.php?post_type=tournament_season'); ?>" class="button button-small"><?php _e('View All', 'poker-tournament-import'); ?></a>
                 </div>
 
                 <div class="poker-stat-card" style="background: #fff; border: 1px solid #c3c4c7; border-radius: 4px; padding: 20px; box-shadow: 0 1px 1px rgba(0,0,0,.04);">
@@ -436,6 +456,55 @@ class Poker_Tournament_Import_Admin {
                             </td>
                             <td>
                                 <a href="<?php echo get_permalink($tournament->ID); ?>" class="button button-small" target="_blank"><?php _e('View', 'poker-tournament-import'); ?></a>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+            <?php endif; ?>
+
+            <!-- Seasons List -->
+            <?php if (!empty($all_seasons)): ?>
+            <div style="background: #fff; border: 1px solid #c3c4c7; border-radius: 4px; padding: 20px; box-shadow: 0 1px 1px rgba(0,0,0,.04); margin: 20px 0;">
+                <h2 style="margin: 0 0 15px 0; padding: 0; font-size: 18px; color: #1d2327;">
+                    <span class="dashicons dashicons-calendar-alt" style="color: #2271b1;"></span>
+                    <?php _e('Seasons', 'poker-tournament-import'); ?>
+                </h2>
+
+                <table class="widefat striped">
+                    <thead>
+                        <tr>
+                            <th><?php _e('Season', 'poker-tournament-import'); ?></th>
+                            <th><?php _e('Tournaments', 'poker-tournament-import'); ?></th>
+                            <th><?php _e('Status', 'poker-tournament-import'); ?></th>
+                            <th><?php _e('Actions', 'poker-tournament-import'); ?></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($all_seasons as $season): ?>
+                        <tr>
+                            <td><strong><?php echo esc_html($season->post_title); ?></strong></td>
+                            <td><?php echo number_format($season->tournament_count); ?> tournaments</td>
+                            <td>
+                                <?php
+                                $status_colors = array(
+                                    'publish' => '#00a32a',
+                                    'draft' => '#996800',
+                                    'private' => '#8c8f94'
+                                );
+                                $status_color = isset($status_colors[$season->post_status]) ? $status_colors[$season->post_status] : '#8c8f94';
+                                ?>
+                                <span style="color: <?php echo $status_color; ?>; font-weight: 600;">●</span>
+                                <?php echo esc_html(ucfirst($season->post_status)); ?>
+                            </td>
+                            <td>
+                                <a href="<?php echo get_permalink($season->ID); ?>" class="button button-small" target="_blank">
+                                    <?php _e('View', 'poker-tournament-import'); ?>
+                                </a>
+                                <a href="<?php echo get_edit_post_link($season->ID); ?>" class="button button-small">
+                                    <?php _e('Edit', 'poker-tournament-import'); ?>
+                                </a>
                             </td>
                         </tr>
                         <?php endforeach; ?>

@@ -165,7 +165,9 @@ class Poker_Tournament_Import_Shortcodes {
 
         // Calculate additional statistics
         $total_winnings = $this->calculate_total_winnings($tournament_uuid);
-        $average_winnings = $players_count > 0 ? $total_winnings / min($players_count, $this->get_paid_positions($tournament_uuid)) : 0;
+        $paid_positions = $this->get_paid_positions($tournament_uuid);
+        $divisor = max(1, min($players_count, $paid_positions)); // Ensure divisor is at least 1 to prevent division by zero
+        $average_winnings = $players_count > 0 ? $total_winnings / $divisor : 0;
 
         echo '<div class="tournament-results">';
         echo '<header class="tournament-header">';
@@ -1138,7 +1140,7 @@ class Poker_Tournament_Import_Shortcodes {
                                     <th><?php _e('Rank', 'poker-tournament-import'); ?></th>
                                     <th><?php _e('Player', 'poker-tournament-import'); ?></th>
                                     <th><?php _e('Tournaments', 'poker-tournament-import'); ?></th>
-                                    <th><?php _e('Total Winnings', 'poker-tournament-import'); ?></th>
+                                    <th><?php _e('Net Profit', 'poker-tournament-import'); ?></th>
                                     <th><?php _e('Total Points', 'poker-tournament-import'); ?></th>
                                     <th><?php _e('Best Finish', 'poker-tournament-import'); ?></th>
                                     <th><?php _e('Avg Finish', 'poker-tournament-import'); ?></th>
@@ -1766,7 +1768,7 @@ class Poker_Tournament_Import_Shortcodes {
                                     <th><?php _e('Rank', 'poker-tournament-import'); ?></th>
                                     <th><?php _e('Player', 'poker-tournament-import'); ?></th>
                                     <th><?php _e('Tournaments', 'poker-tournament-import'); ?></th>
-                                    <th><?php _e('Total Winnings', 'poker-tournament-import'); ?></th>
+                                    <th><?php _e('Net Profit', 'poker-tournament-import'); ?></th>
                                     <th><?php _e('Total Points', 'poker-tournament-import'); ?></th>
                                     <th><?php _e('Best Finish', 'poker-tournament-import'); ?></th>
                                     <th><?php _e('Avg Finish', 'poker-tournament-import'); ?></th>
@@ -2387,21 +2389,21 @@ class Poker_Tournament_Import_Shortcodes {
             $participation_trends = array();
         }
 
-        // Get active series for dashboard
-        $active_series = $this->get_active_series(5);
+        // Get active seasons for dashboard
+        $active_seasons = $this->get_active_seasons(5);
 
         // **DEBUG**: Log data availability for troubleshooting
         if (current_user_can('manage_options')) {
             error_log("Poker Dashboard Debug: Player Leaderboard Count: " . count($player_leaderboard));
-            error_log("Poker Dashboard Debug: Active Series Count: " . count($active_series));
+            error_log("Poker Dashboard Debug: Active Seasons Count: " . count($active_seasons));
             error_log("Poker Dashboard Debug: Recent Tournaments Count: " . count($recent_tournaments));
 
             if (empty($player_leaderboard)) {
                 error_log("Poker Dashboard Debug: Player leaderboard empty - checking if statistics engine exists: " . (class_exists('Poker_Statistics_Engine') ? 'YES' : 'NO'));
             }
 
-            if (empty($active_series)) {
-                error_log("Poker Dashboard Debug: Active series empty - checking tournament series count: " . wp_count_posts('tournament_series')->publish);
+            if (empty($active_seasons)) {
+                error_log("Poker Dashboard Debug: Active seasons empty - checking tournament season count: " . wp_count_posts('tournament_season')->publish);
             }
         }
 
@@ -2437,8 +2439,8 @@ class Poker_Tournament_Import_Shortcodes {
                     <button class="nav-tab" data-view="players">
                         <i class="icon-users"></i> <?php _e('Players', 'poker-tournament-import'); ?>
                     </button>
-                    <button class="nav-tab" data-view="series">
-                        <i class="icon-series"></i> <?php _e('Series', 'poker-tournament-import'); ?>
+                    <button class="nav-tab" data-view="seasons">
+                        <i class="icon-calendar"></i> <?php _e('Seasons', 'poker-tournament-import'); ?>
                     </button>
                     <button class="nav-tab" data-view="analytics">
                         <i class="icon-chart"></i> <?php _e('Analytics', 'poker-tournament-import'); ?>
@@ -2561,37 +2563,37 @@ class Poker_Tournament_Import_Shortcodes {
                             </div>
                         </div>
 
-                        <!-- Active Series -->
+                        <!-- Active Seasons -->
                         <div class="dashboard-card">
                             <div class="card-header">
-                                <h3><?php _e('Active Series', 'poker-tournament-import'); ?></h3>
-                                <button class="card-action" data-drill="all-series">
-                                    <?php _e('All Series', 'poker-tournament-import'); ?> →
+                                <h3><?php _e('Active Seasons', 'poker-tournament-import'); ?></h3>
+                                <button class="card-action" data-drill="all-seasons">
+                                    <?php _e('All Seasons', 'poker-tournament-import'); ?> →
                                 </button>
                             </div>
                             <div class="card-content">
-                                <?php if (!empty($active_series)): ?>
-                                    <div class="series-list">
-                                        <?php foreach ($active_series as $series): ?>
-                                            <div class="series-item clickable" data-series-id="<?php echo esc_attr($series->ID); ?>">
-                                                <div class="series-info">
-                                                    <div class="series-name"><?php echo esc_html($series->post_title); ?></div>
-                                                    <div class="series-meta">
-                                                        <span class="tournaments"><?php echo esc_html($series->tournament_count); ?> <?php _e('tournaments', 'poker-tournament-import'); ?></span>
-                                                        <span class="players"><?php echo esc_html($series->player_count); ?> <?php _e('players', 'poker-tournament-import'); ?></span>
+                                <?php if (!empty($active_seasons)): ?>
+                                    <div class="seasons-list">
+                                        <?php foreach ($active_seasons as $season): ?>
+                                            <div class="season-item clickable" data-season-id="<?php echo esc_attr($season->ID); ?>">
+                                                <div class="season-info">
+                                                    <div class="season-name"><?php echo esc_html($season->post_title); ?></div>
+                                                    <div class="season-meta">
+                                                        <span class="tournaments"><?php echo esc_html($season->tournament_count); ?> <?php _e('tournaments', 'poker-tournament-import'); ?></span>
+                                                        <span class="players"><?php echo esc_html($season->player_count); ?> <?php _e('players', 'poker-tournament-import'); ?></span>
                                                     </div>
                                                 </div>
-                                                <div class="series-progress">
+                                                <div class="season-progress">
                                                     <div class="progress-bar">
-                                                        <div class="progress-fill" style="width: <?php echo esc_attr($series->progress_percent); ?>%"></div>
+                                                        <div class="progress-fill" style="width: <?php echo esc_attr($season->progress_percent); ?>%"></div>
                                                     </div>
-                                                    <span class="progress-text"><?php echo esc_html($series->progress_percent); ?>%</span>
+                                                    <span class="progress-text"><?php echo esc_html($season->progress_percent); ?>%</span>
                                                 </div>
                                             </div>
                                         <?php endforeach; ?>
                                     </div>
                                 <?php else: ?>
-                                    <p class="no-data"><?php _e('No active series found.', 'poker-tournament-import'); ?></p>
+                                    <p class="no-data"><?php _e('No active seasons found.', 'poker-tournament-import'); ?></p>
                                 <?php endif; ?>
                             </div>
                         </div>
@@ -3688,7 +3690,7 @@ class Poker_Tournament_Import_Shortcodes {
                                         <span>${playerData.tournaments_played || 0}</span>
                                     </div>
                                     <div class="player-stat">
-                                        <label>Total Winnings</label>
+                                        <label>Net Profit</label>
                                         <span>$${number_format(playerData.total_winnings || 0, 0)}</span>
                                     </div>
                                     <div class="player-stat">
@@ -3966,15 +3968,20 @@ class Poker_Tournament_Import_Shortcodes {
     private function get_top_players($limit = 10) {
         global $wpdb;
         $table_name = $wpdb->prefix . 'poker_tournament_players';
+        $roi_table = $wpdb->prefix . 'poker_player_roi';
 
+        // Query poker_player_roi table for NET PROFIT (winnings - total_invested)
         $top_players = $wpdb->get_results($wpdb->prepare(
-            "SELECT tp.player_id,
+            "SELECT roi.player_id,
                     COUNT(*) as tournaments_played,
-                    SUM(tp.winnings) as total_winnings,
+                    SUM(roi.net_profit) as total_winnings,
                     SUM(tp.points) as total_points,
-                    MIN(tp.finish_position) as best_finish
-             FROM $table_name tp
-             GROUP BY tp.player_id
+                    MIN(tp.finish_position) as best_finish,
+                    SUM(roi.total_invested) as total_invested,
+                    SUM(roi.total_winnings) as gross_winnings
+             FROM $roi_table roi
+             LEFT JOIN $table_name tp ON roi.player_id = tp.player_id AND roi.tournament_id = tp.tournament_id
+             GROUP BY roi.player_id
              ORDER BY total_winnings DESC, total_points DESC
              LIMIT %d",
             $limit
@@ -4064,6 +4071,66 @@ class Poker_Tournament_Import_Shortcodes {
         }
 
         return $active_series;
+    }
+
+    /**
+     * Get active seasons with tournament and player counts
+     */
+    private function get_active_seasons($limit = 5) {
+        $active_seasons = get_posts(array(
+            'post_type' => 'tournament_season',
+            'posts_per_page' => $limit,
+            'orderby' => 'modified',
+            'order' => 'DESC'
+        ));
+
+        foreach ($active_seasons as $season) {
+            // Get tournament count
+            $tournament_posts = get_posts(array(
+                'post_type' => 'tournament',
+                'meta_key' => '_season_id',
+                'meta_value' => $season->ID,
+                'posts_per_page' => -1,
+                'fields' => 'ids'
+            ));
+            $season->tournament_count = count($tournament_posts);
+
+            // Calculate unique players in season
+            $player_ids = array();
+            foreach ($tournament_posts as $tournament_id) {
+                $tournament_uuid = get_post_meta($tournament_id, 'tournament_uuid', true);
+                if ($tournament_uuid) {
+                    global $wpdb;
+                    $players_in_tournament = $wpdb->get_col($wpdb->prepare(
+                        "SELECT DISTINCT player_id FROM {$wpdb->prefix}poker_tournament_players WHERE tournament_id = %s",
+                        $tournament_uuid
+                    ));
+                    $player_ids = array_merge($player_ids, $players_in_tournament);
+                }
+            }
+            $season->player_count = count(array_unique($player_ids));
+
+            // Calculate progress (based on tournaments vs expected or recent activity)
+            $recent_tournaments = 0;
+            foreach ($tournament_posts as $tournament_id) {
+                $tournament_date = get_post_meta($tournament_id, '_tournament_date', true);
+                if ($tournament_date && strtotime($tournament_date) > strtotime('-30 days')) {
+                    $recent_tournaments++;
+                }
+            }
+
+            // Progress calculation
+            $expected_tournaments = get_post_meta($season->ID, '_expected_tournaments', true);
+            if ($expected_tournaments && $expected_tournaments > 0) {
+                $season->progress_percent = min(100, round(($season->tournament_count / $expected_tournaments) * 100));
+            } else {
+                // Fallback: base progress on recent activity
+                $season->progress_percent = $season->tournament_count > 0 ?
+                    min(100, round(($recent_tournaments / max(1, $season->tournament_count)) * 100)) : 0;
+            }
+        }
+
+        return $active_seasons;
     }
 
     /**
