@@ -15,49 +15,357 @@ class Poker_Tournament_Formula_Validator {
 
     /**
      * Available Tournament Director variables and functions
+     * Complete TD v3.7.2+ specification with 145+ variables
      */
     private $td_variables = array(
-        'n' => array('type' => 'int', 'description' => 'Total number of players'),
-        'r' => array('type' => 'int', 'description' => 'Player finish position'),
-        'buyins' => array('type' => 'int', 'description' => 'Total number of buy-ins'),
+        // TOURNAMENT INFORMATION VARIABLES (115+)
+        // Add-on related variables
+        'addOnsAllowed' => array('type' => 'bool', 'description' => '1 (true) if add-ons are currently allowed, 0 (false) otherwise'),
+        'addOnsLastRound' => array('type' => 'int', 'description' => 'The last (final) round that add-ons are allowed'),
+        'addOnsLeft' => array('type' => 'int', 'description' => 'The number of add-ons remaining'),
+        'addOnsMaxPerPlayer' => array('type' => 'int', 'description' => 'The maximum number of add-ons allowed per-player'),
+        'addOnsMaxTotal' => array('type' => 'int', 'description' => 'The maximum total number of add-ons allowed (for all players)'),
+        'addOnsMinPlayers' => array('type' => 'int', 'description' => 'The minimum number of players that must be in the tournament for add-ons to be allowed'),
+        'addOnsOver' => array('type' => 'bool', 'description' => '1 (true) if the add-on period has expired, 0 (false) otherwise'),
+        'addOnsSecondsLeft' => array('type' => 'int', 'description' => 'The amount of time, in seconds, remaining until the add-on period ends'),
+
+        // Blind and ante variables
+        'ante' => array('type' => 'decimal', 'description' => 'The amount of the ante in the current round'),
+        'bigBlind' => array('type' => 'decimal', 'description' => 'The amount of the big blind in the current round'),
+        'smallBlind' => array('type' => 'decimal', 'description' => 'The amount of the small blind in the current round'),
+        'firstAnteAmount' => array('type' => 'decimal', 'description' => 'The ante amount in the first round with a non-zero ante'),
+        'firstAnteRound' => array('type' => 'int', 'description' => 'The round number of the first round with a non-zero ante'),
+
+        // Bounty variables
+        'bountyTotal' => array('type' => 'decimal', 'description' => 'The total amount of money collected for bounty chips'),
+        'restrictBounties' => array('type' => 'bool', 'description' => '1 (true) if "Restrict bounties" is currently checked, 0 (false) otherwise'),
+        'usePlayerBountyChips' => array('type' => 'bool', 'description' => '1 (true) if "Use player bounty chips" is currently checked, 0 (false) otherwise'),
+
+        // Break and round variables
+        'breakNum' => array('type' => 'int', 'description' => 'The current break number, or 0 if the first break has not yet occurred'),
+        'isBreak' => array('type' => 'bool', 'description' => '1 (true) if currently in a break, 0 (false) if currently in a round'),
+        'isRound' => array('type' => 'bool', 'description' => '1 (true) if currently in a round, 0 (false) if currently in a break'),
+        'hasMoreBreaks' => array('type' => 'bool', 'description' => '1 (true) if the schedule has at least one break after the current level'),
+        'hasMoreRounds' => array('type' => 'bool', 'description' => '1 (true) if the schedule has at least one round after the current level'),
+        'nextChipUp' => array('type' => 'bool', 'description' => '1 (true) if the next break has been designated as a Chip Up break'),
+        'nextIsBreak' => array('type' => 'bool', 'description' => '1 (true) if the next level in the schedule is a break'),
+        'nextIsRound' => array('type' => 'bool', 'description' => '1 (true) if the next level in the schedule is a round'),
+
+        // Buyin and entry variables
+        'buyins' => array('type' => 'int', 'description' => 'The number of players that have bought-in to the tournament (aliases: numberofplayers, n)'),
+        'n' => array('type' => 'int', 'description' => 'Total number of players (alias for buyins)'),
+        'numberofplayers' => array('type' => 'int', 'description' => 'Total number of players (alias for buyins)'),
+
+        // Bust-out tracking
+        'bustsUntilFinalTable' => array('type' => 'int', 'description' => 'The number of players that must bust out before all remaining players will be at the final table'),
+        'bustsUntilMoney' => array('type' => 'int', 'description' => 'The number of players that must bust out before all remaining players will be "in the money"'),
+
+        // Chip variables
+        'chipCount' => array('type' => 'decimal', 'description' => 'The current chip count (total chips in play; includes any adjustment)'),
+        'chipCountAdjustment' => array('type' => 'decimal', 'description' => 'The value of the "Adjust chip count by" field on the Game tab'),
+        'chipUp' => array('type' => 'bool', 'description' => '1 (true) if the current level is a break and has been designated as a Chip Up break'),
+        'unadjustedChipCount' => array('type' => 'decimal', 'description' => 'The current chip count not including any adjustment as designated on the Game tab'),
+
+        // Clock and time variables
+        'clockPaused' => array('type' => 'bool', 'description' => '1 (true) if the tournament clock is currently paused, 0 (false) otherwise'),
+        'clockPausedSeconds' => array('type' => 'int', 'description' => 'The number of seconds for which the tournament clock has been paused'),
+        'secondsElapsed' => array('type' => 'int', 'description' => 'The number of seconds that have elapsed since the start of the current level'),
+        'secondsLeft' => array('type' => 'int', 'description' => 'The number of seconds remaining on the tournament clock'),
+        'time' => array('type' => 'int', 'description' => 'The current time-of-day (seconds since January 1, 1970)'),
+        'timeOfDay' => array('type' => 'int', 'description' => 'The current time-of-day, in military-style time, including seconds'),
+        'lastPlayerBustOutTime' => array('type' => 'int', 'description' => 'The time-of-day of the most recent player bust-out'),
+        'lastPlayerMoveTime' => array('type' => 'int', 'description' => 'The time-of-day that the last player movement suggestion was accepted'),
+        'lastScreenChangeTime' => array('type' => 'int', 'description' => 'The time-of-day of the most recent screen change'),
+
+        // Default costs and fees
+        'defaultAddOnChips' => array('type' => 'decimal', 'description' => 'The chips received for an add-on, as listed on the Game tab'),
+        'defaultAddOnFee' => array('type' => 'decimal', 'description' => 'The fee (price) of an add-on, as listed on the Game tab'),
+        'defaultAddOnRake' => array('type' => 'decimal', 'description' => 'The rake applied to add-ons, as listed on the Game tab'),
+        'defaultBuyinChips' => array('type' => 'decimal', 'description' => 'The chips received at buy-in, as listed on the Game tab'),
+        'defaultBuyinFee' => array('type' => 'decimal', 'description' => 'The fee (price) of a buy-in, as listed on the Game tab'),
+        'defaultBuyinRake' => array('type' => 'decimal', 'description' => 'The rake applied to buy-ins, as listed on the Game tab'),
+        'defaultRebuyChips' => array('type' => 'decimal', 'description' => 'The chips received for a rebuy, as listed on the Game tab'),
+        'defaultRebuyFee' => array('type' => 'decimal', 'description' => 'The fee (price) of a rebuy, as listed on the Game tab'),
+        'defaultRebuyRake' => array('type' => 'decimal', 'description' => 'The rake applied to rebuys, as listed on the Game tab'),
+
+        // Financial and rake variables
+        'fixedRake' => array('type' => 'decimal', 'description' => 'The portion of the Fixed Rake that can be attributed to this player'),
+        'guaranteedPot' => array('type' => 'decimal', 'description' => 'The guaranteed pot amount, as listed on the Game tab'),
+        'houseAdds' => array('type' => 'decimal', 'description' => 'The amount that must be added to the pot to reach the guaranteed pot amount'),
+        'houseContribution' => array('type' => 'decimal', 'description' => 'The house contribution amount, as listed on the Game tab'),
+        'pot' => array('type' => 'decimal', 'description' => 'The current prize pool or pot (aliases: prizepool, pp)'),
+        'prizepool' => array('type' => 'decimal', 'description' => 'The current prize pool (alias for pot)'),
+        'pp' => array('type' => 'decimal', 'description' => 'The current prize pool (alias for pot)'),
+        'preGuaranteedPot' => array('type' => 'decimal', 'description' => 'The pot amount as computed before adding any to reach the specified guaranteed pot'),
+        'totalFixedRake' => array('type' => 'decimal', 'description' => 'The total amount collected by the Fixed Rake'),
+
+        // Game type and name variables
+        'gameName' => array('type' => 'string', 'description' => 'The name of the game for the current round'),
+        'gameType' => array('type' => 'int', 'description' => 'A number indicating the game type: 0=limit, 1=pot limit, 2=no limit'),
+        'nextGameName' => array('type' => 'string', 'description' => 'The name of the game for the next round'),
+        'nextGameType' => array('type' => 'int', 'description' => 'Game type for next round: 0=limit, 1=pot limit, 2=no limit'),
+
+        // Level and round variables
+        'level' => array('type' => 'int', 'description' => 'The current level number'),
+        'levelDuration' => array('type' => 'int', 'description' => 'The number of minutes the current level is configured to last'),
+        'nextLevelDuration' => array('type' => 'int', 'description' => 'The number of minutes the next level is configured to last'),
+        'roundNum' => array('type' => 'int', 'description' => 'The current round number'),
+
+        // Limit variables (8 limit fields)
+        'limit1' => array('type' => 'decimal', 'description' => 'The amount of the limit1 value in the current round'),
+        'limit2' => array('type' => 'decimal', 'description' => 'The amount of the limit2 value in the current round'),
+        'limit3' => array('type' => 'decimal', 'description' => 'The amount of the limit3 value in the current round'),
+        'limit4' => array('type' => 'decimal', 'description' => 'The amount of the limit4 value in the current round'),
+        'limit5' => array('type' => 'decimal', 'description' => 'The amount of the limit5 value in the current round'),
+        'limit6' => array('type' => 'decimal', 'description' => 'The amount of the limit6 value in the current round'),
+        'limit7' => array('type' => 'decimal', 'description' => 'The amount of the limit7 value in the current round'),
+        'limit8' => array('type' => 'decimal', 'description' => 'The amount of the limit8 value in the current round'),
+
+        // Next round variables
+        'nextAnte' => array('type' => 'decimal', 'description' => 'The amount of the ante in the next round'),
+        'nextBigBlind' => array('type' => 'decimal', 'description' => 'The amount of the big blind in the next round'),
+        'nextSmallBlind' => array('type' => 'decimal', 'description' => 'The amount of the small blind in the next round'),
+        'nextLimit1' => array('type' => 'decimal', 'description' => 'The amount of the limit1 in the next round'),
+        'nextLimit2' => array('type' => 'decimal', 'description' => 'The amount of the limit2 in the next round'),
+        'nextLimit3' => array('type' => 'decimal', 'description' => 'The amount of the limit3 in the next round'),
+        'nextLimit4' => array('type' => 'decimal', 'description' => 'The amount of the limit4 in the next round'),
+        'nextLimit5' => array('type' => 'decimal', 'description' => 'The amount of the limit5 in the next round'),
+        'nextLimit6' => array('type' => 'decimal', 'description' => 'The amount of the limit6 in the next round'),
+        'nextLimit7' => array('type' => 'decimal', 'description' => 'The amount of the limit7 in the next round'),
+        'nextLimit8' => array('type' => 'decimal', 'description' => 'The amount of the limit8 in the next round'),
+
+        // League variables
+        'numberOfLeagueMembers' => array('type' => 'int', 'description' => 'The number of players in tournament who are league members (aliases: nm)'),
+        'nm' => array('type' => 'int', 'description' => 'Number of league members (alias for numberOfLeagueMembers)'),
+
+        // Money and prize variables
+        'inTheMoneyRank' => array('type' => 'int', 'description' => 'The highest rank necessary for player to be "in the money" (aliases: mr)'),
+        'mr' => array('type' => 'int', 'description' => 'Money rank (alias for inTheMoneyRank)'),
+
+        // Player count variables
+        'playersLeft' => array('type' => 'int', 'description' => 'The number of players currently still in the tournament (aliases: players)'),
+        'players' => array('type' => 'int', 'description' => 'Players remaining (alias for playersLeft)'),
+
+        // Rebuy variables
         'rebuys' => array('type' => 'int', 'description' => 'Total number of rebuys'),
-        'addons' => array('type' => 'int', 'description' => 'Total number of add-ons'),
-        'monies' => array('type' => 'decimal', 'description' => 'Total money in pot'),
-        'avgBC' => array('type' => 'decimal', 'description' => 'Average buy-in cost'),
-        'numberofHits' => array('type' => 'int', 'description' => 'Number of eliminations'),
+        'rebuysAllowed' => array('type' => 'bool', 'description' => '1 (true) if rebuys are currently allowed, 0 (false) otherwise'),
+        'rebuysLastRound' => array('type' => 'int', 'description' => 'The last (final) round that rebuys are allowed'),
+        'rebuysLeft' => array('type' => 'int', 'description' => 'The number of rebuys remaining'),
+        'rebuysMaxPerPlayer' => array('type' => 'int', 'description' => 'The maximum number of rebuys allowed per-player'),
+        'rebuysMaxTotal' => array('type' => 'int', 'description' => 'The maximum total number of rebuys allowed (for all players)'),
+        'rebuysMinPlayers' => array('type' => 'int', 'description' => 'The minimum number of players that must be in tournament for rebuys to be allowed'),
+        'rebuysOver' => array('type' => 'bool', 'description' => '1 (true) if the rebuy period has expired, 0 (false) otherwise'),
+        'rebuysSecondsLeft' => array('type' => 'int', 'description' => 'The amount of time, in seconds, remaining until the rebuy period ends'),
+
+        // State variables
+        'state' => array('type' => 'int', 'description' => 'Tournament state: 0=not started, 1=countdown, 2=in progress, 3=ended'),
+        'stateDesc' => array('type' => 'string', 'description' => 'State description: "before", "countdown", "inprogress", "after"'),
+
+        // Table variables
+        'tablesLeft' => array('type' => 'int', 'description' => 'The number of tables currently in use (aliases: tables)'),
+        'tables' => array('type' => 'int', 'description' => 'Tables in use (alias for tablesLeft)'),
+
+        // Total add-on variables
+        'totalAddOns' => array('type' => 'int', 'description' => 'The total number of add-ons bought by all players (aliases: totalnumberofaddons, tna)'),
+        'totalnumberofaddons' => array('type' => 'int', 'description' => 'Total add-ons (alias for totalAddOns)'),
+        'tna' => array('type' => 'int', 'description' => 'Total add-ons (alias for totalAddOns)'),
+        'totalAddOnsAmount' => array('type' => 'decimal', 'description' => 'The total amount collected from all add-ons'),
+        'totalAddOnsChips' => array('type' => 'decimal', 'description' => 'The total number of chips received from all add-ons'),
+        'totalAddOnsRake' => array('type' => 'decimal', 'description' => 'The total amount raked from all add-ons'),
+
+        // Total buyin variables
+        'totalBuyinsAmount' => array('type' => 'decimal', 'description' => 'The total amount collected from all buy-ins'),
+        'totalBuyinsChips' => array('type' => 'decimal', 'description' => 'The total number of chips received from all buy-ins'),
+        'totalBuyinsRake' => array('type' => 'decimal', 'description' => 'The total amount raked from all buy-ins'),
+
+        // Total rebuy variables
+        'totalRebuys' => array('type' => 'int', 'description' => 'The total number of rebuys bought by all players (aliases: totalnumberofrebuys, tnr)'),
+        'totalnumberofrebuys' => array('type' => 'int', 'description' => 'Total rebuys (alias for totalRebuys)'),
+        'tnr' => array('type' => 'int', 'description' => 'Total rebuys (alias for totalRebuys)'),
+        'totalRebuysAmount' => array('type' => 'decimal', 'description' => 'The total amount collected from all rebuys'),
+        'totalRebuysChips' => array('type' => 'decimal', 'description' => 'The total number of chips received from all rebuys'),
+        'totalRebuysRake' => array('type' => 'decimal', 'description' => 'The total amount raked from all rebuys'),
+
+        // PLAYER INFORMATION VARIABLES (30+)
+        // Add-on player variables
+        'addOnCost' => array('type' => 'decimal', 'description' => 'The total amount the player paid for all add-ons (aliases: ac)'),
+        'ac' => array('type' => 'decimal', 'description' => 'Add-on cost (alias for addOnCost)'),
+        'addOnRake' => array('type' => 'decimal', 'description' => 'The total amount raked from all add-ons purchased by player (aliases: ar)'),
+        'ar' => array('type' => 'decimal', 'description' => 'Add-on rake (alias for addOnRake)'),
+
+        // Bounty player variables
+        'bountyChipCost' => array('type' => 'decimal', 'description' => 'The amount the player paid for all bounty chips purchased (aliases: bcc)'),
+        'bcc' => array('type' => 'decimal', 'description' => 'Bounty chip cost (alias for bountyChipCost)'),
+        'bountyMoneyKept' => array('type' => 'decimal', 'description' => 'Money paid for bounty chips but kept (aliases: bmk)'),
+        'bmk' => array('type' => 'decimal', 'description' => 'Bounty money kept (alias for bountyMoneyKept)'),
+        'bountyWinnings' => array('type' => 'decimal', 'description' => 'Money won by busting other players (aliases: bw)'),
+        'bw' => array('type' => 'decimal', 'description' => 'Bounty winnings (alias for bountyWinnings)'),
+
+        // Buyin player variables
+        'buyinCost' => array('type' => 'decimal', 'description' => 'The amount the player paid to buy-in (aliases: bc)'),
+        'bc' => array('type' => 'decimal', 'description' => 'Buyin cost (alias for buyinCost)'),
+        'buyinRake' => array('type' => 'decimal', 'description' => 'The amount raked from player buy-in (aliases: br)'),
+        'br' => array('type' => 'decimal', 'description' => 'Buyin rake (alias for buyinRake)'),
+
+        // Chip player variables
+        'chipStack' => array('type' => 'decimal', 'description' => "The player's current chip stack, or chip count"),
+
+        // Final table and money variables
+        'finalTable' => array('type' => 'bool', 'description' => '1 (true) if this player made the final table, 0 (false) otherwise'),
+        'inTheMoney' => array('type' => 'bool', 'description' => '1 (true) if player ranked "in the money" (aliases: m, placed)'),
+        'm' => array('type' => 'bool', 'description' => 'In the money (alias for inTheMoney)'),
+        'placed' => array('type' => 'bool', 'description' => 'Placed in money (alias for inTheMoney)'),
+
+        // ID variables
+        'ID' => array('type' => 'string', 'description' => "The player's ID field"),
+        'internalID' => array('type' => 'int', 'description' => 'The internal ID used to uniquely identify this player'),
+
+        // League player variables
+        'inLeague' => array('type' => 'bool', 'description' => '1 (true) if player is a member of league, 0 (false) otherwise'),
+        'leagueRank' => array('type' => 'int', 'description' => 'Ranks player relative to other league members, 0 if not in league'),
+
+        // Number of actions
+        'numberOfAddOns' => array('type' => 'int', 'description' => 'The number of add-ons for a player (aliases: addons, na)'),
+        'addons' => array('type' => 'int', 'description' => 'Add-ons count (alias for numberOfAddOns)'),
+        'na' => array('type' => 'int', 'description' => 'Add-ons count (alias for numberOfAddOns)'),
+        'numberOfBountiesKept' => array('type' => 'int', 'description' => 'The number of bounty chips a player has kept (aliases: nbk)'),
+        'nbk' => array('type' => 'int', 'description' => 'Bounties kept (alias for numberOfBountiesKept)'),
+        'numberOfBountiesWon' => array('type' => 'int', 'description' => 'The number of bounty chips a player has won (aliases: nb)'),
+        'nb' => array('type' => 'int', 'description' => 'Bounties won (alias for numberOfBountiesWon)'),
+        'numberOfBountyChips' => array('type' => 'int', 'description' => 'The number of bounty chips the player bought (aliases: nbc)'),
+        'nbc' => array('type' => 'int', 'description' => 'Bounty chips count (alias for numberOfBountyChips)'),
+        'numberOfHits' => array('type' => 'int', 'description' => 'The number of hits a player has made (aliases: nh)'),
+        'nh' => array('type' => 'int', 'description' => 'Hits count (alias for numberOfHits)'),
+        'numberOfRebuys' => array('type' => 'int', 'description' => 'The number of rebuys for a player (aliases: nr)'),
+        'nr' => array('type' => 'int', 'description' => 'Rebuys count (alias for numberOfRebuys)'),
+
+        // Player status and position
+        'playersAtSameTable' => array('type' => 'int', 'description' => 'The number of players at same table (including this player)'),
+        'playingTime' => array('type' => 'int', 'description' => 'The number of seconds this player was active in the tournament'),
+        'position' => array('type' => 'int', 'description' => 'The position of a player (inverse of rank, order of bust-out)'),
+
+        // Prize and winnings
+        'prizeWinnings' => array('type' => 'decimal', 'description' => 'Money won by qualifying for one or more prizes (aliases: pw)'),
+        'pw' => array('type' => 'decimal', 'description' => 'Prize winnings (alias for prizeWinnings)'),
+
+        // Rank variables
+        'rank' => array('type' => 'int', 'description' => 'The rank of a player (aliases: r)'),
+        'r' => array('type' => 'int', 'description' => 'Player rank (alias for rank)'),
+
+        // Rebuy player variables
+        'rebuyCost' => array('type' => 'decimal', 'description' => 'The total amount player paid for all rebuys (aliases: rc)'),
+        'rc' => array('type' => 'decimal', 'description' => 'Rebuy cost (alias for rebuyCost)'),
+        'rebuyRake' => array('type' => 'decimal', 'description' => 'The total amount raked from all rebuys (aliases: rr)'),
+        'rr' => array('type' => 'decimal', 'description' => 'Rebuy rake (alias for rebuyRake)'),
+
+        // Round out
+        'roundOut' => array('type' => 'int', 'description' => 'The round in which this player busted out (aliases: ro)'),
+        'ro' => array('type' => 'int', 'description' => 'Round out (alias for roundOut)'),
+
+        // Total costs and winnings
+        'take' => array('type' => 'decimal', 'description' => 'The total profit for this player (winnings minus paid) (aliases: t)'),
+        't' => array('type' => 'decimal', 'description' => 'Player take (alias for take)'),
+        'totalCost' => array('type' => 'decimal', 'description' => 'The total amount player paid for participating (aliases: tc)'),
+        'tc' => array('type' => 'decimal', 'description' => 'Total cost (alias for totalCost)'),
+        'totalRake' => array('type' => 'decimal', 'description' => 'The total amount raked from all money player paid (aliases: tr)'),
+        'tr' => array('type' => 'decimal', 'description' => 'Total rake (alias for totalRake)'),
+        'totalWinnings' => array('type' => 'decimal', 'description' => 'The total amount of money won by player (aliases: tw)'),
+        'tw' => array('type' => 'decimal', 'description' => 'Total winnings (alias for totalWinnings)'),
+
+        // LEGACY/CALCULATED VARIABLES (maintained for backward compatibility)
+        'monies' => array('type' => 'decimal', 'description' => 'Total money in pot (calculated)'),
+        'avgBC' => array('type' => 'decimal', 'description' => 'Average buy-in cost (calculated)'),
+        'numberofHits' => array('type' => 'int', 'description' => 'Number of eliminations (alias for numberOfHits)'),
         'place' => array('type' => 'int', 'description' => 'Player finish position (alias for r)'),
         'entrants' => array('type' => 'int', 'description' => 'Total entrants (alias for n)'),
-        'T33' => array('type' => 'int', 'description' => 'Round(n/3) - Top third cutoff'),
-        'T80' => array('type' => 'int', 'description' => 'Floor(n*0.9) - 80% cutoff'),
-        'points' => array('type' => 'decimal', 'description' => 'Calculated points'),
-        'temp' => array('type' => 'decimal', 'description' => 'Temporary variable'),
-        'winnings' => array('type' => 'decimal', 'description' => 'Player winnings'),
-        'prizePool' => array('type' => 'decimal', 'description' => 'Total prize pool'),
-        'buyinAmount' => array('type' => 'decimal', 'description' => 'Buy-in amount'),
-        'feeAmount' => array('type' => 'decimal', 'description' => 'Fee amount'),
-        'totalBuyInsAmount' => array('type' => 'decimal', 'description' => 'Total buy-ins amount'),
-        'totalRebuysAmount' => array('type' => 'decimal', 'description' => 'Total rebuys amount'),
-        'totalAddOnsAmount' => array('type' => 'decimal', 'description' => 'Total add-ons amount'),
+        'T33' => array('type' => 'int', 'description' => 'Round(n/3) - Top third cutoff (calculated)'),
+        'T80' => array('type' => 'int', 'description' => 'Floor(n*0.9) - 80% cutoff (calculated)'),
+        'points' => array('type' => 'decimal', 'description' => 'Calculated points (result variable)'),
+        'temp' => array('type' => 'decimal', 'description' => 'Temporary variable for calculations'),
+        'winnings' => array('type' => 'decimal', 'description' => 'Player winnings (alias for totalWinnings)'),
+        'prizePool' => array('type' => 'decimal', 'description' => 'Total prize pool (alias for pot)'),
+        'buyinAmount' => array('type' => 'decimal', 'description' => 'Buy-in amount (alias for defaultBuyinFee)'),
+        'feeAmount' => array('type' => 'decimal', 'description' => 'Fee amount (calculated)'),
+        'totalBuyInsAmount' => array('type' => 'decimal', 'description' => 'Total buy-ins amount (alias for totalBuyinsAmount)'),
     );
 
     /**
      * Available Tournament Director functions
+     * Complete TD v3.7.2+ specification with 43+ functions
      */
     private $td_functions = array(
-        'abs' => array('params' => 1, 'description' => 'Absolute value'),
-        'sqrt' => array('params' => 1, 'description' => 'Square root'),
-        'log' => array('params' => 1, 'description' => 'Natural logarithm'),
-        'log10' => array('params' => 1, 'description' => 'Base 10 logarithm'),
-        'pow' => array('params' => 2, 'description' => 'Power function'),
-        'round' => array('params' => 1, 'description' => 'Round to nearest integer'),
-        'floor' => array('params' => 1, 'description' => 'Round down to integer'),
-        'ceil' => array('params' => 1, 'description' => 'Round up to integer'),
-        'min' => array('params' => 2, 'description' => 'Minimum of two values'),
-        'max' => array('params' => 2, 'description' => 'Maximum of two values'),
-        'if' => array('params' => 3, 'description' => 'Conditional: if(condition, true_value, false_value)'),
-        'and' => array('params' => 2, 'description' => 'Logical AND'),
-        'or' => array('params' => 2, 'description' => 'Logical OR'),
-        'not' => array('params' => 1, 'description' => 'Logical NOT'),
+        // MATHEMATICAL FUNCTIONS
+        'abs' => array('params' => 1, 'description' => 'Returns the absolute value of a number', 'example' => 'abs(-3) returns 3'),
+        'acos' => array('params' => 1, 'description' => 'Returns the arccosine of a number (in radians)', 'example' => 'acos(.1) returns 1.4706289056333368'),
+        'asin' => array('params' => 1, 'description' => 'Returns the arcsine of a number (in radians)', 'example' => 'asin(.1) returns 0.1001674211615598'),
+        'atan' => array('params' => 1, 'description' => 'Returns the arctangent of a number (in radians)', 'example' => 'atan(.1) returns 0.09966865249116204'),
+        'cos' => array('params' => 1, 'description' => 'The cosine of a number', 'example' => 'cos(1) returns 0.5403023058681398'),
+        'exp' => array('params' => 1, 'description' => "E (Euler's constant) raised to the power of a number", 'example' => 'exp(1) returns 2.718281828459045'),
+        'log' => array('params' => '1-2', 'description' => 'Natural logarithm of a number. Optional second parameter for base', 'example' => 'log(2) returns 0.6931471805599453'),
+        'ln' => array('params' => 1, 'description' => 'Natural logarithm (alias of log)', 'example' => 'ln(2) returns 0.6931471805599453'),
+        'log10' => array('params' => 1, 'description' => 'The logarithm (base 10) of a number', 'example' => 'log10(2) returns 0.30102999566398114'),
+        'pow' => array('params' => 2, 'description' => 'An exponent of a number (base, exponent)', 'example' => 'pow(2, 5) returns 32'),
+        'power' => array('params' => 2, 'description' => 'Same as pow() function', 'example' => 'power(5, 2) returns 25'),
+        'random' => array('params' => 0, 'description' => 'A random number between 0 and 1', 'example' => 'random() returns value like 0.14851873902445567'),
+        'sin' => array('params' => 1, 'description' => 'The sine of a number', 'example' => 'sin(1) returns 0.8414709848078965'),
+        'sqrt' => array('params' => 1, 'description' => 'The square root of a number', 'example' => 'sqrt(16) returns 4'),
+        'tan' => array('params' => 1, 'description' => 'The tangent of a number', 'example' => 'tan(1) returns 1.5574077246549023'),
+        'triangle' => array('params' => 1, 'description' => 'Returns the triangle number for given value', 'example' => 'triangle(3) returns 6'),
+
+        // ROUNDING FUNCTIONS
+        'ceil' => array('params' => 1, 'description' => 'The ceiling - smallest integer greater than or equal to number', 'example' => 'ceil(2.2) returns 3'),
+        'floor' => array('params' => 1, 'description' => 'The floor - largest integer less than or equal to number', 'example' => 'floor(2.2) returns 2'),
+        'round' => array('params' => '1-2', 'description' => 'Rounds to precision (second param, default 0)', 'example' => 'round(1.55, 1) returns 1.6'),
+        'roundUpToNearest' => array('params' => 2, 'description' => 'Rounds first param up to nearest multiple of second param', 'example' => 'roundUpToNearest(371, 25) returns 375'),
+        'roundToNearest' => array('params' => 2, 'description' => 'Rounds first param to nearest multiple of second param', 'example' => 'roundToNearest(371, 50) returns 350'),
+        'roundDownToNearest' => array('params' => 2, 'description' => 'Rounds first param down to nearest multiple of second param', 'example' => 'roundDownToNearest(371, 25) returns 350'),
+
+        // CONDITIONAL FUNCTIONS
+        'if' => array('params' => 3, 'description' => 'Conditional: if(condition, true_value, false_value)', 'example' => 'if(rank < 3, 10, 0)'),
+        'switch' => array('params' => 'variable', 'description' => 'Switch on value with comparison pairs. First param is value, then pairs of (comparison, result)', 'example' => 'switch(3, 1, 10, 2, 20, 3, 30) returns 30'),
+        'lswitch' => array('params' => 'variable', 'description' => 'Linear switch - first param is index (1-based), rest are result values', 'example' => 'lswitch(4, 10, 20, 30, 40) returns 40'),
+
+        // LOGICAL FUNCTIONS
+        'and' => array('params' => 2, 'description' => 'Logical AND', 'example' => '(10 > 5) and (20 != 10) returns true'),
+        'or' => array('params' => 2, 'description' => 'Logical OR', 'example' => '(10 > 5) or (20 = 10) returns true'),
+        'not' => array('params' => 1, 'description' => 'Logical NOT', 'example' => 'not(0) returns 1'),
+
+        // LIST/ARRAY FUNCTIONS
+        'sum' => array('params' => 'variable', 'description' => 'Returns the sum of all parameters. List may be provided', 'example' => 'sum(1, 2, 3, 4, 5, 6) returns 21'),
+        'product' => array('params' => 'variable', 'description' => 'Returns the product of all parameters. List may be provided', 'example' => 'product(1, 2, 3, 4, 5, 6) returns 720'),
+        'average' => array('params' => 'variable', 'description' => 'Returns the average of all parameters. List may be provided', 'example' => 'average(1, 2, 3, 4, 5, 6) returns 3.5'),
+        'count' => array('params' => 'variable', 'description' => 'Returns count of parameters. List may be provided', 'example' => 'count(1, 2, 3, 4, 5, 6) returns 6'),
+        'max' => array('params' => 2, 'description' => 'The greater of two numbers', 'example' => 'max(2, 5) returns 5'),
+        'min' => array('params' => 2, 'description' => 'The lesser of two numbers', 'example' => 'min(2, 5) returns 2'),
+        'top' => array('params' => 'variable', 'description' => 'Returns list of top N values. First param is count', 'example' => 'top(5, 1, 2, 3, 4, 5, 6) returns [2, 3, 4, 5, 6]'),
+        'bottom' => array('params' => 'variable', 'description' => 'Returns list of bottom N values. First param is count', 'example' => 'bottom(5, 1, 2, 3, 4, 5, 6) returns [1, 2, 3, 4, 5]'),
+        'oneof' => array('params' => 'variable', 'description' => 'Returns true if first param is in remaining params', 'example' => 'oneof(r, 2, 4, 12, 24)'),
+        'index' => array('params' => 2, 'description' => 'Returns value of list at given index (0-based)', 'example' => 'index(scores, 0) returns first element'),
+        'setListLength' => array('params' => 2, 'description' => 'Sets length of list by removing or adding zeros', 'example' => 'setListLength(scores, 5)'),
+
+        // ASSIGNMENT FUNCTION
+        'assign' => array('params' => 2, 'description' => 'Assigns value to variable. First param is variable name (quoted), second is value', 'example' => 'assign("a", 6)'),
+
+        // PROFILE FUNCTIONS - Buyin Profiles
+        'buyinProfileFee' => array('params' => '0-1', 'description' => 'Returns buy-in fee for profile (default if not specified)', 'example' => 'buyinProfileFee("Early Arrivers")'),
+        'buyinProfileRake' => array('params' => '0-2', 'description' => 'Returns buy-in rake for profile and rake name', 'example' => 'buyinProfileRake("Early Arrivers", "Year End")'),
+        'buyinProfileChips' => array('params' => '0-1', 'description' => 'Returns buy-in chips for profile', 'example' => 'buyinProfileChips("Early Arrivers")'),
+        'buyinProfilePoints' => array('params' => '0-1', 'description' => 'Returns buy-in points for profile', 'example' => 'buyinProfilePoints("Early Arrivers")'),
+
+        // PROFILE FUNCTIONS - Rebuy Profiles
+        'rebuyProfileFee' => array('params' => '0-1', 'description' => 'Returns rebuy fee for profile', 'example' => 'rebuyProfileFee("Early Arrivers")'),
+        'rebuyProfileRake' => array('params' => '0-2', 'description' => 'Returns rebuy rake for profile and rake name', 'example' => 'rebuyProfileRake("Early Arrivers", "Year End")'),
+        'rebuyProfileChips' => array('params' => '0-1', 'description' => 'Returns rebuy chips for profile', 'example' => 'rebuyProfileChips("Early Arrivers")'),
+        'rebuyProfilePoints' => array('params' => '0-1', 'description' => 'Returns rebuy points for profile', 'example' => 'rebuyProfilePoints("Early Arrivers")'),
+
+        // PROFILE FUNCTIONS - Add-on Profiles
+        'addOnProfileFee' => array('params' => '0-1', 'description' => 'Returns add-on fee for profile', 'example' => 'addOnProfileFee("Early Arrivers")'),
+        'addOnProfileRake' => array('params' => '0-2', 'description' => 'Returns add-on rake for profile and rake name', 'example' => 'addOnProfileRake("Early Arrivers", "Year End")'),
+        'addOnProfileChips' => array('params' => '0-1', 'description' => 'Returns add-on chips for profile', 'example' => 'addOnProfileChips("Early Arrivers")'),
+        'addOnProfilePoints' => array('params' => '0-1', 'description' => 'Returns add-on points for profile', 'example' => 'addOnProfilePoints("Early Arrivers")'),
+
+        // SPECIAL FUNCTIONS
+        'totalForRake' => array('params' => '0-1', 'description' => 'Returns total collected for named rake (all rakes if not specified)', 'example' => 'totalForRake("Tournament of Champions")'),
     );
 
     /**
@@ -65,16 +373,22 @@ class Poker_Tournament_Formula_Validator {
      */
     private $default_formulas = array(
         'tournament_points' => array(
-            'name' => 'Tournament Points (Default TD Formula)',
-            'description' => 'Standard Tournament Director points calculation with position-based scaling',
-            'formula' => 'assign("points", if(T80 > r and T33 < r, round(temp * pow(0.66, (r-T33))) + (numberofHits * 10), if(T33 >= r, round(10 * (sqrt(n) / sqrt(r)) * (1 + log(avgBC + 0.25))) + (numberofHits * 10), 1)))',
+            'name' => 'Tournament Points (PokerStars Formula)',
+            'description' => 'PokerStars-based points with piecewise decay and threshold logic',
+            'formula' => 'assign("points", if((T80 > r) and (T33 < r), round(baseFromT33 * decay) + hits, if(T33 >= r, baseAtRank + hits, 1 + hits)))',
             'dependencies' => array(
-                'assign("T33", round(n/3))',
-                'assign("T80", floor(n*0.9))',
+                'assign("nSafe", max(n, 1))',
+                'assign("buyinsSafe", max(buyins, 1))',
+                'assign("T33", round(nSafe / 3))',
+                'assign("T80", floor(nSafe * 0.9))',
                 'assign("monies", totalBuyInsAmount + totalRebuysAmount + totalAddOnsAmount)',
-                'assign("avgBC", monies/buyins)',
-                'assign("temp", 10 * (sqrt(n) / sqrt(T33 + 1)) * (1 + log(avgBC + 0.25)) + (numberofHits * 10))',
-                'assign("numberofHits", hits)'
+                'assign("avgBC", monies / buyinsSafe)',
+                'assign("scale", 10 * sqrt(nSafe))',
+                'assign("logTerm", 1 + log(avgBC + 0.25))',
+                'assign("hits", numberofHits * 10)',
+                'assign("baseAtRank", round((scale / sqrt(r)) * logTerm))',
+                'assign("baseFromT33", round((scale / sqrt(T33 + 1)) * logTerm))',
+                'assign("decay", pow(0.66, (r - T33)))'
             ),
             'category' => 'points'
         ),
@@ -404,49 +718,116 @@ class Poker_Tournament_Formula_Validator {
 
     /**
      * Process assignment statements in formula
+     * FIX #1: Stack-based parser to handle nested parentheses correctly
      */
     private function process_assignments($formula, &$variables) {
-        // Look for assign("variable", expression) patterns
-        $pattern = '/assign\(\s*"([^"]+)"\s*,\s*([^)]+)\)/';
+        // Process all assign() statements
+        while (($pos = strpos($formula, 'assign(')) !== false) {
+            // Find the matching closing parenthesis by counting depth
+            $start = $pos + 7; // after "assign("
+            $depth = 1;
+            $i = $start;
+            $length = strlen($formula);
 
-        while (preg_match($pattern, $formula, $matches, PREG_OFFSET_CAPTURE)) {
-            $variable_name = $matches[1][0];
-            $expression = trim($matches[2][0]);
+            while ($i < $length && $depth > 0) {
+                if ($formula[$i] === '(') {
+                    $depth++;
+                } elseif ($formula[$i] === ')') {
+                    $depth--;
+                }
+                $i++;
+            }
+
+            if ($depth !== 0) {
+                throw new Exception("Unmatched parentheses in assignment");
+            }
+
+            // Extract content between parentheses
+            $content = substr($formula, $start, $i - $start - 1);
+
+            // Split by comma at depth 0 to separate variable name from expression
+            list($var_name, $expression) = $this->split_assignment($content);
 
             // Evaluate the expression
             $value = $this->evaluate_expression($expression, $variables);
-            $variables[$variable_name] = $value;
+            $variables[$var_name] = $value;
 
             // Remove the assignment from formula
-            $formula = substr_replace($formula, '', $matches[0][1], strlen($matches[0][0]));
+            $formula = substr_replace($formula, '', $pos, $i - $pos);
         }
 
         return trim($formula);
     }
 
     /**
-     * Evaluate mathematical expression safely
+     * Split assignment content by comma at depth 0
+     * Helper for stack-based assignment parser
      */
-    private function evaluate_expression($expression, $variables) {
-        // Replace variables with their values
-        foreach ($variables as $name => $value) {
-            $expression = preg_replace('/\b' . preg_quote($name, '/') . '\b/', $value, $expression);
-        }
+    private function split_assignment($content) {
+        $depth = 0;
+        $in_quotes = false;
+        $length = strlen($content);
 
-        // Replace functions with PHP equivalents
-        $expression = $this->replace_functions($expression);
+        for ($i = 0; $i < $length; $i++) {
+            $char = $content[$i];
 
-        // Handle conditional expressions
-        $expression = $this->handle_conditionals($expression);
-
-        // Safe evaluation using eval (restricted environment)
-        try {
-            // Only allow mathematical operations and functions
-            if (!preg_match('/^[0-9+\-*\/().<>=!&| sqrtroundfloorceillogpowabsifandornot ]+$/', $expression)) {
-                throw new Exception("Invalid expression: {$expression}");
+            // Handle quotes
+            if ($char === '"' && ($i === 0 || $content[$i - 1] !== '\\')) {
+                $in_quotes = !$in_quotes;
+                continue;
             }
 
-            $result = eval("return ({$expression});");
+            // Skip if inside quotes
+            if ($in_quotes) {
+                continue;
+            }
+
+            // Track parentheses depth
+            if ($char === '(') {
+                $depth++;
+            } elseif ($char === ')') {
+                $depth--;
+            } elseif ($char === ',' && $depth === 0) {
+                // Found the comma separator at depth 0
+                $var_part = substr($content, 0, $i);
+                $expr_part = substr($content, $i + 1);
+
+                // Extract variable name from quotes
+                if (preg_match('/"([^"]+)"/', $var_part, $matches)) {
+                    $var_name = $matches[1];
+                } else {
+                    throw new Exception("Invalid assignment - variable name must be quoted");
+                }
+
+                return array($var_name, trim($expr_part));
+            }
+        }
+
+        throw new Exception("Invalid assignment format - expected: assign(\"varname\", expression)");
+    }
+
+    /**
+     * Evaluate mathematical expression safely using AST-based evaluation
+     * SECURITY: Replaces eval() with safe Abstract Syntax Tree evaluation
+     * FIX #3: Preprocess TD logical operators before tokenization
+     */
+    private function evaluate_expression($expression, $variables) {
+        try {
+            // FIX #3: Convert Tournament Director logical operators to standard ones
+            $expression = $this->preprocess_operators($expression);
+
+            // Tokenize the expression
+            $tokens = $this->tokenize_expression($expression);
+
+            // Replace variables with their values in tokens
+            $tokens = $this->substitute_variables($tokens, $variables);
+
+            // Build Abstract Syntax Tree
+            $ast = $this->build_ast($tokens);
+
+            // Evaluate AST safely (no eval)
+            $result = $this->evaluate_ast($ast, $variables);
+
             return is_finite($result) ? $result : 0;
 
         } catch (Exception $e) {
@@ -455,27 +836,574 @@ class Poker_Tournament_Formula_Validator {
     }
 
     /**
-     * Replace TD functions with PHP equivalents
+     * Preprocess Tournament Director operators
+     * FIX #3: Convert 'and'/'or' to '&&'/'||' with word boundary checks
      */
-    private function replace_functions($expression) {
-        $replacements = array(
-            'sqrt(' => 'sqrt(',
-            'round(' => 'round(',
-            'floor(' => 'floor(',
-            'ceil(' => 'ceil(',
-            'log(' => 'log(',
-            'log10(' => 'log10(',
-            'pow(' => 'pow(',
-            'abs(' => 'abs(',
-            'min(' => 'min(',
-            'max(' => 'max(',
+    private function preprocess_operators($expression) {
+        // Replace logical operators (word boundaries to avoid partial matches)
+        // Use word boundaries \b to ensure we don't replace 'and' inside 'rand' or 'sand'
+        $expression = preg_replace('/\band\b/', '&&', $expression);
+        $expression = preg_replace('/\bor\b/', '||', $expression);
+        return $expression;
+    }
+
+    /**
+     * Tokenize expression into operators, operands, and function calls
+     */
+    private function tokenize_expression($expression) {
+        $tokens = array();
+        $length = strlen($expression);
+        $i = 0;
+
+        while ($i < $length) {
+            $char = $expression[$i];
+
+            // Skip whitespace
+            if (ctype_space($char)) {
+                $i++;
+                continue;
+            }
+
+            // Numbers (including decimals)
+            if (ctype_digit($char) || ($char === '.' && $i + 1 < $length && ctype_digit($expression[$i + 1]))) {
+                $start = $i;
+                $has_decimal = false;
+                while ($i < $length && (ctype_digit($expression[$i]) || (!$has_decimal && $expression[$i] === '.'))) {
+                    if ($expression[$i] === '.') {
+                        $has_decimal = true;
+                    }
+                    $i++;
+                }
+                $tokens[] = array('type' => 'number', 'value' => floatval(substr($expression, $start, $i - $start)));
+                continue;
+            }
+
+            // Variables and functions
+            if (ctype_alpha($char) || $char === '_' || $char === '$') {
+                $start = $i;
+                while ($i < $length && (ctype_alnum($expression[$i]) || $expression[$i] === '_')) {
+                    $i++;
+                }
+                $name = substr($expression, $start, $i - $start);
+
+                // Skip whitespace after name
+                while ($i < $length && ctype_space($expression[$i])) {
+                    $i++;
+                }
+
+                // Check if it's a function (followed by '(')
+                if ($i < $length && $expression[$i] === '(') {
+                    $tokens[] = array('type' => 'function', 'value' => $name);
+                } else {
+                    $tokens[] = array('type' => 'variable', 'value' => $name);
+                }
+                continue;
+            }
+
+            // Operators and punctuation
+            if (in_array($char, array('+', '-', '*', '/', '%', '^', '(', ')', ',', '?', ':'))) {
+                $tokens[] = array('type' => 'operator', 'value' => $char);
+                $i++;
+                continue;
+            }
+
+            // Comparison and logical operators (multi-character)
+            if (in_array($char, array('<', '>', '=', '!', '&', '|'))) {
+                $op = $char;
+                if ($i + 1 < $length) {
+                    $two_char = $char . $expression[$i + 1];
+                    if (in_array($two_char, array('<=', '>=', '==', '!=', '&&', '||'))) {
+                        $op = $two_char;
+                        $i += 2;
+                    } else {
+                        $i++;
+                    }
+                } else {
+                    $i++;
+                }
+                $tokens[] = array('type' => 'operator', 'value' => $op);
+                continue;
+            }
+
+            // Unknown character - skip it
+            $i++;
+        }
+
+        return $tokens;
+    }
+
+    /**
+     * Substitute variables in token stream
+     */
+    private function substitute_variables($tokens, $variables) {
+        $result = array();
+        foreach ($tokens as $token) {
+            if ($token['type'] === 'variable' && isset($variables[$token['value']])) {
+                $result[] = array('type' => 'number', 'value' => $variables[$token['value']]);
+            } else {
+                $result[] = $token;
+            }
+        }
+        return $result;
+    }
+
+    /**
+     * Build Abstract Syntax Tree from tokens using Shunting Yard algorithm
+     */
+    private function build_ast($tokens) {
+        $output = array();  // Output queue (RPN)
+        $operators = array();  // Operator stack
+
+        $precedence = array(
+            '||' => 1, 'or' => 1,
+            '&&' => 2, 'and' => 2,
+            '==' => 3, '!=' => 3, '<' => 3, '>' => 3, '<=' => 3, '>=' => 3,
+            '+' => 4, '-' => 4,
+            '*' => 5, '/' => 5, '%' => 5,
+            '^' => 6,
+            '?' => 0  // Ternary operator
         );
 
-        foreach ($replacements as $td_func => $php_func) {
+        $right_associative = array('^', '?');
+
+        for ($i = 0; $i < count($tokens); $i++) {
+            $token = $tokens[$i];
+
+            if ($token['type'] === 'number') {
+                $output[] = $token;
+            } elseif ($token['type'] === 'function') {
+                $operators[] = $token;
+            } elseif ($token['type'] === 'operator') {
+                if ($token['value'] === '(') {
+                    $operators[] = $token;
+                } elseif ($token['value'] === ')') {
+                    // Pop operators until '('
+                    while (!empty($operators) && end($operators)['value'] !== '(') {
+                        $output[] = array_pop($operators);
+                    }
+                    if (!empty($operators)) {
+                        array_pop($operators);  // Remove '('
+                    }
+                    // If there's a function on top, pop it to output
+                    if (!empty($operators) && end($operators)['type'] === 'function') {
+                        $output[] = array_pop($operators);
+                    }
+                } elseif ($token['value'] === ',') {
+                    // Comma separates function arguments
+                    while (!empty($operators) && end($operators)['value'] !== '(') {
+                        $output[] = array_pop($operators);
+                    }
+                } else {
+                    // Regular operator
+                    $prec = $precedence[$token['value']] ?? 0;
+                    $is_right = in_array($token['value'], $right_associative);
+
+                    while (!empty($operators)) {
+                        $top = end($operators);
+                        if ($top['type'] !== 'operator' || $top['value'] === '(') {
+                            break;
+                        }
+                        $top_prec = $precedence[$top['value']] ?? 0;
+                        if (($is_right && $prec < $top_prec) || (!$is_right && $prec <= $top_prec)) {
+                            $output[] = array_pop($operators);
+                        } else {
+                            break;
+                        }
+                    }
+                    $operators[] = $token;
+                }
+            }
+        }
+
+        // Pop remaining operators
+        while (!empty($operators)) {
+            $output[] = array_pop($operators);
+        }
+
+        return $output;
+    }
+
+    /**
+     * Evaluate Abstract Syntax Tree (in RPN form) safely without eval()
+     */
+    private function evaluate_ast($ast, $variables) {
+        $stack = array();
+
+        foreach ($ast as $token) {
+            if ($token['type'] === 'number') {
+                $stack[] = $token['value'];
+            } elseif ($token['type'] === 'function') {
+                // Call function - collect arguments from stack
+                $func_name = $token['value'];
+                $args = array();
+
+                // Functions take arguments from stack
+                // For simplicity, we'll handle common functions with known arg counts
+                $arg_count = $this->get_function_arg_count($func_name, $stack);
+
+                for ($i = 0; $i < $arg_count; $i++) {
+                    if (!empty($stack)) {
+                        array_unshift($args, array_pop($stack));
+                    }
+                }
+
+                $result = $this->call_function($func_name, $args);
+                $stack[] = $result;
+
+            } elseif ($token['type'] === 'operator') {
+                $op = $token['value'];
+
+                // Binary operators
+                if (in_array($op, array('+', '-', '*', '/', '%', '^', '&&', '||', '==', '!=', '<', '>', '<=', '>='))) {
+                    if (count($stack) < 2) {
+                        throw new Exception("Insufficient operands for operator {$op}");
+                    }
+                    $b = array_pop($stack);
+                    $a = array_pop($stack);
+                    $stack[] = $this->apply_operator($op, $a, $b);
+                }
+                // Ternary operator handled separately
+                elseif ($op === '?') {
+                    // Ternary: condition ? true_val : false_val
+                    // Stack has: false_val, true_val, condition (top to bottom)
+                    if (count($stack) < 3) {
+                        throw new Exception("Insufficient operands for ternary operator");
+                    }
+                    $false_val = array_pop($stack);
+                    $true_val = array_pop($stack);
+                    $condition = array_pop($stack);
+                    $stack[] = $condition ? $true_val : $false_val;
+                }
+            }
+        }
+
+        if (count($stack) !== 1) {
+            throw new Exception("Invalid expression evaluation - stack has " . count($stack) . " items");
+        }
+
+        return $stack[0];
+    }
+
+    /**
+     * Get function argument count (simplified - assumes all args are on stack)
+     * FIX #2: Added 'if' function with 3 arguments
+     */
+    private function get_function_arg_count($func_name, &$stack) {
+        // Known function argument counts
+        $fixed_args = array(
+            'abs' => 1, 'sqrt' => 1, 'log' => 1, 'log10' => 1, 'ln' => 1,
+            'exp' => 1, 'sin' => 1, 'cos' => 1, 'tan' => 1,
+            'asin' => 1, 'acos' => 1, 'atan' => 1,
+            'floor' => 1, 'ceil' => 1, 'round' => 1,
+            'triangle' => 1, 'not' => 1,
+            'if' => 3,  // FIX #2: if(condition, true_value, false_value)
+            'pow' => 2, 'power' => 2, 'min' => 2, 'max' => 2,
+            'roundUpToNearest' => 2, 'roundToNearest' => 2, 'roundDownToNearest' => 2,
+        );
+
+        if (isset($fixed_args[$func_name])) {
+            return $fixed_args[$func_name];
+        }
+
+        // Variable argument functions - take all available on stack
+        // This is simplified; real implementation would track argument boundaries
+        return min(count($stack), 10);  // Limit to prevent stack underflow
+    }
+
+    /**
+     * Call a function safely
+     */
+    private function call_function($func_name, $args) {
+        switch ($func_name) {
+            // Math functions
+            case 'abs': return abs($args[0] ?? 0);
+            case 'sqrt': return sqrt($args[0] ?? 0);
+            case 'log': case 'ln': return log($args[0] ?? 1);
+            case 'log10': return log10($args[0] ?? 1);
+            case 'exp': return exp($args[0] ?? 0);
+            case 'sin': return sin($args[0] ?? 0);
+            case 'cos': return cos($args[0] ?? 0);
+            case 'tan': return tan($args[0] ?? 0);
+            case 'asin': return asin($args[0] ?? 0);
+            case 'acos': return acos($args[0] ?? 0);
+            case 'atan': return atan($args[0] ?? 0);
+
+            // Rounding functions
+            case 'floor': return floor($args[0] ?? 0);
+            case 'ceil': return ceil($args[0] ?? 0);
+            case 'round': return round($args[0] ?? 0, $args[1] ?? 0);
+            case 'roundUpToNearest':
+                $val = $args[0] ?? 0;
+                $mult = $args[1] ?? 1;
+                return ceil($val / $mult) * $mult;
+            case 'roundToNearest':
+                $val = $args[0] ?? 0;
+                $mult = $args[1] ?? 1;
+                return round($val / $mult) * $mult;
+            case 'roundDownToNearest':
+                $val = $args[0] ?? 0;
+                $mult = $args[1] ?? 1;
+                return floor($val / $mult) * $mult;
+
+            // Power and comparison
+            case 'pow': case 'power': return pow($args[0] ?? 0, $args[1] ?? 0);
+            case 'min': return min($args[0] ?? 0, $args[1] ?? 0);
+            case 'max': return max($args[0] ?? 0, $args[1] ?? 0);
+
+            // List functions
+            case 'sum': return array_sum($args);
+            case 'average': return count($args) > 0 ? array_sum($args) / count($args) : 0;
+            case 'product': return array_product($args);
+            case 'count': return count($args);
+
+            // Special functions
+            case 'triangle':
+                $n = $args[0] ?? 0;
+                return $n * ($n + 1) / 2;
+            case 'random': return mt_rand() / mt_getrandmax();
+
+            // Logical
+            case 'not': return !($args[0] ?? 0);
+
+            // Conditional function
+            // FIX #2: Add if() function for piecewise logic
+            case 'if':
+                if (count($args) < 3) {
+                    throw new Exception("if() requires 3 arguments: condition, true_value, false_value");
+                }
+                $condition = $args[0];
+                $true_val = $args[1];
+                $false_val = $args[2];
+                return $condition ? $true_val : $false_val;
+
+            // Custom TD functions
+            case 'switch': return call_user_func_array(array($this, 'td_switch'), $args);
+            case 'lswitch': return call_user_func_array(array($this, 'td_lswitch'), $args);
+            case 'oneof': return call_user_func_array(array($this, 'td_oneof'), $args);
+
+            default:
+                throw new Exception("Unknown function: {$func_name}");
+        }
+    }
+
+    /**
+     * Apply binary operator safely
+     */
+    private function apply_operator($op, $a, $b) {
+        switch ($op) {
+            case '+': return $a + $b;
+            case '-': return $a - $b;
+            case '*': return $a * $b;
+            case '/': return $b != 0 ? $a / $b : 0;  // Prevent division by zero
+            case '%': return $b != 0 ? $a % $b : 0;
+            case '^': return pow($a, $b);
+
+            // Comparison
+            case '==': return $a == $b ? 1 : 0;
+            case '!=': return $a != $b ? 1 : 0;
+            case '<': return $a < $b ? 1 : 0;
+            case '>': return $a > $b ? 1 : 0;
+            case '<=': return $a <= $b ? 1 : 0;
+            case '>=': return $a >= $b ? 1 : 0;
+
+            // Logical
+            case '&&': return ($a && $b) ? 1 : 0;
+            case '||': return ($a || $b) ? 1 : 0;
+
+            default:
+                throw new Exception("Unknown operator: {$op}");
+        }
+    }
+
+    /**
+     * Replace TD functions with PHP equivalents
+     * Enhanced to support all 43+ Tournament Director functions
+     */
+    private function replace_functions($expression) {
+        // Direct PHP function mappings (1:1 correspondence)
+        $simple_replacements = array(
+            // Mathematical functions
+            'abs(' => 'abs(',
+            'acos(' => 'acos(',
+            'asin(' => 'asin(',
+            'atan(' => 'atan(',
+            'cos(' => 'cos(',
+            'exp(' => 'exp(',
+            'log(' => 'log(',
+            'ln(' => 'log(',  // ln is alias for log in TD
+            'log10(' => 'log10(',
+            'pow(' => 'pow(',
+            'power(' => 'pow(',  // power is alias for pow
+            'sin(' => 'sin(',
+            'sqrt(' => 'sqrt(',
+            'tan(' => 'tan(',
+
+            // Rounding functions
+            'ceil(' => 'ceil(',
+            'floor(' => 'floor(',
+            'round(' => 'round(',
+
+            // List/array functions
+            'max(' => 'max(',
+            'min(' => 'min(',
+            'sum(' => 'array_sum(',  // sum maps to array_sum for lists
+            'average(' => '$this->td_average(',  // Custom implementation needed
+            'count(' => 'count(',
+        );
+
+        foreach ($simple_replacements as $td_func => $php_func) {
             $expression = str_replace($td_func, $php_func, $expression);
         }
 
+        // Complex functions requiring custom implementation
+        // These will be handled by separate methods called via $this->
+
+        // Triangle number function: triangle(n) = n*(n+1)/2
+        $expression = preg_replace_callback(
+            '/triangle\(([^)]+)\)/',
+            function($matches) {
+                $n = trim($matches[1]);
+                return "({$n} * ({$n} + 1) / 2)";
+            },
+            $expression
+        );
+
+        // roundUpToNearest(value, multiple)
+        $expression = preg_replace_callback(
+            '/roundUpToNearest\(([^,]+),([^)]+)\)/',
+            function($matches) {
+                $value = trim($matches[1]);
+                $multiple = trim($matches[2]);
+                return "(ceil({$value} / {$multiple}) * {$multiple})";
+            },
+            $expression
+        );
+
+        // roundToNearest(value, multiple)
+        $expression = preg_replace_callback(
+            '/roundToNearest\(([^,]+),([^)]+)\)/',
+            function($matches) {
+                $value = trim($matches[1]);
+                $multiple = trim($matches[2]);
+                return "(round({$value} / {$multiple}) * {$multiple})";
+            },
+            $expression
+        );
+
+        // roundDownToNearest(value, multiple)
+        $expression = preg_replace_callback(
+            '/roundDownToNearest\(([^,]+),([^)]+)\)/',
+            function($matches) {
+                $value = trim($matches[1]);
+                $multiple = trim($matches[2]);
+                return "(floor({$value} / {$multiple}) * {$multiple})";
+            },
+            $expression
+        );
+
+        // random() -> mt_rand() / mt_getrandmax()
+        $expression = str_replace('random()', '(mt_rand() / mt_getrandmax())', $expression);
+
         return $expression;
+    }
+
+    /**
+     * Helper function for average calculation
+     * Used by formula evaluation system
+     */
+    private function td_average() {
+        $args = func_get_args();
+        if (empty($args)) {
+            return 0;
+        }
+        // Handle list as first argument
+        if (is_array($args[0])) {
+            $args = $args[0];
+        }
+        $sum = array_sum($args);
+        $count = count($args);
+        return $count > 0 ? $sum / $count : 0;
+    }
+
+    /**
+     * Helper function for product calculation
+     * Used by formula evaluation system
+     */
+    private function td_product() {
+        $args = func_get_args();
+        if (empty($args)) {
+            return 0;
+        }
+        // Handle list as first argument
+        if (is_array($args[0])) {
+            $args = $args[0];
+        }
+        $product = 1;
+        foreach ($args as $value) {
+            $product *= $value;
+        }
+        return $product;
+    }
+
+    /**
+     * Helper function for switch statement
+     * Used by formula evaluation system
+     */
+    private function td_switch() {
+        $args = func_get_args();
+        if (count($args) < 3) {
+            return 0;
+        }
+
+        $condition_value = $args[0];
+        $default_value = (count($args) % 2 === 0) ? $args[count($args) - 1] : 0;
+
+        // Process comparison pairs
+        for ($i = 1; $i < count($args) - 1; $i += 2) {
+            if ($args[$i] == $condition_value) {
+                return $args[$i + 1];
+            }
+        }
+
+        return $default_value;
+    }
+
+    /**
+     * Helper function for linear switch statement
+     * Used by formula evaluation system
+     */
+    private function td_lswitch() {
+        $args = func_get_args();
+        if (count($args) < 2) {
+            return 0;
+        }
+
+        $index = intval($args[0]);
+        $values = array_slice($args, 1);
+
+        // Index is 1-based in TD
+        if ($index >= 1 && $index <= count($values)) {
+            return $values[$index - 1];
+        }
+
+        // Return last value as default
+        return $values[count($values) - 1];
+    }
+
+    /**
+     * Helper function for oneof statement
+     * Used by formula evaluation system
+     */
+    private function td_oneof() {
+        $args = func_get_args();
+        if (count($args) < 2) {
+            return false;
+        }
+
+        $search_value = $args[0];
+        $search_list = array_slice($args, 1);
+
+        return in_array($search_value, $search_list) ? 1 : 0;
     }
 
     /**
@@ -527,6 +1455,11 @@ class Poker_Tournament_Formula_Validator {
      * Get saved formula
      */
     public function get_formula($name) {
+        // Check default formulas first (built-in formulas)
+        if (isset($this->default_formulas[$name])) {
+            return $this->default_formulas[$name];
+        }
+        // Then check saved custom formulas
         $formulas = get_option('poker_tournament_formulas', array());
         return $formulas[$name] ?? null;
     }
@@ -566,10 +1499,13 @@ class Poker_Tournament_Formula_Validator {
         include_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/formula-manager-page.php';
         $formula_manager_page = new Poker_Formula_Manager_Page();
 
+        // Add spade SVG icon as data URI
+        $spade_icon = 'data:image/svg+xml;base64,' . base64_encode('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="black"><path d="M12 2L8.5 9.5C7 11 5 13 5 15.5C5 18.5 7.5 21 10.5 21C11.5 21 12.5 20.5 13 19.5H11.5C11.5 20 11 20.5 10.5 20.5C8 20.5 5.5 18 5.5 15.5C5.5 13.5 7 11.5 8.5 10L12 2ZM12 2L15.5 9.5C17 11 19 13 19 15.5C19 18.5 16.5 21 13.5 21C12.5 21 11.5 20.5 11 19.5H12.5C12.5 20 13 20.5 13.5 20.5C16 20.5 18.5 18 18.5 15.5C18.5 13.5 17 11.5 15.5 10L12 2Z"/><path d="M11 19H13V22H11V19Z"/></svg>');
+
         add_submenu_page(
-            'edit.php?post_type=tournament',
+            'options-general.php',
             __('Formula Manager', 'poker-tournament-import'),
-            __('Formulas', 'poker-tournament-import'),
+            '<span class="dashicons" style="background-image: url(\'' . $spade_icon . '\'); background-size: 18px; background-repeat: no-repeat; background-position: center; width: 18px; height: 18px; display: inline-block; vertical-align: middle; margin-right: 5px;"></span>' . __('Formulas', 'poker-tournament-import'),
             'manage_options',
             'poker-formula-manager',
             array($formula_manager_page, 'render_page')

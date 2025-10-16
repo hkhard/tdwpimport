@@ -13,6 +13,11 @@ if (!defined('ABSPATH')) {
 class Poker_Migration_Admin_Page {
 
     /**
+     * PHP 8.2+ compatibility - declare dynamic properties
+     */
+    private $migration_tools;
+
+    /**
      * Constructor
      */
     public function __construct() {

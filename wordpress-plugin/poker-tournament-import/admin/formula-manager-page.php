@@ -281,7 +281,6 @@ assign(&quot;avgBC&quot;, monies/buyins)"></textarea>
                     $('#formula-expression').val('');
                 } else {
                     $('#modal-title').text('<?php _e('Edit Formula', 'poker-tournament-import'); ?>');
-                    $('#formula-display-name').val('').prop('readonly', true);
 
                     // Load formula data via AJAX
                     $.post(ajaxurl, {
@@ -290,10 +289,19 @@ assign(&quot;avgBC&quot;, monies/buyins)"></textarea>
                         nonce: '<?php echo wp_create_nonce("poker_formula_manager"); ?>'
                     }, function(response) {
                         if (response.success) {
-                            $('#formula-display-name').val(response.data.name);
+                            var isDefault = response.data.is_default || false;
+
+                            // Display name is readonly only for default formulas
+                            $('#formula-display-name').val(response.data.name).prop('readonly', isDefault);
                             $('#formula-description').val(response.data.description);
                             $('#formula-category').val(response.data.category);
-                            $('#formula-dependencies').val(response.data.dependencies);
+
+                            // Convert dependencies array to newline-separated string if needed
+                            var deps = response.data.dependencies;
+                            if (Array.isArray(deps)) {
+                                deps = deps.join('\n');
+                            }
+                            $('#formula-dependencies').val(deps);
                             $('#formula-expression').val(response.data.formula);
                         }
                     });

@@ -149,13 +149,23 @@ function extract_basic_metadata($tournament_data) {
     }
 
     if (preg_match('/StartTime:\s*(\d+)/', $tournament_data, $matches)) {
-        $metadata['start_time'] = date('Y-m-d H:i:s', $matches[1] / 1000);
+        $metadata['start_time'] = date('Y-m-d H:i:s', intval($matches[1] / 1000));
     }
 
     return $metadata;
 }
 
-get_header(); ?>
+?>
+<!DOCTYPE html>
+<html <?php language_attributes(); ?>>
+<head>
+    <meta charset="<?php bloginfo('charset'); ?>">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title><?php wp_title('|', true, 'right'); ?> <?php bloginfo('name'); ?></title>
+    <?php wp_head(); ?>
+</head>
+<body <?php body_class(); ?>>
+<?php wp_body_open(); ?>
 
 <div class="poker-tournament-wrapper">
     <main id="primary" class="site-main">
@@ -252,7 +262,7 @@ get_header(); ?>
                 <section class="tournament-winner-section">
                     <?php
                     // Try to get real-time winner information
-                    $winner_info = $this->get_tournament_winner_info(get_the_ID());
+                    $winner_info = get_tournament_winner_info(get_the_ID());
                     if ($winner_info):
                     ?>
                         <div class="winner-highlight <?php echo esc_attr($winner_info['processing_type']); ?>">
@@ -642,8 +652,7 @@ get_header(); ?>
                                  LEFT JOIN {$wpdb->postmeta} pm ON pm.meta_value = tp.player_id AND pm.meta_key = 'player_uuid'
                                  LEFT JOIN {$wpdb->posts} p ON pm.post_id = p.ID
                                  WHERE tp.tournament_id = %s
-                                 ORDER BY tp.finish_position ASC
-                                 LIMIT 8",
+                                 ORDER BY tp.finish_position ASC",
                                 $tournament_uuid
                             ));
 
@@ -709,5 +718,6 @@ get_header(); ?>
     </main>
 </div>
 
-<?php
-get_footer();
+<?php wp_footer(); ?>
+</body>
+</html>

@@ -3,7 +3,7 @@
  * Plugin Name: Poker Tournament Import
  * Plugin URI: https://nikielhard.se/tdwpimport
  * Description: Import and display poker tournament results from Tournament Director (.tdt) files
- * Version: 2.3.26
+ * Version: 2.4.17
  * Author: Hans Kästel Hård
  * Author URI: https://nikielhard.se/tdwpimport
  * License: GPL v2 or later
@@ -20,7 +20,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('POKER_TOURNAMENT_IMPORT_VERSION', '2.3.26');
+define('POKER_TOURNAMENT_IMPORT_VERSION', '2.4.17');
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -238,6 +238,11 @@ class Poker_Tournament_Import {
      * Include required files
      */
     private function includes() {
+        // v2.4.9: AST-based TDT Parser (replaces regex-based extraction)
+        require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/class-tdt-lexer.php';
+        require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/class-tdt-ast-parser.php';
+        require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/class-tdt-domain-mapper.php';
+
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/class-parser.php';
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/class-post-types.php';
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/class-shortcodes.php';
@@ -771,9 +776,11 @@ class Poker_Tournament_Import {
         $formula = $validator->get_formula($name);
 
         if ($formula) {
-            wp_send_json_success(array(
-                'data' => $formula
-            ));
+            // Check if this is a default formula
+            $default_formulas = $validator->get_default_formulas();
+            $formula['is_default'] = isset($default_formulas[$name]);
+
+            wp_send_json_success($formula);
         } else {
             wp_send_json_error(array(
                 'message' => __('Formula not found.', 'poker-tournament-import')

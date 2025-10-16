@@ -29,12 +29,18 @@ class Poker_Tournament_Parser {
     private $tournament_data;
 
     /**
+     * Formula override (user-selected during import)
+     */
+    private $formula_override = null;
+
+    /**
      * Constructor
      */
-    public function __construct($file_path = null) {
+    public function __construct($file_path = null, $formula_override = null) {
         if ($file_path) {
             $this->file_path = $file_path;
         }
+        $this->formula_override = $formula_override;
     }
 
     /**
@@ -79,28 +85,59 @@ class Poker_Tournament_Parser {
     }
 
     /**
-     * Extract tournament data from raw content
+     * Extract tournament data from raw content using AST-based parser
+     *
+     * v2.4.9: Replaced regex-based extraction with proper lexer/parser/AST approach
+     * to correctly handle deeply nested structures (4+ levels of nesting)
+     *
+     * @param string $content Raw .tdt file content
+     * @return array Tournament data structure
+     * @throws Exception If parsing fails
      */
     private function extract_tournament_data($content) {
-        $data = array();
+        Poker_Tournament_Import_Debug::log_success("=== v2.4.9: Using AST-based TDT Parser (not regex) ===");
 
-        // Extract tournament metadata
-        $data['metadata'] = $this->extract_metadata($content);
+        try {
+            // Parse .tdt file into Abstract Syntax Tree
+            $parser = new TDT_Parser($content);
+            $ast = $parser->parseDocument();
 
-        // Extract players data
-        $data['players'] = $this->extract_players($content);
+            Poker_Tournament_Import_Debug::log_success("Successfully parsed .tdt file into AST");
 
-        // Extract financial data
-        $data['financial'] = $this->extract_financial_data($content);
+            // Convert AST to our domain data structure
+            $mapper = new Poker_Tournament_Domain_Mapper();
+            $data = $mapper->map_tournament_data($ast);
 
-        // Extract tournament structure
-        $data['structure'] = $this->extract_structure($content);
+            Poker_Tournament_Import_Debug::log_success("Successfully mapped AST to tournament data");
+            Poker_Tournament_Import_Debug::log("Extracted " . count($data['players']) . " players, " . count($data['game_history']) . " history items");
 
-        // Extract prize distribution
-        $data['prizes'] = $this->extract_prize_distribution($content);
+        } catch (Exception $e) {
+            // Log the parsing error
+            Poker_Tournament_Import_Debug::log_error("AST Parser failed: " . $e->getMessage());
+            throw new Exception("Failed to parse .tdt file: " . $e->getMessage());
+        }
 
-        // Extract game history (critical for winner determination)
-        $data['game_history'] = $this->extract_game_history($content);
+        // POST-PROCESSING: Calculate per-player total_invested using financial data
+        // The domain mapper extracts raw buyin data, but we need to calculate dollar amounts
+        foreach ($data['players'] as $uuid => $player) {
+            $total_invested = 0;
+
+            if (!empty($player['buyins']) && is_array($player['buyins'])) {
+                foreach ($player['buyins'] as $buyin) {
+                    // Look up dollar amount from ProfileName
+                    $profile_name = $buyin['profile'] ?? 'Standard';
+                    if (isset($data['financial']['fee_profiles'][$profile_name])) {
+                        $dollar_amount = $data['financial']['fee_profiles'][$profile_name]['fee'];
+                    } else {
+                        $dollar_amount = $data['financial']['buy_in'] ?? 0;
+                    }
+                    $total_invested += $dollar_amount;
+                }
+            }
+
+            $data['players'][$uuid]['total_invested'] = $total_invested;
+        }
+
         Poker_Tournament_Import_Debug::log_game_history("Extraction Complete", "Found " . count($data['game_history']) . " GameHistory items");
 
         // CRITICAL FIX: Enhance players with elimination data from GameHistory
@@ -159,16 +196,79 @@ class Poker_Tournament_Parser {
 
         // Extract Start Time (convert from milliseconds)
         if (preg_match('/StartTime:\s*(\d+)/', $content, $matches)) {
-            $metadata['start_time'] = date('Y-m-d H:i:s', $matches[1] / 1000);
+            $metadata['start_time'] = date('Y-m-d H:i:s', intval($matches[1] / 1000));
         }
+
+        // Extract PointsForPlaying formula from .tdt file
+        $metadata['points_formula'] = $this->extract_points_formula($content);
 
         return $metadata;
     }
 
     /**
-     * Extract players data
+     * Extract PointsForPlaying formula from .tdt file
+     *
+     * Extracts the custom formula defined in the Tournament Director file
+     * Pattern: PointsForPlaying: new UserFormula({Formula: "...", Dependencies: [...], Description: "..."})
+     *
+     * @param string $content Raw .tdt file content
+     * @return array|null Formula data with 'formula', 'dependencies', 'description' or null if not found
      */
-    private function extract_players($content) {
+    private function extract_points_formula($content) {
+        // Pattern to match: PointsForPlaying: new UserFormula({...})
+        // This uses a complex regex to handle nested braces in the formula
+        $pattern = '/PointsForPlaying:\s*new\s+UserFormula\s*\(\s*\{([^}]+(?:\{[^}]*\}[^}]*)*)\}\s*\)/';
+
+        if (preg_match($pattern, $content, $matches)) {
+            $formula_block = $matches[1];
+            $formula_data = array();
+
+            // Extract Formula field
+            if (preg_match('/Formula:\s*"([^"]+)"/', $formula_block, $formula_match)) {
+                $formula_data['formula'] = $formula_match[1];
+            }
+
+            // Extract Dependencies array
+            // Pattern: Dependencies: [dependency1, dependency2, ...]
+            if (preg_match('/Dependencies:\s*\[(.*?)\]/', $formula_block, $deps_match)) {
+                $dependencies_string = $deps_match[1];
+                $dependencies = array();
+
+                // Extract individual dependency strings
+                if (preg_match_all('/"([^"]+)"/', $dependencies_string, $dep_matches)) {
+                    $dependencies = $dep_matches[1];
+                }
+
+                $formula_data['dependencies'] = $dependencies;
+            }
+
+            // Extract Description field
+            if (preg_match('/Description:\s*"([^"]+)"/', $formula_block, $desc_match)) {
+                $formula_data['description'] = $desc_match[1];
+            }
+
+            // Only return if we found at least a formula
+            if (isset($formula_data['formula']) && !empty($formula_data['formula'])) {
+                Poker_Tournament_Import_Debug::log_success("Extracted PointsForPlaying formula from .tdt file");
+                Poker_Tournament_Import_Debug::log("Formula: " . $formula_data['formula']);
+                if (!empty($formula_data['dependencies'])) {
+                    Poker_Tournament_Import_Debug::log("Dependencies: " . count($formula_data['dependencies']) . " found");
+                }
+                return $formula_data;
+            }
+        }
+
+        Poker_Tournament_Import_Debug::log("No PointsForPlaying formula found in .tdt file - will use default formula");
+        return null;
+    }
+
+    /**
+     * Extract players data
+     *
+     * @param string $content Raw .tdt file content
+     * @param array $financial Financial data with fee profiles for dollar amount lookup
+     */
+    private function extract_players($content, $financial) {
         $players = array();
 
         // Find all player blocks
@@ -187,8 +287,24 @@ class Poker_Tournament_Parser {
                 $player['nickname'] = $matches[1];
             }
 
-            // Extract Buyins
+            // CRITICAL FIX v2.4.8: Extract buyins from WITHIN the GamePlayer object
+            // Buyins are stored as Buyins: [...] INSIDE each player's data, not at tournament level
             $player['buyins'] = $this->extract_buyins($player_data);
+            $player['buyins_count'] = count($player['buyins']);
+
+            // Calculate total investment for ROI analytics
+            $total_invested = 0;
+            foreach ($player['buyins'] as $buyin) {
+                // Look up dollar amount from ProfileName
+                $profile_name = $buyin['profile'] ?? 'Standard';
+                if (isset($financial['fee_profiles'][$profile_name])) {
+                    $dollar_amount = $financial['fee_profiles'][$profile_name]['fee'];
+                } else {
+                    $dollar_amount = $financial['buy_in'] ?? 0;
+                }
+                $total_invested += $dollar_amount;
+            }
+            $player['total_invested'] = $total_invested;
 
             // Calculate finish position and winnings from bust-out data
             $player['finish_position'] = $this->calculate_finish_position($player_data);
@@ -210,7 +326,13 @@ class Poker_Tournament_Parser {
     }
 
     /**
-     * Extract player buyins with bust-out information
+     * Extract player buyins with bust-out information from GamePlayer data
+     *
+     * Buyins are stored WITHIN each GamePlayer object as: Buyins: [new GameBuyin({...}), ...]
+     * This method correctly handles re-entries (multiple buyins per player)
+     *
+     * @param string $player_data Raw GamePlayer object content
+     * @return array Array of buyins with amounts, chips, profile names, and bust-out data
      */
     private function extract_buyins($player_data) {
         $buyins = array();
@@ -295,20 +417,30 @@ class Poker_Tournament_Parser {
     private function extract_financial_data($content) {
         $financial = array();
 
-        // Extract buy-in amounts
+        // Extract buy-in amounts from FeeProfiles
         preg_match_all('/new FeeProfile\(\{[^}]*Name:\s*"([^"]+)"[^}]*Fee:\s*(\d+)/', $content, $matches);
 
         if (!empty($matches[1]) && !empty($matches[2])) {
             foreach ($matches[1] as $i => $name) {
+                $fee_amount = intval($matches[2][$i]);
                 $financial['fee_profiles'][$name] = array(
                     'name' => $name,
-                    'fee' => intval($matches[2][$i])
+                    'fee' => $fee_amount
                 );
+
+                // CRITICAL FIX: Extract default buy-in amount from first FeeProfile
+                // FeeProfile.Fee contains the dollar amount (e.g., $200), not chip count
+                // This is the actual tournament buy-in that should be used for points calculation
+                if (!isset($financial['buy_in']) || $name === 'Standard') {
+                    $financial['buy_in'] = $fee_amount;
+                    Poker_Tournament_Import_Debug::log("Extracted buy-in amount from FeeProfile '{$name}': \${$fee_amount}");
+                }
             }
         }
 
         return $financial;
     }
+
 
     /**
      * Extract tournament structure (blinds, levels, etc.)
@@ -613,7 +745,7 @@ class Poker_Tournament_Parser {
             return $this->fallback_to_bustout_processing($players);
         }
 
-        Poker_Tournament_Import_Debug::log_success("Found tournament end at: " . date('Y-m-d H:i:s', $tournament_end_time/1000));
+        Poker_Tournament_Import_Debug::log_success("Found tournament end at: " . date('Y-m-d H:i:s', intval($tournament_end_time/1000)));
 
         // Initialize tournament state
         $tournament_state = array(
@@ -739,6 +871,13 @@ class Poker_Tournament_Parser {
             $uuid = $elimination['uuid'];
             $elimination_position = $elimination['position'];
 
+            // CRITICAL FIX: Skip if this player is the tournament winner
+            // The winner's position was already correctly set to 1 above
+            if ($uuid === $tournament_state['winner']) {
+                Poker_Tournament_Import_Debug::log("Skipping position assignment for winner: {$ranked_players[$uuid]['nickname']}");
+                continue;
+            }
+
             // Calculate finish position: eliminated first gets last place, last eliminated gets 2nd place
             $finish_position = $total_players - $elimination_position + 1;
 
@@ -863,49 +1002,132 @@ class Poker_Tournament_Parser {
 
     /**
      * Calculate Tournament Director points for all players using formula system
+     * Now supports per-tournament formulas extracted from .tdt files
      */
     private function calculate_tournament_points($players, $financial) {
         $total_players = count($players);
 
-        // Calculate total money in tournament
+        // CRITICAL FIX: Calculate total money using actual buy-in amounts, not chip counts
+        // GameBuyin.Amount contains starting chip count (e.g., 5000 chips), NOT dollar amount
+        // We need to use FeeProfile.Fee which contains the actual buy-in dollar amount (e.g., $200)
+
+        $buy_in_amount = $financial['buy_in'] ?? 0;
         $total_money = 0;
         $total_buyins = 0;
         $total_rebuys = 0;
         $total_addons = 0;
 
+        // CRITICAL FIX v2.4.8: Calculate total money using ACTUAL dollar amounts from each buyin
+        // Each buyin may have different ProfileName (e.g., "Standard", "Double") with different fees
+        // We must look up the dollar amount for each buyin individually, not use a flat buy_in_amount
+        Poker_Tournament_Import_Debug::log("=== v2.4.8 BUYIN CALCULATION DEBUG ===");
+
         foreach ($players as $player) {
-            $player_total = 0;
-            foreach ($player['buyins'] as $buyin) {
-                $player_total += $buyin['amount'];
+            $buyin_count = isset($player['buyins']) ? count($player['buyins']) : 0;
+            $buyins_exist = isset($player['buyins']);
+            $buyins_is_array = is_array($player['buyins'] ?? null);
+
+            Poker_Tournament_Import_Debug::log("Player {$player['nickname']}: buyins_exist=" . ($buyins_exist ? 'YES' : 'NO') . ", is_array=" . ($buyins_is_array ? 'YES' : 'NO') . ", count={$buyin_count}");
+
+            if (!empty($player['buyins']) && is_array($player['buyins'])) {
+                $player_buyin_count = count($player['buyins']);
+                $total_buyins += $player_buyin_count;
+
+                // Calculate total money by summing ACTUAL dollar amounts from each buyin
+                foreach ($player['buyins'] as $buyin) {
+                    $profile_name = $buyin['profile'] ?? 'Standard';
+                    if (isset($financial['fee_profiles'][$profile_name])) {
+                        $dollar_amount = $financial['fee_profiles'][$profile_name]['fee'];
+                    } else {
+                        $dollar_amount = $buy_in_amount; // Fallback to default
+                    }
+                    $total_money += $dollar_amount;
+                }
+
+                Poker_Tournament_Import_Debug::log("  → {$player['nickname']}: {$player_buyin_count} buyins, total invested: \${$player['total_invested']}");
+            } else {
+                Poker_Tournament_Import_Debug::log("  → Player {$player['nickname']} skipped - empty or non-array buyins");
             }
-            $total_money += $player_total;
-            $total_buyins += count($player['buyins']);
         }
+
+        Poker_Tournament_Import_Debug::log("Financial Calculation Summary:");
+        Poker_Tournament_Import_Debug::log("  Default buy-in amount: \${$buy_in_amount}");
+        Poker_Tournament_Import_Debug::log("  Total buyins (including re-entries): {$total_buyins}");
+        Poker_Tournament_Import_Debug::log("  Total money (sum of all buyin dollar amounts): \${$total_money}");
+        Poker_Tournament_Import_Debug::log("=================================");
 
         // Initialize formula validator
         $formula_validator = new Poker_Tournament_Formula_Validator();
 
-        // Get active tournament points formula
-        $active_formula = get_option('poker_active_tournament_formula', 'tournament_points');
-        $formula_data = $formula_validator->get_formula($active_formula);
+        // FORMULA PRIORITY HIERARCHY:
+        // 0. User override from import form (NEW - HIGHEST PRIORITY)
+        // 1. Per-tournament formula from .tdt file
+        // 2. Active global formula from settings
+        // 3. Default tournament_points formula
+        // 4. Hardcoded fallback formula
 
-        // Fallback to default if formula not found
-        if (!$formula_data) {
-            $formula_data = $formula_validator->get_formula('tournament_points');
+        $formula_data = null;
+        $formula_source = null;
+
+        // Priority 0: User override from import (NEW)
+        if ($this->formula_override) {
+            $formula_data = $formula_validator->get_formula($this->formula_override);
+            if ($formula_data) {
+                $formula_source = 'user_override_' . $this->formula_override;
+                Poker_Tournament_Import_Debug::log_success("Using USER-SELECTED override formula: {$this->formula_override}");
+            } else {
+                Poker_Tournament_Import_Debug::log_warning("User selected formula '{$this->formula_override}' not found, falling back");
+            }
         }
 
+        // Priority 1: Check for per-tournament formula from .tdt file
+        if (!$formula_data && isset($this->tournament_data['metadata']['points_formula']) &&
+            !empty($this->tournament_data['metadata']['points_formula'])) {
+            $formula_data = $this->tournament_data['metadata']['points_formula'];
+            $formula_source = 'tdt_file';
+            Poker_Tournament_Import_Debug::log_success("Using PointsForPlaying formula from .tdt file");
+        }
+
+        // Priority 2: Get active tournament points formula from settings
         if (!$formula_data) {
-            // Hardcoded fallback formula if all else fails
+            $active_formula = get_option('poker_active_tournament_formula', 'tournament_points');
+            $formula_data = $formula_validator->get_formula($active_formula);
+            if ($formula_data) {
+                $formula_source = 'settings_' . $active_formula;
+                Poker_Tournament_Import_Debug::log("Using active formula from settings: {$active_formula}");
+            }
+        }
+
+        // Priority 3: Fallback to default if formula not found
+        if (!$formula_data) {
+            $formula_data = $formula_validator->get_formula('tournament_points');
+            if ($formula_data) {
+                $formula_source = 'default_tournament_points';
+                Poker_Tournament_Import_Debug::log("Using default tournament_points formula");
+            }
+        }
+
+        // Priority 4: Hardcoded fallback formula if all else fails (PokerStars specification)
+        if (!$formula_data) {
             $formula_data = array(
-                'formula' => 'assign("points", round(10 * (sqrt(n) / sqrt(r)) * (1 + log(avgBC + 0.25))) + (numberofHits * 10))',
+                'formula' => 'assign("points", if((T80 > r) and (T33 < r), round(baseFromT33 * decay) + hits, if(T33 >= r, baseAtRank + hits, 1 + hits)))',
                 'dependencies' => array(
-                    'assign("T33", round(n/3))',
-                    'assign("T80", floor(n*0.9))',
+                    'assign("nSafe", max(n, 1))',
+                    'assign("buyinsSafe", max(buyins, 1))',
+                    'assign("T33", round(nSafe / 3))',
+                    'assign("T80", floor(nSafe * 0.9))',
                     'assign("monies", totalBuyInsAmount + totalRebuysAmount + totalAddOnsAmount)',
-                    'assign("avgBC", monies/buyins)',
-                    'assign("numberofHits", hits)'
+                    'assign("avgBC", monies / buyinsSafe)',
+                    'assign("scale", 10 * sqrt(nSafe))',
+                    'assign("logTerm", 1 + log(avgBC + 0.25))',
+                    'assign("hits", numberofHits * 10)',
+                    'assign("baseAtRank", round((scale / sqrt(r)) * logTerm))',
+                    'assign("baseFromT33", round((scale / sqrt(T33 + 1)) * logTerm))',
+                    'assign("decay", pow(0.66, (r - T33)))'
                 )
             );
+            $formula_source = 'hardcoded_fallback';
+            Poker_Tournament_Import_Debug::log_warning("Using hardcoded fallback PokerStars formula");
         }
 
         // Calculate points for each player
@@ -922,7 +1144,7 @@ class Poker_Tournament_Parser {
                 'total_buyins_amount' => $total_money,
                 'total_rebuys_amount' => $total_rebuys * ($financial['rebuy_amount'] ?? 0),
                 'total_addons_amount' => $total_addons * ($financial['addon_amount'] ?? 0),
-                'buyin_amount' => $financial['buyin_amount'] ?? ($total_buyins > 0 ? $total_money / $total_buyins : 0),
+                'buyin_amount' => $buy_in_amount,  // CRITICAL FIX: Use extracted buy-in amount from FeeProfile
                 'fee_amount' => $financial['fee_amount'] ?? 0,
                 'prize_pool' => $total_money,
                 'winnings' => $player['winnings'] ?? 0
@@ -941,19 +1163,34 @@ class Poker_Tournament_Parser {
             if ($result['success']) {
                 $players[$uuid]['points'] = $result['result'];
                 $players[$uuid]['points_calculation'] = array(
-                    'formula_used' => $active_formula,
+                    'formula_used' => $formula_source,
+                    'formula_description' => $formula_data['description'] ?? 'Tournament points calculation',
                     'variables' => $result['variables'],
                     'final_points' => $result['result'],
                     'warnings' => $result['warnings'] ?? array()
                 );
             } else {
+                // FIX #4: Enhanced debug logging for formula failures
                 // Fallback to basic calculation if formula fails
                 $players[$uuid]['points'] = max(1, $total_players - $player['finish_position'] + 1);
                 $players[$uuid]['points_calculation'] = array(
-                    'formula_used' => 'fallback',
+                    'formula_used' => 'error_fallback',
+                    'formula_source' => $formula_source,
                     'error' => $result['error'],
                     'final_points' => $players[$uuid]['points']
                 );
+
+                // FIX #4: Comprehensive error logging for formula debugging
+                Poker_Tournament_Import_Debug::log_warning("=== FORMULA CALCULATION FAILURE ===");
+                Poker_Tournament_Import_Debug::log_warning("Player: {$player['nickname']} (Position: {$player['finish_position']})");
+                Poker_Tournament_Import_Debug::log_warning("Formula Source: {$formula_source}");
+                Poker_Tournament_Import_Debug::log_warning("Error: {$result['error']}");
+                Poker_Tournament_Import_Debug::log_warning("Complete Formula Attempted:");
+                Poker_Tournament_Import_Debug::log_warning($complete_formula);
+                Poker_Tournament_Import_Debug::log_warning("Tournament Data Provided:");
+                Poker_Tournament_Import_Debug::log_warning(print_r($tournament_data, true));
+                Poker_Tournament_Import_Debug::log_warning("Fallback Points: {$players[$uuid]['points']} (using n-r+1 formula)");
+                Poker_Tournament_Import_Debug::log_warning("===================================");
             }
         }
 

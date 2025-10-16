@@ -165,7 +165,7 @@ class Poker_Tournament_Import_Shortcodes {
 
         // Calculate additional statistics
         $total_winnings = $this->calculate_total_winnings($tournament_uuid);
-        $average_winnings = $players_count > 0 ? $total_winnings / min($players_count, count($this->get_paid_positions($tournament_uuid))) : 0;
+        $average_winnings = $players_count > 0 ? $total_winnings / min($players_count, $this->get_paid_positions($tournament_uuid)) : 0;
 
         echo '<div class="tournament-results">';
         echo '<header class="tournament-header">';
@@ -4139,7 +4139,7 @@ class Poker_Tournament_Import_Shortcodes {
         }
 
         if (preg_match('/StartTime:\s*(\d+)/', $tournament_data, $matches)) {
-            $metadata['start_time'] = date('Y-m-d H:i:s', $matches[1] / 1000);
+            $metadata['start_time'] = date('Y-m-d H:i:s', intval($matches[1] / 1000));
         }
 
         return $metadata;
@@ -4172,15 +4172,7 @@ class Poker_Tournament_Import_Shortcodes {
         $bubble_position = $paid_positions + 1;
 
         echo '<div class="tournament-players realtime-chronological">';
-        echo '<h3>' . __('Tournament Results (Chronological Processing)', 'poker-tournament-import') . '</h3>';
-
-        // Add processing notice
-        echo '<div class="processing-notice" style="background: #e7f3ff; border: 1px solid #2271b1; border-radius: 4px; padding: 10px; margin-bottom: 20px;">';
-        echo '<p><strong>🎯 Using Enhanced Chronological Processing</strong> - Results calculated from GameHistory events for maximum accuracy.</p>';
-        if (isset($metadata['title'])) {
-            echo '<p><small>Tournament: ' . esc_html($metadata['title']) . '</small></p>';
-        }
-        echo '</div>';
+        echo '<h3>' . __('Tournament Results', 'poker-tournament-import') . '</h3>';
 
         // Add tournament summary
         echo '<div class="tournament-summary-grid">';
@@ -4320,9 +4312,9 @@ if (!function_exists('get_ordinal_suffix')) {
         $number = intval($number);
         $ends = array('th','st','nd','rd','th','th','th','th','th','th');
         if (($number % 100) >= 11 && ($number % 100) <= 13) {
-            return $number . 'th';
+            return 'th';
         } else {
-            return $number . $ends[$number % 10];
+            return $ends[$number % 10];
         }
     }
 }

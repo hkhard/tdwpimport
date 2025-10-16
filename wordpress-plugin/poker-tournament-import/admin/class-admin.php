@@ -34,6 +34,10 @@ class Poker_Tournament_Import_Admin {
         add_action('wp_ajax_poker_load_series_data', array($this, 'ajax_load_series_data'));
         add_action('wp_ajax_poker_load_analytics_data', array($this, 'ajax_load_analytics_data'));
         add_action('wp_ajax_poker_get_leaderboard_data', array($this, 'ajax_get_leaderboard_data'));
+
+        // Add formula editor meta box for tournaments
+        add_action('add_meta_boxes', array($this, 'add_formula_meta_box'));
+        add_action('save_post_tournament', array($this, 'save_formula_meta_box'), 10, 2);
     }
 
     /**
@@ -210,166 +214,241 @@ class Poker_Tournament_Import_Admin {
                 );
             }
         }
+
+        // Enqueue formula editor assets on tournament edit screen
+        global $post_type;
+        if (($hook === 'post.php' || $hook === 'post-new.php') && $post_type === 'tournament') {
+            // Enqueue formula editor CSS
+            wp_enqueue_style(
+                'poker-formula-editor',
+                POKER_TOURNAMENT_IMPORT_PLUGIN_URL . 'assets/css/formula-editor.css',
+                array(),
+                POKER_TOURNAMENT_IMPORT_VERSION
+            );
+
+            // Enqueue formula editor JS
+            wp_enqueue_script(
+                'poker-formula-editor',
+                POKER_TOURNAMENT_IMPORT_PLUGIN_URL . 'assets/js/formula-editor.js',
+                array('jquery'),
+                POKER_TOURNAMENT_IMPORT_VERSION,
+                true
+            );
+
+            // Localize formula editor script
+            wp_localize_script(
+                'poker-formula-editor',
+                'pokerFormulaEditor',
+                array(
+                    'nonce' => wp_create_nonce('poker_formula_editor'),
+                    'ajaxUrl' => admin_url('admin-ajax.php')
+                )
+            );
+        }
     }
 
     /**
      * Render main dashboard with tabbed interface
      */
     public function render_dashboard() {
-        // Get initial statistics
-        $stats_engine = Poker_Statistics_Engine::get_instance();
-        $dashboard_stats = $stats_engine->get_dashboard_statistics();
+        // Get real database counts
+        global $wpdb;
+
+        $tournament_count = wp_count_posts('tournament');
+        $total_tournaments = $tournament_count->publish + $tournament_count->draft + $tournament_count->private;
+
+        $player_count = wp_count_posts('player');
+        $total_players = $player_count->publish + $player_count->draft + $player_count->private;
+
+        $series_count = wp_count_posts('tournament_series');
+        $total_series = $series_count->publish + $series_count->draft + $series_count->private;
+
+        // Get formula count
+        $validator = new Poker_Tournament_Formula_Validator();
+        $formulas = $validator->get_all_formulas();
+        $total_formulas = count($formulas);
+
+        // Get data mart health
+        $table_name = $wpdb->prefix . 'poker_statistics';
+        $datamart_exists = ($wpdb->get_var("SHOW TABLES LIKE '{$table_name}'") === $table_name);
+        $datamart_row_count = 0;
+        $datamart_last_refresh = get_option('poker_statistics_last_refresh', null);
+
+        if ($datamart_exists) {
+            $datamart_row_count = $wpdb->get_var("SELECT COUNT(*) FROM {$table_name}");
+        }
+
+        // Get recent tournaments
+        $recent_tournaments = get_posts(array(
+            'post_type' => 'tournament',
+            'posts_per_page' => 5,
+            'orderby' => 'date',
+            'order' => 'DESC',
+            'post_status' => array('publish', 'draft', 'private')
+        ));
         ?>
-        <!-- DEBUG INFO: Plugin Version <?php echo POKER_TOURNAMENT_IMPORT_VERSION; ?> -->
-        <!-- DEBUG INFO: admin.js timestamp: <?php echo filemtime(POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'assets/js/admin.js'); ?> -->
-        <!-- DEBUG INFO: admin.js file path: <?php echo POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'assets/js/admin.js'; ?> -->
-        <!-- DEBUG INFO: User ID: <?php echo get_current_user_id(); ?> -->
-        <!-- DEBUG INFO: User Can Manage Options: <?php echo current_user_can('manage_options') ? 'YES' : 'NO'; ?> -->
-
         <div class="wrap">
-            <h1><?php echo esc_html(get_admin_page_title()); ?> <small style="color:#666;">(v<?php echo POKER_TOURNAMENT_IMPORT_VERSION; ?>-debug)</small></h1>
+            <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
 
-            <!-- Quick Stats Bar -->
-            <div class="poker-dashboard-stats-bar">
-                <div class="stat-item">
-                    <span class="stat-number"><?php echo intval($dashboard_stats['total_tournaments']); ?></span>
-                    <span class="stat-label"><?php _e('Tournaments', 'poker-tournament-import'); ?></span>
-                    <div class="stat-links">
-                        <a href="<?php echo admin_url('edit.php?post_type=tournament'); ?>" class="stat-link"><?php _e('View all', 'poker-tournament-import'); ?></a>
-                    </div>
+            <!-- Stats Cards Grid -->
+            <div class="poker-stats-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin: 20px 0;">
+                <div class="poker-stat-card" style="background: #fff; border: 1px solid #c3c4c7; border-radius: 4px; padding: 20px; box-shadow: 0 1px 1px rgba(0,0,0,.04);">
+                    <div class="dashicons dashicons-list-view" style="font-size: 48px; color: #2271b1; opacity: 0.3; float: right;"></div>
+                    <h3 style="margin: 0 0 10px 0; color: #50575e; font-size: 14px; font-weight: 400;"><?php _e('Tournaments', 'poker-tournament-import'); ?></h3>
+                    <div style="font-size: 32px; font-weight: 600; color: #1d2327; margin-bottom: 10px;"><?php echo number_format($total_tournaments); ?></div>
+                    <a href="<?php echo admin_url('edit.php?post_type=tournament'); ?>" class="button button-small"><?php _e('View All', 'poker-tournament-import'); ?></a>
                 </div>
-                <div class="stat-item">
-                    <span class="stat-number"><?php echo intval($dashboard_stats['total_players']); ?></span>
-                    <span class="stat-label"><?php _e('Players', 'poker-tournament-import'); ?></span>
-                    <div class="stat-links">
-                        <a href="<?php echo admin_url('edit.php?post_type=player'); ?>" class="stat-link"><?php _e('View all', 'poker-tournament-import'); ?></a>
-                    </div>
+
+                <div class="poker-stat-card" style="background: #fff; border: 1px solid #c3c4c7; border-radius: 4px; padding: 20px; box-shadow: 0 1px 1px rgba(0,0,0,.04);">
+                    <div class="dashicons dashicons-groups" style="font-size: 48px; color: #00a32a; opacity: 0.3; float: right;"></div>
+                    <h3 style="margin: 0 0 10px 0; color: #50575e; font-size: 14px; font-weight: 400;"><?php _e('Players', 'poker-tournament-import'); ?></h3>
+                    <div style="font-size: 32px; font-weight: 600; color: #1d2327; margin-bottom: 10px;"><?php echo number_format($total_players); ?></div>
+                    <a href="<?php echo admin_url('edit.php?post_type=player'); ?>" class="button button-small"><?php _e('View All', 'poker-tournament-import'); ?></a>
                 </div>
-                <div class="stat-item">
-                    <span class="stat-number"><?php echo intval($dashboard_stats['active_series']); ?></span>
-                    <span class="stat-label"><?php _e('Series', 'poker-tournament-import'); ?></span>
-                    <div class="stat-links">
-                        <a href="<?php echo admin_url('edit.php?post_type=tournament_series'); ?>" class="stat-link"><?php _e('All series', 'poker-tournament-import'); ?></a>
-                    </div>
+
+                <div class="poker-stat-card" style="background: #fff; border: 1px solid #c3c4c7; border-radius: 4px; padding: 20px; box-shadow: 0 1px 1px rgba(0,0,0,.04);">
+                    <div class="dashicons dashicons-category" style="font-size: 48px; color: #d63638; opacity: 0.3; float: right;"></div>
+                    <h3 style="margin: 0 0 10px 0; color: #50575e; font-size: 14px; font-weight: 400;"><?php _e('Series', 'poker-tournament-import'); ?></h3>
+                    <div style="font-size: 32px; font-weight: 600; color: #1d2327; margin-bottom: 10px;"><?php echo number_format($total_series); ?></div>
+                    <a href="<?php echo admin_url('edit.php?post_type=tournament_series'); ?>" class="button button-small"><?php _e('View All', 'poker-tournament-import'); ?></a>
                 </div>
-                <div class="stat-item">
-                    <span class="stat-number"><?php echo esc_html('$' . number_format($dashboard_stats['total_prize_pool'], 0)); ?></span>
-                    <span class="stat-label"><?php _e('Total Prize Pool', 'poker-tournament-import'); ?></span>
-                    <div class="stat-links">
-                        <a href="#" class="stat-link" id="poker-view-leaderboard"><?php _e('Full leaderboard', 'poker-tournament-import'); ?></a>
-                    </div>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-number"><?php echo intval($dashboard_stats['recent_tournaments_30d']); ?></span>
-                    <span class="stat-label"><?php _e('Last 30 Days', 'poker-tournament-import'); ?></span>
-                    <div class="stat-links">
-                        <a href="<?php echo admin_url('edit.php?post_type=tournament'); ?>" class="stat-link"><?php _e('Recent', 'poker-tournament-import'); ?></a>
-                    </div>
+
+                <div class="poker-stat-card" style="background: #fff; border: 1px solid #c3c4c7; border-radius: 4px; padding: 20px; box-shadow: 0 1px 1px rgba(0,0,0,.04);">
+                    <div class="dashicons dashicons-calculator" style="font-size: 48px; color: #8c8f94; opacity: 0.3; float: right;"></div>
+                    <h3 style="margin: 0 0 10px 0; color: #50575e; font-size: 14px; font-weight: 400;"><?php _e('Formulas', 'poker-tournament-import'); ?></h3>
+                    <div style="font-size: 32px; font-weight: 600; color: #1d2327; margin-bottom: 10px;"><?php echo number_format($total_formulas); ?></div>
+                    <a href="<?php echo admin_url('options-general.php?page=poker-formula-manager'); ?>" class="button button-small"><?php _e('Manage', 'poker-tournament-import'); ?></a>
                 </div>
             </div>
 
-            <!-- Tabbed Dashboard Interface -->
-            <div class="poker-dashboard-tabbed-interface">
-                <!-- Tab Navigation -->
-                <div class="poker-dashboard-tabs">
-                    <button class="poker-tab-btn active" data-tab="overview">
-                        <span class="dashicons dashicons-dashboard"></span>
-                        <?php _e('Overview', 'poker-tournament-import'); ?>
-                    </button>
-                    <button class="poker-tab-btn" data-tab="tournaments">
-                        <span class="dashicons dashicons-list-view"></span>
-                        <?php _e('Tournaments', 'poker-tournament-import'); ?>
-                    </button>
-                    <button class="poker-tab-btn" data-tab="players">
-                        <span class="dashicons dashicons-groups"></span>
-                        <?php _e('Players', 'poker-tournament-import'); ?>
-                    </button>
-                    <button class="poker-tab-btn" data-tab="series">
-                        <span class="dashicons dashicons-category"></span>
-                        <?php _e('Series', 'poker-tournament-import'); ?>
-                    </button>
-                    <button class="poker-tab-btn" data-tab="analytics">
-                        <span class="dashicons dashicons-chart-bar"></span>
-                        <?php _e('Analytics', 'poker-tournament-import'); ?>
-                    </button>
+            <!-- Two Column Layout -->
+            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px; margin: 20px 0;">
 
-                    <!-- Quick Actions -->
-                    <div class="poker-dashboard-actions">
-                        <a href="<?php echo admin_url('admin.php?page=poker-tournament-import-import'); ?>" class="button button-primary">
+                <!-- Data Mart Health -->
+                <div style="background: #fff; border: 1px solid #c3c4c7; border-radius: 4px; padding: 20px; box-shadow: 0 1px 1px rgba(0,0,0,.04);">
+                    <h2 style="margin: 0 0 15px 0; padding: 0; font-size: 18px; color: #1d2327;">
+                        <span class="dashicons dashicons-database" style="color: #2271b1;"></span>
+                        <?php _e('Data Mart Health', 'poker-tournament-import'); ?>
+                    </h2>
+
+                    <table class="widefat" style="margin-top: 10px;">
+                        <tbody>
+                            <tr>
+                                <td style="padding: 8px;"><strong><?php _e('Status', 'poker-tournament-import'); ?></strong></td>
+                                <td style="padding: 8px;">
+                                    <?php if ($datamart_exists): ?>
+                                        <span style="color: #00a32a; font-weight: 600;">●</span> <?php _e('Active', 'poker-tournament-import'); ?>
+                                    <?php else: ?>
+                                        <span style="color: #d63638; font-weight: 600;">●</span> <?php _e('Not Created', 'poker-tournament-import'); ?>
+                                    <?php endif; ?>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 8px;"><strong><?php _e('Records', 'poker-tournament-import'); ?></strong></td>
+                                <td style="padding: 8px;"><?php echo number_format($datamart_row_count); ?></td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 8px;"><strong><?php _e('Last Refresh', 'poker-tournament-import'); ?></strong></td>
+                                <td style="padding: 8px;">
+                                    <?php
+                                    if ($datamart_last_refresh) {
+                                        echo esc_html(date_i18n('M j, Y g:i A', strtotime($datamart_last_refresh)));
+                                    } else {
+                                        echo '<em>' . __('Never', 'poker-tournament-import') . '</em>';
+                                    }
+                                    ?>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <p style="margin: 15px 0 0 0;">
+                        <a href="<?php echo admin_url('admin.php?page=poker-tournament-import-settings'); ?>" class="button">
+                            <?php _e('Refresh Statistics', 'poker-tournament-import'); ?>
+                        </a>
+                    </p>
+                </div>
+
+                <!-- Quick Actions -->
+                <div style="background: #fff; border: 1px solid #c3c4c7; border-radius: 4px; padding: 20px; box-shadow: 0 1px 1px rgba(0,0,0,.04);">
+                    <h2 style="margin: 0 0 15px 0; padding: 0; font-size: 18px; color: #1d2327;">
+                        <span class="dashicons dashicons-admin-tools" style="color: #2271b1;"></span>
+                        <?php _e('Quick Actions', 'poker-tournament-import'); ?>
+                    </h2>
+
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                        <a href="<?php echo admin_url('admin.php?page=poker-tournament-import-import'); ?>" class="button button-primary button-large" style="text-align: center;">
                             <span class="dashicons dashicons-upload"></span>
                             <?php _e('Import Tournament', 'poker-tournament-import'); ?>
                         </a>
-                        <button class="button poker-refresh-stats" id="poker-refresh-dashboard-stats">
-                            <span class="dashicons dashicons-update"></span>
-                            <?php _e('Refresh', 'poker-tournament-import'); ?>
-                        </button>
-                    </div>
-                </div>
 
-                <!-- Tab Content Areas -->
-                <div class="poker-dashboard-content">
-                    <!-- Overview Tab -->
-                    <div class="poker-tab-panel active" id="tab-overview">
-                        <div class="poker-dashboard-loading">
-                            <span class="spinner is-active"></span>
-                            <?php _e('Loading overview...', 'poker-tournament-import'); ?>
-                        </div>
-                    </div>
+                        <a href="<?php echo admin_url('edit.php?post_type=tournament'); ?>" class="button button-large" style="text-align: center;">
+                            <span class="dashicons dashicons-list-view"></span>
+                            <?php _e('View Tournaments', 'poker-tournament-import'); ?>
+                        </a>
 
-                    <!-- Tournaments Tab -->
-                    <div class="poker-tab-panel" id="tab-tournaments">
-                        <div class="poker-dashboard-loading">
-                            <span class="spinner is-active"></span>
-                            <?php _e('Loading tournaments...', 'poker-tournament-import'); ?>
-                        </div>
-                    </div>
+                        <a href="<?php echo admin_url('edit.php?post_type=player'); ?>" class="button button-large" style="text-align: center;">
+                            <span class="dashicons dashicons-groups"></span>
+                            <?php _e('View Players', 'poker-tournament-import'); ?>
+                        </a>
 
-                    <!-- Players Tab -->
-                    <div class="poker-tab-panel" id="tab-players">
-                        <div class="poker-dashboard-loading">
-                            <span class="spinner is-active"></span>
-                            <?php _e('Loading players...', 'poker-tournament-import'); ?>
-                        </div>
-                    </div>
-
-                    <!-- Series Tab -->
-                    <div class="poker-tab-panel" id="tab-series">
-                        <div class="poker-dashboard-loading">
-                            <span class="spinner is-active"></span>
-                            <?php _e('Loading series...', 'poker-tournament-import'); ?>
-                        </div>
-                    </div>
-
-                    <!-- Analytics Tab -->
-                    <div class="poker-tab-panel" id="tab-analytics">
-                        <div class="poker-dashboard-loading">
-                            <span class="spinner is-active"></span>
-                            <?php _e('Loading analytics...', 'poker-tournament-import'); ?>
-                        </div>
+                        <a href="<?php echo admin_url('options-general.php?page=poker-formula-manager'); ?>" class="button button-large" style="text-align: center;">
+                            <span class="dashicons dashicons-calculator"></span>
+                            <?php _e('Manage Formulas', 'poker-tournament-import'); ?>
+                        </a>
                     </div>
                 </div>
             </div>
 
-            <!-- Last Updated Notice -->
-            <div class="poker-dashboard-footer">
-                <p class="description">
-                    <?php
-                    if ($dashboard_stats['last_updated']) {
-                        printf(
-                            __('Last updated: %s', 'poker-tournament-import'),
-                            '<strong>' . esc_html(date_i18n('M j, Y g:i A', strtotime($dashboard_stats['last_updated']))) . '</strong>'
-                        );
-                    } else {
-                        _e('Statistics not yet calculated. Refresh to generate.', 'poker-tournament-import');
-                    }
-                    ?>
-                </p>
+            <!-- Recent Activity -->
+            <?php if (!empty($recent_tournaments)): ?>
+            <div style="background: #fff; border: 1px solid #c3c4c7; border-radius: 4px; padding: 20px; box-shadow: 0 1px 1px rgba(0,0,0,.04); margin: 20px 0;">
+                <h2 style="margin: 0 0 15px 0; padding: 0; font-size: 18px; color: #1d2327;">
+                    <span class="dashicons dashicons-clock" style="color: #2271b1;"></span>
+                    <?php _e('Recent Activity', 'poker-tournament-import'); ?>
+                </h2>
+
+                <table class="widefat striped">
+                    <thead>
+                        <tr>
+                            <th><?php _e('Tournament', 'poker-tournament-import'); ?></th>
+                            <th><?php _e('Date Imported', 'poker-tournament-import'); ?></th>
+                            <th><?php _e('Status', 'poker-tournament-import'); ?></th>
+                            <th><?php _e('Actions', 'poker-tournament-import'); ?></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($recent_tournaments as $tournament): ?>
+                        <tr>
+                            <td><strong><?php echo esc_html($tournament->post_title); ?></strong></td>
+                            <td><?php echo esc_html(date_i18n('M j, Y', strtotime($tournament->post_date))); ?></td>
+                            <td>
+                                <?php
+                                $status_colors = array(
+                                    'publish' => '#00a32a',
+                                    'draft' => '#996800',
+                                    'private' => '#8c8f94'
+                                );
+                                $status_color = isset($status_colors[$tournament->post_status]) ? $status_colors[$tournament->post_status] : '#8c8f94';
+                                ?>
+                                <span style="color: <?php echo $status_color; ?>; font-weight: 600;">●</span>
+                                <?php echo esc_html(ucfirst($tournament->post_status)); ?>
+                            </td>
+                            <td>
+                                <a href="<?php echo get_permalink($tournament->ID); ?>" class="button button-small" target="_blank"><?php _e('View', 'poker-tournament-import'); ?></a>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
             </div>
+            <?php endif; ?>
+
+            <!-- Footer Info -->
+            <p class="description" style="text-align: center; margin-top: 20px; color: #8c8f94;">
+                <?php printf(__('Poker Tournament Import v%s', 'poker-tournament-import'), POKER_TOURNAMENT_IMPORT_VERSION); ?>
+            </p>
         </div>
-
-      <!-- Dashboard styles moved to admin.css for better maintainability -->
-
-        <!-- Dashboard functionality moved to admin.js for better maintainability -->
         <?php
     }
 
@@ -411,6 +490,102 @@ class Poker_Tournament_Import_Admin {
                             <p class="description"><?php _e('Note: Global debug mode is already enabled.', 'poker-tournament-import'); ?></p>
                         <?php } ?>
                     </div>
+
+                    <div class="formula-import-section" style="margin-top: 20px; padding: 15px; background: #f9f9f9; border-left: 4px solid #2271b1;">
+                        <h3 style="margin-top: 0;"><?php _e('Points Formula', 'poker-tournament-import'); ?></h3>
+                        <p class="description" style="margin-bottom: 15px;">
+                            <?php _e('Choose how tournament points should be calculated:', 'poker-tournament-import'); ?>
+                        </p>
+
+                        <label style="display: block; margin-bottom: 10px;">
+                            <input type="radio" name="formula_mode" value="auto" checked>
+                            <strong><?php _e('Auto-detect (Recommended)', 'poker-tournament-import'); ?></strong>
+                            <span class="description" style="display: block; margin-left: 25px; color: #666;">
+                                <?php _e('Uses formula from .tdt file if present, otherwise uses global default', 'poker-tournament-import'); ?>
+                            </span>
+                        </label>
+
+                        <label style="display: block; margin-bottom: 10px;">
+                            <input type="radio" name="formula_mode" value="override">
+                            <strong><?php _e('Use specific formula:', 'poker-tournament-import'); ?></strong>
+                        </label>
+
+                        <div id="formula-selector" style="margin-left: 25px; margin-bottom: 10px; display: none;">
+                            <select name="override_formula" id="override_formula" style="width: 100%; max-width: 400px;">
+                                <?php
+                                $formula_validator = new Poker_Tournament_Formula_Validator();
+                                $all_formulas = $formula_validator->get_all_formulas();
+                                $active_formula = get_option('poker_active_tournament_formula', 'tournament_points');
+
+                                foreach ($all_formulas as $key => $formula) {
+                                    if (isset($formula['category']) && $formula['category'] === 'points') {
+                                        $is_active = ($active_formula === $key);
+                                        printf(
+                                            '<option value="%s"%s>%s%s</option>',
+                                            esc_attr($key),
+                                            $is_active ? ' selected' : '',
+                                            esc_html($formula['name']),
+                                            $is_active ? ' (Current Default)' : ''
+                                        );
+                                    }
+                                }
+                                ?>
+                            </select>
+                            <p class="description">
+                                <?php _e('This will override any formula in the .tdt file', 'poker-tournament-import'); ?>
+                            </p>
+                        </div>
+
+                        <div id="formula-preview-box" style="display: none; margin-top: 15px; padding: 10px; background: white; border: 1px solid #ddd;">
+                            <strong><?php _e('Selected Formula:', 'poker-tournament-import'); ?></strong>
+                            <p id="formula-description" style="margin: 5px 0; font-style: italic;"></p>
+                            <details>
+                                <summary style="cursor: pointer; color: #2271b1;">
+                                    <?php _e('View formula code', 'poker-tournament-import'); ?>
+                                </summary>
+                                <pre id="formula-code" style="margin: 10px 0; padding: 10px; background: #f5f5f5; overflow-x: auto; font-size: 11px;"></pre>
+                            </details>
+                        </div>
+                    </div>
+
+                    <script>
+                    jQuery(document).ready(function($) {
+                        var formulaData = <?php echo json_encode($all_formulas); ?>;
+
+                        // Show/hide formula selector based on radio selection
+                        $('input[name="formula_mode"]').change(function() {
+                            if ($(this).val() === 'override') {
+                                $('#formula-selector').slideDown();
+                                updateFormulaPreview();
+                            } else {
+                                $('#formula-selector').slideUp();
+                                $('#formula-preview-box').slideUp();
+                            }
+                        });
+
+                        // Update preview when formula changes
+                        $('#override_formula').change(function() {
+                            updateFormulaPreview();
+                        });
+
+                        function updateFormulaPreview() {
+                            var selectedKey = $('#override_formula').val();
+                            var formula = formulaData[selectedKey];
+
+                            if (formula) {
+                                $('#formula-description').text(formula.description || 'No description available');
+
+                                var codeDisplay = formula.formula;
+                                if (formula.dependencies && formula.dependencies.length > 0) {
+                                    codeDisplay = '// Dependencies:\n' + formula.dependencies.join(';\n') + ';\n\n// Main formula:\n' + formula.formula;
+                                }
+                                $('#formula-code').text(codeDisplay);
+
+                                $('#formula-preview-box').slideDown();
+                            }
+                        }
+                    });
+                    </script>
 
                     <p class="submit">
                         <input type="submit" name="import_tournament" class="button button-primary" value="<?php _e('Import Tournament', 'poker-tournament-import'); ?>">
@@ -467,7 +642,16 @@ class Poker_Tournament_Import_Admin {
             Poker_Tournament_Import_Debug::log_time('Starting file parsing');
             Poker_Tournament_Import_Debug::log_function('Poker_Tournament_Parser::parse_file');
 
-            $parser = new Poker_Tournament_Parser();
+            // Check for formula override
+            $formula_override = null;
+            if (isset($_POST['formula_mode']) && $_POST['formula_mode'] === 'override') {
+                if (!empty($_POST['override_formula'])) {
+                    $formula_override = sanitize_text_field($_POST['override_formula']);
+                    Poker_Tournament_Import_Debug::log_success("Formula override selected: {$formula_override}");
+                }
+            }
+
+            $parser = new Poker_Tournament_Parser($file_path, $formula_override);
             $tournament_data = $parser->parse_file($file_path);
 
             Poker_Tournament_Import_Debug::log_success('File parsing completed');
@@ -1060,6 +1244,34 @@ class Poker_Tournament_Import_Admin {
                 // **CRITICAL FIX**: Also store with underscore prefix for template compatibility
                 update_post_meta($tournament_id, '_tournament_date', $metadata['start_time']);
                 Poker_Tournament_Import_Debug::log('Stored tournament date', $metadata['start_time']);
+            }
+
+            // Store PointsForPlaying formula from .tdt file
+            if (!empty($metadata['points_formula'])) {
+                update_post_meta($tournament_id, '_tournament_points_formula', $metadata['points_formula']);
+                Poker_Tournament_Import_Debug::log_success('Stored per-tournament PointsForPlaying formula');
+                if (!empty($metadata['points_formula']['description'])) {
+                    Poker_Tournament_Import_Debug::log('Formula description: ' . $metadata['points_formula']['description']);
+                }
+            }
+
+            // Store which formula was actually used for points calculation
+            if (isset($tournament_data['players'])) {
+                $first_player = reset($tournament_data['players']);
+                if (isset($first_player['points_calculation']['formula_used'])) {
+                    update_post_meta($tournament_id, '_formula_used', $first_player['points_calculation']['formula_used']);
+                    Poker_Tournament_Import_Debug::log_success('Stored formula used: ' . $first_player['points_calculation']['formula_used']);
+
+                    if (isset($first_player['points_calculation']['formula_description'])) {
+                        update_post_meta($tournament_id, '_formula_description', $first_player['points_calculation']['formula_description']);
+                        Poker_Tournament_Import_Debug::log('Stored formula description: ' . $first_player['points_calculation']['formula_description']);
+                    }
+
+                    if (isset($first_player['points_calculation']['formula_code'])) {
+                        update_post_meta($tournament_id, '_formula_code', $first_player['points_calculation']['formula_code']);
+                        Poker_Tournament_Import_Debug::log('Stored formula code for reference');
+                    }
+                }
             }
 
             // Store full tournament data
@@ -3834,5 +4046,215 @@ class Poker_Tournament_Import_Admin {
             'average_size_growth' => $stats_engine->get_average_tournament_size_growth(),
             'prize_pool_growth' => $stats_engine->get_prize_pool_growth_trends()
         );
+    }
+
+    /**
+     * Add formula editor meta box to tournament edit screen
+     */
+    public function add_formula_meta_box() {
+        add_meta_box(
+            'poker_tournament_formula',
+            __('Points Calculation Formula', 'poker-tournament-import'),
+            array($this, 'render_formula_meta_box'),
+            'tournament',
+            'normal',
+            'high'
+        );
+    }
+
+    /**
+     * Render formula editor meta box content
+     */
+    public function render_formula_meta_box($post) {
+        // Add nonce for security
+        wp_nonce_field('poker_save_formula_meta_box', 'poker_formula_meta_box_nonce');
+
+        // Get existing formula data
+        $formula_data = get_post_meta($post->ID, '_tournament_points_formula', true);
+
+        // Extract formula string and metadata
+        $formula_string = '';
+        $formula_description = '';
+        $formula_dependencies = array();
+
+        if (is_array($formula_data)) {
+            $formula_string = isset($formula_data['formula']) ? $formula_data['formula'] : '';
+            $formula_description = isset($formula_data['description']) ? $formula_data['description'] : '';
+            $formula_dependencies = isset($formula_data['dependencies']) ? $formula_data['dependencies'] : array();
+        }
+
+        // Check if formula was extracted from .tdt file
+        $is_tdt_formula = !empty($formula_string);
+        ?>
+        <div class="poker-formula-meta-box">
+            <p class="description">
+                <?php _e('Configure the points calculation formula for this tournament. If a formula was extracted from the .tdt file, it will be shown below. You can override it with a custom formula.', 'poker-tournament-import'); ?>
+            </p>
+
+            <?php if ($is_tdt_formula): ?>
+                <div class="notice notice-info inline">
+                    <p>
+                        <strong><?php _e('Formula from .tdt file:', 'poker-tournament-import'); ?></strong>
+                        <?php if ($formula_description): ?>
+                            <br><?php echo esc_html($formula_description); ?>
+                        <?php endif; ?>
+                    </p>
+                </div>
+            <?php endif; ?>
+
+            <table class="form-table">
+                <tr>
+                    <th scope="row">
+                        <label for="tournament_formula_override">
+                            <?php _e('Formula Override', 'poker-tournament-import'); ?>
+                        </label>
+                    </th>
+                    <td>
+                        <label>
+                            <input type="checkbox"
+                                   id="tournament_formula_override"
+                                   name="tournament_formula_override"
+                                   value="1"
+                                   <?php checked(!empty($formula_string)); ?>>
+                            <?php _e('Use custom formula for this tournament', 'poker-tournament-import'); ?>
+                        </label>
+                        <p class="description">
+                            <?php _e('Check this box to override the global formula with a tournament-specific calculation.', 'poker-tournament-import'); ?>
+                        </p>
+                    </td>
+                </tr>
+                <tr id="formula_editor_row" style="<?php echo empty($formula_string) ? 'display:none;' : ''; ?>">
+                    <th scope="row">
+                        <label for="tournament_formula">
+                            <?php _e('Formula', 'poker-tournament-import'); ?>
+                        </label>
+                    </th>
+                    <td>
+                        <textarea
+                            id="tournament_formula"
+                            name="tournament_formula"
+                            class="large-text formula-editor-textarea"
+                            rows="8"
+                            placeholder="<?php esc_attr_e('Enter formula (e.g., 100 * (n - r + 1))', 'poker-tournament-import'); ?>"
+                        ><?php echo esc_textarea($formula_string); ?></textarea>
+                        <p class="description">
+                            <?php _e('Enter a custom points calculation formula using Tournament Director syntax.', 'poker-tournament-import'); ?>
+                            <?php _e('Available variables: n (players), r (rank), buyins, rebuys, addOns, etc.', 'poker-tournament-import'); ?>
+                        </p>
+                    </td>
+                </tr>
+                <tr id="formula_description_row" style="<?php echo empty($formula_string) ? 'display:none;' : ''; ?>">
+                    <th scope="row">
+                        <label for="tournament_formula_description">
+                            <?php _e('Formula Description', 'poker-tournament-import'); ?>
+                        </label>
+                    </th>
+                    <td>
+                        <input type="text"
+                               id="tournament_formula_description"
+                               name="tournament_formula_description"
+                               class="large-text"
+                               value="<?php echo esc_attr($formula_description); ?>"
+                               placeholder="<?php esc_attr_e('Optional description of this formula', 'poker-tournament-import'); ?>">
+                    </td>
+                </tr>
+            </table>
+
+            <script type="text/javascript">
+                jQuery(document).ready(function($) {
+                    // Toggle formula editor visibility
+                    $('#tournament_formula_override').on('change', function() {
+                        if ($(this).is(':checked')) {
+                            $('#formula_editor_row, #formula_description_row').slideDown();
+                        } else {
+                            $('#formula_editor_row, #formula_description_row').slideUp();
+                        }
+                    });
+
+                    // Initialize formula editor (from formula-editor.js)
+                    if (typeof initFormulaEditor === 'function') {
+                        initFormulaEditor($('#tournament_formula'));
+                    }
+                });
+            </script>
+        </div>
+        <?php
+    }
+
+    /**
+     * Save formula meta box data
+     */
+    public function save_formula_meta_box($post_id, $post) {
+        // Check nonce
+        if (!isset($_POST['poker_formula_meta_box_nonce']) ||
+            !wp_verify_nonce($_POST['poker_formula_meta_box_nonce'], 'poker_save_formula_meta_box')) {
+            return;
+        }
+
+        // Check autosave
+        if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) {
+            return;
+        }
+
+        // Check user permissions
+        if (!current_user_can('edit_post', $post_id)) {
+            return;
+        }
+
+        // Check if we should save formula data
+        $save_formula = isset($_POST['tournament_formula_override']) && $_POST['tournament_formula_override'] === '1';
+
+        if ($save_formula) {
+            // Get formula data
+            $formula = isset($_POST['tournament_formula']) ? sanitize_textarea_field($_POST['tournament_formula']) : '';
+            $description = isset($_POST['tournament_formula_description']) ? sanitize_text_field($_POST['tournament_formula_description']) : '';
+
+            // Validate formula before saving
+            require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/class-formula-validator.php';
+            $validator = new Poker_Tournament_Formula_Validator();
+
+            try {
+                // Validate the formula with test variables
+                $test_vars = array('n' => 10, 'r' => 1, 'buyins' => 10);
+                $result = $validator->validate_formula($formula, $test_vars);
+
+                if ($result['valid']) {
+                    // Save formula data
+                    $formula_data = array(
+                        'formula' => $formula,
+                        'description' => $description,
+                        'dependencies' => array(), // Could be extracted from formula analysis
+                        'source' => 'manual_override'
+                    );
+
+                    update_post_meta($post_id, '_tournament_points_formula', $formula_data);
+
+                    // Add success notice
+                    add_action('admin_notices', function() {
+                        echo '<div class="notice notice-success is-dismissible"><p>' .
+                             __('Tournament formula saved successfully.', 'poker-tournament-import') .
+                             '</p></div>';
+                    });
+                } else {
+                    // Add error notice
+                    $error_message = isset($result['error']) ? $result['error'] : __('Invalid formula', 'poker-tournament-import');
+                    add_action('admin_notices', function() use ($error_message) {
+                        echo '<div class="notice notice-error is-dismissible"><p>' .
+                             sprintf(__('Formula validation failed: %s', 'poker-tournament-import'), esc_html($error_message)) .
+                             '</p></div>';
+                    });
+                }
+            } catch (Exception $e) {
+                // Add error notice for exception
+                add_action('admin_notices', function() use ($e) {
+                    echo '<div class="notice notice-error is-dismissible"><p>' .
+                         sprintf(__('Formula error: %s', 'poker-tournament-import'), esc_html($e->getMessage())) .
+                         '</p></div>';
+                });
+            }
+        } else {
+            // Remove formula override if checkbox is unchecked
+            delete_post_meta($post_id, '_tournament_points_formula');
+        }
     }
 }
