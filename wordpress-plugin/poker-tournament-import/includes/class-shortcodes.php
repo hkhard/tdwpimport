@@ -418,7 +418,7 @@ class Poker_Tournament_Import_Shortcodes {
                 // Winnings
                 echo '<td class="winnings-cell">';
                 if ($player->winnings > 0) {
-                    echo '<span class="winnings-amount">' . esc_html(Poker_Tournament_Import_Admin::format_currency($player->winnings)) . '</span>';
+                    echo '<span class="winnings-amount">' . esc_html(poker_format_currency($player->winnings)) . '</span>';
                 } else {
                     echo '<span class="no-winnings">-</span>';
                 }
@@ -554,13 +554,13 @@ class Poker_Tournament_Import_Shortcodes {
             echo '<h3>' . __('Career Statistics', 'poker-tournament-import') . '</h3>';
             echo '<table class="player-stats-table">';
             echo '<tr><td>' . __('Tournaments Played:', 'poker-tournament-import') . '</td><td>' . esc_html($stats->tournaments_played) . '</td></tr>';
-            echo '<tr><td>' . __('Total Winnings:', 'poker-tournament-import') . '</td><td>' . esc_html(Poker_Tournament_Import_Admin::format_currency($stats->total_winnings)) . '</td></tr>';
+            echo '<tr><td>' . __('Total Winnings:', 'poker-tournament-import') . '</td><td>' . esc_html(poker_format_currency($stats->total_winnings)) . '</td></tr>';
             echo '<tr><td>' . __('Average Finish:', 'poker-tournament-import') . '</td><td>' . esc_html(number_format($stats->avg_finish, 1)) . '</td></tr>';
             echo '<tr><td>' . __('Total Points:', 'poker-tournament-import') . '</td><td>' . esc_html(number_format($stats->total_points, 2)) . '</td></tr>';
             echo '<tr><td>' . __('Total Eliminations:', 'poker-tournament-import') . '</td><td>' . esc_html($stats->total_hits) . '</td></tr>';
 
             if ($stats->best_cash > 0) {
-                echo '<tr><td>' . __('Best Cash:', 'poker-tournament-import') . '</td><td>' . esc_html(Poker_Tournament_Import_Admin::format_currency($stats->best_cash)) . '</td></tr>';
+                echo '<tr><td>' . __('Best Cash:', 'poker-tournament-import') . '</td><td>' . esc_html(poker_format_currency($stats->best_cash)) . '</td></tr>';
             }
 
             if ($stats->best_finish > 0) {
@@ -619,7 +619,7 @@ class Poker_Tournament_Import_Shortcodes {
                 echo '<td>' . esc_html($tournament->finish_position) . get_ordinal_suffix($tournament->finish_position) . '</td>';
                 echo '<td><a href="' . esc_url($tournament_link) . '">' . esc_html($tournament->tournament_name) . '</a></td>';
                 echo '<td>' . esc_html($display_date) . '</td>';
-                echo '<td>' . esc_html(Poker_Tournament_Import_Admin::format_currency($tournament->winnings)) . '</td>';
+                echo '<td>' . esc_html(poker_format_currency($tournament->winnings)) . '</td>';
                 echo '<td>' . esc_html(number_format($tournament->points, 2)) . '</td>';
                 echo '</tr>';
             }
@@ -694,12 +694,12 @@ class Poker_Tournament_Import_Shortcodes {
             echo '</div>';
 
             echo '<div class="stat-card">';
-            echo '<div class="stat-number">' . esc_html(Poker_Tournament_Import_Admin::format_currency($stats->avg_winnings)) . '</div>';
+            echo '<div class="stat-number">' . esc_html(poker_format_currency($stats->avg_winnings)) . '</div>';
             echo '<div class="stat-label">' . __('Average Cash', 'poker-tournament-import') . '</div>';
             echo '</div>';
 
             echo '<div class="stat-card">';
-            echo '<div class="stat-number">' . esc_html(Poker_Tournament_Import_Admin::format_currency($stats->first_place)) . '</div>';
+            echo '<div class="stat-number">' . esc_html(poker_format_currency($stats->first_place)) . '</div>';
             echo '<div class="stat-label">' . __('First Prize', 'poker-tournament-import') . '</div>';
             echo '</div>';
 
@@ -869,11 +869,11 @@ class Poker_Tournament_Import_Shortcodes {
                     <div class="stat-label"><?php _e('Unique Players', 'poker-tournament-import'); ?></div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-number"><?php echo esc_html(Poker_Tournament_Import_Admin::format_currency(floatval($total_prize_pool ?: 0))); ?></div>
+                    <div class="stat-number"><?php echo esc_html(poker_format_currency(floatval($total_prize_pool ?: 0))); ?></div>
                     <div class="stat-label"><?php _e('Total Prize Pool', 'poker-tournament-import'); ?></div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-number"><?php echo esc_html(Poker_Tournament_Import_Admin::format_currency(floatval($avg_prize_pool ?: 0))); ?></div>
+                    <div class="stat-number"><?php echo esc_html(poker_format_currency(floatval($avg_prize_pool ?: 0))); ?></div>
                     <div class="stat-label"><?php _e('Average Prize Pool', 'poker-tournament-import'); ?></div>
                 </div>
             </div>
@@ -890,7 +890,7 @@ class Poker_Tournament_Import_Shortcodes {
                         </a>
                         <div class="player-stats">
                             <span class="player-points"><?php echo esc_html(number_format($top_player['points'], 0)); ?> <?php _e('points', 'poker-tournament-import'); ?></span>
-                            <span class="player-winnings"><?php echo esc_html(Poker_Tournament_Import_Admin::format_currency($top_player['winnings'])); ?></span>
+                            <span class="player-winnings"><?php echo esc_html(poker_format_currency($top_player['winnings'])); ?></span>
                             <span class="player-best"><?php _e('Best:', 'poker-tournament-import'); ?> <?php echo esc_html($top_player['best_finish']); ?><?php echo get_ordinal_suffix($top_player['best_finish']); ?></span>
                         </div>
                     </div>
@@ -1180,7 +1180,7 @@ class Poker_Tournament_Import_Shortcodes {
                                             <?php endif; ?>
                                         </td>
                                         <td class="tournaments"><?php echo esc_html($player->tournaments_played); ?></td>
-                                        <td class="winnings"><?php echo esc_html(Poker_Tournament_Import_Admin::format_currency($player->total_winnings)); ?></td>
+                                        <td class="winnings"><?php echo esc_html(poker_format_currency($player->total_winnings)); ?></td>
                                         <td class="points"><?php echo esc_html(number_format($player->total_points, 1)); ?></td>
                                         <td class="best-finish"><?php echo esc_html($player->best_finish); ?><?php echo get_ordinal_suffix($player->best_finish); ?></td>
                                         <td class="avg-finish"><?php echo esc_html(number_format($player->avg_finish, 1)); ?></td>
@@ -1284,7 +1284,7 @@ class Poker_Tournament_Import_Shortcodes {
                                                 <span class="stat-label"><?php _e('Tournaments', 'poker-tournament-import'); ?></span>
                                             </span>
                                             <span class="stat-item">
-                                                <span class="stat-value"><?php echo esc_html(Poker_Tournament_Import_Admin::format_currency($player->total_winnings)); ?></span>
+                                                <span class="stat-value"><?php echo esc_html(poker_format_currency($player->total_winnings)); ?></span>
                                                 <span class="stat-label"><?php _e('Winnings', 'poker-tournament-import'); ?></span>
                                             </span>
                                             <span class="stat-item">
@@ -1505,11 +1505,11 @@ class Poker_Tournament_Import_Shortcodes {
                     <div class="stat-label"><?php _e('Unique Players', 'poker-tournament-import'); ?></div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-number"><?php echo esc_html(Poker_Tournament_Import_Admin::format_currency(floatval($total_prize_pool ?: 0))); ?></div>
+                    <div class="stat-number"><?php echo esc_html(poker_format_currency(floatval($total_prize_pool ?: 0))); ?></div>
                     <div class="stat-label"><?php _e('Total Prize Pool', 'poker-tournament-import'); ?></div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-number"><?php echo esc_html(Poker_Tournament_Import_Admin::format_currency(floatval($avg_prize_pool ?: 0))); ?></div>
+                    <div class="stat-number"><?php echo esc_html(poker_format_currency(floatval($avg_prize_pool ?: 0))); ?></div>
                     <div class="stat-label"><?php _e('Average Prize Pool', 'poker-tournament-import'); ?></div>
                 </div>
             </div>
@@ -1526,7 +1526,7 @@ class Poker_Tournament_Import_Shortcodes {
                         </a>
                         <div class="player-stats">
                             <span class="player-points"><?php echo esc_html(number_format($top_player['points'], 0)); ?> <?php _e('points', 'poker-tournament-import'); ?></span>
-                            <span class="player-winnings"><?php echo esc_html(Poker_Tournament_Import_Admin::format_currency($top_player['winnings'])); ?></span>
+                            <span class="player-winnings"><?php echo esc_html(poker_format_currency($top_player['winnings'])); ?></span>
                             <span class="player-best"><?php _e('Best:', 'poker-tournament-import'); ?> <?php echo esc_html($top_player['best_finish']); ?><?php echo get_ordinal_suffix($top_player['best_finish']); ?></span>
                         </div>
                     </div>
@@ -1808,7 +1808,7 @@ class Poker_Tournament_Import_Shortcodes {
                                             <?php endif; ?>
                                         </td>
                                         <td class="tournaments"><?php echo esc_html($player->tournaments_played); ?></td>
-                                        <td class="winnings"><?php echo esc_html(Poker_Tournament_Import_Admin::format_currency($player->total_winnings)); ?></td>
+                                        <td class="winnings"><?php echo esc_html(poker_format_currency($player->total_winnings)); ?></td>
                                         <td class="points"><?php echo esc_html(number_format($player->total_points, 1)); ?></td>
                                         <td class="best-finish"><?php echo esc_html($player->best_finish); ?><?php echo get_ordinal_suffix($player->best_finish); ?></td>
                                         <td class="avg-finish"><?php echo esc_html(number_format($player->avg_finish, 1)); ?></td>
@@ -1912,7 +1912,7 @@ class Poker_Tournament_Import_Shortcodes {
                                                 <span class="stat-label"><?php _e('Tournaments', 'poker-tournament-import'); ?></span>
                                             </span>
                                             <span class="stat-item">
-                                                <span class="stat-value"><?php echo esc_html(Poker_Tournament_Import_Admin::format_currency($player->total_winnings)); ?></span>
+                                                <span class="stat-value"><?php echo esc_html(poker_format_currency($player->total_winnings)); ?></span>
                                                 <span class="stat-label"><?php _e('Winnings', 'poker-tournament-import'); ?></span>
                                             </span>
                                             <span class="stat-item">
@@ -2022,7 +2022,7 @@ class Poker_Tournament_Import_Shortcodes {
                         <span class="stat-label"><?php _e('Tournaments', 'poker-tournament-import'); ?></span>
                     </div>
                     <div class="stat-item">
-                        <span class="stat-value"><?php echo esc_html(Poker_Tournament_Import_Admin::format_currency($series_stats['total_winnings'])); ?></span>
+                        <span class="stat-value"><?php echo esc_html(poker_format_currency($series_stats['total_winnings'])); ?></span>
                         <span class="stat-label"><?php _e('Total Winnings', 'poker-tournament-import'); ?></span>
                     </div>
                     <div class="stat-item">
@@ -2472,9 +2472,9 @@ class Poker_Tournament_Import_Shortcodes {
 
                         <div class="stat-card info clickable" data-drill="prizes">
                             <div class="stat-icon">💰</div>
-                            <div class="stat-number"><?php echo esc_html(Poker_Tournament_Import_Admin::format_currency(floatval($global_stats['total_prize_pool'] ?: 0))); ?></div>
+                            <div class="stat-number"><?php echo esc_html(poker_format_currency(floatval($global_stats['total_prize_pool'] ?: 0))); ?></div>
                             <div class="stat-label"><?php _e('Total Prize Pool', 'poker-tournament-import'); ?></div>
-                            <div class="stat-change"><?php echo esc_html(Poker_Tournament_Import_Admin::format_currency(floatval($global_stats['avg_prize_pool'] ?: 0))); ?> <?php _e('average', 'poker-tournament-import'); ?></div>
+                            <div class="stat-change"><?php echo esc_html(poker_format_currency(floatval($global_stats['avg_prize_pool'] ?: 0))); ?> <?php _e('average', 'poker-tournament-import'); ?></div>
                         </div>
 
                         <div class="stat-card warning clickable" data-drill="events">
@@ -2505,7 +2505,7 @@ class Poker_Tournament_Import_Shortcodes {
                                                     <div class="tournament-meta">
                                                         <span class="date"><?php echo esc_html(date_i18n('M j', strtotime($tournament->tournament_date))); ?></span>
                                                         <span class="players"><?php echo esc_html($tournament->players_count); ?> <?php _e('players', 'poker-tournament-import'); ?></span>
-                                                        <span class="prize"><?php echo esc_html(Poker_Tournament_Import_Admin::format_currency(floatval($tournament->prize_pool ?: 0))); ?></span>
+                                                        <span class="prize"><?php echo esc_html(poker_format_currency(floatval($tournament->prize_pool ?: 0))); ?></span>
                                                     </div>
                                                 </div>
                                                 <div class="tournament-winner">
@@ -2543,7 +2543,7 @@ class Poker_Tournament_Import_Shortcodes {
                                                 <div class="player-info">
                                                     <div class="player-name"><?php echo esc_html($player->player_name); ?></div>
                                                     <div class="player-stats">
-                                                        <span class="winnings"><?php echo esc_html(Poker_Tournament_Import_Admin::format_currency($player->total_winnings)); ?></span>
+                                                        <span class="winnings"><?php echo esc_html(poker_format_currency($player->total_winnings)); ?></span>
                                                         <span class="tournaments"><?php echo esc_html($player->tournaments_played); ?> <?php _e('events', 'poker-tournament-import'); ?></span>
                                                     </div>
                                                 </div>
@@ -2654,13 +2654,13 @@ class Poker_Tournament_Import_Shortcodes {
 
                         <div class="stat-card info">
                             <div class="stat-icon">💰</div>
-                            <div class="stat-number"><?php echo esc_html(Poker_Tournament_Import_Admin::format_currency(floatval($global_stats['total_payouts'] ?: 0))); ?></div>
+                            <div class="stat-number"><?php echo esc_html(poker_format_currency(floatval($global_stats['total_payouts'] ?: 0))); ?></div>
                             <div class="stat-label"><?php _e('Total Payouts', 'poker-tournament-import'); ?></div>
                         </div>
 
                         <div class="stat-card warning">
                             <div class="stat-icon">🏆</div>
-                            <div class="stat-number"><?php echo esc_html(Poker_Tournament_Import_Admin::format_currency(floatval($global_stats['highest_single_payout'] ?: 0))); ?></div>
+                            <div class="stat-number"><?php echo esc_html(poker_format_currency(floatval($global_stats['highest_single_payout'] ?: 0))); ?></div>
                             <div class="stat-label"><?php _e('Highest Payout', 'poker-tournament-import'); ?></div>
                         </div>
                     </section>
@@ -2707,7 +2707,7 @@ class Poker_Tournament_Import_Shortcodes {
                                                     <?php endif; ?>
                                                 </div>
                                                 <div class="tournaments-cell"><?php echo esc_html($player->tournaments_played); ?></div>
-                                                <div class="winnings-cell"><?php echo esc_html(Poker_Tournament_Import_Admin::format_currency(floatval($player->total_winnings))); ?></div>
+                                                <div class="winnings-cell"><?php echo esc_html(poker_format_currency(floatval($player->total_winnings))); ?></div>
                                                 <div class="best-finish-cell"><?php echo esc_html($player->best_finish); ?></div>
                                                 <div class="avg-finish-cell"><?php echo esc_html(number_format(floatval($player->avg_finish), 1)); ?></div>
                                             </div>

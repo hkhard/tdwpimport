@@ -46,7 +46,7 @@ class Poker_Tournament_Import_Admin {
     public function add_admin_menu() {
         add_menu_page(
             __('Poker Tournament Import', 'poker-tournament-import'),
-            __('♠ Poker Import', 'poker-tournament-import'),
+            __('Poker Import', 'poker-tournament-import'),
             'manage_options',
             'poker-tournament-import',
             array($this, 'render_dashboard'),
@@ -180,24 +180,6 @@ class Poker_Tournament_Import_Admin {
     public function sanitize_currency_symbol($value) {
         // Don't trim - allow leading/trailing spaces as they're intentional
         return wp_kses_post($value);
-    }
-
-    /**
-     * Format currency value with configured symbol and position
-     * Static method so it can be called from anywhere
-     */
-    public static function format_currency($amount) {
-        $symbol = get_option('poker_currency_symbol', '$');
-        $position = get_option('poker_currency_position', 'prefix');
-
-        // Format the amount with 2 decimal places
-        $formatted_amount = number_format((float)$amount, 2, '.', ',');
-
-        if ($position === 'postfix') {
-            return $formatted_amount . $symbol;
-        } else {
-            return $symbol . $formatted_amount;
-        }
     }
 
     /**

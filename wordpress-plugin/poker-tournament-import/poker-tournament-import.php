@@ -3,7 +3,7 @@
  * Plugin Name: Poker Tournament Import
  * Plugin URI: https://nikielhard.se/tdwpimport
  * Description: Import and display poker tournament results from Tournament Director (.tdt) files
- * Version: 2.4.39
+ * Version: 2.4.41
  * Author: Hans Kästel Hård
  * Author URI: https://nikielhard.se/tdwpimport
  * License: GPL v2 or later
@@ -20,7 +20,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('POKER_TOURNAMENT_IMPORT_VERSION', '2.4.39');
+define('POKER_TOURNAMENT_IMPORT_VERSION', '2.4.41');
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -2101,6 +2101,29 @@ class Poker_Tournament_Import {
 
         // Return original template if none of our conditions match
         return $template;
+    }
+}
+
+/**
+ * Global helper function for currency formatting
+ * Accessible from both admin and frontend contexts
+ *
+ * @param float|int $amount The amount to format
+ * @return string Formatted currency string with symbol
+ */
+if (!function_exists('poker_format_currency')) {
+    function poker_format_currency($amount) {
+        $symbol = get_option('poker_currency_symbol', '$');
+        $position = get_option('poker_currency_position', 'prefix');
+
+        // Format the amount with 2 decimal places
+        $formatted_amount = number_format((float)$amount, 2, '.', ',');
+
+        if ($position === 'postfix') {
+            return $formatted_amount . $symbol;
+        } else {
+            return $symbol . $formatted_amount;
+        }
     }
 }
 
