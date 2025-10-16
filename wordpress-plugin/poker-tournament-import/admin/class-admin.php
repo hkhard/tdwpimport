@@ -44,13 +44,16 @@ class Poker_Tournament_Import_Admin {
      * Add admin menu items
      */
     public function add_admin_menu() {
+        // Custom spade icon SVG (20x20, currentColor for WordPress color management)
+        $spade_icon = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCIgdmlld0JveD0iMCAwIDIwIDIwIj4KICA8cGF0aCBmaWxsPSJjdXJyZW50Q29sb3IiIGQ9Ik0xMCAyYy0xLjUgMi00IDQuNS00IDcuNSAwIDIuNSAxLjUgNCA0IDRzNC0xLjUgNC00YzAtMy0yLjUtNS41LTQtNy41ek04LjUgMTVjMCAxIC41IDMgMS41IDNzMS41LTIgMS41LTNoLTN6Ii8+Cjwvc3ZnPgo=';
+
         add_menu_page(
             __('Poker Tournament Import', 'poker-tournament-import'),
-            __('♠ Poker Import', 'poker-tournament-import'),
+            __('Poker Import', 'poker-tournament-import'),
             'manage_options',
             'poker-tournament-import',
             array($this, 'render_dashboard'),
-            'dashicons-trophy',
+            $spade_icon,
             25
         );
 
