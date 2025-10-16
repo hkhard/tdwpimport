@@ -146,6 +146,9 @@ class Poker_Tournament_Parser {
         // Calculate rankings and winnings
         $data['players'] = $this->calculate_player_rankings($data['players'], $data['game_history']);
 
+        // NEW v2.4.25: Calculate hits from elimination data
+        $data['players'] = $this->calculate_hits_from_eliminations($data['players']);
+
         // Calculate Tournament Director points using formula system
         $data['players'] = $this->calculate_tournament_points($data['players'], $data['financial']);
 
@@ -988,6 +991,54 @@ class Poker_Tournament_Parser {
 
   
     /**
+     * Calculate player hits by counting eliminations from buyin data
+     *
+     * v2.4.25: Hits are calculated from actual elimination data in buyins,
+     * not from the HitsAdjustment field which may be missing or incorrect
+     *
+     * @param array $players Players array
+     * @return array Players with updated hit counts
+     */
+    private function calculate_hits_from_eliminations($players) {
+        // Initialize hit counts to zero
+        $hit_counts = array();
+        foreach ($players as $uuid => $player) {
+            $hit_counts[$uuid] = 0;
+        }
+
+        // Count eliminations: loop through all players' buyins and count
+        // how many times each player's UUID appears as an eliminator
+        foreach ($players as $uuid => $player) {
+            if (isset($player['buyins']) && is_array($player['buyins'])) {
+                foreach ($player['buyins'] as $buyin) {
+                    if (isset($buyin['eliminated_by']) && is_array($buyin['eliminated_by'])) {
+                        foreach ($buyin['eliminated_by'] as $eliminator_uuid) {
+                            if (isset($hit_counts[$eliminator_uuid])) {
+                                $hit_counts[$eliminator_uuid]++;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Update player hit counts
+        foreach ($players as $uuid => $player) {
+            $players[$uuid]['hits'] = $hit_counts[$uuid];
+        }
+
+        // Debug logging
+        Poker_Tournament_Import_Debug::log_success("v2.4.25: Calculated hits from elimination data");
+        foreach ($players as $uuid => $player) {
+            if ($player['hits'] > 0) {
+                Poker_Tournament_Import_Debug::log("  {$player['nickname']}: {$player['hits']} hits");
+            }
+        }
+
+        return $players;
+    }
+
+    /**
      * Extract bust-out time from player data
      */
     private function extract_bust_out_time($player) {
@@ -1116,7 +1167,7 @@ class Poker_Tournament_Parser {
                     'assign("buyinsSafe", max(buyins, 1))',
                     'assign("T33", round(nSafe / 3))',
                     'assign("T80", floor(nSafe * 0.9))',
-                    'assign("monies", totalBuyInsAmount + totalRebuysAmount + totalAddOnsAmount)',
+                    'assign("monies", totalBuyinsAmount + totalRebuysAmount + totalAddOnsAmount)',
                     'assign("avgBC", monies / buyinsSafe)',
                     'assign("scale", 10 * sqrt(nSafe))',
                     'assign("logTerm", 1 + log(avgBC + 0.25))',

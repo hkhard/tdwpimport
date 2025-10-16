@@ -290,6 +290,40 @@ class Poker_Tournament_Formula_Validator {
     );
 
     /**
+     * Mapping from our internal data keys to official Tournament Director variable names
+     * This ensures formulas using TD specification names work correctly with our parsed data
+     */
+    private $td_variable_map = array(
+        // Tournament Information Variables (our key => TD variable name)
+        'total_players' => 'buyins',              // Also aliased as n, numberofplayers
+        'finish_position' => 'rank',              // Also aliased as r
+        'hits' => 'numberOfHits',                 // Also aliased as nh
+        'total_money' => 'pot',                   // Also aliased as prizepool, pp
+        'prize_pool' => 'pot',
+
+        // Financial Variables
+        'total_buyins_amount' => 'totalBuyinsAmount',
+        'total_rebuys_amount' => 'totalRebuysAmount',
+        'total_addons_amount' => 'totalAddOnsAmount',
+        'buyin_amount' => 'defaultBuyinFee',
+        'rebuy_amount' => 'defaultRebuyFee',
+        'addon_amount' => 'defaultAddOnFee',
+        'fee_amount' => 'fixedRake',
+
+        // Player Information Variables (our key => TD variable name)
+        'winnings' => 'prizeWinnings',            // Also aliased as pw
+        'number_of_rebuys' => 'numberOfRebuys',   // Also aliased as rebuys, nr
+        'number_of_addons' => 'numberOfAddOns',   // Also aliased as addons, na
+        'chip_stack' => 'chipStack',
+        'in_the_money' => 'inTheMoney',
+
+        // Count Variables
+        'total_rebuys' => 'totalRebuys',
+        'total_addons' => 'totalAddOns',
+        'players_remaining' => 'playersLeft',
+    );
+
+    /**
      * Available Tournament Director functions
      * Complete TD v3.7.2+ specification with 43+ functions
      */
@@ -381,7 +415,7 @@ class Poker_Tournament_Formula_Validator {
                 'assign("buyinsSafe", max(buyins, 1))',
                 'assign("T33", round(nSafe / 3))',
                 'assign("T80", floor(nSafe * 0.9))',
-                'assign("monies", totalBuyInsAmount + totalRebuysAmount + totalAddOnsAmount)',
+                'assign("monies", totalBuyinsAmount + totalRebuysAmount + totalAddOnsAmount)',
                 'assign("avgBC", monies / buyinsSafe)',
                 'assign("scale", 10 * sqrt(nSafe))',
                 'assign("logTerm", 1 + log(avgBC + 0.25))',
@@ -658,8 +692,17 @@ class Poker_Tournament_Formula_Validator {
             // Process assignment statements first
             $processed_formula = $this->process_assignments($formula, $variables);
 
-            // Evaluate the final expression
-            $result = $this->evaluate_expression($processed_formula, $variables);
+            // FIX v2.4.25: If no expression remains after processing assignments,
+            // return the 'points' variable that was set by the last assignment
+            // This handles formulas where the formula field itself contains an assignment
+            $processed_formula = trim($processed_formula, "; \t\n\r\0\x0B");
+            if (empty($processed_formula)) {
+                // All statements were assignments, result is in variables['points']
+                $result = $variables['points'] ?? 1;
+            } else {
+                // Evaluate the final expression
+                $result = $this->evaluate_expression($processed_formula, $variables);
+            }
 
             return array(
                 'success' => true,
@@ -669,47 +712,137 @@ class Poker_Tournament_Formula_Validator {
             );
 
         } catch (Exception $e) {
+            // Enhanced error reporting with full context
+            Poker_Tournament_Import_Debug::log('Formula Calculation Error Details:');
+            Poker_Tournament_Import_Debug::log('Error: ' . $e->getMessage());
+            Poker_Tournament_Import_Debug::log('Formula: ' . $formula);
+            Poker_Tournament_Import_Debug::log('Context: ' . $context);
+
+            if (isset($variables)) {
+                Poker_Tournament_Import_Debug::log('Variables provided:');
+                foreach ($variables as $key => $value) {
+                    $value_str = is_bool($value) ? ($value ? 'true' : 'false') : $value;
+                    Poker_Tournament_Import_Debug::log("  {$key} = {$value_str}");
+                }
+            }
+
+            if (isset($data)) {
+                Poker_Tournament_Import_Debug::log('Raw input data:');
+                foreach ($data as $key => $value) {
+                    $value_str = is_bool($value) ? ($value ? 'true' : 'false') : $value;
+                    Poker_Tournament_Import_Debug::log("  {$key} = {$value_str}");
+                }
+            }
+
+            if (isset($processed_formula)) {
+                Poker_Tournament_Import_Debug::log('Processed formula: ' . $processed_formula);
+            }
+
             return array(
                 'success' => false,
                 'error' => $e->getMessage(),
-                'result' => null
+                'result' => null,
+                'debug_info' => array(
+                    'formula' => $formula,
+                    'context' => $context,
+                    'variables' => $variables ?? null,
+                    'processed_formula' => $processed_formula ?? null,
+                    'exception_trace' => $e->getTraceAsString()
+                )
             );
         }
     }
 
     /**
      * Prepare variables for calculation
+     * Maps our internal data keys to official Tournament Director variable names
      */
     private function prepare_variables($data, $context) {
         $variables = array();
 
-        // Basic tournament variables
-        $variables['n'] = intval($data['total_players'] ?? 1);
-        $variables['r'] = intval($data['finish_position'] ?? 1);
-        $variables['place'] = $variables['r'];
-        $variables['entrants'] = $variables['n'];
+        // Map our internal keys to TD official variable names using the mapping table
+        foreach ($this->td_variable_map as $our_key => $td_variable) {
+            if (isset($data[$our_key])) {
+                $value = $data[$our_key];
 
-        // Financial variables
-        $variables['monies'] = floatval($data['total_money'] ?? 0);
-        $variables['buyins'] = intval($data['total_buyins'] ?? 1);
-        $variables['rebuys'] = intval($data['total_rebuys'] ?? 0);
-        $variables['addons'] = intval($data['total_addons'] ?? 0);
+                // Type casting based on variable type from TD specification
+                if (in_array($td_variable, ['buyins', 'rank', 'numberOfHits', 'numberOfRebuys', 'numberOfAddOns', 'totalRebuys', 'totalAddOns', 'playersLeft'])) {
+                    $variables[$td_variable] = intval($value);
+                } else if (in_array($td_variable, ['inTheMoney'])) {
+                    $variables[$td_variable] = boolval($value);
+                } else {
+                    // Default to float for financial values
+                    $variables[$td_variable] = floatval($value);
+                }
+            }
+        }
+
+        // Set safe defaults for critical TD variables if not provided
+        if (!isset($variables['buyins'])) {
+            $variables['buyins'] = intval($data['total_players'] ?? 1);
+        }
+        if (!isset($variables['rank'])) {
+            $variables['rank'] = intval($data['finish_position'] ?? 1);
+        }
+        if (!isset($variables['numberOfHits'])) {
+            $variables['numberOfHits'] = 0;
+        }
+        if (!isset($variables['pot'])) {
+            $variables['pot'] = floatval($data['total_money'] ?? 0);
+        }
+        if (!isset($variables['totalBuyinsAmount'])) {
+            $variables['totalBuyinsAmount'] = $variables['pot'];
+        }
+        if (!isset($variables['totalRebuysAmount'])) {
+            $variables['totalRebuysAmount'] = 0;
+        }
+        if (!isset($variables['totalAddOnsAmount'])) {
+            $variables['totalAddOnsAmount'] = 0;
+        }
+        if (!isset($variables['prizeWinnings'])) {
+            $variables['prizeWinnings'] = floatval($data['winnings'] ?? 0);
+        }
+        if (!isset($variables['defaultBuyinFee'])) {
+            $variables['defaultBuyinFee'] = floatval($data['buyin_amount'] ?? 0);
+        }
+
+        // Add all official TD aliases from specification
+        // Tournament Information Variable Aliases
+        $variables['n'] = $variables['buyins'];                    // Alias for buyins
+        $variables['numberofplayers'] = $variables['buyins'];      // Alias for buyins
+        $variables['r'] = $variables['rank'];                      // Alias for rank
+        $variables['nh'] = $variables['numberOfHits'];             // Alias for numberOfHits
+        $variables['prizepool'] = $variables['pot'];               // Alias for pot
+        $variables['pp'] = $variables['pot'];                      // Alias for pot
+
+        // Player Information Variable Aliases
+        $variables['pw'] = $variables['prizeWinnings'];            // Alias for prizeWinnings
+        if (isset($variables['numberOfRebuys'])) {
+            $variables['rebuys'] = $variables['numberOfRebuys'];   // Alias for numberOfRebuys
+            $variables['nr'] = $variables['numberOfRebuys'];       // Alias for numberOfRebuys
+        }
+        if (isset($variables['numberOfAddOns'])) {
+            $variables['addons'] = $variables['numberOfAddOns'];   // Alias for numberOfAddOns
+            $variables['na'] = $variables['numberOfAddOns'];       // Alias for numberOfAddOns
+        }
+
+        // Legacy aliases for backward compatibility
+        $variables['place'] = $variables['rank'];
+        $variables['entrants'] = $variables['buyins'];
+        $variables['hits'] = $variables['numberOfHits'];
+        $variables['winnings'] = $variables['prizeWinnings'];
+        $variables['prizePool'] = $variables['pot'];
+        $variables['buyinAmount'] = $variables['defaultBuyinFee'];
+
+        // Computed helper variables
+        $variables['monies'] = $variables['totalBuyinsAmount']
+                             + $variables['totalRebuysAmount']
+                             + $variables['totalAddOnsAmount'];
+
+        // Average buy-in cost
         $variables['avgBC'] = $variables['buyins'] > 0 ? $variables['monies'] / $variables['buyins'] : 0;
 
-        // Player-specific variables
-        $variables['numberofHits'] = intval($data['hits'] ?? 0);
-        $variables['hits'] = $variables['numberofHits'];
-        $variables['winnings'] = floatval($data['winnings'] ?? 0);
-
-        // Tournament-specific financials
-        $variables['totalBuyInsAmount'] = floatval($data['total_buyins_amount'] ?? $variables['monies']);
-        $variables['totalRebuysAmount'] = floatval($data['total_rebuys_amount'] ?? 0);
-        $variables['totalAddOnsAmount'] = floatval($data['total_addons_amount'] ?? 0);
-        $variables['buyinAmount'] = floatval($data['buyin_amount'] ?? 0);
-        $variables['feeAmount'] = floatval($data['fee_amount'] ?? 0);
-        $variables['prizePool'] = floatval($data['prize_pool'] ?? $variables['monies']);
-
-        // Initialize points
+        // Initialize calculation variables
         $variables['points'] = 1;
         $variables['temp'] = 0;
 
@@ -934,12 +1067,25 @@ class Poker_Tournament_Formula_Validator {
 
     /**
      * Substitute variables in token stream
+     * FIX v2.4.24: Case-insensitive variable lookup to handle formula variations
      */
     private function substitute_variables($tokens, $variables) {
+        // Create lowercase-keyed lookup map for case-insensitive matching
+        $lowercase_map = array();
+        foreach ($variables as $key => $value) {
+            $lowercase_map[strtolower($key)] = $key;  // Map lowercase to original key
+        }
+
         $result = array();
         foreach ($tokens as $token) {
-            if ($token['type'] === 'variable' && isset($variables[$token['value']])) {
-                $result[] = array('type' => 'number', 'value' => $variables[$token['value']]);
+            if ($token['type'] === 'variable') {
+                $lookup_key = strtolower($token['value']);
+                if (isset($lowercase_map[$lookup_key])) {
+                    $original_key = $lowercase_map[$lookup_key];
+                    $result[] = array('type' => 'number', 'value' => $variables[$original_key]);
+                } else {
+                    $result[] = $token;  // Keep unresolved variable
+                }
             } else {
                 $result[] = $token;
             }
@@ -1455,13 +1601,52 @@ class Poker_Tournament_Formula_Validator {
      * Get saved formula
      */
     public function get_formula($name) {
-        // Check default formulas first (built-in formulas)
-        if (isset($this->default_formulas[$name])) {
-            return $this->default_formulas[$name];
-        }
-        // Then check saved custom formulas
+        // Check saved custom formulas first (allows overriding defaults)
         $formulas = get_option('poker_tournament_formulas', array());
-        return $formulas[$name] ?? null;
+        if (isset($formulas[$name])) {
+            // NORMALIZE: Ensure dependencies is an array
+            return $this->normalize_formula_data($formulas[$name]);
+        }
+
+        // Fall back to default formulas (built-in formulas)
+        if (isset($this->default_formulas[$name])) {
+            return $this->normalize_formula_data($this->default_formulas[$name]);
+        }
+
+        return null;
+    }
+
+    /**
+     * Normalize formula data to ensure dependencies is always an array
+     *
+     * Fixes TypeError when dependencies is stored as string but code expects array
+     * Provides backward compatibility for formulas saved in different formats
+     */
+    private function normalize_formula_data($formula_data) {
+        if (!isset($formula_data['dependencies'])) {
+            $formula_data['dependencies'] = array();
+            return $formula_data;
+        }
+
+        // If dependencies is a string, convert to array
+        if (is_string($formula_data['dependencies'])) {
+            // Split by newlines or semicolons
+            $deps_string = $formula_data['dependencies'];
+            if (empty(trim($deps_string))) {
+                $formula_data['dependencies'] = array();
+            } else {
+                // Try splitting by newlines first, then semicolons
+                $deps_array = preg_split('/[\r\n;]+/', $deps_string, -1, PREG_SPLIT_NO_EMPTY);
+                $formula_data['dependencies'] = array_map('trim', $deps_array);
+            }
+        }
+
+        // Ensure it's an array even if empty
+        if (!is_array($formula_data['dependencies'])) {
+            $formula_data['dependencies'] = array();
+        }
+
+        return $formula_data;
     }
 
     /**

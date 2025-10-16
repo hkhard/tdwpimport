@@ -243,6 +243,9 @@ assign(&quot;avgBC&quot;, monies/buyins)"></textarea>
                         <button type="button" class="button" id="test-formula-btn">
                             <?php _e('Test Formula', 'poker-tournament-import'); ?>
                         </button>
+                        <button type="button" class="button" onclick="openVariableReferenceModal()">
+                            <?php _e('Show Variable Reference', 'poker-tournament-import'); ?>
+                        </button>
                         <button type="button" class="button" onclick="closeFormulaModal()">
                             <?php _e('Cancel', 'poker-tournament-import'); ?>
                         </button>
@@ -250,6 +253,294 @@ assign(&quot;avgBC&quot;, monies/buyins)"></textarea>
                 </form>
 
                 <div id="formula-test-result" style="margin-top: 15px;"></div>
+            </div>
+        </div>
+
+        <!-- Variable Reference Modal -->
+        <div id="variable-reference-modal" class="formula-modal">
+            <div class="formula-modal-content" style="max-width: 900px; max-height: 90vh; overflow-y: auto;">
+                <h2><?php _e('Tournament Director Variable Reference', 'poker-tournament-import'); ?></h2>
+
+                <div class="nav-tab-wrapper" style="margin-bottom: 20px;">
+                    <a href="#" class="nav-tab nav-tab-active" data-target="var-tab-tournament">
+                        <?php _e('Tournament Variables', 'poker-tournament-import'); ?>
+                    </a>
+                    <a href="#" class="nav-tab" data-target="var-tab-player">
+                        <?php _e('Player Variables', 'poker-tournament-import'); ?>
+                    </a>
+                    <a href="#" class="nav-tab" data-target="var-tab-mapping">
+                        <?php _e('Variable Mapping', 'poker-tournament-import'); ?>
+                    </a>
+                    <a href="#" class="nav-tab" data-target="var-tab-functions">
+                        <?php _e('Functions', 'poker-tournament-import'); ?>
+                    </a>
+                </div>
+
+                <!-- Tournament Variables Tab -->
+                <div id="var-tab-tournament" class="var-tab-pane">
+                    <h3><?php _e('Tournament Information Variables', 'poker-tournament-import'); ?></h3>
+                    <table class="wp-list-table widefat striped">
+                        <thead>
+                            <tr>
+                                <th><?php _e('Variable', 'poker-tournament-import'); ?></th>
+                                <th><?php _e('Aliases', 'poker-tournament-import'); ?></th>
+                                <th><?php _e('Type', 'poker-tournament-import'); ?></th>
+                                <th><?php _e('Description', 'poker-tournament-import'); ?></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>buyins</code></td>
+                                <td><code>n</code>, <code>numberofplayers</code></td>
+                                <td>int</td>
+                                <td><?php _e('Total number of players who bought in', 'poker-tournament-import'); ?></td>
+                            </tr>
+                            <tr>
+                                <td><code>rank</code></td>
+                                <td><code>r</code></td>
+                                <td>int</td>
+                                <td><?php _e('Player finish position (1st, 2nd, 3rd, etc.)', 'poker-tournament-import'); ?></td>
+                            </tr>
+                            <tr>
+                                <td><code>numberOfHits</code></td>
+                                <td><code>nh</code>, <code>hits</code></td>
+                                <td>int</td>
+                                <td><?php _e('Number of player eliminations (knockouts)', 'poker-tournament-import'); ?></td>
+                            </tr>
+                            <tr>
+                                <td><code>pot</code></td>
+                                <td><code>prizepool</code>, <code>pp</code></td>
+                                <td>decimal</td>
+                                <td><?php _e('Total prize pool amount', 'poker-tournament-import'); ?></td>
+                            </tr>
+                            <tr>
+                                <td><code>totalBuyinsAmount</code></td>
+                                <td></td>
+                                <td>decimal</td>
+                                <td><?php _e('Total money collected from buy-ins', 'poker-tournament-import'); ?></td>
+                            </tr>
+                            <tr>
+                                <td><code>totalRebuysAmount</code></td>
+                                <td></td>
+                                <td>decimal</td>
+                                <td><?php _e('Total money collected from rebuys', 'poker-tournament-import'); ?></td>
+                            </tr>
+                            <tr>
+                                <td><code>totalAddOnsAmount</code></td>
+                                <td></td>
+                                <td>decimal</td>
+                                <td><?php _e('Total money collected from add-ons', 'poker-tournament-import'); ?></td>
+                            </tr>
+                            <tr>
+                                <td><code>defaultBuyinFee</code></td>
+                                <td><code>buyinAmount</code></td>
+                                <td>decimal</td>
+                                <td><?php _e('Buy-in cost per player', 'poker-tournament-import'); ?></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Player Variables Tab -->
+                <div id="var-tab-player" class="var-tab-pane" style="display: none;">
+                    <h3><?php _e('Player Information Variables', 'poker-tournament-import'); ?></h3>
+                    <table class="wp-list-table widefat striped">
+                        <thead>
+                            <tr>
+                                <th><?php _e('Variable', 'poker-tournament-import'); ?></th>
+                                <th><?php _e('Aliases', 'poker-tournament-import'); ?></th>
+                                <th><?php _e('Type', 'poker-tournament-import'); ?></th>
+                                <th><?php _e('Description', 'poker-tournament-import'); ?></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>prizeWinnings</code></td>
+                                <td><code>pw</code>, <code>winnings</code></td>
+                                <td>decimal</td>
+                                <td><?php _e('Prize money won by player', 'poker-tournament-import'); ?></td>
+                            </tr>
+                            <tr>
+                                <td><code>numberOfRebuys</code></td>
+                                <td><code>rebuys</code>, <code>nr</code></td>
+                                <td>int</td>
+                                <td><?php _e('Number of rebuys player made', 'poker-tournament-import'); ?></td>
+                            </tr>
+                            <tr>
+                                <td><code>numberOfAddOns</code></td>
+                                <td><code>addons</code>, <code>na</code></td>
+                                <td>int</td>
+                                <td><?php _e('Number of add-ons player purchased', 'poker-tournament-import'); ?></td>
+                            </tr>
+                            <tr>
+                                <td><code>chipStack</code></td>
+                                <td></td>
+                                <td>decimal</td>
+                                <td><?php _e('Player chip stack at elimination', 'poker-tournament-import'); ?></td>
+                            </tr>
+                            <tr>
+                                <td><code>inTheMoney</code></td>
+                                <td></td>
+                                <td>bool</td>
+                                <td><?php _e('Whether player finished in the money', 'poker-tournament-import'); ?></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Variable Mapping Tab -->
+                <div id="var-tab-mapping" class="var-tab-pane" style="display: none;">
+                    <h3><?php _e('Data Key to Variable Name Mapping', 'poker-tournament-import'); ?></h3>
+                    <p><?php _e('This shows how our internal data fields map to Tournament Director formula variables:', 'poker-tournament-import'); ?></p>
+                    <table class="wp-list-table widefat striped">
+                        <thead>
+                            <tr>
+                                <th><?php _e('Our Data Key', 'poker-tournament-import'); ?></th>
+                                <th></th>
+                                <th><?php _e('TD Formula Variable', 'poker-tournament-import'); ?></th>
+                                <th><?php _e('Aliases', 'poker-tournament-import'); ?></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>total_players</code></td>
+                                <td>→</td>
+                                <td><code>buyins</code></td>
+                                <td><code>n</code>, <code>numberofplayers</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>finish_position</code></td>
+                                <td>→</td>
+                                <td><code>rank</code></td>
+                                <td><code>r</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>hits</code></td>
+                                <td>→</td>
+                                <td><code>numberOfHits</code></td>
+                                <td><code>nh</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>total_money</code></td>
+                                <td>→</td>
+                                <td><code>pot</code></td>
+                                <td><code>prizepool</code>, <code>pp</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>total_buyins_amount</code></td>
+                                <td>→</td>
+                                <td><code>totalBuyinsAmount</code></td>
+                                <td></td>
+                            </tr>
+                            <tr>
+                                <td><code>total_rebuys_amount</code></td>
+                                <td>→</td>
+                                <td><code>totalRebuysAmount</code></td>
+                                <td></td>
+                            </tr>
+                            <tr>
+                                <td><code>total_addons_amount</code></td>
+                                <td>→</td>
+                                <td><code>totalAddOnsAmount</code></td>
+                                <td></td>
+                            </tr>
+                            <tr>
+                                <td><code>buyin_amount</code></td>
+                                <td>→</td>
+                                <td><code>defaultBuyinFee</code></td>
+                                <td><code>buyinAmount</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>winnings</code></td>
+                                <td>→</td>
+                                <td><code>prizeWinnings</code></td>
+                                <td><code>pw</code></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Functions Tab -->
+                <div id="var-tab-functions" class="var-tab-pane" style="display: none;">
+                    <h3><?php _e('Available Mathematical Functions', 'poker-tournament-import'); ?></h3>
+                    <table class="wp-list-table widefat striped">
+                        <thead>
+                            <tr>
+                                <th><?php _e('Function', 'poker-tournament-import'); ?></th>
+                                <th><?php _e('Description', 'poker-tournament-import'); ?></th>
+                                <th><?php _e('Example', 'poker-tournament-import'); ?></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>abs(x)</code></td>
+                                <td><?php _e('Absolute value', 'poker-tournament-import'); ?></td>
+                                <td><code>abs(-5) = 5</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>sqrt(x)</code></td>
+                                <td><?php _e('Square root', 'poker-tournament-import'); ?></td>
+                                <td><code>sqrt(16) = 4</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>pow(x, y)</code></td>
+                                <td><?php _e('Power (x raised to y)', 'poker-tournament-import'); ?></td>
+                                <td><code>pow(2, 3) = 8</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>log(x)</code></td>
+                                <td><?php _e('Natural logarithm', 'poker-tournament-import'); ?></td>
+                                <td><code>log(10)</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>exp(x)</code></td>
+                                <td><?php _e('e raised to power x', 'poker-tournament-import'); ?></td>
+                                <td><code>exp(1) = 2.718...</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>round(x)</code></td>
+                                <td><?php _e('Round to nearest integer', 'poker-tournament-import'); ?></td>
+                                <td><code>round(3.7) = 4</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>floor(x)</code></td>
+                                <td><?php _e('Round down to integer', 'poker-tournament-import'); ?></td>
+                                <td><code>floor(3.7) = 3</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>ceil(x)</code></td>
+                                <td><?php _e('Round up to integer', 'poker-tournament-import'); ?></td>
+                                <td><code>ceil(3.2) = 4</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>max(x, y)</code></td>
+                                <td><?php _e('Maximum of two values', 'poker-tournament-import'); ?></td>
+                                <td><code>max(5, 10) = 10</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>min(x, y)</code></td>
+                                <td><?php _e('Minimum of two values', 'poker-tournament-import'); ?></td>
+                                <td><code>min(5, 10) = 5</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>if(cond, true, false)</code></td>
+                                <td><?php _e('Conditional expression', 'poker-tournament-import'); ?></td>
+                                <td><code>if(r <= 3, 100, 50)</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>assign(var, value)</code></td>
+                                <td><?php _e('Assign value to variable', 'poker-tournament-import'); ?></td>
+                                <td><code>assign("points", n-r+1)</code></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <p class="submit" style="margin-top: 20px;">
+                    <button type="button" class="button button-primary" onclick="closeVariableReferenceModal()">
+                        <?php _e('Close', 'poker-tournament-import'); ?>
+                    </button>
+                </p>
             </div>
         </div>
 
@@ -375,6 +666,29 @@ assign(&quot;avgBC&quot;, monies/buyins)"></textarea>
                     });
                 }
             };
+
+            // Variable reference modal
+            window.openVariableReferenceModal = function() {
+                $('#variable-reference-modal').show();
+            };
+
+            window.closeVariableReferenceModal = function() {
+                $('#variable-reference-modal').hide();
+            };
+
+            // Variable reference tab switching
+            $('#variable-reference-modal .nav-tab').click(function(e) {
+                e.preventDefault();
+                var target = $(this).data('target');
+
+                // Update active tab
+                $('#variable-reference-modal .nav-tab').removeClass('nav-tab-active');
+                $(this).addClass('nav-tab-active');
+
+                // Show targeted tab pane
+                $('#variable-reference-modal .var-tab-pane').hide();
+                $('#' + target).show();
+            });
         });
         </script>
         <?php

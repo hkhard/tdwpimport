@@ -94,37 +94,18 @@ function get_realtime_tournament_results($tournament_id) {
     }
 
     try {
-        // Initialize parser
+        // Initialize parser and use modern AST-based parsing
         $parser = new Poker_Tournament_Parser();
 
-        // Use reflection to access private methods for real-time processing
-        $reflection = new ReflectionClass($parser);
+        // Use public parse_content() method - handles everything internally including financial data
+        $parsed_data = $parser->parse_content($raw_content);
 
-        // Extract GameHistory from raw TDT content
-        if ($reflection->hasMethod('extract_game_history')) {
-            $extract_game_history = $reflection->getMethod('extract_game_history');
-            $extract_game_history->setAccessible(true);
-            $game_history = $extract_game_history->invoke($parser, $raw_content);
-
-            // Extract players from raw TDT content
-            if ($reflection->hasMethod('extract_players')) {
-                $extract_players = $reflection->getMethod('extract_players');
-                $extract_players->setAccessible(true);
-                $players = $extract_players->invoke($parser, $raw_content);
-
-                // Process players with chronological GameHistory
-                if ($reflection->hasMethod('calculate_player_rankings')) {
-                    $calculate_rankings = $reflection->getMethod('calculate_player_rankings');
-                    $calculate_rankings->setAccessible(true);
-                    $players = $calculate_rankings->invoke($parser, $players, $game_history);
-
-                    return array(
-                        'players' => $players,
-                        'game_history' => $game_history,
-                        'metadata' => extract_basic_metadata($raw_content)
-                    );
-                }
-            }
+        if ($parsed_data && !empty($parsed_data['players'])) {
+            return array(
+                'players' => $parsed_data['players'],
+                'game_history' => $parsed_data['game_history'] ?? null,
+                'metadata' => $parsed_data['metadata'] ?? extract_basic_metadata($raw_content)
+            );
         }
     } catch (Exception $e) {
         // Log error but don't break the template

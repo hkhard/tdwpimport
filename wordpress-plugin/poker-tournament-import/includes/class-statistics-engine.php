@@ -787,18 +787,24 @@ class Poker_Statistics_Engine {
     public function get_player_leaderboard($limit = 10) {
         global $wpdb;
 
+        $roi_table = $wpdb->prefix . 'poker_player_roi';
+
+        // Query poker_player_roi table for NET PROFIT (winnings - total_invested)
         $leaderboard = $wpdb->get_results($wpdb->prepare(
             "SELECT
-                tp.player_id,
+                roi.player_id,
                 COUNT(*) as tournaments_played,
-                SUM(tp.winnings) as total_winnings,
+                SUM(roi.net_profit) as total_winnings,
                 SUM(tp.points) as total_points,
                 MIN(tp.finish_position) as best_finish,
                 AVG(tp.finish_position) as avg_finish,
                 SUM(tp.buyins) as total_buyins,
-                MAX(tp.winnings) as highest_payout
-             FROM {$this->players_table} tp
-             GROUP BY tp.player_id
+                MAX(roi.total_winnings) as highest_payout,
+                SUM(roi.total_invested) as total_invested,
+                SUM(roi.total_winnings) as gross_winnings
+             FROM {$roi_table} roi
+             LEFT JOIN {$this->players_table} tp ON roi.player_id = tp.player_id AND roi.tournament_id = tp.tournament_id
+             GROUP BY roi.player_id
              ORDER BY total_winnings DESC, total_points DESC
              LIMIT %d",
             $limit

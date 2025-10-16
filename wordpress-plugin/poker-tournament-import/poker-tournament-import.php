@@ -3,7 +3,7 @@
  * Plugin Name: Poker Tournament Import
  * Plugin URI: https://nikielhard.se/tdwpimport
  * Description: Import and display poker tournament results from Tournament Director (.tdt) files
- * Version: 2.4.27
+ * Version: 2.4.29
  * Author: Hans Kästel Hård
  * Author URI: https://nikielhard.se/tdwpimport
  * License: GPL v2 or later
@@ -20,7 +20,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('POKER_TOURNAMENT_IMPORT_VERSION', '2.4.26');
+define('POKER_TOURNAMENT_IMPORT_VERSION', '2.4.29');
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -2072,6 +2072,13 @@ class Poker_Tournament_Import {
 
         if (is_singular('tournament_series')) {
             $custom_template = POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'templates/taxonomy-tournament_series.php';
+            if (file_exists($custom_template)) {
+                return $custom_template;
+            }
+        }
+
+        if (is_singular('tournament_season')) {
+            $custom_template = POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'templates/single-tournament_season.php';
             if (file_exists($custom_template)) {
                 return $custom_template;
             }

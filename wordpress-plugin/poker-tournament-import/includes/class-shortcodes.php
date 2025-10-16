@@ -2575,7 +2575,7 @@ class Poker_Tournament_Import_Shortcodes {
                                 <?php if (!empty($active_seasons)): ?>
                                     <div class="seasons-list">
                                         <?php foreach ($active_seasons as $season): ?>
-                                            <div class="season-item clickable" data-season-id="<?php echo esc_attr($season->ID); ?>">
+                                            <a href="<?php echo get_permalink($season->ID); ?>" class="season-item clickable" data-season-id="<?php echo esc_attr($season->ID); ?>">
                                                 <div class="season-info">
                                                     <div class="season-name"><?php echo esc_html($season->post_title); ?></div>
                                                     <div class="season-meta">
@@ -2589,7 +2589,7 @@ class Poker_Tournament_Import_Shortcodes {
                                                     </div>
                                                     <span class="progress-text"><?php echo esc_html($season->progress_percent); ?>%</span>
                                                 </div>
-                                            </div>
+                                            </a>
                                         <?php endforeach; ?>
                                     </div>
                                 <?php else: ?>
@@ -3970,6 +3970,14 @@ class Poker_Tournament_Import_Shortcodes {
         $table_name = $wpdb->prefix . 'poker_tournament_players';
         $roi_table = $wpdb->prefix . 'poker_player_roi';
 
+        // DEBUG: Check if tables exist and have data
+        if (current_user_can('manage_options')) {
+            $roi_exists = $wpdb->get_var("SHOW TABLES LIKE '$roi_table'") === $roi_table;
+            $roi_count = $roi_exists ? $wpdb->get_var("SELECT COUNT(*) FROM $roi_table") : 0;
+            error_log("Top Players Debug - ROI table exists: " . ($roi_exists ? 'YES' : 'NO'));
+            error_log("Top Players Debug - ROI table rows: " . $roi_count);
+        }
+
         // Query poker_player_roi table for NET PROFIT (winnings - total_invested)
         $top_players = $wpdb->get_results($wpdb->prepare(
             "SELECT roi.player_id,
@@ -3982,6 +3990,7 @@ class Poker_Tournament_Import_Shortcodes {
              FROM $roi_table roi
              LEFT JOIN $table_name tp ON roi.player_id = tp.player_id AND roi.tournament_id = tp.tournament_id
              GROUP BY roi.player_id
+             HAVING total_winnings IS NOT NULL
              ORDER BY total_winnings DESC, total_points DESC
              LIMIT %d",
             $limit

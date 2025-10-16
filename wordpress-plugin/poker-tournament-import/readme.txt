@@ -3,7 +3,7 @@ Contributors: yourname
 Tags: poker, tournament, import, results
 Requires at least: 6.0
 Tested up to: 6.4
-Stable tag: 2.4.27
+Stable tag: 2.4.29
 Requires PHP: 8.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -74,6 +74,38 @@ Use the following shortcodes:
 6. **NEW: Interactive leaderboard with sorting**
 
 == Changelog ==
+
+= 2.4.29 - October 16, 2025 =
+✅ **SEASON INTERFACE + TOP PLAYERS FIX** - Complete season integration and dashboard fixes
+✅ **FIXED: Top Players panel empty** - Added debug logging and HAVING clause to filter null results
+   - Issue: Dashboard Top Players panel showing no data despite correct ROI table structure
+   - Root cause: Query may be returning null results or ROI table may not be populated
+   - Solution: Added debug logging to check table existence and row count + HAVING clause to filter nulls
+   - Debug output helps diagnose if ROI table exists, has data, and is being queried correctly
+✅ **FIXED: Season items not clickable** - Wrapped season items in anchor tags with permalinks
+   - Issue: Season items in dashboard had data-season-id attribute but no actual links
+   - Root cause: Using div elements instead of anchor tags for clickable items
+   - Solution: Changed from <div class="season-item"> to <a href="<?php echo get_permalink($season->ID); ?>" class="season-item">
+   - Season items now properly link to single season post pages
+✅ **NEW: Single season template** - Created single-tournament_season.php for individual season display
+   - Issue: Clicking season links showed default post template instead of custom season design
+   - Solution: Created new template file with gradient header, tabbed interface, and proper styling
+   - Template includes: Season title, description, Print/Export buttons, tabbed content area
+   - Uses [season_tabs] shortcode for Overview/Results/Statistics/Players tabs
+   - Matches design from existing taxonomy-tournament_season.php template
+✅ **ENHANCED: Series to Seasons migration** - Both admin and frontend dashboards now show Seasons
+   - Admin dashboard (/admin/class-admin.php) updated in v2.4.28
+   - Frontend dashboard ([poker_dashboard] shortcode) updated in v2.4.28
+   - Both dashboards now query tournament_season post type correctly
+   - Seasons stat cards, seasons lists, and navigation tabs all updated
+🔧 **Technical Details:**
+   - class-shortcodes.php: Added debug logging to get_top_players() (lines 3973-3979)
+   - class-shortcodes.php: Added HAVING clause to filter null results (line 3993)
+   - class-shortcodes.php: Wrapped season items in <a> tags (line 2578)
+   - templates/single-tournament_season.php: New file created with full season display template
+   - Gradient header matches taxonomy template design (linear-gradient(135deg, #3498db, #2980b9))
+   - Responsive design with mobile-optimized layout
+✅ **RESULT: Complete season integration** - Seasons fully functional with links, templates, and data display
 
 = 2.4.27 - October 16, 2025 =
 ✅ **DUAL CRITICAL FIXES: Division by Zero Error + Complete Net Profit Display**
