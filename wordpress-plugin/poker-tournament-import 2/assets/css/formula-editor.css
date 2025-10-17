@@ -1,0 +1,441 @@
+/**
+ * Formula Editor Styles
+ * VERSION: 2.4.0
+ */
+
+/* ========================================
+   FORMULA EDITOR WRAPPER
+   ======================================== */
+
+.formula-editor-wrapper {
+    position: relative;
+    margin: 15px 0;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 15px;
+}
+
+.formula-editor-container {
+    position: relative;
+}
+
+/* ========================================
+   TOOLBAR
+   ======================================== */
+
+.formula-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    padding: 10px;
+    background: #f5f5f5;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin-bottom: 10px;
+}
+
+.toolbar-section {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.toolbar-label {
+    font-weight: 600;
+    color: #23282d;
+    margin-right: 5px;
+}
+
+.toolbar-buttons {
+    display: flex;
+    gap: 5px;
+    flex-wrap: wrap;
+}
+
+.formula-insert-btn {
+    font-size: 12px !important;
+    padding: 4px 8px !important;
+    min-height: 28px !important;
+    background: #0073aa;
+    color: #fff;
+    border-color: #0073aa;
+}
+
+.formula-insert-btn:hover {
+    background: #005a87;
+    border-color: #005a87;
+}
+
+.formula-vars-dropdown,
+.formula-funcs-dropdown {
+    max-width: 250px;
+    font-size: 12px;
+    padding: 4px 8px;
+    height: 30px;
+}
+
+.formula-help-btn {
+    font-size: 13px !important;
+    margin-left: auto;
+}
+
+/* ========================================
+   FORMULA INPUT
+   ======================================== */
+
+.formula-input {
+    width: 100%;
+    min-height: 120px;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 14px;
+    line-height: 1.6;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    resize: vertical;
+    background: transparent;
+    position: relative;
+    z-index: 2;
+    color: transparent;
+    caret-color: #333;
+}
+
+.formula-input:focus {
+    border-color: #0073aa;
+    outline: none;
+    box-shadow: 0 0 0 1px #0073aa;
+}
+
+/* ========================================
+   SYNTAX HIGHLIGHTING
+   ======================================== */
+
+.formula-syntax-highlight {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 14px;
+    line-height: 1.6;
+    padding: 10px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    pointer-events: none;
+    overflow: hidden;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    z-index: 1;
+    color: #333;
+}
+
+.syntax-function {
+    color: #0073aa;
+    font-weight: 600;
+}
+
+.syntax-variable {
+    color: #28a745;
+    font-weight: 500;
+}
+
+.syntax-number {
+    color: #d63384;
+}
+
+.syntax-string {
+    color: #e67e22;
+}
+
+.syntax-operator {
+    color: #666;
+    font-weight: 600;
+}
+
+/* ========================================
+   AUTOCOMPLETE
+   ======================================== */
+
+.formula-autocomplete {
+    position: absolute;
+    background: #fff;
+    border: 1px solid #0073aa;
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    max-height: 250px;
+    overflow-y: auto;
+    z-index: 10000;
+    min-width: 300px;
+}
+
+.autocomplete-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.autocomplete-item:hover,
+.autocomplete-item.selected {
+    background: #e1f5fe;
+}
+
+.autocomplete-icon {
+    font-weight: 700;
+    font-size: 16px;
+    width: 20px;
+    text-align: center;
+}
+
+.autocomplete-function {
+    color: #0073aa;
+}
+
+.autocomplete-variable {
+    color: #28a745;
+}
+
+.autocomplete-name {
+    font-family: 'Courier New', Courier, monospace;
+    font-weight: 600;
+    color: #23282d;
+    min-width: 100px;
+}
+
+.autocomplete-desc {
+    font-size: 12px;
+    color: #666;
+    flex: 1;
+}
+
+/* ========================================
+   VALIDATION
+   ======================================== */
+
+.formula-validation {
+    margin-top: 8px;
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-size: 13px;
+}
+
+.formula-validation:empty {
+    display: none;
+}
+
+.validation-error {
+    background: #ffebee;
+    border-left: 4px solid #dc3545;
+    color: #721c24;
+}
+
+.validation-warning {
+    background: #fff3cd;
+    border-left: 4px solid #ffc107;
+    color: #856404;
+}
+
+.validation-success {
+    background: #d4edda;
+    border-left: 4px solid #28a745;
+    color: #155724;
+}
+
+/* ========================================
+   HELP MODAL
+   ======================================== */
+
+.formula-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 100000;
+    align-items: center;
+    justify-content: center;
+}
+
+.formula-modal-content {
+    background: #fff;
+    border-radius: 8px;
+    max-width: 800px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+}
+
+.formula-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    border-bottom: 1px solid #ddd;
+    background: #f5f5f5;
+}
+
+.formula-modal-header h3 {
+    margin: 0;
+    color: #23282d;
+}
+
+.formula-modal-close {
+    background: none;
+    border: none;
+    font-size: 28px;
+    cursor: pointer;
+    color: #666;
+    line-height: 1;
+}
+
+.formula-modal-close:hover {
+    color: #000;
+}
+
+.formula-modal-body {
+    padding: 20px;
+}
+
+.help-section {
+    margin-bottom: 20px;
+}
+
+.help-item {
+    padding: 8px 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.help-item:last-child {
+    border-bottom: none;
+}
+
+.help-item code {
+    background: #f5f5f5;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: 'Courier New', Courier, monospace;
+    color: #0073aa;
+    font-size: 13px;
+}
+
+/* ========================================
+   RESPONSIVE DESIGN
+   ======================================== */
+
+@media (max-width: 768px) {
+    .formula-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .toolbar-section {
+        width: 100%;
+    }
+
+    .formula-vars-dropdown,
+    .formula-funcs-dropdown {
+        max-width: 100%;
+        width: 100%;
+    }
+
+    .formula-autocomplete {
+        max-width: 90vw;
+    }
+
+    .formula-modal-content {
+        width: 95%;
+        margin: 10px;
+    }
+}
+
+/* ========================================
+   SCROLLBAR STYLING
+   ======================================== */
+
+.formula-autocomplete::-webkit-scrollbar {
+    width: 8px;
+}
+
+.formula-autocomplete::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.formula-autocomplete::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+.formula-autocomplete::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+.formula-modal-body::-webkit-scrollbar {
+    width: 8px;
+}
+
+.formula-modal-body::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.formula-modal-body::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+.formula-modal-body::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* ========================================
+   ANIMATIONS
+   ======================================== */
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.formula-autocomplete {
+    animation: fadeIn 0.15s ease-out;
+}
+
+.validation-error,
+.validation-warning,
+.validation-success {
+    animation: fadeIn 0.2s ease-out;
+}
+
+/* ========================================
+   PRINT STYLES
+   ======================================== */
+
+@media print {
+    .formula-toolbar,
+    .formula-autocomplete,
+    .formula-help-btn {
+        display: none !important;
+    }
+
+    .formula-editor-wrapper {
+        border: 1px solid #000;
+    }
+
+    .formula-input {
+        color: #000 !important;
+        border: 1px solid #000;
+    }
+}
