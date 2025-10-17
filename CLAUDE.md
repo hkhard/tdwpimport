@@ -110,3 +110,4 @@ Claude Code guidance for the Poker Tournament Import WordPress plugin.
 - Use pseudocode for implementation planning
 - Break complex tasks into clear steps
 - Focus on WordPress best practices
+- always create updated installer zip file with new versions

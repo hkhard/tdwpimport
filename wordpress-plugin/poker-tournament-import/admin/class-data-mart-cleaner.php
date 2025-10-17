@@ -757,7 +757,9 @@ class Poker_Data_Mart_Cleaner {
 
                 <?php if ($migration_status['needs_reimport_count'] > 0): ?>
                     <div class="migration-notice" style="background: #fcf9e6; border: 1px solid #f0ad4e; border-radius: 4px; padding: 10px; margin-top: 15px;">
-                        <p><strong><?php _e('Migration Needed:', 'poker-tournament-import'); ?></strong> <?php echo sprintf(
+                        <p><strong><?php _e('Migration Needed:', 'poker-tournament-import'); ?></strong> <?php
+                        /* translators: %d: number of tournaments needing re-import */
+                        echo sprintf(
                             __('%d tournaments were imported before version 2.1.3 and lack raw TDT content needed for chronological processing. Re-import these tournaments with their original .tdt files to enable accurate results.', 'poker-tournament-import'),
                             $migration_status['needs_reimport_count']
                         ); ?></p>
@@ -1113,7 +1115,7 @@ class Poker_Data_Mart_Cleaner {
                     if ($migrationNotice.length === 0) {
                         var noticeHtml = '<div class="migration-notice" style="background: #fcf9e6; border: 1px solid #f0ad4e; border-radius: 4px; padding: 10px; margin-top: 15px;">' +
                                        '<p><strong><?php _e('Migration Needed:', 'poker-tournament-import'); ?></strong> ' +
-                                       '<?php echo sprintf(__('%d tournaments were imported before version 2.1.3 and lack raw TDT content needed for chronological processing. Re-import these tournaments with their original .tdt files to enable accurate results.', 'poker-tournament-import'), '{COUNT}'); ?></p></div>';
+                                       '<?php /* translators: %d: number of tournaments needing re-import */ echo sprintf(__('%d tournaments were imported before version 2.1.3 and lack raw TDT content needed for chronological processing. Re-import these tournaments with their original .tdt files to enable accurate results.', 'poker-tournament-import'), '{COUNT}'); ?></p></div>';
                         noticeHtml = noticeHtml.replace('{COUNT}', migrationStatus.needs_reimport_count);
                         $('.migration-status-table').closest('.card').append(noticeHtml);
                     }
@@ -1333,6 +1335,7 @@ class Poker_Data_Mart_Cleaner {
             }
 
         } catch (Exception $e) {
+            /* translators: %s: error message */
             $response['message'] = sprintf(__('Error: %s', 'poker-tournament-import'), $e->getMessage());
             Poker_Tournament_Import_Debug::log_error('AJAX cleaning error: ' . $e->getMessage());
         }
@@ -1373,6 +1376,7 @@ class Poker_Data_Mart_Cleaner {
             $response['data']['migration_status'] = $this->get_enhanced_data_mart_stats()['migration_status'];
 
         } catch (Exception $e) {
+            /* translators: %s: error message */
             $response['message'] = sprintf(__('Error: %s', 'poker-tournament-import'), $e->getMessage());
             Poker_Tournament_Import_Debug::log_error('AJAX migration error: ' . $e->getMessage());
         }
@@ -1404,6 +1408,7 @@ class Poker_Data_Mart_Cleaner {
             $response['data']['migration_status'] = $this->get_enhanced_data_mart_stats()['migration_status'];
         } catch (Exception $e) {
             $response['success'] = false;
+            /* translators: %s: error message */
             $response['message'] = sprintf(__('Error: %s', 'poker-tournament-import'), $e->getMessage());
             Poker_Tournament_Import_Debug::log_error('AJAX status error: ' . $e->getMessage());
         }

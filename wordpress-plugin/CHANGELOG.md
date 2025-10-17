@@ -1,5 +1,23 @@
 # Poker Tournament Import Changelog
 
+## Version 2.6.2 - (October 17, 2025)
+
+### 🌍 WordPress.org Plugin Directory Preparation
+- **FIXED**: All 52 WordPress Plugin Check i18n errors for plugin directory submission
+  - Added translator comments for all strings with placeholders (%s, %d)
+  - Fixed 3 unordered placeholders (changed %s, %d to %1$s, %2$d)
+  - Fixed 1 non-singular string literal (refactored concatenation to use sprintf)
+  - Errors across 8 files: class-shortcodes.php (3), class-data-mart-cleaner.php (5), class-admin.php (32), shortcode-helper.php (4), migration-tools.php (7), single-tournament.php (1), single-player.php (2), poker-tournament-import.php (1)
+
+### 📦 Version Updates
+- Plugin version: 2.6.1 → 2.6.2
+- Updated in poker-tournament-import.php header and POKER_TOURNAMENT_IMPORT_VERSION constant
+- Updated readme.txt Stable tag to 2.6.2
+- Distribution: poker-tournament-import-v2.6.2.zip
+
+### ✅ Result
+- **Ready for WordPress.org submission**: All i18n errors resolved, plugin passes WordPress Plugin Check tool
+
 ## Version 2.6.1 - (October 17, 2025)
 
 ### 🔧 Critical Menu Race Condition Fix

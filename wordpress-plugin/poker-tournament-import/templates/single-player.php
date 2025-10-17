@@ -269,6 +269,7 @@ if (!defined('ABSPATH')) {
 
                                     echo '<div class="achievement-badges">';
                                     if ($wins > 0) {
+                                        /* translators: %d: number of tournament victories */
                                         echo '<div class="achievement-badge gold" title="' . esc_attr(sprintf(_n('%d tournament victory', '%d tournament victories', $wins, 'poker-tournament-import'), $wins)) . '">';
                                         echo '<div class="badge-icon">🏆</div>';
                                         echo '<div class="badge-count">' . esc_html($wins) . '</div>';
@@ -277,6 +278,7 @@ if (!defined('ABSPATH')) {
                                     }
 
                                     if ($final_tables > 0) {
+                                        /* translators: %d: number of final table appearances */
                                         echo '<div class="achievement-badge final-table" title="' . esc_attr(sprintf(_n('%d final table appearance', '%d final table appearances', $final_tables, 'poker-tournament-import'), $final_tables)) . '">';
                                         echo '<div class="badge-icon">🎯</div>';
                                         echo '<div class="badge-count">' . esc_html($final_tables) . '</div>';

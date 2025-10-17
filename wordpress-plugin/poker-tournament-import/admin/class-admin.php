@@ -832,6 +832,7 @@ class Poker_Tournament_Import_Admin {
 
                 if ($import_result['success']) {
                     Poker_Tournament_Import_Debug::log_success('Tournament import completed successfully', $import_result['created_posts']);
+                    /* translators: %s: tournament title */
                     echo '<div class="notice notice-success"><p>' .
                         sprintf(__('Tournament "%s" imported successfully!', 'poker-tournament-import'),
                             esc_html($tournament_data['metadata']['title'])) . '</p></div>';
@@ -885,6 +886,7 @@ class Poker_Tournament_Import_Admin {
 
         if (!empty($tournament_data['players'])) {
             echo '<h4>' . __('Players Found', 'poker-tournament-import') . '</h4>';
+            /* translators: %d: number of players */
             echo '<p>' . sprintf(__('Found %d players in the tournament.', 'poker-tournament-import'), count($tournament_data['players'])) . '</p>';
         }
 
@@ -939,8 +941,9 @@ class Poker_Tournament_Import_Admin {
             <h3><?php _e('Duplicate Tournament Detected', 'poker-tournament-import'); ?></h3>
             <p>
                 <?php
+                /* translators: 1: tournament link and title, 2: import date */
                 printf(
-                    __('A tournament with the same UUID already exists: <strong>%s</strong>. This tournament was imported on %s.', 'poker-tournament-import'),
+                    __('A tournament with the same UUID already exists: <strong>%1$s</strong>. This tournament was imported on %2$s.', 'poker-tournament-import'),
                     sprintf('<a href="%s">%s</a>', esc_url($duplicate_tournament['edit_url']), esc_html($duplicate_tournament['title'])),
                     get_the_date('F j, Y g:i a', $duplicate_tournament['post_id'])
                 );
@@ -1501,25 +1504,30 @@ class Poker_Tournament_Import_Admin {
         echo '<ul>';
 
         if (isset($created_posts['tournament'])) {
+            /* translators: %s: URL to edit tournament */
             echo '<li>' . sprintf(__('Tournament created: <a href="%s">Edit Tournament</a>', 'poker-tournament-import'),
                 get_edit_post_link($created_posts['tournament'])) . '</li>';
         }
 
         if (isset($created_posts['series'])) {
+            /* translators: %s: URL to edit series */
             echo '<li>' . sprintf(__('Series: <a href="%s">Edit Series</a>', 'poker-tournament-import'),
                 get_edit_post_link($created_posts['series'])) . '</li>';
         }
 
         if (isset($created_posts['season'])) {
+            /* translators: %s: URL to edit season */
             echo '<li>' . sprintf(__('Season: <a href="%s">Edit Season</a>', 'poker-tournament-import'),
                 get_edit_post_link($created_posts['season'])) . '</li>';
         }
 
         if (isset($created_posts['players'])) {
+            /* translators: %d: number of player profiles */
             echo '<li>' . sprintf(__('%d player profiles created', 'poker-tournament-import'), $created_posts['players']) . '</li>';
         }
 
         if (isset($created_posts['player_results'])) {
+            /* translators: %d: number of player results */
             echo '<li>' . sprintf(__('%d player results imported (buy-ins, winnings, points)', 'poker-tournament-import'), $created_posts['player_results']) . '</li>';
         }
 
@@ -1543,6 +1551,7 @@ class Poker_Tournament_Import_Admin {
                 $import_result = $this->import_tournament_data($tournament_data);
 
                 if ($import_result['success']) {
+                    /* translators: %s: tournament title */
                     echo '<div class="notice notice-success"><p>' .
                         sprintf(__('Tournament "%s" has been overwritten successfully!', 'poker-tournament-import'),
                             esc_html($tournament_data['metadata']['title'])) . '</p></div>';
@@ -1876,9 +1885,13 @@ class Poker_Tournament_Import_Admin {
                         echo '<div class="notice notice-success is-dismissible">';
                         echo '<p><strong>' . __('Statistics refreshed successfully!', 'poker-tournament-import') . '</strong></p>';
                         echo '<ul>';
+                        /* translators: %d: number of tournaments */
                         echo '<li>' . sprintf(__('Total Tournaments: %d', 'poker-tournament-import'), intval($dashboard_stats['total_tournaments'])) . '</li>';
+                        /* translators: %d: number of players */
                         echo '<li>' . sprintf(__('Total Players: %d', 'poker-tournament-import'), intval($dashboard_stats['total_players'])) . '</li>';
+                        /* translators: %s: formatted prize pool amount */
                         echo '<li>' . sprintf(__('Total Prize Pool: %s', 'poker-tournament-import'), esc_html('$' . number_format($dashboard_stats['total_prize_pool'], 0))) . '</li>';
+                        /* translators: %d: number of series */
                         echo '<li>' . sprintf(__('Active Series: %d', 'poker-tournament-import'), intval($dashboard_stats['active_series'])) . '</li>';
                         echo '</ul>';
                         echo '<p><em>' . __('Dashboard will now show updated data.', 'poker-tournament-import') . '</em></p>';
@@ -1979,8 +1992,11 @@ class Poker_Tournament_Import_Admin {
                     echo '<div class="notice notice-success is-dismissible">';
                     echo '<p><strong>' . __('Statistics calculated successfully!', 'poker-tournament-import') . '</strong></p>';
                     echo '<ul>';
+                    /* translators: %d: number of tournaments */
                     echo '<li>' . sprintf(__('Total Tournaments: %d', 'poker-tournament-import'), intval($dashboard_stats['total_tournaments'])) . '</li>';
+                    /* translators: %d: number of players */
                     echo '<li>' . sprintf(__('Total Players: %d', 'poker-tournament-import'), intval($dashboard_stats['total_players'])) . '</li>';
+                    /* translators: %d: number of series */
                     echo '<li>' . sprintf(__('Active Series: %d', 'poker-tournament-import'), intval($dashboard_stats['active_series'])) . '</li>';
                     echo '</ul>';
                     echo '</div>';
@@ -2821,6 +2837,7 @@ class Poker_Tournament_Import_Admin {
 
             echo '<div class="notice notice-info is-dismissible">';
             echo '<p><strong>' . __('Starting Player Data Repair Process...', 'poker-tournament-import') . '</strong></p>';
+            /* translators: %d: number of tournaments */
             echo '<p>' . sprintf(__('Found %d tournaments to process.', 'poker-tournament-import'), $total_tournaments) . '</p>';
             echo '</div>';
 
@@ -2862,8 +2879,9 @@ class Poker_Tournament_Import_Admin {
                         $total_players_inserted += $players_inserted;
 
                         echo '<div class="notice notice-success is-dismissible">';
+                        /* translators: 1: tournament title, 2: number of players added */
                         echo '<p>' . sprintf(
-                            __('✅ Repaired tournament: %s - %d players added', 'poker-tournament-import'),
+                            __('✅ Repaired tournament: %1$s - %2$d players added', 'poker-tournament-import'),
                             esc_html($tournament->post_title),
                             $players_inserted
                         ) . '</p>';
@@ -2892,8 +2910,11 @@ class Poker_Tournament_Import_Admin {
                     echo '<div class="notice notice-success is-dismissible">';
                     echo '<p><strong>' . __('Player Data Repair Completed!', 'poker-tournament-import') . '</strong></p>';
                     echo '<ul>';
-                    echo '<li>' . sprintf(__('Tournaments Repaired: %d of %d', 'poker-tournament-import'), $repaired_tournaments, $total_tournaments) . '</li>';
+                    /* translators: 1: number repaired, 2: total number */
+                    echo '<li>' . sprintf(__('Tournaments Repaired: %1$d of %2$d', 'poker-tournament-import'), $repaired_tournaments, $total_tournaments) . '</li>';
+                    /* translators: %d: number of players */
                     echo '<li>' . sprintf(__('Total Players Added: %d', 'poker-tournament-import'), $total_players_inserted) . '</li>';
+                    /* translators: %d: number of players */
                     echo '<li>' . sprintf(__('Current Total Players: %d', 'poker-tournament-import'), intval($dashboard_stats['total_players'])) . '</li>';
                     echo '</ul>';
                     echo '</div>';
@@ -3277,6 +3298,7 @@ class Poker_Tournament_Import_Admin {
             $content .= '</ol>';
 
             if ($players_count > 3) {
+                /* translators: %d: number of additional players */
                 $content .= '<p><em>' . sprintf(__('... and %d more players. See complete results below.', 'poker-tournament-import'), $players_count - 3) . '</em></p>';
             }
         }
@@ -4542,6 +4564,7 @@ class Poker_Tournament_Import_Admin {
                     $error_message = isset($result['error']) ? $result['error'] : __('Invalid formula', 'poker-tournament-import');
                     add_action('admin_notices', function() use ($error_message) {
                         echo '<div class="notice notice-error is-dismissible"><p>' .
+                             /* translators: %s: error message */
                              sprintf(__('Formula validation failed: %s', 'poker-tournament-import'), esc_html($error_message)) .
                              '</p></div>';
                     });
@@ -4550,6 +4573,7 @@ class Poker_Tournament_Import_Admin {
                 // Add error notice for exception
                 add_action('admin_notices', function() use ($e) {
                     echo '<div class="notice notice-error is-dismissible"><p>' .
+                         /* translators: %s: error message */
                          sprintf(__('Formula error: %s', 'poker-tournament-import'), esc_html($e->getMessage())) .
                          '</p></div>';
                 });

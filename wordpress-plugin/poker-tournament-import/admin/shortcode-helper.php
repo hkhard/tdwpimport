@@ -81,6 +81,7 @@ class Poker_Shortcode_Helper {
         echo '</div>';
 
         echo '<div class="shortcode-info">';
+        /* translators: %s: tournament title */
         echo '<p><small>' . sprintf(__('Use this shortcode to display "%s" on any page or post.', 'poker-tournament-import'), esc_html($title)) . '</small></p>';
         echo '</div>';
 
@@ -149,6 +150,7 @@ class Poker_Shortcode_Helper {
         echo '</div>';
 
         echo '<div class="shortcode-info">';
+        /* translators: %s: series title */
         echo '<p><small>' . sprintf(__('Use these shortcodes to display "%s" information on any page.', 'poker-tournament-import'), esc_html($title)) . '</small></p>';
         echo '</div>';
 
@@ -212,6 +214,7 @@ class Poker_Shortcode_Helper {
         echo '</div>';
 
         echo '<div class="shortcode-info">';
+        /* translators: %s: season title */
         echo '<p><small>' . sprintf(__('Use these shortcodes to display "%s" information on any page.', 'poker-tournament-import'), esc_html($title)) . '</small></p>';
         echo '</div>';
 
@@ -275,6 +278,7 @@ class Poker_Shortcode_Helper {
         echo '</div>';
 
         echo '<div class="shortcode-info">';
+        /* translators: %s: player name */
         echo '<p><small>' . sprintf(__('Use this shortcode to display "%s" profile on any page.', 'poker-tournament-import'), esc_html($title)) . '</small></p>';
         echo '</div>';
 

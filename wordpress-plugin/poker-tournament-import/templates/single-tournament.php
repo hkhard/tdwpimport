@@ -672,7 +672,8 @@ function extract_basic_metadata($tournament_data) {
 
                             if ($related_tournaments) {
                                 echo '<div class="related-section">';
-                                echo '<h3>' . __('Other ' . esc_html(get_the_title($series_id)) . ' Tournaments', 'poker-tournament-import') . '</h3>';
+                                /* translators: %s: series title */
+                                echo '<h3>' . sprintf(__('Other %s Tournaments', 'poker-tournament-import'), esc_html(get_the_title($series_id))) . '</h3>';
                                 echo '<div class="related-tournaments">';
                                 foreach ($related_tournaments as $tournament) {
                                     echo '<div class="related-tournament-card">';
