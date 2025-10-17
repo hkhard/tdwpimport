@@ -2883,8 +2883,8 @@ class Poker_Tournament_Import_Admin {
 
                         echo '<div class="notice notice-success is-dismissible">';
                         echo '<p>' .
-                            /* translators: 1: tournament title, 2: number of players added */
                             sprintf(
+                                /* translators: 1: tournament title, 2: number of players added */
                                 __('✅ Repaired tournament: %1$s - %2$d players added', 'poker-tournament-import'),
                                 esc_html($tournament->post_title),
                                 $players_inserted
@@ -2893,8 +2893,8 @@ class Poker_Tournament_Import_Admin {
                     } else {
                         echo '<div class="notice notice-warning">';
                         echo '<p>' .
-                            /* translators: %s: tournament title */
                             sprintf(
+                                /* translators: %s: tournament title */
                                 __('⚠️ Tournament: %s - No players inserted', 'poker-tournament-import'),
                                 esc_html($tournament->post_title)
                             ) . '</p>';
