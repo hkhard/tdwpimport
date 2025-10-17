@@ -470,7 +470,7 @@ class Poker_Tournament_Formula_Validator {
      */
     public function __construct() {
         add_action('admin_init', array($this, 'register_formula_settings'));
-        add_action('admin_menu', array($this, 'add_formula_admin_menu'));
+        add_action('admin_menu', array($this, 'add_formula_admin_menu'), 11); // Priority 11: run after parent menu (priority 10)
     }
 
     /**
@@ -689,16 +689,48 @@ class Poker_Tournament_Formula_Validator {
             // Prepare variables
             $variables = $this->prepare_variables($data, $context);
 
+            // Debug: Log variables prepared
+            if (current_user_can('manage_options') && $context === 'season') {
+                error_log("=== Formula Validator Debug START ===");
+                error_log("Variables prepared: " . implode(', ', array_keys($variables)));
+                if (isset($variables['listpoints'])) {
+                    error_log("listpoints array: " . json_encode($variables['listpoints']));
+                } else {
+                    error_log("ERROR: listpoints variable NOT SET!");
+                }
+            }
+
             // Process assignment statements first
             $processed_formula = $this->process_assignments($formula, $variables);
+
+            // Debug: Log after assignment processing
+            if (current_user_can('manage_options') && $context === 'season') {
+                error_log("After assignments - variables: " . implode(', ', array_keys($variables)));
+                if (isset($variables['season_points'])) {
+                    error_log("season_points value: " . $variables['season_points']);
+                } else {
+                    error_log("WARNING: season_points variable NOT SET after assignments!");
+                }
+                if (isset($variables['lp'])) {
+                    error_log("lp variable: " . json_encode($variables['lp']));
+                }
+                error_log("Processed formula (remaining): " . $processed_formula);
+                error_log("=== Formula Validator Debug END ===");
+            }
 
             // FIX v2.4.25: If no expression remains after processing assignments,
             // return the 'points' variable that was set by the last assignment
             // This handles formulas where the formula field itself contains an assignment
             $processed_formula = trim($processed_formula, "; \t\n\r\0\x0B");
             if (empty($processed_formula)) {
-                // All statements were assignments, result is in variables['points']
-                $result = $variables['points'] ?? 1;
+                // All statements were assignments - check for context-specific result variable
+                if ($context === 'season' && isset($variables['season_points'])) {
+                    $result = $variables['season_points'];
+                } elseif (isset($variables['points'])) {
+                    $result = $variables['points'];  // Backward compatibility
+                } else {
+                    $result = 1;  // Last resort fallback
+                }
             } else {
                 // Evaluate the final expression
                 $result = $this->evaluate_expression($processed_formula, $variables);
@@ -721,7 +753,13 @@ class Poker_Tournament_Formula_Validator {
             if (isset($variables)) {
                 Poker_Tournament_Import_Debug::log('Variables provided:');
                 foreach ($variables as $key => $value) {
-                    $value_str = is_bool($value) ? ($value ? 'true' : 'false') : $value;
+                    if (is_array($value)) {
+                        $value_str = json_encode($value);
+                    } elseif (is_bool($value)) {
+                        $value_str = $value ? 'true' : 'false';
+                    } else {
+                        $value_str = (string)$value;
+                    }
                     Poker_Tournament_Import_Debug::log("  {$key} = {$value_str}");
                 }
             }
@@ -729,7 +767,13 @@ class Poker_Tournament_Formula_Validator {
             if (isset($data)) {
                 Poker_Tournament_Import_Debug::log('Raw input data:');
                 foreach ($data as $key => $value) {
-                    $value_str = is_bool($value) ? ($value ? 'true' : 'false') : $value;
+                    if (is_array($value)) {
+                        $value_str = json_encode($value);
+                    } elseif (is_bool($value)) {
+                        $value_str = $value ? 'true' : 'false';
+                    } else {
+                        $value_str = (string)$value;
+                    }
                     Poker_Tournament_Import_Debug::log("  {$key} = {$value_str}");
                 }
             }
@@ -846,6 +890,11 @@ class Poker_Tournament_Formula_Validator {
         $variables['points'] = 1;
         $variables['temp'] = 0;
 
+        // Add listpoints for season points calculation
+        if (isset($data['tournament_points']) && is_array($data['tournament_points'])) {
+            $variables['listpoints'] = $data['tournament_points'];
+        }
+
         return $variables;
     }
 
@@ -961,6 +1010,10 @@ class Poker_Tournament_Formula_Validator {
             // Evaluate AST safely (no eval)
             $result = $this->evaluate_ast($ast, $variables);
 
+            // Arrays are valid results (e.g., listpoints, arrays from top() function)
+            if (is_array($result)) {
+                return $result;
+            }
             return is_finite($result) ? $result : 0;
 
         } catch (Exception $e) {
@@ -1277,7 +1330,12 @@ class Poker_Tournament_Formula_Validator {
             // Rounding functions
             case 'floor': return floor($args[0] ?? 0);
             case 'ceil': return ceil($args[0] ?? 0);
-            case 'round': return round($args[0] ?? 0, $args[1] ?? 0);
+            case 'round':
+                $result = round($args[0] ?? 0, $args[1] ?? 0);
+                if (current_user_can('manage_options')) {
+                    error_log("round() input: " . ($args[0] ?? 0) . " => result: " . $result);
+                }
+                return $result;
             case 'roundUpToNearest':
                 $val = $args[0] ?? 0;
                 $mult = $args[1] ?? 1;
@@ -1297,10 +1355,139 @@ class Poker_Tournament_Formula_Validator {
             case 'max': return max($args[0] ?? 0, $args[1] ?? 0);
 
             // List functions
-            case 'sum': return array_sum($args);
-            case 'average': return count($args) > 0 ? array_sum($args) / count($args) : 0;
-            case 'product': return array_product($args);
-            case 'count': return count($args);
+            case 'sum':
+                // DEBUG: Log BEFORE flatten attempt
+                if (current_user_can('manage_options')) {
+                    error_log("=== sum() BEFORE flatten ===");
+                    error_log("args full: " . json_encode($args));
+                    error_log("args count: " . count($args));
+                    if (count($args) > 0) {
+                        error_log("args[0] type: " . gettype($args[0]));
+                        error_log("args[0] value: " . json_encode($args[0]));
+                        error_log("is_array(args[0]): " . (is_array($args[0]) ? 'YES' : 'NO'));
+                    }
+                    error_log("Condition check: count===1? " . (count($args) === 1 ? 'YES' : 'NO') .
+                              ", is_array(args[0])? " . (isset($args[0]) && is_array($args[0]) ? 'YES' : 'NO'));
+                }
+
+                // FIX: If args contains a single array element, flatten it
+                // This handles sum(countedResults) where countedResults is an array variable
+                if (count($args) === 1 && is_array($args[0])) {
+                    if (current_user_can('manage_options')) {
+                        error_log("*** FLATTENING EXECUTED ***");
+                        error_log("Before: " . json_encode($args));
+                    }
+                    $args = $args[0];
+                    if (current_user_can('manage_options')) {
+                        error_log("After: " . json_encode($args));
+                    }
+                } else {
+                    if (current_user_can('manage_options')) {
+                        error_log("*** FLATTEN SKIPPED - condition not met ***");
+                    }
+                }
+
+                // DEBUG: Log AFTER flatten attempt
+                if (current_user_can('manage_options')) {
+                    error_log("=== sum() AFTER flatten ===");
+                    error_log("args: " . json_encode($args));
+                }
+
+                $result = array_sum($args);
+
+                if (current_user_can('manage_options')) {
+                    error_log("sum() final result: " . $result);
+                    error_log("=== sum() END ===");
+                }
+                return $result;
+            case 'average':
+                // DEBUG: Log before flatten
+                if (current_user_can('manage_options')) {
+                    error_log("average() BEFORE: args=" . json_encode($args) . ", count=" . count($args));
+                }
+
+                // FIX: Flatten if single array argument
+                if (count($args) === 1 && is_array($args[0])) {
+                    if (current_user_can('manage_options')) {
+                        error_log("average() FLATTENING");
+                    }
+                    $args = $args[0];
+                }
+
+                if (current_user_can('manage_options')) {
+                    error_log("average() AFTER: args=" . json_encode($args));
+                }
+
+                return count($args) > 0 ? array_sum($args) / count($args) : 0;
+            case 'product':
+                // DEBUG: Log before flatten
+                if (current_user_can('manage_options')) {
+                    error_log("product() BEFORE: args=" . json_encode($args) . ", count=" . count($args));
+                }
+
+                // FIX: Flatten if single array argument
+                if (count($args) === 1 && is_array($args[0])) {
+                    if (current_user_can('manage_options')) {
+                        error_log("product() FLATTENING");
+                    }
+                    $args = $args[0];
+                }
+
+                if (current_user_can('manage_options')) {
+                    error_log("product() AFTER: args=" . json_encode($args));
+                }
+
+                return array_product($args);
+            case 'count':
+                // DEBUG: Log before flatten
+                if (current_user_can('manage_options')) {
+                    error_log("count() BEFORE: args=" . json_encode($args) . ", count=" . count($args));
+                }
+
+                // FIX: Flatten if single array argument
+                if (count($args) === 1 && is_array($args[0])) {
+                    if (current_user_can('manage_options')) {
+                        error_log("count() FLATTENING");
+                    }
+                    $args = $args[0];
+                }
+
+                if (current_user_can('manage_options')) {
+                    error_log("count() AFTER: args=" . json_encode($args));
+                }
+
+                return count($args);
+            case 'top':
+                // top(N, array) - Return top N highest values from array
+                if (count($args) < 2) {
+                    throw new Exception("top() requires 2 arguments: count, array");
+                }
+                $n = intval($args[0]);
+                $array = is_array($args[1]) ? $args[1] : array($args[1]);
+
+                // DEBUG
+                if (current_user_can('manage_options')) {
+                    error_log("=== top() function debug ===");
+                    error_log("N (count): " . $n);
+                    error_log("Input array type: " . gettype($args[1]));
+                    error_log("Input array: " . json_encode($args[1]));
+                    error_log("Converted array: " . json_encode($array));
+                }
+
+                // Sort descending (highest first)
+                rsort($array);
+
+                // Return top N values as array
+                $result = array_slice($array, 0, $n);
+
+                // DEBUG
+                if (current_user_can('manage_options')) {
+                    error_log("After rsort: " . json_encode($array));
+                    error_log("Result (top " . $n . "): " . json_encode($result));
+                    error_log("=== top() function debug END ===");
+                }
+
+                return $result;
 
             // Special functions
             case 'triangle':
@@ -1688,9 +1875,9 @@ class Poker_Tournament_Formula_Validator {
         $spade_icon = 'data:image/svg+xml;base64,' . base64_encode('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="black"><path d="M12 2L8.5 9.5C7 11 5 13 5 15.5C5 18.5 7.5 21 10.5 21C11.5 21 12.5 20.5 13 19.5H11.5C11.5 20 11 20.5 10.5 20.5C8 20.5 5.5 18 5.5 15.5C5.5 13.5 7 11.5 8.5 10L12 2ZM12 2L15.5 9.5C17 11 19 13 19 15.5C19 18.5 16.5 21 13.5 21C12.5 21 11.5 20.5 11 19.5H12.5C12.5 20 13 20.5 13.5 20.5C16 20.5 18.5 18 18.5 15.5C18.5 13.5 17 11.5 15.5 10L12 2Z"/><path d="M11 19H13V22H11V19Z"/></svg>');
 
         add_submenu_page(
-            'options-general.php',
+            'poker-tournament-import',
             __('Formula Manager', 'poker-tournament-import'),
-            '<span class="dashicons" style="background-image: url(\'' . $spade_icon . '\'); background-size: 18px; background-repeat: no-repeat; background-position: center; width: 18px; height: 18px; display: inline-block; vertical-align: middle; margin-right: 5px;"></span>' . __('Formulas', 'poker-tournament-import'),
+            __('Formulas', 'poker-tournament-import'),
             'manage_options',
             'poker-formula-manager',
             array($formula_manager_page, 'render_page')

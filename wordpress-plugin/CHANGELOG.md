@@ -1,5 +1,77 @@
 # Poker Tournament Import Changelog
 
+## Version 2.6.1 - (October 17, 2025)
+
+### 🔧 Critical Menu Race Condition Fix
+- **FIXED**: 404 errors on both main "Poker Import" menu and "Formulas" submenu
+  - Issue: Formula validator tried to add submenu before parent menu existed
+  - Root cause: Both menus hooking to 'admin_menu' at same priority (10) created race condition
+  - Impact: Menu registration order was random, causing submenu to fail when running first
+  - Solution: Set formula validator hook priority to 11, ensuring parent menu creates first
+
+### 🎨 UI/UX Improvements
+- **REMOVED**: Tabbed interface from series and season templates for cleaner display
+  - Removed `[series_tabs]` shortcode from taxonomy-tournament_series.php
+  - Removed `[season_tabs]` shortcode from taxonomy-tournament_season.php
+  - Direct content display instead of tabs for simplified user experience
+
+- **UNIFIED**: Series template gradient styling to match season template
+  - Changed series gradient from green (#4CAF50) to blue (#3498db, #2980b9)
+  - Consistent visual identity across all tournament series and season pages
+
+### 🏗️ Admin Menu Reorganization
+- **MOVED**: Formula Manager from WordPress Settings to Poker Import menu
+  - Changed parent from 'options-general.php' to 'poker-tournament-import'
+  - Better organization with all poker features under one menu
+  - Updated dashboard links from options-general.php to admin.php
+
+- **SIMPLIFIED**: Formula Manager interface
+  - Removed 4-tab interface (Formulas/Validator/Settings/Variables)
+  - Single-page view showing only formula management
+  - Cleaner, more focused editing experience
+
+### 🐛 Debug System Enhancements
+- **NEW**: Debug mode toggle in admin settings
+  - Checkbox: "Show Statistics Debug Info" in Poker Import Settings
+  - Hides technical debug information (database tables, field analysis) by default
+  - Option stored as `poker_import_show_debug_stats` in WordPress options
+
+- **ENHANCED**: Conditional PHP error_log statements
+  - All dashboard AJAX debug logs wrapped with `get_option('poker_import_debug_logging', 0)` check
+  - 15+ error_log statements now conditional based on debug logging setting
+  - Cleaner production logs, verbose diagnostics when needed
+
+- **ADDED**: JavaScript debug wrapper in admin.js
+  - Global `POKER_DEBUG` flag with `debugLog()` wrapper function
+  - 51 console.log/warn/error calls replaced with conditional debugLog()
+  - Version verification logging for troubleshooting
+
+### 🔒 Technical Details
+- **Formula Validator**: Added admin_menu hook priority 11 (includes/class-formula-validator.php:473)
+  - Ensures parent menu exists before submenu registration
+  - Eliminates race condition between Admin and Formula Validator constructors
+
+- **Settings Registration**: Added `poker_import_show_debug_stats` boolean option
+  - Registered in admin/class-admin.php:137-146
+  - UI checkbox in Settings page (admin/class-admin.php:1615-1624)
+  - Conditional debug section display (admin/class-admin.php:1716, 1845)
+
+- **Debug Logging**: All dashboard AJAX error_log statements now conditional
+  - ajax_load_overview_stats, ajax_load_tournaments_data, ajax_load_players_data
+  - ajax_load_series_data, ajax_load_seasons_data, ajax_load_analytics_data
+  - Only logs when `poker_import_debug_logging` option enabled
+
+### 📦 Version Updates
+- Plugin version: 2.6.0 → 2.6.1
+- Updated in poker-tournament-import.php header and POKER_TOURNAMENT_IMPORT_VERSION constant
+- Distribution: poker-tournament-import-v2.6.1.zip
+
+### ✅ Result
+- **Menu Navigation**: Both main menu and formula submenu work correctly without 404 errors
+- **Clean Interface**: Simplified templates and formula manager for better user experience
+- **Debug Control**: Technical information hidden by default, available when needed
+- **Unified Design**: Consistent blue gradient across all series and season displays
+
 ## Version 1.6.2 - (October 12, 2025)
 
 ### 📚 Comprehensive Documentation System

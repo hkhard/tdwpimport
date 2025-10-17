@@ -12,8 +12,7 @@
 if (!defined('ABSPATH')) {
     exit;
 }
-
-get_header(); ?>
+?>
 
 <div class="poker-series-wrapper">
     <main id="primary" class="site-main">
@@ -45,9 +44,13 @@ get_header(); ?>
                     </div>
                 </header>
 
-                <!-- Tabbed Interface -->
+                <!-- Series Content -->
                 <div class="series-content-area">
-                    <?php echo do_shortcode('[series_tabs series_id="' . get_the_ID() . '"]'); ?>
+                    <?php if (get_the_content()) : ?>
+                        <div class="series-description">
+                            <?php the_content(); ?>
+                        </div>
+                    <?php endif; ?>
                 </div>
 
             </article>
@@ -70,7 +73,7 @@ get_header(); ?>
     align-items: flex-start;
     margin-bottom: 40px;
     padding: 40px;
-    background: linear-gradient(135deg, #4CAF50, #45a049);
+    background: linear-gradient(135deg, #3498db, #2980b9);
     color: white;
     border-radius: 12px;
 }
@@ -132,6 +135,3 @@ get_header(); ?>
     }
 }
 </style>
-
-<?php
-get_footer();

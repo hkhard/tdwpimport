@@ -3,7 +3,7 @@
  * Plugin Name: Poker Tournament Import
  * Plugin URI: https://nikielhard.se/tdwpimport
  * Description: Import and display poker tournament results from Tournament Director (.tdt) files
- * Version: 2.4.45
+ * Version: 2.6.1
  * Author: Hans Kästel Hård
  * Author URI: https://nikielhard.se/tdwpimport
  * License: GPL v2 or later
@@ -20,7 +20,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('POKER_TOURNAMENT_IMPORT_VERSION', '2.4.45');
+define('POKER_TOURNAMENT_IMPORT_VERSION', '2.6.1');
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -145,6 +145,14 @@ class Poker_Tournament_Import {
         add_action('wp_ajax_poker_clean_options_enhanced', array($this, 'ajax_clean_options_enhanced'));
         add_action('wp_ajax_poker_clean_all_enhanced', array($this, 'ajax_clean_all_enhanced'));
         add_action('wp_ajax_poker_get_cleaning_status', array($this, 'ajax_get_cleaning_status'));
+
+        // AJAX handlers for frontend dashboard (logged-in users)
+        add_action('wp_ajax_poker_frontend_import_tournament', array($this, 'ajax_frontend_import_tournament'));
+        add_action('wp_ajax_poker_frontend_refresh_statistics', array($this, 'ajax_frontend_refresh_statistics'));
+        add_action('wp_ajax_poker_dashboard_tournaments_filtered', array($this, 'ajax_dashboard_tournaments_filtered'));
+        add_action('wp_ajax_nopriv_poker_dashboard_tournaments_filtered', array($this, 'ajax_dashboard_tournaments_filtered'));
+        add_action('wp_ajax_poker_load_tournaments_data', array($this, 'ajax_load_tournaments_data'));
+        add_action('wp_ajax_nopriv_poker_load_tournaments_data', array($this, 'ajax_load_tournaments_data'));
 
         // Hook into tournament creation and updates
         add_action('save_post_tournament', array($this, 'on_tournament_save'), 10, 3);
@@ -998,112 +1006,129 @@ class Poker_Tournament_Import {
      * Render tournaments tab content
      */
     private function render_tournaments_tab_content() {
-        global $wpdb;
-        $table_name = $wpdb->prefix . 'poker_tournament_players';
-
-        $tournaments = get_posts(array(
-            'post_type' => 'tournament',
-            'posts_per_page' => 20,
-            'orderby' => 'date',
+        // Get all seasons for filter
+        $seasons = get_terms(array(
+            'taxonomy' => 'season',
+            'hide_empty' => false,
+            'orderby' => 'name',
             'order' => 'DESC'
         ));
 
         echo '<div class="tournaments-detail-view">';
+        echo '<div class="tournaments-header">';
         echo '<h3>' . __('All Tournaments', 'poker-tournament-import') . '</h3>';
-
-        if (!empty($tournaments)) {
-            echo '<div class="tournaments-table-wrapper">';
-            echo '<table class="widefat tournaments-table">';
-            echo '<thead>';
-            echo '<tr>';
-            echo '<th>' . __('Tournament', 'poker-tournament-import') . '</th>';
-            echo '<th>' . __('Date', 'poker-tournament-import') . '</th>';
-            echo '<th>' . __('Players', 'poker-tournament-import') . '</th>';
-            echo '<th>' . __('Prize Pool', 'poker-tournament-import') . '</th>';
-            echo '<th>' . __('Winner', 'poker-tournament-import') . '</th>';
-            echo '</tr>';
-            echo '</thead>';
-            echo '<tbody>';
-
-            foreach ($tournaments as $tournament) {
-                $tournament_uuid = get_post_meta($tournament->ID, 'tournament_uuid', true);
-                $players_count = get_post_meta($tournament->ID, '_players_count', true);
-                $prize_pool = get_post_meta($tournament->ID, '_prize_pool', true);
-                $tournament_date = get_post_meta($tournament->ID, '_tournament_date', true);
-                $currency = get_post_meta($tournament->ID, '_currency', true) ?: '$';
-
-                // Get winner
-                $winner_name = '';
-                if ($tournament_uuid) {
-                    $winner = $wpdb->get_row($wpdb->prepare(
-                        "SELECT p.post_title as winner_name
-                         FROM $table_name tp
-                         LEFT JOIN {$wpdb->postmeta} pm ON pm.meta_value = tp.player_id AND pm.meta_key = 'player_uuid'
-                         LEFT JOIN {$wpdb->posts} p ON pm.post_id = p.ID
-                         WHERE tp.tournament_id = %s AND tp.finish_position = 1
-                         LIMIT 1",
-                        $tournament_uuid
-                    ));
-                    if ($winner) $winner_name = $winner->winner_name;
-                }
-
-                echo '<tr>';
-                echo '<td><strong><a href="' . get_permalink($tournament->ID) . '">' . esc_html($tournament->post_title) . '</a></strong></td>';
-                echo '<td>' . esc_html($tournament_date ? date_i18n('M j, Y', strtotime($tournament_date)) : get_the_date('M j, Y', $tournament->ID)) . '</td>';
-                echo '<td>' . esc_html($players_count ?: '--') . '</td>';
-                echo '<td>' . esc_html($currency . number_format($prize_pool ?: 0, 0)) . '</td>';
-                echo '<td>' . ($winner_name ? '<a href="#">' . esc_html($winner_name) . '</a>' : '--') . '</td>';
-                echo '</tr>';
+        
+        // Season filter dropdown
+        if (!empty($seasons)) {
+            echo '<div class="tournament-season-filter">';
+            echo '<label for="tournament-season-select">' . __('Season:', 'poker-tournament-import') . '</label>';
+            echo '<select id="tournament-season-select" class="season-filter-select">';
+            echo '<option value="all">' . __('All Seasons', 'poker-tournament-import') . '</option>';
+            foreach ($seasons as $season) {
+                echo '<option value="' . esc_attr($season->term_id) . '">' . esc_html($season->name) . '</option>';
             }
-
-            echo '</tbody>';
-            echo '</table>';
+            echo '</select>';
             echo '</div>';
-        } else {
-            echo '<p>' . __('No tournaments found.', 'poker-tournament-import') . '</p>';
         }
+        echo '</div>';
+
+        // Container for AJAX-loaded tournament grid with scroll wrapper
+        echo '<div class="tournament-leaderboard-scroll-wrapper">';
+        echo '<div id="tournaments-grid-container" class="tournaments-grid-container">';
+        echo '<div class="loading-spinner">' . __('Loading tournaments...', 'poker-tournament-import') . '</div>';
+        echo '</div>';
+        echo '</div>';
+
+        // Load more button
+        echo '<div class="tournament-load-more-container" style="display:none;">';
+        echo '<button id="tournament-load-more-btn" class="button button-primary">' . __('Load More', 'poker-tournament-import') . '</button>';
+        echo '</div>';
 
         echo '</div>';
     }
 
     /**
-     * Render players tab content
+     * Render players tab content with enhanced statistics
      */
     private function render_players_tab_content() {
         global $wpdb;
         $table_name = $wpdb->prefix . 'poker_tournament_players';
+        $roi_table = $wpdb->prefix . 'poker_player_roi';
 
-        $top_players = $wpdb->get_results($wpdb->prepare(
-            "SELECT tp.player_id,
-                    COUNT(*) as tournaments_played,
-                    SUM(tp.winnings) as total_winnings,
-                    SUM(tp.points) as total_points,
-                    MIN(tp.finish_position) as best_finish,
-                    AVG(tp.finish_position) as avg_finish
-             FROM $table_name tp
-             GROUP BY tp.player_id
+        // Enhanced query with finish position counts, bubble, last place, and hits
+        $top_players = $wpdb->get_results(
+            "SELECT
+                roi.player_id,
+                COUNT(DISTINCT tp.tournament_id) as tournaments_played,
+                SUM(roi.net_profit) as total_winnings,
+                SUM(tp.points) as total_points,
+                MIN(tp.finish_position) as best_finish,
+                AVG(tp.finish_position) as avg_finish,
+                SUM(CASE WHEN tp.finish_position = 1 THEN 1 ELSE 0 END) as first_place_count,
+                SUM(CASE WHEN tp.finish_position = 2 THEN 1 ELSE 0 END) as second_place_count,
+                SUM(CASE WHEN tp.finish_position = 3 THEN 1 ELSE 0 END) as third_place_count,
+                SUM(tp.hits) as total_hits,
+                SUM(CASE
+                    WHEN tp.finish_position = (
+                        SELECT COUNT(*) + 1
+                        FROM {$table_name} tp2
+                        WHERE tp2.tournament_id = tp.tournament_id AND tp2.winnings > 0
+                    )
+                    THEN 1 ELSE 0
+                END) as bubble_count,
+                SUM(CASE
+                    WHEN tp.finish_position = (
+                        SELECT MAX(finish_position)
+                        FROM {$table_name} tp3
+                        WHERE tp3.tournament_id = tp.tournament_id
+                    )
+                    THEN 1 ELSE 0
+                END) as last_place_count
+             FROM {$roi_table} roi
+             LEFT JOIN {$table_name} tp ON roi.player_id = tp.player_id AND roi.tournament_id = tp.tournament_id
+             GROUP BY roi.player_id
              ORDER BY total_winnings DESC, total_points DESC
              LIMIT 50"
-        ));
+        );
+
+        // Calculate season points for each player
+        foreach ($top_players as &$player) {
+            $player->season_points = $this->calculate_player_season_points($player->player_id);
+        }
+
+        // Sort by season points DESC, then total points DESC
+        usort($top_players, function($a, $b) {
+            if ($a->season_points != $b->season_points) {
+                return $b->season_points <=> $a->season_points;
+            }
+            return $b->total_points <=> $a->total_points;
+        });
 
         echo '<div class="players-detail-view">';
         echo '<h3>' . __('All Players', 'poker-tournament-import') . '</h3>';
 
         if (!empty($top_players)) {
-            echo '<div class="players-table-wrapper">';
-            echo '<table class="widefat players-table">';
-            echo '<thead>';
-            echo '<tr>';
-            echo '<th>' . __('Player', 'poker-tournament-import') . '</th>';
-            echo '<th>' . __('Tournaments', 'poker-tournament-import') . '</th>';
-            echo '<th>' . __('Total Winnings', 'poker-tournament-import') . '</th>';
-            echo '<th>' . __('Total Points', 'poker-tournament-import') . '</th>';
-            echo '<th>' . __('Best Finish', 'poker-tournament-import') . '</th>';
-            echo '<th>' . __('Avg Finish', 'poker-tournament-import') . '</th>';
-            echo '</tr>';
-            echo '</thead>';
-            echo '<tbody>';
+            echo '<div class="player-leaderboard-scroll-wrapper">';
+            echo '<div class="player-leaderboard-table">';
 
+            // Header row
+            echo '<div class="table-header">';
+            echo '<div class="header-rank">' . __('Rank', 'poker-tournament-import') . '</div>';
+            echo '<div class="header-player">' . __('Player', 'poker-tournament-import') . '</div>';
+            echo '<div class="header-tournaments">' . __('Tournaments', 'poker-tournament-import') . '</div>';
+            echo '<div class="header-first">' . __('1st', 'poker-tournament-import') . '</div>';
+            echo '<div class="header-second">' . __('2nd', 'poker-tournament-import') . '</div>';
+            echo '<div class="header-third">' . __('3rd', 'poker-tournament-import') . '</div>';
+            echo '<div class="header-bubble">' . __('Bubble', 'poker-tournament-import') . '</div>';
+            echo '<div class="header-last">' . __('Last', 'poker-tournament-import') . '</div>';
+            echo '<div class="header-hits">' . __('Hits', 'poker-tournament-import') . '</div>';
+            echo '<div class="header-points sortable" data-sort="points">' . __('Points', 'poker-tournament-import') . '<span class="sort-indicator"></span></div>';
+            echo '<div class="header-best">' . __('Best', 'poker-tournament-import') . '</div>';
+            echo '<div class="header-avg">' . __('Avg', 'poker-tournament-import') . '</div>';
+            echo '<div class="header-season-points sortable active" data-sort="season_points">' . __('Season Pts', 'poker-tournament-import') . '<span class="sort-indicator">▼</span></div>';
+            echo '</div>';
+
+            // Player rows
             foreach ($top_players as $index => $player) {
                 $player_post = $wpdb->get_row($wpdb->prepare(
                     "SELECT p.ID, p.post_title
@@ -1114,35 +1139,117 @@ class Poker_Tournament_Import {
                     $player->player_id
                 ));
 
-                $rank_class = '';
-                if ($index === 0) $rank_class = 'gold';
-                elseif ($index === 1) $rank_class = 'silver';
-                elseif ($index === 2) $rank_class = 'bronze';
+                echo '<div class="table-row" data-player-id="' . esc_attr($player->player_id) . '"';
+                echo ' data-points="' . esc_attr($player->total_points) . '"';
+                echo ' data-season-points="' . esc_attr($player->season_points) . '">';
 
-                echo '<tr class="' . esc_attr($rank_class) . '">';
-                echo '<td>';
+                echo '<div class="rank-cell">' . ($index + 1) . '</div>';
+
+                echo '<div class="player-cell">';
                 if ($player_post) {
                     echo '<a href="' . get_permalink($player_post->ID) . '">' . esc_html($player_post->post_title) . '</a>';
                 } else {
                     echo esc_html($player->player_id);
                 }
-                echo '</td>';
-                echo '<td>' . esc_html($player->tournaments_played) . '</td>';
-                echo '<td>$' . esc_html(number_format($player->total_winnings, 0)) . '</td>';
-                echo '<td>' . esc_html(number_format($player->total_points, 1)) . '</td>';
-                echo '<td>' . esc_html($player->best_finish) . get_ordinal_suffix($player->best_finish) . '</td>';
-                echo '<td>' . esc_html(number_format($player->avg_finish, 1)) . '</td>';
-                echo '</tr>';
+                echo '</div>';
+
+                echo '<div class="tournaments-cell">' . esc_html($player->tournaments_played) . '</div>';
+                echo '<div class="first-cell">' . esc_html($player->first_place_count ?? 0) . '</div>';
+                echo '<div class="second-cell">' . esc_html($player->second_place_count ?? 0) . '</div>';
+                echo '<div class="third-cell">' . esc_html($player->third_place_count ?? 0) . '</div>';
+                echo '<div class="bubble-cell">' . esc_html($player->bubble_count ?? 0) . '</div>';
+                echo '<div class="last-cell">' . esc_html($player->last_place_count ?? 0) . '</div>';
+                echo '<div class="hits-cell">' . esc_html($player->total_hits ?? 0) . '</div>';
+                echo '<div class="points-cell">' . esc_html(number_format(floatval($player->total_points), 1)) . '</div>';
+                echo '<div class="best-finish-cell">' . esc_html($player->best_finish) . '</div>';
+                echo '<div class="avg-finish-cell">' . esc_html(number_format(floatval($player->avg_finish), 1)) . '</div>';
+                echo '<div class="season-points-cell">' . esc_html(number_format(floatval($player->season_points), 1)) . '</div>';
+
+                echo '</div>';
             }
 
-            echo '</tbody>';
-            echo '</table>';
-            echo '</div>';
+            echo '</div>'; // player-leaderboard-table
+            echo '</div>'; // player-leaderboard-scroll-wrapper
         } else {
             echo '<p>' . __('No players found.', 'poker-tournament-import') . '</p>';
         }
 
         echo '</div>';
+    }
+
+    /**
+     * Calculate season points for a player using configured formula
+     */
+    private function calculate_player_season_points($player_id) {
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'poker_tournament_players';
+
+        // Get configured season formula
+        $formula_key = get_option('poker_active_season_formula', 'season_total');
+
+        // Get all tournament points for player
+        $results = $wpdb->get_results($wpdb->prepare(
+            "SELECT points, winnings, hits, finish_position
+             FROM {$table_name}
+             WHERE player_id = %s",
+            $player_id
+        ));
+
+        if (empty($results)) {
+            return 0;
+        }
+
+        // Collect data
+        $tournament_points = array();
+        $total_points = 0;
+        $total_winnings = 0;
+        $total_hits = 0;
+        $best_finish = PHP_INT_MAX;
+        $tournaments_played = count($results);
+        $finishes = array();
+
+        foreach ($results as $result) {
+            $points = floatval($result->points);
+            $tournament_points[] = $points;
+            $total_points += $points;
+            $total_winnings += floatval($result->winnings);
+            $total_hits += intval($result->hits);
+            $finish = intval($result->finish_position);
+            $finishes[] = $finish;
+            if ($finish < $best_finish && $finish > 0) {
+                $best_finish = $finish;
+            }
+        }
+
+        $avg_finish = !empty($finishes) ? array_sum($finishes) / count($finishes) : 0;
+
+        // Apply formula if configured and not direct_sum
+        if ($formula_key && $formula_key !== 'direct_sum' && class_exists('Poker_Tournament_Formula_Validator')) {
+            $formula_validator = new Poker_Tournament_Formula_Validator();
+            $formula_data = $formula_validator->get_formula($formula_key);
+
+            if ($formula_data) {
+                $formula_input = array(
+                    'tournament_points' => $tournament_points,
+                    'total_tournaments' => $tournaments_played,
+                    'tournaments_played' => $tournaments_played,
+                    'total_winnings' => $total_winnings,
+                    'total_hits' => $total_hits,
+                    'best_finish' => $best_finish === PHP_INT_MAX ? 0 : $best_finish,
+                    'avg_finish' => $avg_finish,
+                    'player_id' => $player_id
+                );
+
+                $result = $formula_validator->calculate_formula($formula_data['formula'], $formula_input, 'season');
+
+                if (isset($result['success']) && $result['success']) {
+                    return floatval($result['result']);
+                }
+            }
+        }
+
+        // Fallback: sum all points
+        return $total_points;
     }
 
     /**
@@ -1799,6 +1906,355 @@ class Poker_Tournament_Import {
                 'message' => __('Error parsing TDT file: ', 'poker-tournament-import') . $e->getMessage()
             ));
         }
+    }
+
+    /**
+     * AJAX handler for frontend tournament import (non-admin users)
+     */
+    public function ajax_frontend_import_tournament() {
+        check_ajax_referer('poker_frontend_import', 'nonce');
+
+        if (!is_user_logged_in()) {
+            wp_send_json_error(array(
+                'message' => __('You must be logged in to import tournaments.', 'poker-tournament-import')
+            ));
+        }
+
+        if (!isset($_FILES['tdt_file']) || $_FILES['tdt_file']['error'] !== UPLOAD_ERR_OK) {
+            wp_send_json_error(array(
+                'message' => __('File upload failed. Please try again.', 'poker-tournament-import')
+            ));
+        }
+
+        $file = $_FILES['tdt_file'];
+
+        // Validate file type
+        $file_extension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+        if ($file_extension !== 'tdt') {
+            wp_send_json_error(array(
+                'message' => __('Invalid file type. Please upload a .tdt file.', 'poker-tournament-import')
+            ));
+        }
+
+        // Read file content
+        $file_content = file_get_contents($file['tmp_name']);
+        if ($file_content === false) {
+            wp_send_json_error(array(
+                'message' => __('Failed to read uploaded file.', 'poker-tournament-import')
+            ));
+        }
+
+        // Parse the TDT file
+        try {
+            $parser = new Poker_Tournament_Parser();
+            $tournament_data = $parser->parse_content($file_content);
+
+            if (!$tournament_data || empty($tournament_data['players'])) {
+                wp_send_json_error(array(
+                    'message' => __('Invalid or empty TDT file.', 'poker-tournament-import')
+                ));
+            }
+
+            // Check if tournament already exists by UUID
+            $tournament_uuid = $tournament_data['metadata']['uuid'] ?? uniqid('tournament_');
+            $existing_tournament = new WP_Query(array(
+                'post_type' => 'tournament',
+                'meta_key' => 'tournament_uuid',
+                'meta_value' => $tournament_uuid,
+                'posts_per_page' => 1
+            ));
+
+            if ($existing_tournament->have_posts()) {
+                $tournament_id = $existing_tournament->posts[0]->ID;
+                $is_new = false;
+            } else {
+                // Create new tournament post
+                $tournament_id = wp_insert_post(array(
+                    'post_type' => 'tournament',
+                    'post_title' => $tournament_data['metadata']['name'] ?? 'Tournament',
+                    'post_status' => 'publish',
+                    'post_content' => ''
+                ));
+
+                if (is_wp_error($tournament_id)) {
+                    wp_send_json_error(array(
+                        'message' => __('Failed to create tournament post.', 'poker-tournament-import')
+                    ));
+                }
+                $is_new = true;
+            }
+
+            // Store raw TDT content and metadata
+            update_post_meta($tournament_id, '_tournament_raw_content', $file_content);
+            update_post_meta($tournament_id, '_tdt_filename', sanitize_file_name($file['name']));
+            update_post_meta($tournament_id, '_tdt_upload_date', current_time('mysql'));
+            update_post_meta($tournament_id, '_tdt_upload_user', get_current_user_id());
+            update_post_meta($tournament_id, '_tdt_file_size', $file['size']);
+            update_post_meta($tournament_id, 'tournament_uuid', $tournament_uuid);
+
+            // Store tournament metadata
+            if (isset($_POST['series_id']) && !empty($_POST['series_id'])) {
+                $series_id = intval($_POST['series_id']);
+                wp_set_object_terms($tournament_id, array($series_id), 'tournament_series');
+            }
+
+            if (isset($_POST['season_id']) && !empty($_POST['season_id'])) {
+                $season_id = intval($_POST['season_id']);
+                update_post_meta($tournament_id, '_season_id', $season_id);
+            }
+
+            $tournament_date = $tournament_data['metadata']['date'] ?? current_time('Y-m-d');
+            update_post_meta($tournament_id, '_tournament_date', $tournament_date);
+            update_post_meta($tournament_id, '_players_count', count($tournament_data['players']));
+            update_post_meta($tournament_id, '_prize_pool', $tournament_data['metadata']['prize_pool'] ?? 0);
+            update_post_meta($tournament_id, '_currency', $tournament_data['metadata']['currency'] ?? '$');
+
+            // Update player data in poker_tournament_players table
+            global $wpdb;
+            $table_name = $wpdb->prefix . 'poker_tournament_players';
+
+            // Clear existing player data
+            $wpdb->delete(
+                $table_name,
+                array('tournament_id' => $tournament_uuid),
+                array('%s')
+            );
+
+            // Insert player data in chronological order
+            foreach ($tournament_data['players'] as $index => $player) {
+                $wpdb->insert(
+                    $table_name,
+                    array(
+                        'tournament_id' => $tournament_uuid,
+                        'player_id' => $player['id'],
+                        'finish_position' => $index + 1,
+                        'winnings' => $player['winnings'] ?? 0,
+                        'buyins' => $player['buyins'] ?? 1,
+                        'rebuys' => $player['rebuys'] ?? 0,
+                        'addons' => $player['addons'] ?? 0,
+                        'hits' => $player['hits'] ?? 0,
+                        'points' => $player['points'] ?? 0,
+                    ),
+                    array('%s', '%s', '%d', '%f', '%d', '%d', '%d', '%d', '%f')
+                );
+            }
+
+            // Mark as processed
+            update_post_meta($tournament_id, '_chronologically_processed', true);
+            update_post_meta($tournament_id, '_chronological_processing_date', current_time('mysql'));
+            update_post_meta($tournament_id, '_tdt_file_uploaded', true);
+
+            wp_send_json_success(array(
+                'message' => $is_new 
+                    ? __('Tournament imported successfully!', 'poker-tournament-import')
+                    : __('Tournament updated successfully!', 'poker-tournament-import'),
+                'tournament_id' => $tournament_id,
+                'tournament_url' => get_permalink($tournament_id),
+                'tournament_title' => get_the_title($tournament_id)
+            ));
+
+        } catch (Exception $e) {
+            wp_send_json_error(array(
+                'message' => __('Error parsing TDT file: ', 'poker-tournament-import') . $e->getMessage()
+            ));
+        }
+    }
+
+    /**
+     * AJAX handler for frontend statistics refresh (logged-in users)
+     */
+    public function ajax_frontend_refresh_statistics() {
+        check_ajax_referer('poker_frontend_stats', 'nonce');
+
+        if (!is_user_logged_in()) {
+            wp_send_json_error(array(
+                'message' => __('You must be logged in to refresh statistics.', 'poker-tournament-import')
+            ));
+        }
+
+        $season_id = isset($_POST['season_id']) ? sanitize_text_field($_POST['season_id']) : null;
+        
+        $result = $this->statistics_engine->refresh_statistics();
+
+        if ($result) {
+            wp_send_json_success(array(
+                'message' => __('Statistics refreshed successfully!', 'poker-tournament-import'),
+                'timestamp' => current_time('mysql'),
+                'stats' => $this->statistics_engine->get_dashboard_statistics($season_id)
+            ));
+        } else {
+            wp_send_json_error(array(
+                'message' => __('Failed to refresh statistics.', 'poker-tournament-import')
+            ));
+        }
+    }
+
+    /**
+     * AJAX handler for loading tournaments filtered by season
+     */
+    public function ajax_dashboard_tournaments_filtered() {
+        check_ajax_referer('poker_series_tab_content', 'nonce');
+
+        $season_id = isset($_POST['season_id']) ? sanitize_text_field($_POST['season_id']) : 'all';
+        $page = isset($_POST['page']) ? intval($_POST['page']) : 1;
+        $per_page = 20;
+
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'poker_tournament_players';
+
+        $args = array(
+            'post_type' => 'tournament',
+            'posts_per_page' => $per_page,
+            'paged' => $page,
+            'orderby' => 'date',
+            'order' => 'DESC'
+        );
+
+        // Add season filter
+        if ($season_id && $season_id !== 'all') {
+            $args['meta_query'] = array(
+                array(
+                    'key' => '_season_id',
+                    'value' => $season_id,
+                    'compare' => '='
+                )
+            );
+        }
+
+        $query = new WP_Query($args);
+
+        if ($query->have_posts()) {
+            $tournaments = array();
+            $rank = ($page - 1) * $per_page + 1;
+
+            while ($query->have_posts()) {
+                $query->the_post();
+                $tournament_id = get_the_ID();
+                $tournament_uuid = get_post_meta($tournament_id, 'tournament_uuid', true);
+                $players_count = get_post_meta($tournament_id, '_players_count', true);
+                $prize_pool = get_post_meta($tournament_id, '_prize_pool', true);
+                $tournament_date = get_post_meta($tournament_id, '_tournament_date', true);
+                $currency = get_post_meta($tournament_id, '_currency', true) ?: '$';
+
+                // Get winner
+                $winner_name = '';
+                if ($tournament_uuid) {
+                    $winner = $wpdb->get_row($wpdb->prepare(
+                        "SELECT p.post_title as winner_name
+                         FROM $table_name tp
+                         LEFT JOIN {$wpdb->postmeta} pm ON pm.meta_value = tp.player_id AND pm.meta_key = 'player_uuid'
+                         LEFT JOIN {$wpdb->posts} p ON pm.post_id = p.ID
+                         WHERE tp.tournament_id = %s AND tp.finish_position = 1
+                         LIMIT 1",
+                        $tournament_uuid
+                    ));
+                    if ($winner) $winner_name = $winner->winner_name;
+                }
+
+                $tournaments[] = array(
+                    'rank' => $rank++,
+                    'id' => $tournament_id,
+                    'title' => get_the_title(),
+                    'url' => get_permalink(),
+                    'date' => $tournament_date ? date_i18n('M j, Y', strtotime($tournament_date)) : get_the_date('M j, Y'),
+                    'players' => $players_count ?: '--',
+                    'prize_pool' => $currency . number_format($prize_pool ?: 0, 0),
+                    'winner' => $winner_name
+                );
+            }
+
+            wp_reset_postdata();
+
+            wp_send_json_success(array(
+                'tournaments' => $tournaments,
+                'has_more' => $query->max_num_pages > $page,
+                'current_page' => $page,
+                'total_pages' => $query->max_num_pages
+            ));
+        } else {
+            wp_send_json_success(array(
+                'tournaments' => array(),
+                'has_more' => false,
+                'current_page' => 1,
+                'total_pages' => 0
+            ));
+        }
+    }
+
+    /**
+     * AJAX handler for loading tournaments data (frontend dashboard)
+     * Matches admin.js expectations for renderTournamentsTab
+     */
+    public function ajax_load_tournaments_data() {
+        check_ajax_referer('poker_dashboard_nonce', 'nonce');
+
+        // Allow any logged-in user (v2.5.9 requirement - non-admin dashboard access)
+        if (!is_user_logged_in()) {
+            wp_send_json_error('You must be logged in to view tournaments');
+        }
+
+        $page = isset($_POST['page']) ? intval($_POST['page']) : 1;
+        $per_page = isset($_POST['per_page']) ? intval($_POST['per_page']) : 25;
+        $search = isset($_POST['search']) ? sanitize_text_field($_POST['search']) : '';
+        $status = isset($_POST['status']) ? sanitize_text_field($_POST['status']) : '';
+
+        $args = array(
+            'post_type' => 'tournament',
+            'posts_per_page' => $per_page,
+            'paged' => $page,
+            'orderby' => 'date',
+            'order' => 'DESC',
+            'post_status' => 'publish'
+        );
+
+        if (!empty($search)) {
+            $args['s'] = $search;
+        }
+
+        if (!empty($status)) {
+            $args['meta_query'] = array(
+                array(
+                    'key' => '_tournament_status',
+                    'value' => $status
+                )
+            );
+        }
+
+        $query = new WP_Query($args);
+        $tournament_data = array();
+
+        if ($query->have_posts()) {
+            while ($query->have_posts()) {
+                $query->the_post();
+                $tournament_id = get_the_ID();
+                
+                $tournament_data[] = array(
+                    'id' => $tournament_id,
+                    'title' => get_the_title(),
+                    'date' => get_post_meta($tournament_id, '_tournament_date', true) ?: get_the_date('Y-m-d'),
+                    'players_count' => get_post_meta($tournament_id, '_players_count', true) ?: 0,
+                    'prize_pool' => get_post_meta($tournament_id, '_prize_pool', true) ?: 0,
+                    'status' => get_post_status(),
+                    'edit_link' => get_edit_post_link($tournament_id),
+                    'view_link' => get_permalink($tournament_id)
+                );
+            }
+            wp_reset_postdata();
+        }
+
+        $total_tournaments = $query->found_posts;
+
+        $response = array(
+            'tournaments' => $tournament_data,
+            'pagination' => array(
+                'current_page' => $page,
+                'total_pages' => $query->max_num_pages,
+                'total_items' => $total_tournaments,
+                'per_page' => $per_page
+            )
+        );
+
+        wp_send_json_success($response);
     }
 
     /**

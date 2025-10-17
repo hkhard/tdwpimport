@@ -32,6 +32,7 @@ class Poker_Tournament_Import_Admin {
         add_action('wp_ajax_poker_load_tournaments_data', array($this, 'ajax_load_tournaments_data'));
         add_action('wp_ajax_poker_load_players_data', array($this, 'ajax_load_players_data'));
         add_action('wp_ajax_poker_load_series_data', array($this, 'ajax_load_series_data'));
+        add_action('wp_ajax_poker_load_seasons_data', array($this, 'ajax_load_seasons_data'));
         add_action('wp_ajax_poker_load_analytics_data', array($this, 'ajax_load_analytics_data'));
         add_action('wp_ajax_poker_get_leaderboard_data', array($this, 'ajax_get_leaderboard_data'));
 
@@ -128,6 +129,17 @@ class Poker_Tournament_Import_Admin {
             array(
                 'type' => 'boolean',
                 'description' => 'Enable debug logging to error log',
+                'sanitize_callback' => 'rest_sanitize_boolean',
+                'default' => false,
+            )
+        );
+
+        register_setting(
+            'poker_tournament_import_settings',
+            'poker_import_show_debug_stats',
+            array(
+                'type' => 'boolean',
+                'description' => 'Show statistics debug information in dashboard',
                 'sanitize_callback' => 'rest_sanitize_boolean',
                 'default' => false,
             )
@@ -377,7 +389,7 @@ class Poker_Tournament_Import_Admin {
                     <div class="dashicons dashicons-calculator" style="font-size: 48px; color: #8c8f94; opacity: 0.3; float: right;"></div>
                     <h3 style="margin: 0 0 10px 0; color: #50575e; font-size: 14px; font-weight: 400;"><?php _e('Formulas', 'poker-tournament-import'); ?></h3>
                     <div style="font-size: 32px; font-weight: 600; color: #1d2327; margin-bottom: 10px;"><?php echo number_format($total_formulas); ?></div>
-                    <a href="<?php echo admin_url('options-general.php?page=poker-formula-manager'); ?>" class="button button-small"><?php _e('Manage', 'poker-tournament-import'); ?></a>
+                    <a href="<?php echo admin_url('admin.php?page=poker-formula-manager'); ?>" class="button button-small"><?php _e('Manage', 'poker-tournament-import'); ?></a>
                 </div>
             </div>
 
@@ -452,7 +464,7 @@ class Poker_Tournament_Import_Admin {
                             <?php _e('View Players', 'poker-tournament-import'); ?>
                         </a>
 
-                        <a href="<?php echo admin_url('options-general.php?page=poker-formula-manager'); ?>" class="button button-large" style="text-align: center;">
+                        <a href="<?php echo admin_url('admin.php?page=poker-formula-manager'); ?>" class="button button-large" style="text-align: center;">
                             <span class="dashicons dashicons-calculator"></span>
                             <?php _e('Manage Formulas', 'poker-tournament-import'); ?>
                         </a>
@@ -1601,6 +1613,17 @@ class Poker_Tournament_Import_Admin {
                     </tr>
 
                     <tr>
+                        <th scope="row"><?php _e('Show Statistics Debug Info', 'poker-tournament-import'); ?></th>
+                        <td>
+                            <label>
+                                <input type="checkbox" name="poker_import_show_debug_stats" value="1" <?php checked(get_option('poker_import_show_debug_stats', 0)); ?>>
+                                <?php _e('Display technical debug information in dashboard', 'poker-tournament-import'); ?>
+                            </label>
+                            <p class="description"><?php _e('Show database tables, field analysis, and other technical debug info in the dashboard. Hidden by default.', 'poker-tournament-import'); ?></p>
+                        </td>
+                    </tr>
+
+                    <tr>
                         <th scope="row"><?php _e('Currency Symbol', 'poker-tournament-import'); ?></th>
                         <td>
                             <input type="text" name="poker_currency_symbol" value="<?php echo esc_attr(get_option('poker_currency_symbol', '$')); ?>" class="regular-text">
@@ -1690,6 +1713,7 @@ class Poker_Tournament_Import_Admin {
             </div>
 
             <!-- Debug Information Section -->
+            <?php if (get_option('poker_import_show_debug_stats', 0)): ?>
             <div class="statistics-debug-section" style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #ccc;">
                 <h2><?php _e('Debug Information', 'poker-tournament-import'); ?></h2>
                 <p><?php _e('Technical information to help diagnose statistics calculation issues.', 'poker-tournament-import'); ?></p>
@@ -1818,6 +1842,7 @@ class Poker_Tournament_Import_Admin {
                     <p><?php _e('Statistics engine not available.', 'poker-tournament-import'); ?></p>
                 <?php endif; ?>
             </div>
+            <?php endif; ?>
             </form>
         </div>
         <?php
@@ -3699,13 +3724,17 @@ class Poker_Tournament_Import_Admin {
      * AJAX: Load Overview statistics
      */
     public function ajax_load_overview_stats() {
-        error_log('========== POKER DASHBOARD DEBUG: ajax_load_overview_stats called ==========');
-        error_log('POST data: ' . print_r($_POST, true));
+        if (get_option('poker_import_debug_logging', 0)) {
+            error_log('========== POKER DASHBOARD DEBUG: ajax_load_overview_stats called ==========');
+            error_log('POST data: ' . print_r($_POST, true));
+        }
 
         check_ajax_referer('poker_dashboard_nonce', 'nonce');
 
         if (!current_user_can('manage_options')) {
-            error_log('POKER DASHBOARD ERROR: Insufficient permissions for user ' . get_current_user_id());
+            if (get_option('poker_import_debug_logging', 0)) {
+                error_log('POKER DASHBOARD ERROR: Insufficient permissions for user ' . get_current_user_id());
+            }
             wp_send_json_error('Insufficient permissions');
         }
 
@@ -3740,7 +3769,9 @@ class Poker_Tournament_Import_Admin {
             wp_send_json_success($stats);
 
         } catch (Exception $e) {
-            error_log('Poker Dashboard - Overview Stats Error: ' . $e->getMessage());
+            if (get_option('poker_import_debug_logging', 0)) {
+                error_log('Poker Dashboard - Overview Stats Error: ' . $e->getMessage());
+            }
             wp_send_json_error('Unable to load overview statistics');
         }
     }
@@ -3749,14 +3780,19 @@ class Poker_Tournament_Import_Admin {
      * AJAX: Load Tournaments data
      */
     public function ajax_load_tournaments_data() {
-        error_log('==========  POKER DASHBOARD DEBUG: ajax_load_tournaments_data called ==========');
-        error_log('POST data: ' . print_r($_POST, true));
+        if (get_option('poker_import_debug_logging', 0)) {
+            error_log('========== POKER DASHBOARD DEBUG: ajax_load_tournaments_data called ==========');
+            error_log('POST data: ' . print_r($_POST, true));
+        }
 
         check_ajax_referer('poker_dashboard_nonce', 'nonce');
 
-        if (!current_user_can('manage_options')) {
-            error_log('POKER DASHBOARD ERROR: Insufficient permissions for user ' . get_current_user_id());
-            wp_send_json_error('Insufficient permissions');
+        // Allow any logged-in user (v2.5.9 requirement - non-admin dashboard access)
+        if (!is_user_logged_in()) {
+            if (get_option('poker_import_debug_logging', 0)) {
+                error_log('POKER DASHBOARD ERROR: User not logged in');
+            }
+            wp_send_json_error('You must be logged in to view tournaments');
         }
 
         $page = isset($_POST['page']) ? intval($_POST['page']) : 1;
@@ -3764,7 +3800,9 @@ class Poker_Tournament_Import_Admin {
         $search = isset($_POST['search']) ? sanitize_text_field($_POST['search']) : '';
         $status = isset($_POST['status']) ? sanitize_text_field($_POST['status']) : '';
 
-        error_log('POKER DASHBOARD: Tournaments request - Page: ' . $page . ', Per Page: ' . $per_page);
+        if (get_option('poker_import_debug_logging', 0)) {
+            error_log('POKER DASHBOARD: Tournaments request - Page: ' . $page . ', Per Page: ' . $per_page);
+        }
 
         try {
             // Initialize statistics engine
@@ -3824,7 +3862,9 @@ class Poker_Tournament_Import_Admin {
             wp_send_json_success($response);
 
         } catch (Exception $e) {
-            error_log('Poker Dashboard - Tournaments Data Error: ' . $e->getMessage());
+            if (get_option('poker_import_debug_logging', 0)) {
+                error_log('Poker Dashboard - Tournaments Data Error: ' . $e->getMessage());
+            }
             wp_send_json_error('Unable to load tournaments data');
         }
     }
@@ -3833,13 +3873,17 @@ class Poker_Tournament_Import_Admin {
      * AJAX: Load Players data
      */
     public function ajax_load_players_data() {
-        error_log('========== POKER DASHBOARD DEBUG: ajax_load_players_data called ==========');
-        error_log('POST data: ' . print_r($_POST, true));
+        if (get_option('poker_import_debug_logging', 0)) {
+            error_log('========== POKER DASHBOARD DEBUG: ajax_load_players_data called ==========');
+            error_log('POST data: ' . print_r($_POST, true));
+        }
 
         check_ajax_referer('poker_dashboard_nonce', 'nonce');
 
         if (!current_user_can('manage_options')) {
-            error_log('POKER DASHBOARD ERROR: Insufficient permissions for user ' . get_current_user_id());
+            if (get_option('poker_import_debug_logging', 0)) {
+                error_log('POKER DASHBOARD ERROR: Insufficient permissions for user ' . get_current_user_id());
+            }
             wp_send_json_error('Insufficient permissions');
         }
 
@@ -3889,7 +3933,9 @@ class Poker_Tournament_Import_Admin {
             wp_send_json_success($response);
 
         } catch (Exception $e) {
-            error_log('Poker Dashboard - Players Data Error: ' . $e->getMessage());
+            if (get_option('poker_import_debug_logging', 0)) {
+                error_log('Poker Dashboard - Players Data Error: ' . $e->getMessage());
+            }
             wp_send_json_error('Unable to load players data');
         }
     }
@@ -3898,13 +3944,17 @@ class Poker_Tournament_Import_Admin {
      * AJAX: Load Series data
      */
     public function ajax_load_series_data() {
-        error_log('========== POKER DASHBOARD DEBUG: ajax_load_series_data called ==========');
-        error_log('POST data: ' . print_r($_POST, true));
+        if (get_option('poker_import_debug_logging', 0)) {
+            error_log('========== POKER DASHBOARD DEBUG: ajax_load_series_data called ==========');
+            error_log('POST data: ' . print_r($_POST, true));
+        }
 
         check_ajax_referer('poker_dashboard_nonce', 'nonce');
 
         if (!current_user_can('manage_options')) {
-            error_log('POKER DASHBOARD ERROR: Insufficient permissions for user ' . get_current_user_id());
+            if (get_option('poker_import_debug_logging', 0)) {
+                error_log('POKER DASHBOARD ERROR: Insufficient permissions for user ' . get_current_user_id());
+            }
             wp_send_json_error('Insufficient permissions');
         }
 
@@ -3938,6 +3988,7 @@ class Poker_Tournament_Import_Admin {
                     'total_prizepool' => $series_stats['total_prizepool'],
                     'average_players' => $series_stats['average_players'],
                     'edit_link' => get_edit_post_link($series->ID),
+                    'view_link' => get_permalink($series->ID),
                     'shortcode' => '[series_overview id="' . $series->ID . '"]'
                 );
             }
@@ -3945,8 +3996,72 @@ class Poker_Tournament_Import_Admin {
             wp_send_json_success(array('series' => $series_data));
 
         } catch (Exception $e) {
-            error_log('Poker Dashboard - Series Data Error: ' . $e->getMessage());
+            if (get_option('poker_import_debug_logging', 0)) {
+                error_log('Poker Dashboard - Series Data Error: ' . $e->getMessage());
+            }
             wp_send_json_error('Unable to load series data');
+        }
+    }
+
+    /**
+     * AJAX: Load Seasons data
+     */
+    public function ajax_load_seasons_data() {
+        if (get_option('poker_import_debug_logging', 0)) {
+            error_log('========== POKER DASHBOARD DEBUG: ajax_load_seasons_data called ==========');
+            error_log('POST data: ' . print_r($_POST, true));
+        }
+
+        check_ajax_referer('poker_dashboard_nonce', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            if (get_option('poker_import_debug_logging', 0)) {
+                error_log('POKER DASHBOARD ERROR: Insufficient permissions for user ' . get_current_user_id());
+            }
+            wp_send_json_error('Insufficient permissions');
+        }
+
+        try {
+            $seasons_list = get_posts(array(
+                'post_type' => 'tournament_season',
+                'posts_per_page' => -1,
+                'orderby' => 'title',
+                'order' => 'ASC'
+            ));
+
+            $seasons_data = array();
+            foreach ($seasons_list as $season) {
+                // Get tournament count
+                $tournament_count = count(get_posts(array(
+                    'post_type' => 'tournament',
+                    'meta_key' => '_season_id',
+                    'meta_value' => $season->ID,
+                    'posts_per_page' => -1,
+                    'fields' => 'ids'
+                )));
+
+                // Get season statistics
+                $season_stats = $this->get_season_statistics($season->ID);
+
+                $seasons_data[] = array(
+                    'id' => $season->ID,
+                    'title' => $season->post_title,
+                    'tournament_count' => $tournament_count,
+                    'total_players' => $season_stats['total_players'],
+                    'total_prizepool' => $season_stats['total_prizepool'],
+                    'average_players' => $season_stats['average_players'],
+                    'edit_link' => get_edit_post_link($season->ID),
+                    'view_link' => get_permalink($season->ID)
+                );
+            }
+
+            wp_send_json_success(array('seasons' => $seasons_data));
+
+        } catch (Exception $e) {
+            if (get_option('poker_import_debug_logging', 0)) {
+                error_log('Poker Dashboard - Seasons Data Error: ' . $e->getMessage());
+            }
+            wp_send_json_error('Unable to load seasons data');
         }
     }
 
@@ -3954,13 +4069,17 @@ class Poker_Tournament_Import_Admin {
      * AJAX: Load Analytics data
      */
     public function ajax_load_analytics_data() {
-        error_log('========== POKER DASHBOARD DEBUG: ajax_load_analytics_data called ==========');
-        error_log('POST data: ' . print_r($_POST, true));
+        if (get_option('poker_import_debug_logging', 0)) {
+            error_log('========== POKER DASHBOARD DEBUG: ajax_load_analytics_data called ==========');
+            error_log('POST data: ' . print_r($_POST, true));
+        }
 
         check_ajax_referer('poker_dashboard_nonce', 'nonce');
 
         if (!current_user_can('manage_options')) {
-            error_log('POKER DASHBOARD ERROR: Insufficient permissions for user ' . get_current_user_id());
+            if (get_option('poker_import_debug_logging', 0)) {
+                error_log('POKER DASHBOARD ERROR: Insufficient permissions for user ' . get_current_user_id());
+            }
             wp_send_json_error('Insufficient permissions');
         }
 
@@ -3996,7 +4115,9 @@ class Poker_Tournament_Import_Admin {
             wp_send_json_success($analytics_data);
 
         } catch (Exception $e) {
-            error_log('Poker Dashboard - Analytics Data Error: ' . $e->getMessage());
+            if (get_option('poker_import_debug_logging', 0)) {
+                error_log('Poker Dashboard - Analytics Data Error: ' . $e->getMessage());
+            }
             wp_send_json_error('Unable to load analytics data');
         }
     }
@@ -4037,7 +4158,9 @@ class Poker_Tournament_Import_Admin {
             wp_send_json_success(array('leaderboard' => $mapped_leaderboard));
 
         } catch (Exception $e) {
-            error_log('Poker Dashboard - Leaderboard Data Error: ' . $e->getMessage());
+            if (get_option('poker_import_debug_logging', 0)) {
+                error_log('Poker Dashboard - Leaderboard Data Error: ' . $e->getMessage());
+            }
             wp_send_json_error('Unable to load leaderboard data');
         }
     }
@@ -4104,6 +4227,41 @@ class Poker_Tournament_Import_Admin {
             'post_type' => 'tournament',
             'meta_key' => 'series_id',
             'meta_value' => $series_id,
+            'posts_per_page' => -1,
+            'fields' => 'ids'
+        ));
+
+        $total_players = 0;
+        $total_prizepool = 0;
+
+        foreach ($tournaments as $tournament_id) {
+            $players = get_post_meta($tournament_id, '_players_count', true);
+            $prizepool = get_post_meta($tournament_id, '_prize_pool', true);
+
+            $total_players += intval($players);
+            $total_prizepool += floatval($prizepool);
+        }
+
+        $tournament_count = count($tournaments);
+        $average_players = $tournament_count > 0 ? $total_players / $tournament_count : 0;
+
+        return array(
+            'total_players' => $total_players,
+            'total_prizepool' => $total_prizepool,
+            'average_players' => round($average_players, 1)
+        );
+    }
+
+    /**
+     * Get season statistics
+     */
+    private function get_season_statistics($season_id) {
+        global $wpdb;
+
+        $tournaments = get_posts(array(
+            'post_type' => 'tournament',
+            'meta_key' => '_season_id',
+            'meta_value' => $season_id,
             'posts_per_page' => -1,
             'fields' => 'ids'
         ));

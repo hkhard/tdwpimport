@@ -12,8 +12,7 @@
 if (!defined('ABSPATH')) {
     exit;
 }
-
-get_header(); ?>
+?>
 
 <div class="poker-season-wrapper">
     <main id="primary" class="site-main">
@@ -45,9 +44,13 @@ get_header(); ?>
                     </div>
                 </header>
 
-                <!-- Tabbed Interface -->
+                <!-- Season Content -->
                 <div class="season-content-area">
-                    <?php echo do_shortcode('[season_tabs season_id="' . get_the_ID() . '"]'); ?>
+                    <?php if (get_the_content()) : ?>
+                        <div class="season-description">
+                            <?php the_content(); ?>
+                        </div>
+                    <?php endif; ?>
                 </div>
 
             </article>
@@ -132,6 +135,3 @@ get_header(); ?>
     }
 }
 </style>
-
-<?php
-get_footer();

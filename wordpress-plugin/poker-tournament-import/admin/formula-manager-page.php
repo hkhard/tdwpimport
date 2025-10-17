@@ -23,97 +23,13 @@ class Poker_Formula_Manager_Page {
      * Render the formula manager page
      */
     public function render_page() {
-        $active_tab = isset($_GET['tab']) ? $_GET['tab'] : 'formulas';
         ?>
         <div class="wrap poker-formula-manager">
             <h1><?php _e('Tournament Formula Manager', 'poker-tournament-import'); ?></h1>
-
-            <div class="poker-formula-tabs">
-                <ul class="tab-nav">
-                    <li>
-                        <a href="?page=poker-formula-manager&amp;tab=formulas"
-                           class="<?php echo $active_tab === 'formulas' ? 'tab-active' : ''; ?>">
-                           <?php _e('Formulas', 'poker-tournament-import'); ?>
-                        </a>
-                    </li>
-                    <li>
-                        <a href="?page=poker-formula-manager&amp;tab=validator"
-                           class="<?php echo $active_tab === 'validator' ? 'tab-active' : ''; ?>">
-                           <?php _e('Formula Validator', 'poker-tournament-import'); ?>
-                        </a>
-                    </li>
-                    <li>
-                        <a href="?page=poker-formula-manager&amp;tab=settings"
-                           class="<?php echo $active_tab === 'settings' ? 'tab-active' : ''; ?>">
-                           <?php _e('Settings', 'poker-tournament-import'); ?>
-                        </a>
-                    </li>
-                    <li>
-                        <a href="?page=poker-formula-manager&amp;tab=variables"
-                           class="<?php echo $active_tab === 'variables' ? 'tab-active' : ''; ?>">
-                           <?php _e('Variables & Functions', 'poker-tournament-import'); ?>
-                        </a>
-                    </li>
-                </ul>
-
-                <?php
-                switch ($active_tab) {
-                    case 'formulas':
-                        $this->render_formulas_tab();
-                        break;
-                    case 'validator':
-                        $this->render_validator_tab();
-                        break;
-                    case 'settings':
-                        $this->render_settings_tab();
-                        break;
-                    case 'variables':
-                        $this->render_variables_tab();
-                        break;
-                }
-                ?>
-            </div>
+            <?php $this->render_formulas_tab(); ?>
         </div>
 
         <style>
-        .poker-formula-tabs {
-            margin-top: 20px;
-        }
-        .tab-nav {
-            list-style: none;
-            margin: 0;
-            padding: 0;
-            border-bottom: 1px solid #ccc;
-        }
-        .tab-nav li {
-            display: inline-block;
-            margin-right: 10px;
-        }
-        .tab-nav a {
-            display: block;
-            padding: 10px 15px;
-            text-decoration: none;
-            border: 1px solid #ccc;
-            border-bottom: none;
-            background: #f1f1f1;
-            color: #333;
-            transition: all 0.2s ease;
-        }
-        .tab-nav a:hover {
-            background: #e0e0e0;
-        }
-        .tab-nav a.tab-active {
-            background: #fff;
-            color: #000;
-            border-bottom: 1px solid #fff;
-            margin-bottom: -1px;
-        }
-        .tab-content {
-            padding: 20px;
-            border: 1px solid #ccc;
-            border-top: none;
-            background: #fff;
-        }
         .formula-editor {
             max-width: 800px;
         }
@@ -546,18 +462,6 @@ assign(&quot;avgBC&quot;, monies/buyins)"></textarea>
 
         <script>
         jQuery(document).ready(function($) {
-            // Tab switching
-            $('.tab-nav a').click(function(e) {
-                e.preventDefault();
-                var target = $(this).attr('href');
-
-                $('.tab-nav a').removeClass('tab-active');
-                $(this).addClass('tab-active');
-
-                $('.tab-content').hide();
-                $(target).show();
-            });
-
             // Formula editor modal
             window.openFormulaModal = function(formulaKey) {
                 $('#formula-editor-modal').show();

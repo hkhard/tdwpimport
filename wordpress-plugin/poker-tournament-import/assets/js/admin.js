@@ -1,14 +1,22 @@
 /**
  * Admin JavaScript for Poker Tournament Import
- * VERSION: 2.4.45
+ * VERSION: 2.6.1
  */
 
-// Version verification log - will appear first in console
-console.log('========================================');
-console.log('ADMIN.JS VERSION 2.4.45 LOADED');
-console.log('Expected pokerImport structure: {dashboardNonce, refreshNonce, ajaxUrl, adminUrl, messages}');
-console.log('Actual pokerImport:', typeof pokerImport !== 'undefined' ? pokerImport : 'UNDEFINED');
-console.log('========================================');
+// Debug wrapper - only logs when debug mode is enabled
+const POKER_DEBUG = (typeof pokerImport !== 'undefined' && pokerImport.debugMode) || false;
+const debugLog = function(...args) {
+    if (POKER_DEBUG) {
+        debugLog('[Poker Debug]', ...args);
+    }
+};
+
+// Version verification log - will appear first in console if debug enabled
+debugLog('========================================');
+debugLog('ADMIN.JS VERSION 2.6.1 LOADED');
+debugLog('Expected pokerImport structure: {dashboardNonce, refreshNonce, ajaxUrl, adminUrl, messages}');
+debugLog('Actual pokerImport:', typeof pokerImport !== 'undefined' ? pokerImport : 'UNDEFINED');
+debugLog('========================================');
 
 jQuery(document).ready(function($) {
     'use strict';
@@ -169,11 +177,11 @@ jQuery(document).ready(function($) {
 
     // Initialize dashboard functionality
     if ($('.poker-dashboard-container').length > 0) {
-        console.log('[Dashboard] Initializing dashboard');
+        debugLog('[Dashboard] Initializing dashboard');
         initDashboardTabs();
-        console.log('[Dashboard] Initialization complete');
+        debugLog('[Dashboard] Initialization complete');
     } else {
-        console.warn('[Dashboard] Dashboard container element not found');
+        debugLog('[WARN]','[Dashboard] Dashboard container element not found');
     }
 
     function initDashboardTabs() {
@@ -236,7 +244,7 @@ jQuery(document).ready(function($) {
         const $panel = $(`#${tabName}-tab`);
 
         if (!$btn.length || !$panel.length) {
-            console.error(`Tab "${tabName}" not found`);
+            debugLog('[ERROR]',`Tab "${tabName}" not found`);
             return;
         }
 
@@ -273,17 +281,17 @@ jQuery(document).ready(function($) {
      * Load tab content via AJAX with advanced features
      */
     function loadTabContent(tabName, retryAttempt = 0) {
-        console.log('[Dashboard] Loading tab:', tabName, 'Retry attempt:', retryAttempt);
+        debugLog('[Dashboard] Loading tab:', tabName, 'Retry attempt:', retryAttempt);
         const $panel = $(`#${tabName}-tab`);
 
         if (!$panel.length) {
-            console.error(`[Dashboard] Panel for tab "${tabName}" not found`);
+            debugLog('[ERROR]',`[Dashboard] Panel for tab "${tabName}" not found`);
             return;
         }
 
         // Check cache first
         if (tabCache.has(tabName)) {
-            console.log('[Dashboard] Using cached content for:', tabName);
+            debugLog('[Dashboard] Using cached content for:', tabName);
             const cachedContent = tabCache.get(tabName);
             $panel.html(cachedContent).addClass('loaded');
             return;
@@ -291,7 +299,7 @@ jQuery(document).ready(function($) {
 
         // Prevent duplicate loading
         if (loadingQueue.has(tabName)) {
-            console.warn('[Dashboard] Tab already loading:', tabName);
+            debugLog('[WARN]','[Dashboard] Tab already loading:', tabName);
             return;
         }
 
@@ -333,14 +341,17 @@ jQuery(document).ready(function($) {
             case 'series':
                 ajaxAction = 'poker_load_series_data';
                 break;
+            case 'seasons':
+                ajaxAction = 'poker_load_seasons_data';
+                break;
             case 'analytics':
                 ajaxAction = 'poker_load_analytics_data';
                 requestData.analytics_type = 'overview';
                 break;
         }
 
-        console.log('[Dashboard] AJAX action:', ajaxAction);
-        console.log('[Dashboard] Request data:', requestData);
+        debugLog('[Dashboard] AJAX action:', ajaxAction);
+        debugLog('[Dashboard] Request data:', requestData);
 
         // AJAX request with timeout and retry logic
         const ajaxRequest = $.ajax({
@@ -352,7 +363,7 @@ jQuery(document).ready(function($) {
                 ...requestData
             },
             success: function(response) {
-                console.log('[Dashboard] AJAX response received for:', tabName, response);
+                debugLog('[Dashboard] AJAX response received for:', tabName, response);
                 if (response.success) {
                     let content = '';
 
@@ -369,6 +380,9 @@ jQuery(document).ready(function($) {
                             break;
                         case 'series':
                             content = renderSeriesTab(response.data);
+                            break;
+                        case 'seasons':
+                            content = renderSeasonsTab(response.data);
                             break;
                         case 'analytics':
                             content = renderAnalyticsTab(response.data);
@@ -390,30 +404,30 @@ jQuery(document).ready(function($) {
 
                     // Show success notification
                     showNotification(`${tabName.charAt(0).toUpperCase() + tabName.slice(1)} loaded successfully`, 'success');
-                    console.log('[Dashboard] Tab loaded successfully:', tabName);
+                    debugLog('[Dashboard] Tab loaded successfully:', tabName);
 
                     // Reinitialize any functionality in loaded content
                     initializeTabContent(tabName);
                 } else {
-                    console.error('[Dashboard] AJAX error response:', response.data);
+                    debugLog('[ERROR]','[Dashboard] AJAX error response:', response.data);
                     handleAjaxError(tabName, response.data.message || 'Server error', retryAttempt);
                 }
             },
             error: function(xhr, status, error) {
                 // Enhanced error logging for debugging
-                console.error('[Dashboard] ========== AJAX FAILURE DETAILS ==========');
-                console.error('[Dashboard] Tab Name:', tabName);
-                console.error('[Dashboard] Status:', status);
-                console.error('[Dashboard] Error:', error);
-                console.error('[Dashboard] XHR Status Code:', xhr.status);
-                console.error('[Dashboard] XHR Status Text:', xhr.statusText);
-                console.error('[Dashboard] XHR Response Text:', xhr.responseText);
-                console.error('[Dashboard] XHR Response JSON:', xhr.responseJSON);
-                console.error('[Dashboard] AJAX Action:', ajaxAction);
-                console.error('[Dashboard] Request Data:', requestData);
-                console.error('[Dashboard] AJAX URL:', ajaxurl);
-                console.error('[Dashboard] pokerImport object:', pokerImport);
-                console.error('[Dashboard] ==========================================');
+                debugLog('[ERROR]','[Dashboard] ========== AJAX FAILURE DETAILS ==========');
+                debugLog('[ERROR]','[Dashboard] Tab Name:', tabName);
+                debugLog('[ERROR]','[Dashboard] Status:', status);
+                debugLog('[ERROR]','[Dashboard] Error:', error);
+                debugLog('[ERROR]','[Dashboard] XHR Status Code:', xhr.status);
+                debugLog('[ERROR]','[Dashboard] XHR Status Text:', xhr.statusText);
+                debugLog('[ERROR]','[Dashboard] XHR Response Text:', xhr.responseText);
+                debugLog('[ERROR]','[Dashboard] XHR Response JSON:', xhr.responseJSON);
+                debugLog('[ERROR]','[Dashboard] AJAX Action:', ajaxAction);
+                debugLog('[ERROR]','[Dashboard] Request Data:', requestData);
+                debugLog('[ERROR]','[Dashboard] AJAX URL:', ajaxurl);
+                debugLog('[ERROR]','[Dashboard] pokerImport object:', pokerImport);
+                debugLog('[ERROR]','[Dashboard] ==========================================');
 
                 let errorMessage = 'Network error';
                 if (status === 'timeout') {
@@ -463,7 +477,7 @@ jQuery(document).ready(function($) {
         ajaxRequest.fail(function() {
             if (retryAttempt < MAX_RETRIES) {
                 setTimeout(() => {
-                    console.log(`Retrying tab "${tabName}" (attempt ${retryAttempt + 1})`);
+                    debugLog(`Retrying tab "${tabName}" (attempt ${retryAttempt + 1})`);
                     loadTabContent(tabName, retryAttempt + 1);
                 }, 1000 * (retryAttempt + 1)); // Exponential backoff
             }
@@ -650,6 +664,9 @@ jQuery(document).ready(function($) {
                 break;
             case 'series':
                 initSeriesManagement();
+                break;
+            case 'seasons':
+                initSeasonsManagement();
                 break;
         }
 
@@ -849,7 +866,7 @@ jQuery(document).ready(function($) {
      */
     function filterTournaments(filterValue) {
         // Implementation depends on tournament filtering requirements
-        console.log('Filtering tournaments:', filterValue);
+        debugLog('Filtering tournaments:', filterValue);
     }
 
     /**
@@ -857,34 +874,56 @@ jQuery(document).ready(function($) {
      */
     function initAnalyticsCharts() {
         // Placeholder for chart initialization
-        console.log('Initializing analytics charts');
+        debugLog('Initializing analytics charts');
     }
 
     /**
      * Initialize series management
      */
     function initSeriesManagement() {
-        // Placeholder for series management functionality
-        console.log('Initializing series management');
+        debugLog('Initializing series management');
+
+        // Add click handlers for series drillthrough
+        $('.series-drillthrough').on('click', function() {
+            const viewLink = $(this).data('view-link');
+            if (viewLink) {
+                window.location.href = viewLink;
+            }
+        });
+    }
+
+    /**
+     * Initialize seasons management
+     */
+    function initSeasonsManagement() {
+        debugLog('Initializing seasons management');
+
+        // Add click handlers for season drillthrough
+        $('.season-drillthrough').on('click', function() {
+            const viewLink = $(this).data('view-link');
+            if (viewLink) {
+                window.location.href = viewLink;
+            }
+        });
     }
 
     /**
      * Initialize stats box links
      */
     function initStatsBoxLinks() {
-        console.log('[Dashboard] Initializing stat box links');
+        debugLog('[Dashboard] Initializing stat box links');
 
         // Handle leaderboard link click
         const $leaderboardLink = $('#poker-view-leaderboard');
         if ($leaderboardLink.length) {
             $leaderboardLink.on('click', function(e) {
                 e.preventDefault();
-                console.log('[Dashboard] Leaderboard link clicked');
+                debugLog('[Dashboard] Leaderboard link clicked');
                 showLeaderboardModal();
             });
-            console.log('[Dashboard] Leaderboard link initialized');
+            debugLog('[Dashboard] Leaderboard link initialized');
         } else {
-            console.warn('[Dashboard] Leaderboard link not found');
+            debugLog('[WARN]','[Dashboard] Leaderboard link not found');
         }
     }
 
@@ -892,11 +931,11 @@ jQuery(document).ready(function($) {
      * Show leaderboard modal
      */
     function showLeaderboardModal() {
-        console.log('[Dashboard] Opening leaderboard modal');
+        debugLog('[Dashboard] Opening leaderboard modal');
 
         // Create modal if it doesn't exist
         if (!$('#leaderboard-modal').length) {
-            console.log('[Dashboard] Creating leaderboard modal');
+            debugLog('[Dashboard] Creating leaderboard modal');
             $('body').append(`
                 <div id="leaderboard-modal" class="poker-modal" style="display: none;">
                     <div class="poker-modal-content">
@@ -919,7 +958,7 @@ jQuery(document).ready(function($) {
         $modal.show().addClass('show');
 
         // Load leaderboard data via AJAX
-        console.log('[Dashboard] Loading leaderboard data via AJAX');
+        debugLog('[Dashboard] Loading leaderboard data via AJAX');
         $.ajax({
             url: ajaxurl,
             type: 'POST',
@@ -928,18 +967,18 @@ jQuery(document).ready(function($) {
                 nonce: pokerImport.dashboardNonce || ''
             },
             success: function(response) {
-                console.log('[Dashboard] Leaderboard data received:', response);
+                debugLog('[Dashboard] Leaderboard data received:', response);
                 if (response.success) {
                     renderLeaderboardContent(response.data);
                 } else {
-                    console.error('[Dashboard] Leaderboard error:', response.data);
+                    debugLog('[ERROR]','[Dashboard] Leaderboard error:', response.data);
                     $modal.find('.poker-modal-body').html(
                         '<div class="notice notice-error">Failed to load leaderboard</div>'
                     );
                 }
             },
             error: function(xhr, status, error) {
-                console.error('[Dashboard] Leaderboard AJAX error:', {xhr, status, error});
+                debugLog('[ERROR]','[Dashboard] Leaderboard AJAX error:', {xhr, status, error});
                 $modal.find('.poker-modal-body').html(
                     '<div class="notice notice-error">Network error loading leaderboard</div>'
                 );
@@ -1380,49 +1419,44 @@ jQuery(document).ready(function($) {
         const tournaments = data.tournaments || [];
         const pagination = data.pagination || {};
 
-        let html = `
-            <div class="tournaments-dashboard">
-                <div class="tournaments-controls">
-                    <input type="text" id="tournament-search" placeholder="Search tournaments..." class="regular-text">
-                    <select id="tournament-filter" class="regular-text">
-                        <option value="">All Status</option>
-                        <option value="published">Published</option>
-                        <option value="draft">Draft</option>
-                    </select>
-                    <button id="tournament-refresh" class="button">Refresh</button>
-                </div>
+        let html = '<div class="tournament-leaderboard-scroll-wrapper">';
+        html += '<div class="tournament-leaderboard-table">';
 
-                <div class="tournaments-list">
-        `;
+        // Gradient header matching player tab
+        html += '<div class="table-header">';
+        html += '<div class="header-rank">RANK</div>';
+        html += '<div class="header-tournament">TOURNAMENT</div>';
+        html += '<div class="header-date">DATE</div>';
+        html += '<div class="header-players">PLAYERS</div>';
+        html += '<div class="header-prize">PRIZE POOL</div>';
+        html += '<div class="header-status">STATUS</div>';
+        html += '</div>';
 
         if (tournaments.length === 0) {
-            html += `<p class="no-data">No tournaments found.</p>`;
+            html += '<div class="table-row"><div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: #666;">No tournaments found.</div></div>';
         } else {
-            html += `<div class="tournament-items">`;
-            tournaments.forEach(tournament => {
-                html += `
-                    <div class="tournament-item">
-                        <div class="tournament-info">
-                            <h4><a href="${tournament.edit_link}">${tournament.title}</a></h4>
-                            <div class="tournament-meta">
-                                <span class="date">${formatDate(tournament.date)}</span>
-                                <span class="players">${tournament.players_count} players</span>
-                                <span class="prize-pool">$${number_format(tournament.prize_pool)}</span>
-                                <span class="status status-${tournament.status}">${tournament.status}</span>
-                            </div>
-                        </div>
-                    </div>
-                `;
+            // Data rows
+            tournaments.forEach((tournament, idx) => {
+                const statusClass = tournament.status === 'publish' ? 'status-published' : 'status-draft';
+                html += '<div class="table-row">';
+                html += `<div class="rank-cell">${idx + 1}</div>`;
+                html += `<div class="tournament-cell"><a href="${tournament.view_link || tournament.edit_link}">${tournament.title}</a></div>`;
+                html += `<div class="date-cell">${formatDate(tournament.date)}</div>`;
+                html += `<div class="players-cell">${tournament.players_count}</div>`;
+                html += `<div class="prize-cell">$${number_format(tournament.prize_pool)}</div>`;
+                html += `<div class="status-cell ${statusClass}">${tournament.status === 'publish' ? 'Published' : 'Draft'}</div>`;
+                html += '</div>';
             });
-            html += `</div>`;
 
-            // Add pagination
+            // Add pagination if needed
             if (pagination.total_pages > 1) {
+                html += '<div class="table-row" style="grid-column: 1 / -1; padding: 20px; border-top: 2px solid #e5e7eb;">';
                 html += renderPagination(pagination);
+                html += '</div>';
             }
         }
 
-        html += `</div></div>`;
+        html += '</div></div>';
         return html;
     }
 
@@ -1487,45 +1521,73 @@ jQuery(document).ready(function($) {
     function renderSeriesTab(data) {
         const series = data.series || [];
 
-        let html = `
-            <div class="series-dashboard">
-                <div class="series-controls">
-                    <button id="series-refresh" class="button">Refresh</button>
-                    <a href="${pokerImport.adminUrl}post-new.php?post_type=tournament_series" class="button button-primary">Add New Series</a>
-                </div>
+        let html = '<div class="series-leaderboard-scroll-wrapper">';
+        html += '<div class="series-leaderboard-table">';
 
-                <div class="series-list">
-        `;
+        // Gradient header matching player tab style
+        html += '<div class="table-header series-header">';
+        html += '<div class="header-rank">RANK</div>';
+        html += '<div class="header-series">SERIES</div>';
+        html += '<div class="header-tournaments">TOURNAMENTS</div>';
+        html += '<div class="header-players">TOTAL PLAYERS</div>';
+        html += '<div class="header-prize">PRIZE POOL</div>';
+        html += '<div class="header-avg">AVG PLAYERS</div>';
+        html += '</div>';
 
         if (series.length === 0) {
-            html += `<p class="no-data">No series found.</p>`;
+            html += '<div class="table-row"><div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: #666;">No series found.</div></div>';
         } else {
-            html += `<div class="series-grid">`;
-            series.forEach(item => {
-                html += `
-                    <div class="series-card">
-                        <div class="series-info">
-                            <h4><a href="${item.edit_link}">${item.title}</a></h4>
-                            <div class="series-stats">
-                                <span class="stat">Tournaments: ${item.tournament_count}</span>
-                                <span class="stat">Total Players: ${item.total_players}</span>
-                                <span class="stat">Total Prize Pool: $${number_format(item.total_prizepool)}</span>
-                                <span class="stat">Avg Players: ${number_format(item.average_players, 1)}</span>
-                            </div>
-                        </div>
-                        <div class="series-actions">
-                            <a href="${item.edit_link}" class="button button-small">Edit</a>
-                            <div class="shortcode-display">
-                                <code>${item.shortcode}</code>
-                            </div>
-                        </div>
-                    </div>
-                `;
+            series.forEach((item, idx) => {
+                html += '<div class="table-row series-drillthrough" data-view-link="' + item.view_link + '" style="cursor: pointer;">';
+                html += '<div class="rank-cell">' + (idx + 1) + '</div>';
+                html += '<div class="series-cell">' + item.title + '</div>';
+                html += '<div class="tournaments-cell">' + item.tournament_count + '</div>';
+                html += '<div class="players-cell">' + number_format(item.total_players) + '</div>';
+                html += '<div class="prize-cell">$' + number_format(item.total_prizepool) + '</div>';
+                html += '<div class="avg-cell">' + number_format(item.average_players, 1) + '</div>';
+                html += '</div>';
             });
-            html += `</div>`;
         }
 
-        html += `</div></div>`;
+        html += '</div></div>';
+        return html;
+    }
+
+    /**
+     * Render Seasons tab content
+     */
+    function renderSeasonsTab(data) {
+        const seasons = data.seasons || [];
+
+        let html = '<div class="seasons-leaderboard-scroll-wrapper">';
+        html += '<div class="seasons-leaderboard-table">';
+
+        // Gradient header matching player tab style
+        html += '<div class="table-header seasons-header">';
+        html += '<div class="header-rank">RANK</div>';
+        html += '<div class="header-season">SEASON</div>';
+        html += '<div class="header-tournaments">TOURNAMENTS</div>';
+        html += '<div class="header-players">TOTAL PLAYERS</div>';
+        html += '<div class="header-prize">PRIZE POOL</div>';
+        html += '<div class="header-avg">AVG PLAYERS</div>';
+        html += '</div>';
+
+        if (seasons.length === 0) {
+            html += '<div class="table-row"><div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: #666;">No seasons found.</div></div>';
+        } else {
+            seasons.forEach((item, idx) => {
+                html += '<div class="table-row season-drillthrough" data-view-link="' + item.view_link + '" style="cursor: pointer;">';
+                html += '<div class="rank-cell">' + (idx + 1) + '</div>';
+                html += '<div class="season-cell">' + item.title + '</div>';
+                html += '<div class="tournaments-cell">' + item.tournament_count + '</div>';
+                html += '<div class="players-cell">' + number_format(item.total_players) + '</div>';
+                html += '<div class="prize-cell">$' + number_format(item.total_prizepool) + '</div>';
+                html += '<div class="avg-cell">' + number_format(item.average_players, 1) + '</div>';
+                html += '</div>';
+            });
+        }
+
+        html += '</div></div>';
         return html;
     }
 
@@ -1713,7 +1775,7 @@ jQuery(document).ready(function($) {
     // Preserve leading/trailing spaces in currency symbol input
     const currencyInput = $('input[name="poker_currency_symbol"]');
     if (currencyInput.length > 0) {
-        console.log('[Currency] Currency symbol input found, initializing space preservation');
+        debugLog('[Currency] Currency symbol input found, initializing space preservation');
 
         // Store original value with spaces
         let preservedValue = currencyInput.val();
@@ -1731,7 +1793,7 @@ jQuery(document).ready(function($) {
                 if (leadingSpaces && trailingSpaces) hint += ', ';
                 if (trailingSpaces) hint += trailingSpaces[0].length + ' trailing';
 
-                console.log('[Currency] ' + hint);
+                debugLog('[Currency] ' + hint);
             }
         });
 
@@ -1739,7 +1801,7 @@ jQuery(document).ready(function($) {
         currencyInput.closest('form').on('submit', function(e) {
             // Preserve the exact value with spaces
             preservedValue = currencyInput.val();
-            console.log('[Currency] Preserving value with spaces:', JSON.stringify(preservedValue));
+            debugLog('[Currency] Preserving value with spaces:', JSON.stringify(preservedValue));
 
             // Create a hidden input to carry the exact value
             const hiddenInput = $('<input>')
@@ -1753,11 +1815,11 @@ jQuery(document).ready(function($) {
         // Restore value after page load (in case browser strips it)
         const storedValue = currencyInput.val();
         if (storedValue !== preservedValue && preservedValue !== '') {
-            console.log('[Currency] Restoring preserved value');
+            debugLog('[Currency] Restoring preserved value');
             currencyInput.val(preservedValue);
         }
     }
 
     // Console log for debugging
-    console.log('Poker Tournament Import Admin JavaScript loaded');
+    debugLog('Poker Tournament Import Admin JavaScript loaded');
 });

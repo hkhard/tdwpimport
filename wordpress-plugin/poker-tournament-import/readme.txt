@@ -3,7 +3,7 @@ Contributors: yourname
 Tags: poker, tournament, import, results
 Requires at least: 6.0
 Tested up to: 6.4
-Stable tag: 2.4.39
+Stable tag: 2.6.1
 Requires PHP: 8.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -74,6 +74,35 @@ Use the following shortcodes:
 6. **NEW: Interactive leaderboard with sorting**
 
 == Changelog ==
+
+= 2.6.1 - October 17, 2025 =
+**CRITICAL MENU RACE CONDITION FIX + UI/UX IMPROVEMENTS**
+✅ **FIXED: 404 errors on both main "Poker Import" menu and "Formulas" submenu** - Added hook priority 11 to formula validator
+   - Issue: Formula validator tried to add submenu before parent menu existed
+   - Root cause: Both menus hooking to 'admin_menu' at same priority (10) created race condition
+   - Impact: Menu registration order was random, causing submenu to fail when running first
+   - Solution: Set formula validator hook priority to 11, ensuring parent menu creates first (includes/class-formula-validator.php:473)
+✅ **REMOVED: Tabbed interface from series and season templates** - Direct content display for cleaner experience
+   - Removed `[series_tabs]` shortcode from taxonomy-tournament_series.php
+   - Removed `[season_tabs]` shortcode from taxonomy-tournament_season.php
+✅ **UNIFIED: Series template gradient styling** - Changed from green to blue to match season template
+   - Series gradient now matches season: linear-gradient(135deg, #3498db, #2980b9)
+   - Consistent visual identity across all tournament pages
+✅ **MOVED: Formula Manager from WordPress Settings to Poker Import menu** - Better organization
+   - Changed parent from 'options-general.php' to 'poker-tournament-import'
+   - Updated dashboard links from options-general.php to admin.php
+✅ **SIMPLIFIED: Formula Manager interface** - Removed 4-tab interface for single-page formula management
+   - Removed tabs: Formulas/Validator/Settings/Variables
+   - Single-page view showing only formula management
+✅ **NEW: Debug mode toggle in admin settings** - Checkbox: "Show Statistics Debug Info"
+   - Hides technical debug information (database tables, field analysis) by default
+   - Option stored as `poker_import_show_debug_stats` in WordPress options
+✅ **ENHANCED: Conditional PHP error_log statements** - 15+ debug logs wrapped with debug setting check
+   - All dashboard AJAX debug logs check `get_option('poker_import_debug_logging', 0)`
+   - Cleaner production logs, verbose diagnostics when needed
+✅ **ADDED: JavaScript debug wrapper** - Global `POKER_DEBUG` flag with `debugLog()` function
+   - 51 console.log/warn/error calls replaced with conditional debugLog()
+   - Version verification logging for troubleshooting
 
 = 2.4.39 - October 16, 2025 =
 ✅ **CRITICAL BUGFIX FOR v2.4.38: Prizes Not Extracted from Modern .tdt Files**
@@ -985,6 +1014,9 @@ Use the following shortcodes:
 * Shortcode support for displaying results
 
 == Upgrade Notice ==
+
+= 2.6.1 =
+**CRITICAL MENU FIX + UI IMPROVEMENTS.** Fixes 404 errors on both main "Poker Import" menu and "Formulas" submenu caused by admin_menu hook race condition. Both Admin and Formula Validator classes hooked at priority 10 - non-deterministic execution order caused submenu registration to fail when running before parent menu creation. Solution: Set formula validator priority to 11 (class-formula-validator.php:473). Also removes tabbed interfaces from templates, unifies gradient colors, moves formula manager to Poker Import menu, adds debug toggle in settings, and wraps 15+ error_log calls with conditional checks. Essential upgrade for users experiencing menu 404 errors.
 
 = 2.4.32 =
 **CRITICAL FIX: Dashboard Top Players Panel Empty - Completed Net Profit Implementation.** Fixes empty Top Players panel by modifying Statistics_Engine->get_top_players() to query poker_player_roi table (THIRD instance of same bug). v2.4.26 fixed Shortcodes method, v2.4.27 fixed get_player_leaderboard(), v2.4.32 completes the fix by updating get_top_players() used by dashboard. Adds comprehensive debug logging ported from v2.4.31. Essential upgrade for ALL v2.4.26/v2.4.27 users still seeing "Player Leaderboard Count: 0" in dashboard.
