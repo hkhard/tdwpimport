@@ -1,5 +1,24 @@
 # Poker Tournament Import Changelog
 
+## Version 2.6.3 - (October 17, 2025)
+
+### 🌍 WordPress.org Plugin Directory - i18n Comment Placement Fixes
+- **FIXED**: 8 translator comment placement issues for WordPress Plugin Check compliance
+  - WordPress requires translator comments on line IMMEDIATELY before translation function
+  - Fixed 2 instances in admin/class-admin.php (lines 836-839, 1555-1558)
+  - Fixed 6 instances in admin/migration-tools.php (lines 125, 258, 265, 293, 301, 310)
+  - Moved comments from before echo statements to inside echo, directly before sprintf()
+  - Moved inline comments to separate preceding lines before printf()
+
+### 📦 Version Updates
+- Plugin version: 2.6.2 → 2.6.3
+- Updated in poker-tournament-import.php header and POKER_TOURNAMENT_IMPORT_VERSION constant
+- Updated readme.txt Stable tag to 2.6.3
+- Distribution: poker-tournament-import-v2.6.3.zip
+
+### ✅ Result
+- **WordPress.org submission ready**: All i18n translator comment placement requirements met
+
 ## Version 2.6.2 - (October 17, 2025)
 
 ### 🌍 WordPress.org Plugin Directory Preparation

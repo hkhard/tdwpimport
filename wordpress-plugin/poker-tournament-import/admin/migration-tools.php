@@ -122,7 +122,9 @@ class Poker_Migration_Admin_Page {
                                 <?php _e('Migrate All Tournaments', 'poker-tournament-import'); ?>
                             </button>
                             <span class="migration-count">
-                                (<?php /* translators: %d: number of tournaments */ printf(__('%d tournaments will be migrated', 'poker-tournament-import'), $migration_count); ?>)
+                                (<?php
+                                /* translators: %d: number of tournaments */
+                                printf(__('%d tournaments will be migrated', 'poker-tournament-import'), $migration_count); ?>)
                             </span>
                         </p>
                     </form>
@@ -255,14 +257,18 @@ class Poker_Migration_Admin_Page {
                     <?php if ($migration_results['success'] > 0): ?>
                         <div class="success-notice">
                             <p><strong><?php _e('Migration Successful!', 'poker-tournament-import'); ?></strong></p>
-                            <p><?php /* translators: %d: number of tournaments */ printf(__('%d tournaments were successfully migrated.', 'poker-tournament-import'), $migration_results['success']); ?></p>
+                            <p><?php
+                            /* translators: %d: number of tournaments */
+                            printf(__('%d tournaments were successfully migrated.', 'poker-tournament-import'), $migration_results['success']); ?></p>
                         </div>
                     <?php endif; ?>
 
                     <?php if ($migration_results['failed'] > 0): ?>
                         <div class="error-notice">
                             <p><strong><?php _e('Migration Issues Found', 'poker-tournament-import'); ?></strong></p>
-                            <p><?php /* translators: %d: number of tournaments */ printf(__('%d tournaments could not be migrated.', 'poker-tournament-import'), $migration_results['failed']); ?></p>
+                            <p><?php
+                            /* translators: %d: number of tournaments */
+                            printf(__('%d tournaments could not be migrated.', 'poker-tournament-import'), $migration_results['failed']); ?></p>
 
                             <?php if (!empty($migration_results['errors'])): ?>
                                 <h4><?php _e('Errors:', 'poker-tournament-import'); ?></h4>
@@ -290,7 +296,9 @@ class Poker_Migration_Admin_Page {
                     <?php if ($sync_results['synced'] > 0): ?>
                         <div class="success-notice">
                             <p><strong><?php _e('Sync Successful!', 'poker-tournament-import'); ?></strong></p>
-                            <p><?php /* translators: %d: number of tournaments */ printf(__('%d tournaments had their player data synchronized successfully.', 'poker-tournament-import'), $sync_results['synced']); ?></p>
+                            <p><?php
+                            /* translators: %d: number of tournaments */
+                            printf(__('%d tournaments had their player data synchronized successfully.', 'poker-tournament-import'), $sync_results['synced']); ?></p>
                             <p><em><?php _e('This should fix the empty tournament displays and tab interface issues.', 'poker-tournament-import'); ?></em></p>
                         </div>
                     <?php endif; ?>
@@ -298,7 +306,9 @@ class Poker_Migration_Admin_Page {
                     <?php if ($sync_results['failed'] > 0): ?>
                         <div class="error-notice">
                             <p><strong><?php _e('Sync Issues Found', 'poker-tournament-import'); ?></strong></p>
-                            <p><?php /* translators: %d: number of tournaments */ printf(__('%d tournaments could not be synced.', 'poker-tournament-import'), $sync_results['failed']); ?></p>
+                            <p><?php
+                            /* translators: %d: number of tournaments */
+                            printf(__('%d tournaments could not be synced.', 'poker-tournament-import'), $sync_results['failed']); ?></p>
 
                             <?php if (!empty($sync_results['errors'])): ?>
                                 <h4><?php _e('Errors:', 'poker-tournament-import'); ?></h4>
@@ -307,7 +317,9 @@ class Poker_Migration_Admin_Page {
                                         <li><?php echo esc_html($error); ?></li>
                                     <?php endforeach; ?>
                                     <?php if (count($sync_results['errors']) > 10): ?>
-                                        <li><?php /* translators: %d: number of additional errors */ printf(__('... and %d more errors', 'poker-tournament-import'), count($sync_results['errors']) - 10); ?></li>
+                                        <li><?php
+                                        /* translators: %d: number of additional errors */
+                                        printf(__('... and %d more errors', 'poker-tournament-import'), count($sync_results['errors']) - 10); ?></li>
                                     <?php endif; ?>
                                 </ul>
                             <?php endif; ?>

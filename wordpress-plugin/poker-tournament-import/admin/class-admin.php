@@ -567,7 +567,9 @@ class Poker_Tournament_Import_Admin {
 
             <!-- Footer Info -->
             <p class="description" style="text-align: center; margin-top: 20px; color: #8c8f94;">
-                <?php printf(__('Poker Tournament Import v%s', 'poker-tournament-import'), POKER_TOURNAMENT_IMPORT_VERSION); ?>
+                <?php
+                /* translators: %s: plugin version number */
+                printf(__('Poker Tournament Import v%s', 'poker-tournament-import'), POKER_TOURNAMENT_IMPORT_VERSION); ?>
             </p>
         </div>
         <?php
@@ -832,8 +834,8 @@ class Poker_Tournament_Import_Admin {
 
                 if ($import_result['success']) {
                     Poker_Tournament_Import_Debug::log_success('Tournament import completed successfully', $import_result['created_posts']);
-                    /* translators: %s: tournament title */
                     echo '<div class="notice notice-success"><p>' .
+                        /* translators: %s: tournament title */
                         sprintf(__('Tournament "%s" imported successfully!', 'poker-tournament-import'),
                             esc_html($tournament_data['metadata']['title'])) . '</p></div>';
 
@@ -1551,8 +1553,8 @@ class Poker_Tournament_Import_Admin {
                 $import_result = $this->import_tournament_data($tournament_data);
 
                 if ($import_result['success']) {
-                    /* translators: %s: tournament title */
                     echo '<div class="notice notice-success"><p>' .
+                        /* translators: %s: tournament title */
                         sprintf(__('Tournament "%s" has been overwritten successfully!', 'poker-tournament-import'),
                             esc_html($tournament_data['metadata']['title'])) . '</p></div>';
 
