@@ -3,7 +3,7 @@
  * Plugin Name: Poker Tournament Import
  * Plugin URI: https://nikielhard.se/tdwpimport
  * Description: Import and display poker tournament results from Tournament Director (.tdt) files
- * Version: 2.9.1
+ * Version: 2.9.2
  * Author: Hans Kästel Hård
  * Author URI: https://nikielhard.se
  * License: GPL v2 or later
@@ -20,7 +20,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('POKER_TOURNAMENT_IMPORT_VERSION', '2.9.1');
+define('POKER_TOURNAMENT_IMPORT_VERSION', '2.9.2');
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -103,11 +103,12 @@ class Poker_Tournament_Import {
             // Initialize data mart cleaner
             require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/class-data-mart-cleaner.php';
             new Poker_Data_Mart_Cleaner();
-
-            // Initialize bulk import
-            require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/class-bulk-import.php';
-            Poker_Tournament_Bulk_Import::get_instance();
         }
+
+        // Initialize bulk import (OUTSIDE is_admin() for REST API access)
+        // Security: All REST endpoints require 'manage_options' capability
+        require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/class-bulk-import.php';
+        Poker_Tournament_Bulk_Import::get_instance();
 
         // AJAX handlers for tabbed interface
         add_action('wp_ajax_poker_series_tab_content', array($this, 'ajax_series_tab_content'));

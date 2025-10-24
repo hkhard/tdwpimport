@@ -3,7 +3,7 @@ Contributors: hkHard
 Tags: poker, tournament, import, results, bulk-import
 Requires at least: 6.0
 Tested up to: 6.8
-Stable tag: 2.9.1
+Stable tag: 2.9.2
 Requires PHP: 8.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -77,6 +77,14 @@ Use the following shortcodes:
 6. **NEW: Interactive leaderboard with sorting**
 
 == Changelog ==
+
+= 2.9.2 - January 24, 2025 =
+* CRITICAL FIX: Bulk import REST API endpoints now register correctly (404 error resolved)
+* Fixed: Moved class initialization outside is_admin() block for global REST API access
+* Security: All endpoints require logged-in user with 'manage_options' capability
+* Security: Batch ownership verification prevents users accessing other users' batches
+* Security: REST endpoints protected with permission_callback on all 5 routes
+* Note: No public endpoint access possible - full authentication required
 
 = 2.9.1 - January 24, 2025 =
 * CRITICAL FIX: Bulk import REST API response format corrected
