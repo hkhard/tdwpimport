@@ -78,6 +78,13 @@ Use the following shortcodes:
 
 == Changelog ==
 
+= 2.9.6 - January 24, 2025 =
+* CRITICAL FIX: Removed validate_callback from file_id REST parameter (rest_invalid_param resolved)
+* Fixed: WordPress REST validation was rejecting valid file_id URL parameters
+* Fixed: Validation now only happens in rest_process_file method with full control
+* Technical: Removed restrictive validate_callback that blocked URL query parameters
+* Result: File processing requests now accepted - definitive parameter validation fix
+
 = 2.9.5 - January 24, 2025 =
 * CRITICAL FIX: Changed file_id from JSON body to URL parameter (400 error resolved)
 * Fixed: Simplified parameter handling - file_id now sent as query parameter

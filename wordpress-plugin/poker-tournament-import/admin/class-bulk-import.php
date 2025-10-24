@@ -94,12 +94,6 @@ class Poker_Tournament_Bulk_Import {
                     'validate_callback' => function($param) {
                         return preg_match('/^[a-f0-9\-]{36}$/', $param);
                     }
-                ),
-                'file_id' => array(
-                    'required' => false,
-                    'validate_callback' => function($param) {
-                        return $param === null || is_numeric($param);
-                    }
                 )
             )
         ));
