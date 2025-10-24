@@ -282,9 +282,10 @@ class Poker_Tournament_Bulk_Import {
             $estimated_time = count($accepted_files) * 3;
 
             return new WP_REST_Response(array(
+                'success' => true,
                 'batch_uuid' => $batch_uuid,
                 'total_files' => count($accepted_files),
-                'accepted_files' => $accepted_files,
+                'files' => $accepted_files,
                 'rejected_files' => $rejected_files,
                 'estimated_time_seconds' => $estimated_time,
                 'next_action' => 'process'

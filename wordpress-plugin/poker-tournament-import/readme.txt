@@ -3,7 +3,7 @@ Contributors: hkHard
 Tags: poker, tournament, import, results, bulk-import
 Requires at least: 6.0
 Tested up to: 6.8
-Stable tag: 2.9.0
+Stable tag: 2.9.1
 Requires PHP: 8.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -77,6 +77,12 @@ Use the following shortcodes:
 6. **NEW: Interactive leaderboard with sorting**
 
 == Changelog ==
+
+= 2.9.1 - January 24, 2025 =
+* CRITICAL FIX: Bulk import REST API response format corrected
+* Fixed: Added missing 'success' field to API response
+* Fixed: Renamed 'accepted_files' to 'files' for JavaScript compatibility
+* Note: **MUST deactivate/reactivate plugin** to create database tables if upgrading from pre-2.9.0
 
 = 2.9.0 - January 23, 2025 =
 * NEW: Bulk import functionality - Upload multiple .tdt files simultaneously
