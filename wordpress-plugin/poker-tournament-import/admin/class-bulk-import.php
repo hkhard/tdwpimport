@@ -320,7 +320,7 @@ class Poker_Tournament_Bulk_Import {
             }
 
             // Process the file
-            $result = $this->batch_processor->process_file($file_id, $batch_uuid);
+            $result = $this->batch_processor->process_single_file($file_id, $batch_uuid);
 
             if (is_wp_error($result)) {
                 return $result;

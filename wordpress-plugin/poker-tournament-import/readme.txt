@@ -78,6 +78,13 @@ Use the following shortcodes:
 
 == Changelog ==
 
+= 2.9.8 - January 24, 2025 =
+* CRITICAL FIX: Fatal error resolved - incorrect method name fixed
+* Fixed: Changed process_file() to process_single_file() on line 323
+* Fixed: Method name mismatch between class-bulk-import.php and class-batch-processor.php
+* Technical: Batch processor uses process_single_file() not process_file()
+* Result: File processing now executes without fatal errors
+
 = 2.9.7 - January 24, 2025 =
 * CRITICAL FIX: Batch response now includes file IDs (missing_file_id resolved)
 * Fixed: foreach loop now uses reference (&$file) to properly add database IDs
