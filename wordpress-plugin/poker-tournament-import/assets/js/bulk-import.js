@@ -341,12 +341,8 @@
         processFile: function(fileId) {
             return new Promise((resolve, reject) => {
                 $.ajax({
-                    url: pokerBulkImportSettings.restUrl + '/import/batch/' + this.batchUuid + '/process',
+                    url: pokerBulkImportSettings.restUrl + '/import/batch/' + this.batchUuid + '/process?file_id=' + fileId,
                     method: 'POST',
-                    data: JSON.stringify({
-                        file_id: fileId
-                    }),
-                    contentType: 'application/json',
                     beforeSend: function(xhr) {
                         xhr.setRequestHeader('X-WP-Nonce', pokerBulkImportSettings.nonce);
                     },

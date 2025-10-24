@@ -78,6 +78,14 @@ Use the following shortcodes:
 
 == Changelog ==
 
+= 2.9.5 - January 24, 2025 =
+* CRITICAL FIX: Changed file_id from JSON body to URL parameter (400 error resolved)
+* Fixed: Simplified parameter handling - file_id now sent as query parameter
+* Fixed: Removed complex JSON body parsing that wasn't working with WordPress REST API
+* Technical: Changed AJAX request to append ?file_id={id} to URL instead of JSON body
+* Technical: Simplified rest_process_file method to use direct get_param()
+* Result: Files now process successfully - definitive fix for parameter passing
+
 = 2.9.4 - January 24, 2025 =
 * CRITICAL FIX: file_id parameter now retrieved from JSON body (400 error resolved)
 * Fixed: Added explicit get_json_params() check for JSON-encoded request bodies
