@@ -78,6 +78,14 @@ Use the following shortcodes:
 
 == Changelog ==
 
+= 2.9.7 - January 24, 2025 =
+* CRITICAL FIX: Batch response now includes file IDs (missing_file_id resolved)
+* Fixed: foreach loop now uses reference (&$file) to properly add database IDs
+* Fixed: PHP foreach by-value was creating copies, IDs never reached response
+* Technical: Changed line 261 from "as $file" to "as &$file" for reference
+* Technical: Added unset($file) after loop to break reference (PHP best practice)
+* Result: Files array now includes "id" field needed by processFile JavaScript
+
 = 2.9.6 - January 24, 2025 =
 * CRITICAL FIX: Removed validate_callback from file_id REST parameter (rest_invalid_param resolved)
 * Fixed: WordPress REST validation was rejecting valid file_id URL parameters

@@ -258,7 +258,7 @@ class Poker_Tournament_Bulk_Import {
 
             // Create file records
             $files_table = $wpdb->prefix . 'poker_import_batch_files';
-            foreach ($accepted_files as $file) {
+            foreach ($accepted_files as &$file) {
                 $wpdb->insert($files_table, array(
                     'batch_id' => $batch_id,
                     'filename' => $file['filename'],
@@ -271,6 +271,7 @@ class Poker_Tournament_Bulk_Import {
 
                 $file['id'] = $wpdb->insert_id;
             }
+            unset($file); // Break reference
 
             // Estimate processing time (3 seconds per file)
             $estimated_time = count($accepted_files) * 3;
