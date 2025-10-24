@@ -78,6 +78,15 @@ Use the following shortcodes:
 
 == Changelog ==
 
+= 2.9.9 - January 24, 2025 =
+* CRITICAL FIX: Database schema error resolved - player_id column now used correctly
+* Fixed: save_tournament_players() now uses player_id (UUID) instead of player_name
+* Fixed: Changed method to use correct table schema matching regular imports
+* Technical: Copied correct implementation from class-admin.php to class-batch-processor.php
+* Technical: tournament_id column now stores UUID (not WordPress post ID)
+* Technical: player_id column now stores player UUID (not name string)
+* Result: Player records now insert successfully without database errors
+
 = 2.9.8 - January 24, 2025 =
 * CRITICAL FIX: Fatal error resolved - incorrect method name fixed
 * Fixed: Changed process_file() to process_single_file() on line 323

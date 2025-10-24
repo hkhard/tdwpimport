@@ -386,7 +386,7 @@ class Poker_Tournament_Batch_Processor {
 
         // Save players data
         if (!empty($tournament_data['players']) && is_array($tournament_data['players'])) {
-            $this->save_tournament_players($post_id, $tournament_data['players']);
+            $this->save_tournament_players($post_id, $tournament_data);
         }
 
         // Trigger statistics refresh (async)
@@ -425,10 +425,11 @@ class Poker_Tournament_Batch_Processor {
         // Update players data (delete old, insert new)
         global $wpdb;
         $players_table = $wpdb->prefix . 'poker_tournament_players';
-        $wpdb->delete($players_table, array('tournament_id' => $tournament_id), array('%d'));
+        $tournament_uuid = $tournament_data['metadata']['uuid'] ?? '';
+        $wpdb->delete($players_table, array('tournament_id' => $tournament_uuid), array('%s'));
 
         if (!empty($tournament_data['players']) && is_array($tournament_data['players'])) {
-            $this->save_tournament_players($tournament_id, $tournament_data['players']);
+            $this->save_tournament_players($tournament_id, $tournament_data);
         }
 
         // Trigger statistics refresh (async)
@@ -483,28 +484,48 @@ class Poker_Tournament_Batch_Processor {
      * Save tournament players to database
      *
      * @param int   $post_id Tournament post ID
-     * @param array $players Array of player data
+     * @param array $tournament_data Full tournament data with players and metadata
+     * @return int Number of players inserted
      */
-    private function save_tournament_players($post_id, $players) {
+    private function save_tournament_players($post_id, $tournament_data) {
         global $wpdb;
         $players_table = $wpdb->prefix . 'poker_tournament_players';
 
-        foreach ($players as $player) {
-            $wpdb->insert(
-                $players_table,
-                array(
-                    'tournament_id' => $post_id,
-                    'player_name' => sanitize_text_field($player['name'] ?? ''),
-                    'finish_position' => intval($player['position'] ?? 0),
-                    'prize_won' => floatval($player['prize'] ?? 0),
-                    'buy_ins' => intval($player['buy_ins'] ?? 1),
-                    'rebuys' => intval($player['rebuys'] ?? 0),
-                    'add_ons' => intval($player['add_ons'] ?? 0),
-                    'eliminated_by' => sanitize_text_field($player['eliminated_by'] ?? ''),
-                ),
-                array('%d', '%s', '%d', '%f', '%d', '%d', '%d', '%s')
-            );
+        if (empty($tournament_data['players'])) {
+            return 0;
         }
+
+        $tournament_uuid = $tournament_data['metadata']['uuid'] ?? '';
+        $players_inserted = 0;
+
+        foreach ($tournament_data['players'] as $player_uuid => $player_data) {
+            // Calculate total buy-ins COUNT for this player (not chip amounts!)
+            $total_buyins = 0;
+            if (!empty($player_data['buyins'])) {
+                $total_buyins = count($player_data['buyins']);  // Count entries, not sum chip amounts
+            }
+
+            // Prepare player data to match ACTUAL table structure
+            $player_record = array(
+                'tournament_id' => $tournament_uuid, // Use UUID as tournament_id
+                'player_id' => $player_uuid, // Use player UUID
+                'finish_position' => $player_data['finish_position'] ?? 1,
+                'winnings' => $player_data['winnings'] ?? 0,
+                'buyins' => $total_buyins,  // Store COUNT of entries
+                'rebuys' => 0, // Default to 0 for now
+                'addons' => 0, // Default to 0 for now
+                'points' => $player_data['points'] ?? 0,
+                'hits' => $player_data['hits'] ?? 0
+            );
+
+            $result = $wpdb->insert($players_table, $player_record);
+
+            if ($result !== false) {
+                $players_inserted++;
+            }
+        }
+
+        return $players_inserted;
     }
 
     /**
