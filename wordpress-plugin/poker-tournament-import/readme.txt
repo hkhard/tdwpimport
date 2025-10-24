@@ -78,6 +78,14 @@ Use the following shortcodes:
 
 == Changelog ==
 
+= 2.9.10 - January 24, 2025 =
+* CRITICAL FIX: Import options now properly respected (skip duplicates checkbox works)
+* Fixed: rest_process_file() now retrieves and passes batch options to processor
+* Fixed: Options were saved during upload but never used during processing
+* Technical: Added batch options retrieval from database in REST endpoint
+* Technical: Options (skip_duplicates, update_existing, import_as_new) now passed to process_single_file()
+* Result: Unchecking "Skip duplicates" now allows re-importing same files
+
 = 2.9.9 - January 24, 2025 =
 * CRITICAL FIX: Database schema error resolved - player_id column now used correctly
 * Fixed: save_tournament_players() now uses player_id (UUID) instead of player_name

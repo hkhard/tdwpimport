@@ -319,8 +319,24 @@ class Poker_Tournament_Bulk_Import {
                 return new WP_Error('unauthorized', __('Unauthorized access to batch.', 'poker-tournament-import'), array('status' => 403));
             }
 
+            // Retrieve batch options
+            global $wpdb;
+            $batches_table = $wpdb->prefix . 'poker_import_batches';
+            $batch = $wpdb->get_row($wpdb->prepare(
+                "SELECT options FROM $batches_table WHERE batch_uuid = %s",
+                $batch_uuid
+            ));
+
+            $options = array();
+            if ($batch && !empty($batch->options)) {
+                $options = json_decode($batch->options, true);
+                if (!is_array($options)) {
+                    $options = array();
+                }
+            }
+
             // Process the file
-            $result = $this->batch_processor->process_single_file($file_id, $batch_uuid);
+            $result = $this->batch_processor->process_single_file($file_id, $batch_uuid, $options);
 
             if (is_wp_error($result)) {
                 return $result;
