@@ -3,7 +3,7 @@ Contributors: hkHard
 Tags: poker, tournament, import, results, bulk-import
 Requires at least: 6.0
 Tested up to: 6.8
-Stable tag: 2.9.2
+Stable tag: 2.9.3
 Requires PHP: 8.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -77,6 +77,14 @@ Use the following shortcodes:
 6. **NEW: Interactive leaderboard with sorting**
 
 == Changelog ==
+
+= 2.9.3 - January 24, 2025 =
+* CRITICAL FIX: File processing 400 error resolved (parameter validation timing)
+* Fixed: file_id parameter now allows JSON body parsing before validation
+* Fixed: Added manual validation in rest_process_file method
+* Technical: Changed file_id from required=true to required=false in REST args
+* Technical: Validates file_id after JSON body parsed, not before
+* Result: Files now process successfully instead of all failing with 400 error
 
 = 2.9.2 - January 24, 2025 =
 * CRITICAL FIX: Bulk import REST API endpoints now register correctly (404 error resolved)

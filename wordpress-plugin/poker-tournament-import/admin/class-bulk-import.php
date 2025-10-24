@@ -96,9 +96,9 @@ class Poker_Tournament_Bulk_Import {
                     }
                 ),
                 'file_id' => array(
-                    'required' => true,
+                    'required' => false,
                     'validate_callback' => function($param) {
-                        return is_numeric($param);
+                        return $param === null || is_numeric($param);
                     }
                 )
             )
@@ -305,7 +305,18 @@ class Poker_Tournament_Bulk_Import {
      */
     public function rest_process_file($request) {
         $batch_uuid = $request->get_param('uuid');
-        $file_id = intval($request->get_param('file_id'));
+        $file_id = $request->get_param('file_id');
+
+        // Validate file_id parameter
+        if (empty($file_id) || !is_numeric($file_id)) {
+            return new WP_Error(
+                'missing_file_id',
+                __('Missing or invalid required parameter: file_id', 'poker-tournament-import'),
+                array('status' => 400)
+            );
+        }
+
+        $file_id = intval($file_id);
 
         try {
             // Verify batch belongs to current user
