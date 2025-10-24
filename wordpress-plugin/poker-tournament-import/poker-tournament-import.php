@@ -3,9 +3,9 @@
  * Plugin Name: Poker Tournament Import
  * Plugin URI: https://nikielhard.se/tdwpimport
  * Description: Import and display poker tournament results from Tournament Director (.tdt) files
- * Version: 2.6.5
+ * Version: 2.9.0
  * Author: Hans Kästel Hård
- * Author URI: https://nikielhard.se/tdwpimport
+ * Author URI: https://nikielhard.se
  * License: GPL v2 or later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain: poker-tournament-import
@@ -20,7 +20,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('POKER_TOURNAMENT_IMPORT_VERSION', '2.6.5');
+define('POKER_TOURNAMENT_IMPORT_VERSION', '2.9.0');
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -64,7 +64,6 @@ class Poker_Tournament_Import {
      * Initialize plugin
      */
     public function init() {
-        $this->load_textdomain();
         $this->includes();
         $this->init_post_types();
         $this->init_taxonomies();
@@ -104,6 +103,10 @@ class Poker_Tournament_Import {
             // Initialize data mart cleaner
             require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/class-data-mart-cleaner.php';
             new Poker_Data_Mart_Cleaner();
+
+            // Initialize bulk import
+            require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/class-bulk-import.php';
+            Poker_Tournament_Bulk_Import::get_instance();
         }
 
         // AJAX handlers for tabbed interface
@@ -187,6 +190,7 @@ class Poker_Tournament_Import {
                 // **v2.4.34: ONE-TIME MIGRATION** - Populate ROI table if empty
                 global $wpdb;
                 $roi_table = $wpdb->prefix . 'poker_player_roi';
+                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
                 $roi_count = $wpdb->get_var("SELECT COUNT(*) FROM $roi_table");
 
                 if ($roi_count == 0) {
@@ -206,18 +210,10 @@ class Poker_Tournament_Import {
 
             // Update the stored version
             update_option('poker_import_last_version', POKER_TOURNAMENT_IMPORT_VERSION);
-        }
-    }
 
-    /**
-     * Load plugin text domain
-     */
-    private function load_textdomain() {
-        load_plugin_textdomain(
-            'poker-tournament-import',
-            false,
-            dirname(plugin_basename(__FILE__)) . '/languages'
-        );
+            // Flush rewrite rules after version update (v2.8.6: auto-refresh permalinks)
+            flush_rewrite_rules();
+        }
     }
 
     /**
@@ -490,8 +486,61 @@ class Poker_Tournament_Import {
 
         dbDelta($revenue_analytics_sql);
 
+        // **PHASE 2.9: Bulk Import Infrastructure Tables**
+
+        // Table for bulk import batches
+        $batches_table_name = $wpdb->prefix . 'poker_import_batches';
+        $batches_sql = "CREATE TABLE $batches_table_name (
+            id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            batch_uuid varchar(36) NOT NULL COMMENT 'UUID for batch identification',
+            user_id bigint(20) UNSIGNED NOT NULL,
+            total_files int NOT NULL DEFAULT 0,
+            processed_count int NOT NULL DEFAULT 0,
+            success_count int NOT NULL DEFAULT 0,
+            error_count int NOT NULL DEFAULT 0,
+            status enum('pending','processing','completed','failed','cancelled') NOT NULL DEFAULT 'pending',
+            processing_mode enum('sequential','parallel') NOT NULL DEFAULT 'sequential',
+            options longtext DEFAULT NULL COMMENT 'JSON: skip_duplicates, update_existing, email_notify',
+            started_at datetime DEFAULT NULL,
+            completed_at datetime DEFAULT NULL,
+            created_at datetime DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY  (id),
+            UNIQUE KEY batch_uuid (batch_uuid),
+            KEY user_id (user_id),
+            KEY status (status),
+            KEY created_at (created_at)
+        ) $charset_collate;";
+
+        dbDelta($batches_sql);
+
+        // Table for bulk import batch files
+        $batch_files_table_name = $wpdb->prefix . 'poker_import_batch_files';
+        $batch_files_sql = "CREATE TABLE $batch_files_table_name (
+            id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            batch_id bigint(20) UNSIGNED NOT NULL,
+            filename varchar(255) NOT NULL,
+            filepath varchar(500) NOT NULL COMMENT 'Temp storage path',
+            filesize int NOT NULL DEFAULT 0,
+            file_hash varchar(64) DEFAULT NULL COMMENT 'SHA256 for deduplication',
+            status enum('pending','processing','completed','failed','skipped') NOT NULL DEFAULT 'pending',
+            tournament_id bigint(20) UNSIGNED DEFAULT NULL COMMENT 'Created post ID',
+            error_message text DEFAULT NULL,
+            parse_details longtext DEFAULT NULL COMMENT 'JSON: players, buy_ins, duration',
+            processing_time_ms int DEFAULT NULL,
+            processed_at datetime DEFAULT NULL,
+            created_at datetime DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY  (id),
+            KEY batch_id (batch_id),
+            KEY status (status),
+            KEY file_hash (file_hash),
+            KEY tournament_id (tournament_id)
+        ) $charset_collate;";
+
+        dbDelta($batch_files_sql);
+
         // Log successful table creation
         error_log("Poker Import: Phase 2.1 Financial tables created successfully");
+        error_log("Poker Import: Phase 2.9 Bulk import tables created successfully");
     }
 
     /**
@@ -504,6 +553,7 @@ class Poker_Tournament_Import {
         $charset_collate = $wpdb->get_charset_collate();
 
         // Check if table exists
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         $table_exists = $wpdb->get_var("SHOW TABLES LIKE '{$stats_table_name}'");
 
         if (!$table_exists) {
@@ -524,6 +574,7 @@ class Poker_Tournament_Import {
                 KEY last_updated (last_updated)
             ) {$charset_collate};";
 
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
             $result = $wpdb->query($stats_sql);
 
             if ($result === false) {
@@ -596,6 +647,7 @@ class Poker_Tournament_Import {
                 // Get winner
                 $winner_name = '';
                 if ($tournament_uuid) {
+                    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
                     $winner = $wpdb->get_row($wpdb->prepare(
                         "SELECT p.post_title
                          FROM $table_name tp
@@ -610,7 +662,7 @@ class Poker_Tournament_Import {
                 ?>
                 <tr>
                     <td class="tournament-name">
-                        <a href="<?php echo get_permalink($tournament->ID); ?>">
+                        <a href="<?php echo esc_url(get_permalink($tournament->ID)); ?>">
                             <?php echo esc_html($tournament->post_title); ?>
                         </a>
                     </td>
@@ -632,7 +684,7 @@ class Poker_Tournament_Import {
         }
 
         $output = ob_get_clean();
-        echo $output;
+        echo wp_kses_post($output);
         wp_die();
     }
 
@@ -643,14 +695,14 @@ class Poker_Tournament_Import {
         check_ajax_referer('poker_formula_validator', 'nonce');
 
         if (!current_user_can('manage_options')) {
-            wp_die(__('You do not have sufficient permissions to access this page.', 'poker-tournament-import'));
+            wp_die(esc_html__('You do not have sufficient permissions to access this page.', 'poker-tournament-import'));
         }
 
         $formula = sanitize_textarea_field($_POST['formula']);
         $test_data = $_POST['test_data'];
 
         if (empty($formula)) {
-            echo '<div class="error"><p>' . __('Formula cannot be empty.', 'poker-tournament-import') . '</p></div>';
+            echo '<div class="error"><p>' . esc_html__('Formula cannot be empty.', 'poker-tournament-import') . '</p></div>';
             wp_die();
         }
 
@@ -720,7 +772,7 @@ class Poker_Tournament_Import {
         }
 
         $output .= '</div>';
-        echo $output;
+        echo wp_kses_post($output);
         wp_die();
     }
 
@@ -731,7 +783,7 @@ class Poker_Tournament_Import {
         check_ajax_referer('poker_formula_manager', 'nonce');
 
         if (!current_user_can('manage_options')) {
-            wp_die(__('You do not have sufficient permissions to access this page.', 'poker-tournament-import'));
+            wp_die(esc_html__('You do not have sufficient permissions to access this page.', 'poker-tournament-import'));
         }
 
         $name = sanitize_text_field($_POST['formula_name']);
@@ -766,7 +818,7 @@ class Poker_Tournament_Import {
         check_ajax_referer('poker_formula_manager', 'nonce');
 
         if (!current_user_can('manage_options')) {
-            wp_die(__('You do not have sufficient permissions to access this page.', 'poker-tournament-import'));
+            wp_die(esc_html__('You do not have sufficient permissions to access this page.', 'poker-tournament-import'));
         }
 
         $name = sanitize_text_field($_POST['formula_name']);
@@ -790,7 +842,7 @@ class Poker_Tournament_Import {
         check_ajax_referer('poker_formula_manager', 'nonce');
 
         if (!current_user_can('manage_options')) {
-            wp_die(__('You do not have sufficient permissions to access this page.', 'poker-tournament-import'));
+            wp_die(esc_html__('You do not have sufficient permissions to access this page.', 'poker-tournament-import'));
         }
 
         $name = sanitize_text_field($_POST['formula_key']);
@@ -817,7 +869,7 @@ class Poker_Tournament_Import {
         check_ajax_referer('poker_export_standings', 'nonce');
 
         if (!current_user_can('manage_options')) {
-            wp_die(__('You do not have sufficient permissions to access this page.', 'poker-tournament-import'));
+            wp_die(esc_html__('You do not have sufficient permissions to access this page.', 'poker-tournament-import'));
         }
 
         $series_id = intval($_POST['series_id']);
@@ -871,7 +923,7 @@ class Poker_Tournament_Import {
                 $this->render_analytics_tab_content();
                 break;
             default:
-                echo '<div class="error">' . __('Unknown view', 'poker-tournament-import') . '</div>';
+                echo '<div class="error">' . esc_html__('Unknown view', 'poker-tournament-import') . '</div>';
                 break;
         }
 
@@ -904,7 +956,7 @@ class Poker_Tournament_Import {
                 $this->render_calendar_view();
                 break;
             default:
-                echo '<div class="error">' . __('Unknown view type', 'poker-tournament-import') . '</div>';
+                echo '<div class="error">' . esc_html__('Unknown view type', 'poker-tournament-import') . '</div>';
                 break;
         }
 
@@ -956,6 +1008,7 @@ class Poker_Tournament_Import {
             $winner_winnings = 0;
 
             if ($tournament_uuid) {
+                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
                 $winner = $wpdb->get_row($wpdb->prepare(
                     "SELECT p.post_title as winner_name, tp.winnings as winner_winnings
                      FROM $table_name tp
@@ -1016,14 +1069,14 @@ class Poker_Tournament_Import {
 
         echo '<div class="tournaments-detail-view">';
         echo '<div class="tournaments-header">';
-        echo '<h3>' . __('All Tournaments', 'poker-tournament-import') . '</h3>';
+        echo '<h3>' . esc_html__('All Tournaments', 'poker-tournament-import') . '</h3>';
         
         // Season filter dropdown
         if (!empty($seasons)) {
             echo '<div class="tournament-season-filter">';
-            echo '<label for="tournament-season-select">' . __('Season:', 'poker-tournament-import') . '</label>';
+            echo '<label for="tournament-season-select">' . esc_html__('Season:', 'poker-tournament-import') . '</label>';
             echo '<select id="tournament-season-select" class="season-filter-select">';
-            echo '<option value="all">' . __('All Seasons', 'poker-tournament-import') . '</option>';
+            echo '<option value="all">' . esc_html__('All Seasons', 'poker-tournament-import') . '</option>';
             foreach ($seasons as $season) {
                 echo '<option value="' . esc_attr($season->term_id) . '">' . esc_html($season->name) . '</option>';
             }
@@ -1035,13 +1088,13 @@ class Poker_Tournament_Import {
         // Container for AJAX-loaded tournament grid with scroll wrapper
         echo '<div class="tournament-leaderboard-scroll-wrapper">';
         echo '<div id="tournaments-grid-container" class="tournaments-grid-container">';
-        echo '<div class="loading-spinner">' . __('Loading tournaments...', 'poker-tournament-import') . '</div>';
+        echo '<div class="loading-spinner">' . esc_html__('Loading tournaments...', 'poker-tournament-import') . '</div>';
         echo '</div>';
         echo '</div>';
 
         // Load more button
         echo '<div class="tournament-load-more-container" style="display:none;">';
-        echo '<button id="tournament-load-more-btn" class="button button-primary">' . __('Load More', 'poker-tournament-import') . '</button>';
+        echo '<button id="tournament-load-more-btn" class="button button-primary">' . esc_html__('Load More', 'poker-tournament-import') . '</button>';
         echo '</div>';
 
         echo '</div>';
@@ -1056,6 +1109,7 @@ class Poker_Tournament_Import {
         $roi_table = $wpdb->prefix . 'poker_player_roi';
 
         // Enhanced query with finish position counts, bubble, last place, and hits
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         $top_players = $wpdb->get_results(
             "SELECT
                 roi.player_id,
@@ -1105,7 +1159,7 @@ class Poker_Tournament_Import {
         });
 
         echo '<div class="players-detail-view">';
-        echo '<h3>' . __('All Players', 'poker-tournament-import') . '</h3>';
+        echo '<h3>' . esc_html__('All Players', 'poker-tournament-import') . '</h3>';
 
         if (!empty($top_players)) {
             echo '<div class="player-leaderboard-scroll-wrapper">';
@@ -1113,23 +1167,24 @@ class Poker_Tournament_Import {
 
             // Header row
             echo '<div class="table-header">';
-            echo '<div class="header-rank">' . __('Rank', 'poker-tournament-import') . '</div>';
-            echo '<div class="header-player">' . __('Player', 'poker-tournament-import') . '</div>';
-            echo '<div class="header-tournaments">' . __('Tournaments', 'poker-tournament-import') . '</div>';
-            echo '<div class="header-first">' . __('1st', 'poker-tournament-import') . '</div>';
-            echo '<div class="header-second">' . __('2nd', 'poker-tournament-import') . '</div>';
-            echo '<div class="header-third">' . __('3rd', 'poker-tournament-import') . '</div>';
-            echo '<div class="header-bubble">' . __('Bubble', 'poker-tournament-import') . '</div>';
-            echo '<div class="header-last">' . __('Last', 'poker-tournament-import') . '</div>';
-            echo '<div class="header-hits">' . __('Hits', 'poker-tournament-import') . '</div>';
-            echo '<div class="header-points sortable" data-sort="points">' . __('Points', 'poker-tournament-import') . '<span class="sort-indicator"></span></div>';
-            echo '<div class="header-best">' . __('Best', 'poker-tournament-import') . '</div>';
-            echo '<div class="header-avg">' . __('Avg', 'poker-tournament-import') . '</div>';
-            echo '<div class="header-season-points sortable active" data-sort="season_points">' . __('Season Pts', 'poker-tournament-import') . '<span class="sort-indicator">▼</span></div>';
+            echo '<div class="header-rank">' . esc_html__('Rank', 'poker-tournament-import') . '</div>';
+            echo '<div class="header-player">' . esc_html__('Player', 'poker-tournament-import') . '</div>';
+            echo '<div class="header-tournaments">' . esc_html__('Tournaments', 'poker-tournament-import') . '</div>';
+            echo '<div class="header-first">' . esc_html__('1st', 'poker-tournament-import') . '</div>';
+            echo '<div class="header-second">' . esc_html__('2nd', 'poker-tournament-import') . '</div>';
+            echo '<div class="header-third">' . esc_html__('3rd', 'poker-tournament-import') . '</div>';
+            echo '<div class="header-bubble">' . esc_html__('Bubble', 'poker-tournament-import') . '</div>';
+            echo '<div class="header-last">' . esc_html__('Last', 'poker-tournament-import') . '</div>';
+            echo '<div class="header-hits">' . esc_html__('Hits', 'poker-tournament-import') . '</div>';
+            echo '<div class="header-points sortable" data-sort="points">' . esc_html__('Points', 'poker-tournament-import') . '<span class="sort-indicator"></span></div>';
+            echo '<div class="header-best">' . esc_html__('Best', 'poker-tournament-import') . '</div>';
+            echo '<div class="header-avg">' . esc_html__('Avg', 'poker-tournament-import') . '</div>';
+            echo '<div class="header-season-points sortable active" data-sort="season_points">' . esc_html__('Season Pts', 'poker-tournament-import') . '<span class="sort-indicator">▼</span></div>';
             echo '</div>';
 
             // Player rows
             foreach ($top_players as $index => $player) {
+                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
                 $player_post = $wpdb->get_row($wpdb->prepare(
                     "SELECT p.ID, p.post_title
                      FROM {$wpdb->postmeta} pm
@@ -1143,11 +1198,11 @@ class Poker_Tournament_Import {
                 echo ' data-points="' . esc_attr($player->total_points) . '"';
                 echo ' data-season-points="' . esc_attr($player->season_points) . '">';
 
-                echo '<div class="rank-cell">' . ($index + 1) . '</div>';
+                echo '<div class="rank-cell">' . esc_html($index + 1) . '</div>';
 
                 echo '<div class="player-cell">';
                 if ($player_post) {
-                    echo '<a href="' . get_permalink($player_post->ID) . '">' . esc_html($player_post->post_title) . '</a>';
+                    echo '<a href="' . esc_url(get_permalink($player_post->ID)) . '">' . esc_html($player_post->post_title) . '</a>';
                 } else {
                     echo esc_html($player->player_id);
                 }
@@ -1171,7 +1226,7 @@ class Poker_Tournament_Import {
             echo '</div>'; // player-leaderboard-table
             echo '</div>'; // player-leaderboard-scroll-wrapper
         } else {
-            echo '<p>' . __('No players found.', 'poker-tournament-import') . '</p>';
+            echo '<p>' . esc_html__('No players found.', 'poker-tournament-import') . '</p>';
         }
 
         echo '</div>';
@@ -1188,6 +1243,7 @@ class Poker_Tournament_Import {
         $formula_key = get_option('poker_active_season_formula', 'season_total');
 
         // Get all tournament points for player
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         $results = $wpdb->get_results($wpdb->prepare(
             "SELECT points, winnings, hits, finish_position
              FROM {$table_name}
@@ -1264,7 +1320,7 @@ class Poker_Tournament_Import {
         ));
 
         echo '<div class="series-detail-view">';
-        echo '<h3>' . __('All Series', 'poker-tournament-import') . '</h3>';
+        echo '<h3>' . esc_html__('All Series', 'poker-tournament-import') . '</h3>';
 
         if (!empty($series_list)) {
             echo '<div class="series-grid">';
@@ -1279,17 +1335,17 @@ class Poker_Tournament_Import {
                 )));
 
                 echo '<div class="series-card">';
-                echo '<h4><a href="' . get_edit_post_link($series->ID) . '">' . esc_html($series->post_title) . '</a></h4>';
+                echo '<h4><a href="' . esc_url(get_edit_post_link($series->ID)) . '">' . esc_html($series->post_title) . '</a></h4>';
                 /* translators: %d: number of tournaments */
-                echo '<p>' . sprintf(_n('%d tournament', '%d tournaments', $tournament_count, 'poker-tournament-import'), $tournament_count) . '</p>';
+                echo '<p>' . esc_html(sprintf(_n('%d tournament', '%d tournaments', $tournament_count, 'poker-tournament-import'), $tournament_count)) . '</p>';
                 echo '<div class="series-actions">';
-                echo '[series_overview id="' . $series->ID . '"]';
+                echo '[series_overview id="' . esc_html($series->ID) . '"]';
                 echo '</div>';
                 echo '</div>';
             }
             echo '</div>';
         } else {
-            echo '<p>' . __('No series found.', 'poker-tournament-import') . '</p>';
+            echo '<p>' . esc_html__('No series found.', 'poker-tournament-import') . '</p>';
         }
 
         echo '</div>';
@@ -1303,9 +1359,10 @@ class Poker_Tournament_Import {
         $table_name = $wpdb->prefix . 'poker_tournament_players';
 
         echo '<div class="analytics-detail-view">';
-        echo '<h3>' . __('Tournament Analytics', 'poker-tournament-import') . '</h3>';
+        echo '<h3>' . esc_html__('Tournament Analytics', 'poker-tournament-import') . '</h3>';
 
         // Prize pool distribution
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         $prize_distribution = $wpdb->get_results(
             "SELECT
                 CASE
@@ -1328,7 +1385,7 @@ class Poker_Tournament_Import {
 
         echo '<div class="analytics-grid">';
         echo '<div class="analytics-card">';
-        echo '<h4>' . __('Prize Pool Distribution', 'poker-tournament-import') . '</h4>';
+        echo '<h4>' . esc_html__('Prize Pool Distribution', 'poker-tournament-import') . '</h4>';
         if (!empty($prize_distribution)) {
             echo '<div class="chart-container">';
             foreach ($prize_distribution as $range) {
@@ -1349,14 +1406,14 @@ class Poker_Tournament_Import {
             }
             echo '</div>';
         } else {
-            echo '<p>' . __('No data available', 'poker-tournament-import') . '</p>';
+            echo '<p>' . esc_html__('No data available', 'poker-tournament-import') . '</p>';
         }
         echo '</div>';
 
         // Player participation trends
         echo '<div class="analytics-card">';
-        echo '<h4>' . __('Player Participation', 'poker-tournament-import') . '</h4>';
-        echo '<p>' . __('Analytics features coming soon', 'poker-tournament-import') . '</p>';
+        echo '<h4>' . esc_html__('Player Participation', 'poker-tournament-import') . '</h4>';
+        echo '<p>' . esc_html__('Analytics features coming soon', 'poker-tournament-import') . '</p>';
         echo '</div>';
 
         echo '</div>'; // analytics-grid
@@ -1368,8 +1425,8 @@ class Poker_Tournament_Import {
      */
     private function render_detailed_tournaments_view() {
         echo '<div class="detailed-tournaments-view">';
-        echo '<h3>' . __('Tournament Details', 'poker-tournament-import') . '</h3>';
-        echo '<p>' . __('Detailed tournament analytics coming soon', 'poker-tournament-import') . '</p>';
+        echo '<h3>' . esc_html__('Tournament Details', 'poker-tournament-import') . '</h3>';
+        echo '<p>' . esc_html__('Detailed tournament analytics coming soon', 'poker-tournament-import') . '</p>';
         echo '</div>';
     }
 
@@ -1378,8 +1435,8 @@ class Poker_Tournament_Import {
      */
     private function render_detailed_players_view() {
         echo '<div class="detailed-players-view">';
-        echo '<h3>' . __('Player Details', 'poker-tournament-import') . '</h3>';
-        echo '<p>' . __('Detailed player analytics coming soon', 'poker-tournament-import') . '</p>';
+        echo '<h3>' . esc_html__('Player Details', 'poker-tournament-import') . '</h3>';
+        echo '<p>' . esc_html__('Detailed player analytics coming soon', 'poker-tournament-import') . '</p>';
         echo '</div>';
     }
 
@@ -1390,6 +1447,7 @@ class Poker_Tournament_Import {
         global $wpdb;
         $table_name = $wpdb->prefix . 'poker_tournament_players';
 
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         $leaderboard = $wpdb->get_results($wpdb->prepare(
             "SELECT tp.player_id,
                     COUNT(*) as tournaments_played,
@@ -1404,25 +1462,26 @@ class Poker_Tournament_Import {
         ));
 
         echo '<div class="detailed-leaderboard-view">';
-        echo '<h3>' . __('Complete Leaderboard', 'poker-tournament-import') . '</h3>';
+        echo '<h3>' . esc_html__('Complete Leaderboard', 'poker-tournament-import') . '</h3>';
 
         if (!empty($leaderboard)) {
             echo '<div class="leaderboard-table-wrapper">';
             echo '<table class="widefat leaderboard-table">';
             echo '<thead>';
             echo '<tr>';
-            echo '<th>' . __('Rank', 'poker-tournament-import') . '</th>';
-            echo '<th>' . __('Player', 'poker-tournament-import') . '</th>';
-            echo '<th>' . __('Tournaments', 'poker-tournament-import') . '</th>';
-            echo '<th>' . __('Winnings', 'poker-tournament-import') . '</th>';
-            echo '<th>' . __('Points', 'poker-tournament-import') . '</th>';
-            echo '<th>' . __('Best Finish', 'poker-tournament-import') . '</th>';
-            echo '<th>' . __('Avg Finish', 'poker-tournament-import') . '</th>';
+            echo '<th>' . esc_html__('Rank', 'poker-tournament-import') . '</th>';
+            echo '<th>' . esc_html__('Player', 'poker-tournament-import') . '</th>';
+            echo '<th>' . esc_html__('Tournaments', 'poker-tournament-import') . '</th>';
+            echo '<th>' . esc_html__('Winnings', 'poker-tournament-import') . '</th>';
+            echo '<th>' . esc_html__('Points', 'poker-tournament-import') . '</th>';
+            echo '<th>' . esc_html__('Best Finish', 'poker-tournament-import') . '</th>';
+            echo '<th>' . esc_html__('Avg Finish', 'poker-tournament-import') . '</th>';
             echo '</tr>';
             echo '</thead>';
             echo '<tbody>';
 
             foreach ($leaderboard as $index => $player) {
+                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
                 $player_post = $wpdb->get_row($wpdb->prepare(
                     "SELECT p.ID, p.post_title
                      FROM {$wpdb->postmeta} pm
@@ -1441,7 +1500,7 @@ class Poker_Tournament_Import {
                 echo '<td class="rank"><span class="rank-number">' . esc_html($index + 1) . '</span></td>';
                 echo '<td>';
                 if ($player_post) {
-                    echo '<a href="' . get_permalink($player_post->ID) . '">' . esc_html($player_post->post_title) . '</a>';
+                    echo '<a href="' . esc_url(get_permalink($player_post->ID)) . '">' . esc_html($player_post->post_title) . '</a>';
                 } else {
                     echo esc_html($player->player_id);
                 }
@@ -1449,7 +1508,7 @@ class Poker_Tournament_Import {
                 echo '<td>' . esc_html($player->tournaments_played) . '</td>';
                 echo '<td>$' . esc_html(number_format($player->total_winnings, 0)) . '</td>';
                 echo '<td>' . esc_html(number_format($player->total_points, 1)) . '</td>';
-                echo '<td>' . esc_html($player->best_finish) . get_ordinal_suffix($player->best_finish) . '</td>';
+                echo '<td>' . esc_html($player->best_finish) . esc_html(get_ordinal_suffix($player->best_finish)) . '</td>';
                 echo '<td>' . esc_html(number_format($player->avg_finish, 1)) . '</td>';
                 echo '</tr>';
             }
@@ -1458,7 +1517,7 @@ class Poker_Tournament_Import {
             echo '</table>';
             echo '</div>';
         } else {
-            echo '<p>' . __('No leaderboard data available', 'poker-tournament-import') . '</p>';
+            echo '<p>' . esc_html__('No leaderboard data available', 'poker-tournament-import') . '</p>';
         }
 
         echo '</div>';
@@ -1469,8 +1528,8 @@ class Poker_Tournament_Import {
      */
     private function render_calendar_view() {
         echo '<div class="calendar-view">';
-        echo '<h3>' . __('Tournament Calendar', 'poker-tournament-import') . '</h3>';
-        echo '<p>' . __('Calendar view coming soon', 'poker-tournament-import') . '</p>';
+        echo '<h3>' . esc_html__('Tournament Calendar', 'poker-tournament-import') . '</h3>';
+        echo '<p>' . esc_html__('Calendar view coming soon', 'poker-tournament-import') . '</p>';
         echo '</div>';
     }
 
@@ -1492,6 +1551,7 @@ class Poker_Tournament_Import {
         $table_name = $wpdb->prefix . 'poker_tournament_players';
 
         // Get player statistics
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         $player_stats = $wpdb->get_row($wpdb->prepare(
             "SELECT
                 tp.player_id,
@@ -1515,6 +1575,7 @@ class Poker_Tournament_Import {
         }
 
         // Get player name from WordPress posts
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         $player_post = $wpdb->get_row($wpdb->prepare(
             "SELECT p.ID, p.post_title
              FROM {$wpdb->postmeta} pm
@@ -1527,6 +1588,7 @@ class Poker_Tournament_Import {
         $player_name = $player_post ? $player_post->post_title : $player_id;
 
         // Get recent tournament results for this player
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         $recent_tournaments = $wpdb->get_results($wpdb->prepare(
             "SELECT
                 tp.finish_position,
@@ -1582,7 +1644,7 @@ class Poker_Tournament_Import {
         check_ajax_referer('poker_refresh_statistics', 'nonce');
 
         if (!current_user_can('manage_options')) {
-            wp_die(__('You do not have sufficient permissions to access this page.', 'poker-tournament-import'));
+            wp_die(esc_html__('You do not have sufficient permissions to access this page.', 'poker-tournament-import'));
         }
 
         $result = $this->statistics_engine->refresh_statistics();
@@ -1668,7 +1730,7 @@ class Poker_Tournament_Import {
         check_ajax_referer('poker_data_mart_cleaner', 'nonce');
 
         if (!current_user_can('manage_options')) {
-            wp_die(__('You do not have sufficient permissions to access this page.', 'poker-tournament-import'));
+            wp_die(esc_html__('You do not have sufficient permissions to access this page.', 'poker-tournament-import'));
         }
 
         $cleaning_type = isset($_POST['cleaning_type']) ? sanitize_text_field($_POST['cleaning_type']) : '';
@@ -1763,6 +1825,7 @@ class Poker_Tournament_Import {
         }
 
         // Get current player data
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         $players = $wpdb->get_results($wpdb->prepare(
             "SELECT * FROM $table_name WHERE tournament_id = %s ORDER BY finish_position ASC",
             $tournament_uuid
@@ -1781,6 +1844,7 @@ class Poker_Tournament_Import {
             // Update database with new chronological order
             foreach ($reconstructed_players as $index => $player) {
                 $new_finish_position = $index + 1;
+                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
                 $wpdb->update(
                     $table_name,
                     array('finish_position' => $new_finish_position),
@@ -1868,6 +1932,7 @@ class Poker_Tournament_Import {
             $table_name = $wpdb->prefix . 'poker_tournament_players';
 
             // Clear existing player data for this tournament
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
             $wpdb->delete(
                 $table_name,
                 array('tournament_id' => $tournament_uuid),
@@ -1876,6 +1941,7 @@ class Poker_Tournament_Import {
 
             // Insert updated player data in chronological order
             foreach ($tournament_data['players'] as $index => $player) {
+                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
                 $wpdb->insert(
                     $table_name,
                     array(
@@ -1956,103 +2022,34 @@ class Poker_Tournament_Import {
                 ));
             }
 
-            // Check if tournament already exists by UUID
-            $tournament_uuid = $tournament_data['metadata']['uuid'] ?? uniqid('tournament_');
-            $existing_tournament = new WP_Query(array(
-                'post_type' => 'tournament',
-                'meta_key' => 'tournament_uuid',
-                'meta_value' => $tournament_uuid,
-                'posts_per_page' => 1
-            ));
+            // v2.8.9: Use complete admin import flow for consistency
+            // Set import options for AJAX frontend import
+            $_POST['create_players'] = '1';  // Create player posts
+            $_POST['publish_immediately'] = '1';  // Publish immediately
 
-            if ($existing_tournament->have_posts()) {
-                $tournament_id = $existing_tournament->posts[0]->ID;
-                $is_new = false;
-            } else {
-                // Create new tournament post
-                $tournament_id = wp_insert_post(array(
-                    'post_type' => 'tournament',
-                    'post_title' => $tournament_data['metadata']['name'] ?? 'Tournament',
-                    'post_status' => 'publish',
-                    'post_content' => ''
+            // Load admin class if not already loaded
+            if (!class_exists('Poker_Tournament_Import_Admin')) {
+                require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/class-admin.php';
+            }
+
+            // Use complete admin import method (creates series, season, players, tournament, ROI, statistics)
+            $admin = new Poker_Tournament_Import_Admin();
+            $result = $admin->import_tournament_data($tournament_data, $parser);
+
+            if ($result['success']) {
+                $tournament_id = $result['created_posts']['tournament'] ?? 0;
+                wp_send_json_success(array(
+                    'message' => __('Tournament imported successfully!', 'poker-tournament-import'),
+                    'tournament_id' => $tournament_id,
+                    'tournament_url' => get_permalink($tournament_id),
+                    'tournament_title' => get_the_title($tournament_id),
+                    'created_posts' => $result['created_posts']
                 ));
-
-                if (is_wp_error($tournament_id)) {
-                    wp_send_json_error(array(
-                        'message' => __('Failed to create tournament post.', 'poker-tournament-import')
-                    ));
-                }
-                $is_new = true;
+            } else {
+                wp_send_json_error(array(
+                    'message' => $result['message'] ?? __('Import failed.', 'poker-tournament-import')
+                ));
             }
-
-            // Store raw TDT content and metadata
-            update_post_meta($tournament_id, '_tournament_raw_content', $file_content);
-            update_post_meta($tournament_id, '_tdt_filename', sanitize_file_name($file['name']));
-            update_post_meta($tournament_id, '_tdt_upload_date', current_time('mysql'));
-            update_post_meta($tournament_id, '_tdt_upload_user', get_current_user_id());
-            update_post_meta($tournament_id, '_tdt_file_size', $file['size']);
-            update_post_meta($tournament_id, 'tournament_uuid', $tournament_uuid);
-
-            // Store tournament metadata
-            if (isset($_POST['series_id']) && !empty($_POST['series_id'])) {
-                $series_id = intval($_POST['series_id']);
-                wp_set_object_terms($tournament_id, array($series_id), 'tournament_series');
-            }
-
-            if (isset($_POST['season_id']) && !empty($_POST['season_id'])) {
-                $season_id = intval($_POST['season_id']);
-                update_post_meta($tournament_id, '_season_id', $season_id);
-            }
-
-            $tournament_date = $tournament_data['metadata']['date'] ?? current_time('Y-m-d');
-            update_post_meta($tournament_id, '_tournament_date', $tournament_date);
-            update_post_meta($tournament_id, '_players_count', count($tournament_data['players']));
-            update_post_meta($tournament_id, '_prize_pool', $tournament_data['metadata']['prize_pool'] ?? 0);
-            update_post_meta($tournament_id, '_currency', $tournament_data['metadata']['currency'] ?? '$');
-
-            // Update player data in poker_tournament_players table
-            global $wpdb;
-            $table_name = $wpdb->prefix . 'poker_tournament_players';
-
-            // Clear existing player data
-            $wpdb->delete(
-                $table_name,
-                array('tournament_id' => $tournament_uuid),
-                array('%s')
-            );
-
-            // Insert player data in chronological order
-            foreach ($tournament_data['players'] as $index => $player) {
-                $wpdb->insert(
-                    $table_name,
-                    array(
-                        'tournament_id' => $tournament_uuid,
-                        'player_id' => $player['id'],
-                        'finish_position' => $index + 1,
-                        'winnings' => $player['winnings'] ?? 0,
-                        'buyins' => $player['buyins'] ?? 1,
-                        'rebuys' => $player['rebuys'] ?? 0,
-                        'addons' => $player['addons'] ?? 0,
-                        'hits' => $player['hits'] ?? 0,
-                        'points' => $player['points'] ?? 0,
-                    ),
-                    array('%s', '%s', '%d', '%f', '%d', '%d', '%d', '%d', '%f')
-                );
-            }
-
-            // Mark as processed
-            update_post_meta($tournament_id, '_chronologically_processed', true);
-            update_post_meta($tournament_id, '_chronological_processing_date', current_time('mysql'));
-            update_post_meta($tournament_id, '_tdt_file_uploaded', true);
-
-            wp_send_json_success(array(
-                'message' => $is_new 
-                    ? __('Tournament imported successfully!', 'poker-tournament-import')
-                    : __('Tournament updated successfully!', 'poker-tournament-import'),
-                'tournament_id' => $tournament_id,
-                'tournament_url' => get_permalink($tournament_id),
-                'tournament_title' => get_the_title($tournament_id)
-            ));
 
         } catch (Exception $e) {
             wp_send_json_error(array(
@@ -2140,6 +2137,7 @@ class Poker_Tournament_Import {
                 // Get winner
                 $winner_name = '';
                 if ($tournament_uuid) {
+                    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
                     $winner = $wpdb->get_row($wpdb->prepare(
                         "SELECT p.post_title as winner_name
                          FROM $table_name tp
@@ -2581,6 +2579,44 @@ if (!function_exists('poker_format_currency')) {
         } else {
             return $symbol . $formatted_amount;
         }
+    }
+}
+
+/**
+ * Cached database query helper for templates and non-class contexts
+ * Wraps $wpdb queries with WordPress object cache
+ *
+ * @param string $query_type 'get_results', 'get_var', 'get_col', or 'query'
+ * @param string $sql SQL query
+ * @param mixed $args Optional query arguments
+ * @param int $cache_time Cache duration in seconds (default: 1 hour)
+ * @return mixed Query results
+ */
+if (!function_exists('poker_cached_query')) {
+    function poker_cached_query($query_type, $sql, $args = null, $cache_time = HOUR_IN_SECONDS) {
+        global $wpdb;
+
+        // Generate cache key from query
+        $cache_key = 'poker_' . md5($sql . serialize($args));
+        $cache_group = 'poker_tournament';
+
+        // Try to get from cache
+        $results = wp_cache_get($cache_key, $cache_group);
+
+        if (false === $results) {
+            // Cache miss - query database
+            if ($args !== null) {
+                $prepared_sql = $wpdb->prepare($sql, $args);
+                $results = $wpdb->$query_type($prepared_sql);
+            } else {
+                $results = $wpdb->$query_type($sql);
+            }
+
+            // Store in cache
+            wp_cache_set($cache_key, $results, $cache_group, $cache_time);
+        }
+
+        return $results;
     }
 }
 

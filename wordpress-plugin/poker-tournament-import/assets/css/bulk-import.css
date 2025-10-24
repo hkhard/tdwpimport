@@ -1,0 +1,433 @@
+/**
+ * Bulk Import Styles
+ *
+ * Styling for the bulk import admin interface.
+ *
+ * @package Poker_Tournament_Import
+ * @since 2.9.0
+ */
+
+/* ==========================================================================
+   Upload Section
+   ========================================================================== */
+
+#poker-bulk-import .poker-upload-section {
+    max-width: 100%;
+}
+
+#poker-bulk-import .poker-file-input-wrapper {
+    padding: 20px;
+    border: 2px dashed #ccc;
+    border-radius: 8px;
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+#poker-bulk-import .poker-file-input-wrapper:hover {
+    border-color: #2271b1;
+    background-color: #f8f9fa;
+}
+
+#poker-bulk-import .poker-upload-options {
+    background: #f5f5f5;
+    border-left: 4px solid #2271b1;
+    padding: 20px;
+    margin: 20px 0;
+}
+
+#poker-bulk-import .poker-upload-options h3 {
+    margin-top: 0;
+    color: #1d2327;
+}
+
+#poker-bulk-import .poker-upload-options p {
+    margin: 10px 0;
+}
+
+#poker-bulk-import .poker-upload-options label {
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+}
+
+#poker-bulk-import .poker-upload-options input[type="checkbox"] {
+    margin-right: 8px;
+}
+
+/* ==========================================================================
+   Upload Limits Notice
+   ========================================================================== */
+
+#poker-bulk-import .poker-upload-limits {
+    background: #e7f7ff;
+    border-left: 4px solid #2271b1;
+}
+
+#poker-bulk-import .poker-upload-limits ul {
+    margin: 10px 0;
+}
+
+#poker-bulk-import .poker-upload-limits li {
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    margin: 5px 0;
+}
+
+/* ==========================================================================
+   Progress Section
+   ========================================================================== */
+
+#poker-bulk-import .poker-progress-section {
+    max-width: 100%;
+}
+
+#poker-bulk-import .poker-overall-progress {
+    padding: 20px;
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+}
+
+#poker-bulk-import .poker-progress-bar {
+    width: 100%;
+    height: 30px;
+    background: #e0e0e0;
+    border-radius: 4px;
+    overflow: hidden;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+}
+
+#poker-bulk-import .poker-progress-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #2271b1 0%, #135e96 100%);
+    transition: width 0.3s ease;
+    position: relative;
+}
+
+#poker-bulk-import .poker-progress-fill::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.2) 50%,
+        transparent 100%
+    );
+    animation: poker-progress-shimmer 2s infinite;
+}
+
+@keyframes poker-progress-shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+}
+
+#poker-bulk-import #poker-progress-label {
+    font-weight: 600;
+    font-size: 14px;
+}
+
+#poker-bulk-import #poker-progress-percent {
+    font-weight: 600;
+    font-size: 16px;
+    color: #2271b1;
+}
+
+#poker-bulk-import #poker-progress-stats {
+    color: #646970;
+}
+
+/* ==========================================================================
+   File List Table
+   ========================================================================== */
+
+#poker-bulk-import .poker-file-list {
+    margin-top: 30px;
+}
+
+#poker-bulk-import #poker-files-table {
+    margin-top: 10px;
+}
+
+#poker-bulk-import #poker-files-table th {
+    font-weight: 600;
+    background: #f6f7f7;
+}
+
+#poker-bulk-import #poker-files-table td {
+    vertical-align: middle;
+}
+
+#poker-bulk-import #poker-files-tbody tr {
+    transition: background-color 0.3s ease;
+}
+
+#poker-bulk-import #poker-files-tbody tr.pending {
+    opacity: 0.7;
+}
+
+#poker-bulk-import #poker-files-tbody tr.processing {
+    background-color: #e5f5fa !important;
+    animation: poker-pulse 1.5s ease-in-out infinite;
+}
+
+#poker-bulk-import #poker-files-tbody tr.completed {
+    background-color: #edfaef !important;
+}
+
+#poker-bulk-import #poker-files-tbody tr.failed {
+    background-color: #fae5e5 !important;
+}
+
+#poker-bulk-import #poker-files-tbody tr.skipped {
+    background-color: #fff8e5 !important;
+}
+
+@keyframes poker-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.8; }
+}
+
+/* ==========================================================================
+   Status Badges
+   ========================================================================== */
+
+#poker-bulk-import .poker-status-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+}
+
+#poker-bulk-import .poker-status-pending {
+    background: #f0f0f1;
+    color: #646970;
+}
+
+#poker-bulk-import .poker-status-processing {
+    background: #72aee6;
+    color: #fff;
+}
+
+#poker-bulk-import .poker-status-completed {
+    background: #00a32a;
+    color: #fff;
+}
+
+#poker-bulk-import .poker-status-failed {
+    background: #d63638;
+    color: #fff;
+}
+
+#poker-bulk-import .poker-status-skipped {
+    background: #dba617;
+    color: #fff;
+}
+
+/* ==========================================================================
+   Spinner
+   ========================================================================== */
+
+#poker-bulk-import .poker-spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top: 2px solid #fff;
+    border-radius: 50%;
+    animation: poker-spin 0.8s linear infinite;
+    vertical-align: middle;
+    margin-right: 6px;
+}
+
+@keyframes poker-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* ==========================================================================
+   Action Buttons
+   ========================================================================== */
+
+#poker-bulk-import .poker-actions {
+    margin-top: 20px;
+    padding: 20px;
+    background: #f9f9f9;
+    border-radius: 4px;
+}
+
+#poker-bulk-import .poker-actions .button {
+    margin-right: 10px;
+    margin-bottom: 5px;
+}
+
+#poker-bulk-import .poker-actions .dashicons {
+    font-size: 16px;
+    line-height: 28px;
+}
+
+/* ==========================================================================
+   Results Section
+   ========================================================================== */
+
+#poker-bulk-import .poker-results-section {
+    max-width: 100%;
+}
+
+#poker-bulk-import .poker-summary-item {
+    padding: 15px 20px;
+    margin: 10px 0;
+    background: #fff;
+    border-left: 4px solid #2271b1;
+    font-size: 15px;
+    border-radius: 0 4px 4px 0;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+#poker-bulk-import .poker-summary-item strong {
+    display: inline-block;
+    min-width: 200px;
+    font-weight: 600;
+}
+
+#poker-bulk-import .poker-results-actions {
+    margin-top: 30px;
+    padding: 20px;
+    background: #f9f9f9;
+    border-radius: 4px;
+}
+
+#poker-bulk-import .poker-results-actions .button {
+    margin-right: 10px;
+}
+
+/* ==========================================================================
+   Error Messages
+   ========================================================================== */
+
+#poker-bulk-import .poker-error-message {
+    color: #d63638;
+    font-size: 12px;
+    margin-top: 5px;
+    font-weight: 500;
+}
+
+#poker-bulk-import .file-details {
+    font-size: 13px;
+    color: #50575e;
+}
+
+#poker-bulk-import .file-time {
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    color: #787c82;
+}
+
+/* ==========================================================================
+   Cards
+   ========================================================================== */
+
+#poker-bulk-import .card {
+    background: #fff;
+    border: 1px solid #c3c4c7;
+    border-radius: 4px;
+    box-shadow: 0 1px 1px rgba(0,0,0,0.04);
+}
+
+/* ==========================================================================
+   Responsive Design
+   ========================================================================== */
+
+@media screen and (max-width: 782px) {
+    #poker-bulk-import .poker-summary-item strong {
+        display: block;
+        margin-bottom: 5px;
+    }
+
+    #poker-bulk-import .poker-actions .button,
+    #poker-bulk-import .poker-results-actions .button {
+        display: block;
+        width: 100%;
+        margin: 5px 0;
+        text-align: center;
+    }
+
+    #poker-bulk-import #poker-files-table {
+        font-size: 12px;
+    }
+
+    #poker-bulk-import #poker-files-table th,
+    #poker-bulk-import #poker-files-table td {
+        padding: 8px 4px;
+    }
+}
+
+/* ==========================================================================
+   Dark Mode Support (WordPress 5.7+)
+   ========================================================================== */
+
+@media (prefers-color-scheme: dark) {
+    body.admin-color-auto #poker-bulk-import .poker-file-input-wrapper {
+        background-color: #1e1e1e;
+        border-color: #3c3c3c;
+    }
+
+    body.admin-color-auto #poker-bulk-import .poker-file-input-wrapper:hover {
+        background-color: #2a2a2a;
+        border-color: #72aee6;
+    }
+
+    body.admin-color-auto #poker-bulk-import .poker-upload-options {
+        background: #2a2a2a;
+    }
+
+    body.admin-color-auto #poker-bulk-import .poker-overall-progress {
+        background: #1e1e1e;
+        border-color: #3c3c3c;
+    }
+
+    body.admin-color-auto #poker-bulk-import .card {
+        background: #1e1e1e;
+        border-color: #3c3c3c;
+    }
+
+    body.admin-color-auto #poker-bulk-import .poker-summary-item {
+        background: #2a2a2a;
+    }
+}
+
+/* ==========================================================================
+   Utilities
+   ========================================================================== */
+
+#poker-bulk-import .hidden {
+    display: none !important;
+}
+
+#poker-bulk-import .text-center {
+    text-align: center;
+}
+
+#poker-bulk-import .text-muted {
+    color: #646970;
+}
+
+#poker-bulk-import .text-success {
+    color: #00a32a;
+}
+
+#poker-bulk-import .text-error {
+    color: #d63638;
+}
+
+#poker-bulk-import .text-warning {
+    color: #dba617;
+}

@@ -1,14 +1,14 @@
 === Poker Tournament Import ===
 Contributors: hkHard
-Tags: poker, tournament, import, results
+Tags: poker, tournament, import, results, bulk-import
 Requires at least: 6.0
-Tested up to: 6.4
-Stable tag: 2.6.5
+Tested up to: 6.8
+Stable tag: 2.9.0
 Requires PHP: 8.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Import and display poker tournament results from Tournament Director (.tdt) files.
+Import and display poker tournament results from Tournament Director (.tdt) files with bulk upload support.
 
 == Description ==
 
@@ -16,13 +16,16 @@ Poker Tournament Import is a WordPress plugin that allows you to import poker to
 
 Features:
 * Import .tdt files from Tournament Director software
+* **NEW in 2.9.0: Bulk import** - Upload multiple .tdt files simultaneously
+* **NEW in 2.9.0: Intelligent duplicate detection** - Skip or update existing tournaments
+* **NEW in 2.9.0: Real-time progress tracking** - Monitor import status for each file
 * Automatic player creation and management
 * Tournament series and season tracking with **tabbed interface**
-* **NEW: Professional tabbed interface** for series and season pages
-* **NEW: Interactive statistics dashboard** with visual cards
-* **NEW: Comprehensive leaderboards** with sortable rankings
-* **NEW: Real-time player search** and filtering
-* **NEW: AJAX-powered content loading** with smooth transitions
+* Professional tabbed interface for series and season pages
+* Interactive statistics dashboard with visual cards
+* Comprehensive leaderboards with sortable rankings
+* Real-time player search and filtering
+* AJAX-powered content loading with smooth transitions
 * Responsive tournament results display
 * Player statistics and profiles
 * Shortcode support for easy integration
@@ -41,7 +44,7 @@ The plugin currently supports Tournament Director (.tdt) files from version 3.7.
 
 = Can I import multiple tournaments at once? =
 
-Currently, the plugin supports single file imports. Batch import functionality is planned for future versions.
+Yes! Version 2.9.0 adds bulk import functionality. Go to Poker Import > Bulk Import to upload multiple .tdt files at once. The system will process them sequentially with real-time progress tracking and duplicate detection.
 
 = How do I display tournament results on my pages? =
 
@@ -74,6 +77,171 @@ Use the following shortcodes:
 6. **NEW: Interactive leaderboard with sorting**
 
 == Changelog ==
+
+= 2.9.0 - January 23, 2025 =
+* NEW: Bulk import functionality - Upload multiple .tdt files simultaneously
+* NEW: Sequential processing with AJAX-based architecture (no timeout issues)
+* NEW: Real-time progress tracking with per-file status indicators
+* NEW: Intelligent duplicate detection using file hash and tournament signatures
+* NEW: WordPress upload limit validation and enforcement
+* NEW: Batch management with resume capability
+* NEW: Error recovery and retry functionality for failed imports
+* NEW: Import history tracking with batch UUID system
+* Added: Two new database tables (wp_poker_import_batches, wp_poker_import_batch_files)
+* Added: Comprehensive PRD documentation for Tournament Management phases
+* Improved: Import workflow now scales to 20+ files reliably
+* Technical: Respects upload_max_filesize, post_max_size, and max_file_uploads
+* Technical: Memory-efficient processing with automatic cleanup
+* Security: Enhanced file validation and path traversal prevention
+
+= 2.8.14 - October 21, 2025 =
+* Fixed: "Avg Players/Event" now counts unique physical players per tournament (not entries)
+* Fixed: Calculation changed to AVG(COUNT(DISTINCT player_id) per tournament) - excludes rebuys
+* Improved: More accurate metric shows actual participation instead of total entries
+* Technical: Rewrote get_average_players_per_tournament() with subquery aggregation
+
+= 2.8.13 - October 21, 2025 =
+* Fixed: "Avg Players/Event" now correctly shows tournament participation (was showing 1.4, now shows 10-14)
+* Fixed: Calculation changed from unique players to total entries (buy-ins)
+* Improved: Season filter now properly affects average players calculation
+* Technical: Added get_total_entries_filtered() method for season-aware entry counting
+
+= 2.8.12 - October 21, 2025 =
+* Changed: Dashboard "Average Finish" card now shows "Avg Players/Event" (more meaningful metric)
+* Fixed: Dashboard stat cards now properly respect season selector filter
+* Improved: Better dashboard statistics presentation with relevant tournament metrics
+
+= 2.8.11 - October 21, 2025 =
+* Fixed: Shared eliminations (split pots) now correctly credit all eliminators with hits
+* Fixed: Parser regex now handles multiple eliminators in single bustout event
+* Improved: Enhanced GameHistoryItem parsing for edge case detection
+* Note: Import affected tournaments to see correct hit counts
+
+= 2.8.10 - October 20, 2025 =
+* Fixed: Block theme header/footer integration using block_template_part()
+* Fixed: Template headers now show site-branding and site-navigation elements
+* Improved: All single templates (tournament, player, season) use theme's native header/footer
+* Improved: Better block theme compatibility and support
+
+= 2.8.9 - October 20, 2025 =
+* Fixed: AJAX frontend import now uses complete admin import flow
+* Fixed: Dashboard import now creates player posts, series, seasons
+* Fixed: Dashboard import now processes ROI data and triggers statistics
+* Fixed: Dashboard import now calculates prize pools correctly
+* Improved: AJAX and admin imports now share identical import logic
+
+= 2.8.8 - October 20, 2025 =
+* Fixed: AJAX frontend import error with UUID-keyed player arrays
+* Fixed: "Undefined array key 'id'" error in dashboard tournament import
+* Improved: Removed season/series dropdowns from import modal (auto-detected)
+* Updated: Import help text clarifies auto-detection of season/series
+
+= 2.8.7 - October 20, 2025 =
+* Fixed: Removed get_header() - no more theme deprecation warnings
+* Added: WordPress menu integration using wp_nav_menu() in all single templates
+* Added: Breadcrumb navigation for better context and navigation
+* Fixed: Tournament Champion banner now GREEN for stored/legacy data (was red)
+* Improved: Users can manage menus via WP Admin → Appearance → Menus
+
+= 2.8.6 - October 20, 2025 =
+* Fixed: Permalinks auto-flush on plugin version update (no manual refresh needed)
+* Fixed: Tournament Champion banner now green for legacy data (was red)
+* Fixed: Removed bouncing loader animation in Active Seasons panel
+* Improved: Single templates now use WordPress header/footer for menu visibility
+
+= 2.8.5 - October 20, 2025 =
+* Fixed: PHP 8.2+ deprecation warnings in ranking calculation (float-to-int casting)
+
+= 2.8.4 - October 20, 2025 =
+**🎉 CRITICAL FIX: GameHistory extraction now working!**
+✅ **FIXED: GameHistory wrapped in constructor** - Copied GamePrizes unwrapping pattern
+   - v2.8.3 log revealed: History exists but type is "UNKNOWN"
+   - Root cause: History = `new GameHistory({History: [items]})` (not direct array)
+   - Solution: Unwrap GameHistory constructor like GamePrizes
+   - Now extracts inner History array with ~95 GameHistoryItem objects
+✅ **Rankings should now be CORRECT**
+   - Winner detection will work
+   - Elimination extraction will work
+   - Rebuy-aware ranking algorithm can now function
+   - Planting = rank 1, Joakim H = rank 2, Mikael C = rank 3
+
+= 2.8.3 - October 20, 2025 =
+**CRITICAL DEBUG: Added GameHistory extraction logging in domain mapper**
+- Logs extract_game_history() execution to pinpoint extraction failure
+- Shows if 'History' key exists in tournament entries
+- Logs array type validation and item count
+- Tracks how many items extracted vs filtered out
+- Reveals exact step where GameHistory extraction fails
+
+= 2.8.2 - October 20, 2025 =
+**ENHANCED DEBUG: Added game_history array inspection before ranking calculation**
+- Logs game_history array structure BEFORE calling calculate_player_rankings()
+- Shows first 2 and last game_history items with text/timestamp/type
+- Helps identify if game_history is empty or malformed
+- Reveals why winner/eliminations not being detected
+
+= 2.8.1 - October 20, 2025 =
+**DEBUG BUILD: Added extensive logging to track ranking calculation**
+- Added error_log() statements throughout calculate_player_rankings()
+- Logs winner detection, elimination extraction, rank assignments
+- Helps diagnose if rankings are being overwritten after calculation
+- Check WordPress debug.log after importing tournament
+
+= 2.8.0 - October 20, 2025 =
+**COMPLETE RANKING SYSTEM REWRITE - REBUY-AWARE ALGORITHM**
+✅ **CRITICAL FIX: Rankings now handle rebuys correctly** - Complete rewrite based on 100% tested Python prototype
+   - OLD BUG: Assumed GameHistory contains ALL players, but it only shows final table eliminations
+   - Result: Players ranked 15, 16 when they should be ranked 2, 3 (completely wrong)
+   - NEW ALGORITHM: Uses LATEST elimination timestamp per unique player (handles rebuys properly)
+   - Formula: 16 unique players + 23 buyins = 16 unique ranked positions (not 23)
+✅ **NEW: Prize validation and bubble calculation** - Cross-validates rankings with Prizes section
+   - Calculates bubble position: last paid rank + 1 (e.g., 4 prizes → bubble at rank 5)
+   - Validates finish_position against GamePrizes.Recipient
+   - Logs discrepancies for manual review
+✅ **REFACTORED: Legacy code preservation** - Old methods moved to class-parser-legacy-ranking.php
+   - Deprecated trait: Poker_Tournament_Parser_Legacy_Ranking
+   - Preserved methods: process_game_history_chronologically(), track_elimination_through_history(), etc.
+   - Marked for removal: v2.9.0 after production verification
+✅ **TECHNICAL DETAILS**:
+   - Winner: Extracted from "X won the tournament" → rank 1
+   - Eliminations: Extract ALL, keep LATEST per player UUID
+   - Sorting: DESC by timestamp (later elimination = better finish)
+   - Ranking: Assign positions 2, 3, 4... to unique players only
+   - Validation: Cross-check with Prizes.AwardedToPlayers
+   - Bubble: Stored in metadata for frontend display
+
+= 2.7.2 - October 20, 2025 =
+**CRITICAL FIX: Hits Now Display in Public Dashboard**
+✅ **FIXED: Hits counter not updating in Players tab** - Added hits field to player data table population
+   - Root cause: `insert_tournament_players()` was not including hits when populating `poker_tournament_players` table
+   - Fix: Added `'hits' => $player_data['hits'] ?? 0` to player record insert (class-admin.php:2697)
+   - Impact: Public dashboard Players tab now correctly displays hit counts from v2.7.0/v2.7.1 parser
+✅ **SOLUTION: Use existing "Repair Player Data" button** - No new infrastructure needed
+   - Location: Poker Import → Settings → Repair Player Data
+   - Action: Reads tournament_data post_meta and repopulates poker_tournament_players table with correct hits
+   - Result: All existing tournaments updated with correct hit counts in one click
+
+= 2.7.1 - October 20, 2025 =
+**FULLCREDITHIT CONFIGURATION SUPPORT + HYBRID HIT COUNTING**
+✅ **NEW: FullCreditHit configuration extraction** - Reads Config: FullCreditHit setting from .tdt files
+   - Extracts FullCreditHit: true/false from GamePlayersConfig section
+   - true = count all eliminations (including rebuys)
+   - false = count unique victims only (first elimination only)
+✅ **NEW: WordPress admin setting for hit counting method** - Override .tdt file settings
+   - Setting location: Poker Import → Settings → Hit Counting Method
+   - Options: Automatic (use .tdt setting) | Full Credit | Unique Victims
+   - Default: Automatic (recommended)
+✅ **ENHANCED: Hybrid hit counting logic** - WordPress setting → .tdt file → default (true)
+   - Priority 1: WordPress setting (if not 'auto')
+   - Priority 2: .tdt file FullCreditHit setting
+   - Priority 3: Default to full credit (true)
+✅ **IMPROVED: Hit calculation with unique victim tracking** - Prevents duplicate counting
+   - Full credit mode: Counts all eliminations
+   - Unique victims mode: Deduplicates victims per eliminator
+✅ **DOCUMENTATION: Clear explanations for each hit counting mode** - Radio button descriptions
+   - Automatic: "Uses the FullCreditHit configuration from each .tdt file. Recommended for most setups."
+   - Full Credit: "If you eliminate the same player multiple times (due to rebuys), each elimination counts as a separate hit. Override all .tdt file settings."
+   - Unique Victims: "If you eliminate the same player multiple times (due to rebuys), only the first elimination counts. Override all .tdt file settings."
 
 = 2.6.1 - October 17, 2025 =
 **CRITICAL MENU RACE CONDITION FIX + UI/UX IMPROVEMENTS**
