@@ -305,7 +305,15 @@ class Poker_Tournament_Bulk_Import {
      */
     public function rest_process_file($request) {
         $batch_uuid = $request->get_param('uuid');
+
+        // Try to get file_id from multiple sources (query params, route params, body params)
         $file_id = $request->get_param('file_id');
+
+        // If not found, check JSON body specifically (for contentType: application/json)
+        if (empty($file_id)) {
+            $json_params = $request->get_json_params();
+            $file_id = $json_params['file_id'] ?? null;
+        }
 
         // Validate file_id parameter
         if (empty($file_id) || !is_numeric($file_id)) {

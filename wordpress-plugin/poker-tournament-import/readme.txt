@@ -3,7 +3,7 @@ Contributors: hkHard
 Tags: poker, tournament, import, results, bulk-import
 Requires at least: 6.0
 Tested up to: 6.8
-Stable tag: 2.9.3
+Stable tag: 2.9.4
 Requires PHP: 8.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -77,6 +77,13 @@ Use the following shortcodes:
 6. **NEW: Interactive leaderboard with sorting**
 
 == Changelog ==
+
+= 2.9.4 - January 24, 2025 =
+* CRITICAL FIX: file_id parameter now retrieved from JSON body (400 error resolved)
+* Fixed: Added explicit get_json_params() check for JSON-encoded request bodies
+* Fixed: WordPress REST API now properly parses application/json content type
+* Technical: Checks multiple param sources (query, route, body, JSON body)
+* Result: Files now process successfully instead of "missing_file_id" error
 
 = 2.9.3 - January 24, 2025 =
 * CRITICAL FIX: File processing 400 error resolved (parameter validation timing)
