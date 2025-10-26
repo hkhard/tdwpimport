@@ -68,26 +68,26 @@ class Poker_Shortcode_Helper {
         $title = get_the_title($post);
 
         echo '<div class="poker-shortcode-helper-content">';
-        echo '<h4>' . __('Quick Shortcodes', 'poker-tournament-import') . '</h4>';
+        echo '<h4>' . esc_html__('Quick Shortcodes', 'poker-tournament-import') . '</h4>';
 
         echo '<div class="shortcode-example">';
-        echo '<label>' . __('Copy this shortcode:', 'poker-tournament-import') . '</label>';
+        echo '<label>' . esc_html__('Copy this shortcode:', 'poker-tournament-import') . '</label>';
         echo '<input type="text" readonly value="[tournament_results id=&quot;' . esc_attr($tournament_id) . '&quot;]" onclick="this.select();" class="widefat">';
         echo '</div>';
 
         echo '<div class="shortcode-example">';
-        echo '<label>' . __('Advanced:', 'poker-tournament-import') . '</label>';
+        echo '<label>' . esc_html__('Advanced:', 'poker-tournament-import') . '</label>';
         echo '<input type="text" readonly value="[tournament_results id=&quot;' . esc_attr($tournament_id) . '&quot; show_players=&quot;true&quot; show_structure=&quot;true&quot;]" onclick="this.select();" class="widefat">';
         echo '</div>';
 
         echo '<div class="shortcode-info">';
         /* translators: %s: tournament title */
-        echo '<p><small>' . sprintf(__('Use this shortcode to display "%s" on any page or post.', 'poker-tournament-import'), esc_html($title)) . '</small></p>';
+        echo '<p><small>' . esc_html(sprintf(__('Use this shortcode to display "%s" on any page or post.', 'poker-tournament-import'), esc_html($title))) . '</small></p>';
         echo '</div>';
 
         echo '<div class="shortcode-links">';
-        echo '<a href="' . admin_url('edit.php?post_type=tournament&page=poker-shortcode-help') . '" class="button button-small" target="_blank">';
-        echo __('View All Shortcodes', 'poker-tournament-import');
+        echo '<a href="' . esc_url(admin_url('edit.php?post_type=tournament&page=poker-shortcode-help')) . '" class="button button-small" target="_blank">';
+        echo esc_html__('View All Shortcodes', 'poker-tournament-import');
         echo '</a>';
         echo '</div>';
 
@@ -132,31 +132,31 @@ class Poker_Shortcode_Helper {
         $title = get_the_title($post);
 
         echo '<div class="poker-shortcode-helper-content">';
-        echo '<h4>' . __('Series Shortcodes', 'poker-tournament-import') . '</h4>';
+        echo '<h4>' . esc_html__('Series Shortcodes', 'poker-tournament-import') . '</h4>';
 
         echo '<div class="shortcode-example">';
-        echo '<label>' . __('Tabbed Interface:', 'poker-tournament-import') . '</label>';
+        echo '<label>' . esc_html__('Tabbed Interface:', 'poker-tournament-import') . '</label>';
         echo '<input type="text" readonly value="[series_tabs series_id=&quot;' . esc_attr($series_id) . '&quot;]" onclick="this.select();" class="widefat">';
         echo '</div>';
 
         echo '<div class="shortcode-example">';
-        echo '<label>' . __('Series Standings:', 'poker-tournament-import') . '</label>';
+        echo '<label>' . esc_html__('Series Standings:', 'poker-tournament-import') . '</label>';
         echo '<input type="text" readonly value="[series_standings id=&quot;' . esc_attr($series_id) . '&quot;]" onclick="this.select();" class="widefat">';
         echo '</div>';
 
         echo '<div class="shortcode-example">';
-        echo '<label>' . __('Individual Tabs:', 'poker-tournament-import') . '</label>';
+        echo '<label>' . esc_html__('Individual Tabs:', 'poker-tournament-import') . '</label>';
         echo '<input type="text" readonly value="[series_overview id=&quot;' . esc_attr($series_id) . '&quot;]" onclick="this.select();" class="widefat">';
         echo '</div>';
 
         echo '<div class="shortcode-info">';
         /* translators: %s: series title */
-        echo '<p><small>' . sprintf(__('Use these shortcodes to display "%s" information on any page.', 'poker-tournament-import'), esc_html($title)) . '</small></p>';
+        echo '<p><small>' . esc_html(sprintf(__('Use these shortcodes to display "%s" information on any page.', 'poker-tournament-import'), esc_html($title))) . '</small></p>';
         echo '</div>';
 
         echo '<div class="shortcode-links">';
-        echo '<a href="' . admin_url('edit.php?post_type=tournament&page=poker-shortcode-help') . '" class="button button-small" target="_blank">';
-        echo __('Shortcode Guide', 'poker-tournament-import');
+        echo '<a href="' . esc_url(admin_url('edit.php?post_type=tournament&page=poker-shortcode-help')) . '" class="button button-small" target="_blank">';
+        echo esc_html__('Shortcode Guide', 'poker-tournament-import');
         echo '</a>';
         echo '</div>';
 
@@ -201,26 +201,26 @@ class Poker_Shortcode_Helper {
         $title = get_the_title($post);
 
         echo '<div class="poker-shortcode-helper-content">';
-        echo '<h4>' . __('Season Shortcodes', 'poker-tournament-import') . '</h4>';
+        echo '<h4>' . esc_html__('Season Shortcodes', 'poker-tournament-import') . '</h4>';
 
         echo '<div class="shortcode-example">';
-        echo '<label>' . __('Tabbed Interface:', 'poker-tournament-import') . '</label>';
+        echo '<label>' . esc_html__('Tabbed Interface:', 'poker-tournament-import') . '</label>';
         echo '<input type="text" readonly value="[season_tabs season_id=&quot;' . esc_attr($season_id) . '&quot;]" onclick="this.select();" class="widefat">';
         echo '</div>';
 
         echo '<div class="shortcode-example">';
-        echo '<label>' . __('Season Standings:', 'poker-tournament-import') . '</label>';
+        echo '<label>' . esc_html__('Season Standings:', 'poker-tournament-import') . '</label>';
         echo '<input type="text" readonly value="[season_standings id=&quot;' . esc_attr($season_id) . '&quot;]" onclick="this.select();" class="widefat">';
         echo '</div>';
 
         echo '<div class="shortcode-info">';
         /* translators: %s: season title */
-        echo '<p><small>' . sprintf(__('Use these shortcodes to display "%s" information on any page.', 'poker-tournament-import'), esc_html($title)) . '</small></p>';
+        echo '<p><small>' . esc_html(sprintf(__('Use these shortcodes to display "%s" information on any page.', 'poker-tournament-import'), esc_html($title))) . '</small></p>';
         echo '</div>';
 
         echo '<div class="shortcode-links">';
-        echo '<a href="' . admin_url('edit.php?post_type=tournament&page=poker-shortcode-help') . '" class="button button-small" target="_blank">';
-        echo __('Shortcode Guide', 'poker-tournament-import');
+        echo '<a href="' . esc_url(admin_url('edit.php?post_type=tournament&page=poker-shortcode-help')) . '" class="button button-small" target="_blank">';
+        echo esc_html__('Shortcode Guide', 'poker-tournament-import');
         echo '</a>';
         echo '</div>';
 
@@ -265,26 +265,26 @@ class Poker_Shortcode_Helper {
         $title = get_the_title($post);
 
         echo '<div class="poker-shortcode-helper-content">';
-        echo '<h4>' . __('Player Shortcode', 'poker-tournament-import') . '</h4>';
+        echo '<h4>' . esc_html__('Player Shortcode', 'poker-tournament-import') . '</h4>';
 
         echo '<div class="shortcode-example">';
-        echo '<label>' . __('By Name:', 'poker-tournament-import') . '</label>';
+        echo '<label>' . esc_html__('By Name:', 'poker-tournament-import') . '</label>';
         echo '<input type="text" readonly value="[player_profile name=&quot;' . esc_attr($title) . '&quot;]" onclick="this.select();" class="widefat">';
         echo '</div>';
 
         echo '<div class="shortcode-example">';
-        echo '<label>' . __('By ID:', 'poker-tournament-import') . '</label>';
+        echo '<label>' . esc_html__('By ID:', 'poker-tournament-import') . '</label>';
         echo '<input type="text" readonly value="[player_profile id=&quot;' . esc_attr($player_id) . '&quot;]" onclick="this.select();" class="widefat">';
         echo '</div>';
 
         echo '<div class="shortcode-info">';
         /* translators: %s: player name */
-        echo '<p><small>' . sprintf(__('Use this shortcode to display "%s" profile on any page.', 'poker-tournament-import'), esc_html($title)) . '</small></p>';
+        echo '<p><small>' . esc_html(sprintf(__('Use this shortcode to display "%s" profile on any page.', 'poker-tournament-import'), esc_html($title))) . '</small></p>';
         echo '</div>';
 
         echo '<div class="shortcode-links">';
-        echo '<a href="' . admin_url('edit.php?post_type=tournament&page=poker-shortcode-help') . '" class="button button-small" target="_blank">';
-        echo __('Shortcode Guide', 'poker-tournament-import');
+        echo '<a href="' . esc_url(admin_url('edit.php?post_type=tournament&page=poker-shortcode-help')) . '" class="button button-small" target="_blank">';
+        echo esc_html__('Shortcode Guide', 'poker-tournament-import');
         echo '</a>';
         echo '</div>';
 

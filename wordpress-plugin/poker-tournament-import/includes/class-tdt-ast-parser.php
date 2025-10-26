@@ -215,7 +215,7 @@ class TDT_Parser {
             return $t->value;
         }
 
-        throw new Exception("Invalid key at position {$t->pos}");
+        throw new Exception(esc_html("Invalid key at position {$t->pos}"));
     }
 
     /**
@@ -285,10 +285,10 @@ class TDT_Parser {
                 }
 
                 // Just an identifier (shouldn't happen in valid .tdt)
-                throw new Exception("Unexpected identifier '{$ident}' at position {$t->pos}");
+                throw new Exception(esc_html("Unexpected identifier '{$ident}' at position {$t->pos}"));
 
             default:
-                throw new Exception("Unexpected token {$t->type} at position {$t->pos}");
+                throw new Exception(esc_html("Unexpected token {$t->type} at position {$t->pos}"));
         }
     }
 
@@ -359,7 +359,7 @@ class TDT_Parser {
         $t = $this->peek();
 
         if ($t->type !== $type) {
-            throw new Exception("Expected {$type}, got {$t->type} at position {$t->pos}");
+            throw new Exception(esc_html("Expected {$type}, got {$t->type} at position {$t->pos}"));
         }
 
         $this->pos++;

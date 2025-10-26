@@ -2,7 +2,7 @@
 const nextConfig = {
   basePath: '/tdwpimport',
   assetPrefix: '/tdwpimport',
-  output: 'standalone',
+  output: 'export',
   images: {
     domains: [],
     unoptimized: true,

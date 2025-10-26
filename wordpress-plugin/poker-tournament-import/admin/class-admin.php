@@ -187,6 +187,17 @@ class Poker_Tournament_Import_Admin {
         if (isset($_POST['repair_player_data']) && check_admin_referer('poker_repair_player_data', 'poker_repair_player_nonce')) {
             $this->handle_player_data_repair();
         }
+
+        register_setting(
+            'poker_tournament_import_settings',
+            'poker_hit_counting_method',
+            array(
+                'type' => 'string',
+                'description' => 'Method for counting player eliminations (hits)',
+                'sanitize_callback' => array($this, 'sanitize_hit_counting_method'),
+                'default' => 'auto',
+            )
+        );
     }
 
     /**
@@ -202,6 +213,22 @@ class Poker_Tournament_Import_Admin {
         // Don't trim - allow leading/trailing spaces as they're intentional
         // Use wp_kses_post to allow safe HTML entities but preserve whitespace
         return wp_kses_post($value);
+    }
+
+    /**
+     * Sanitize hit counting method setting
+     * 
+     * @param string $value The value to sanitize
+     * @return string The sanitized value (auto, full_credit, or unique_victims)
+     */
+    public function sanitize_hit_counting_method($value) {
+        $valid_methods = array('auto', 'full_credit', 'unique_victims');
+        
+        if (in_array($value, $valid_methods, true)) {
+            return $value;
+        }
+        
+        return 'auto'; // Default fallback
     }
 
     /**
@@ -322,11 +349,13 @@ class Poker_Tournament_Import_Admin {
 
         // Get data mart health
         $table_name = $wpdb->prefix . 'poker_statistics';
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         $datamart_exists = ($wpdb->get_var("SHOW TABLES LIKE '{$table_name}'") === $table_name);
         $datamart_row_count = 0;
         $datamart_last_refresh = get_option('poker_statistics_last_refresh', null);
 
         if ($datamart_exists) {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
             $datamart_row_count = $wpdb->get_var("SELECT COUNT(*) FROM {$table_name}");
         }
 
@@ -366,30 +395,30 @@ class Poker_Tournament_Import_Admin {
             <div class="poker-stats-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin: 20px 0;">
                 <div class="poker-stat-card" style="background: #fff; border: 1px solid #c3c4c7; border-radius: 4px; padding: 20px; box-shadow: 0 1px 1px rgba(0,0,0,.04);">
                     <div class="dashicons dashicons-list-view" style="font-size: 48px; color: #2271b1; opacity: 0.3; float: right;"></div>
-                    <h3 style="margin: 0 0 10px 0; color: #50575e; font-size: 14px; font-weight: 400;"><?php _e('Tournaments', 'poker-tournament-import'); ?></h3>
+                    <h3 style="margin: 0 0 10px 0; color: #50575e; font-size: 14px; font-weight: 400;"><?php esc_html_e('Tournaments', 'poker-tournament-import'); ?></h3>
                     <div style="font-size: 32px; font-weight: 600; color: #1d2327; margin-bottom: 10px;"><?php echo number_format($total_tournaments); ?></div>
-                    <a href="<?php echo admin_url('edit.php?post_type=tournament'); ?>" class="button button-small"><?php _e('View All', 'poker-tournament-import'); ?></a>
+                    <a href="<?php echo esc_url(admin_url('edit.php?post_type=tournament')); ?>" class="button button-small"><?php esc_html_e('View All', 'poker-tournament-import'); ?></a>
                 </div>
 
                 <div class="poker-stat-card" style="background: #fff; border: 1px solid #c3c4c7; border-radius: 4px; padding: 20px; box-shadow: 0 1px 1px rgba(0,0,0,.04);">
                     <div class="dashicons dashicons-groups" style="font-size: 48px; color: #00a32a; opacity: 0.3; float: right;"></div>
-                    <h3 style="margin: 0 0 10px 0; color: #50575e; font-size: 14px; font-weight: 400;"><?php _e('Players', 'poker-tournament-import'); ?></h3>
+                    <h3 style="margin: 0 0 10px 0; color: #50575e; font-size: 14px; font-weight: 400;"><?php esc_html_e('Players', 'poker-tournament-import'); ?></h3>
                     <div style="font-size: 32px; font-weight: 600; color: #1d2327; margin-bottom: 10px;"><?php echo number_format($total_players); ?></div>
-                    <a href="<?php echo admin_url('edit.php?post_type=player'); ?>" class="button button-small"><?php _e('View All', 'poker-tournament-import'); ?></a>
+                    <a href="<?php echo esc_url(admin_url('edit.php?post_type=player')); ?>" class="button button-small"><?php esc_html_e('View All', 'poker-tournament-import'); ?></a>
                 </div>
 
                 <div class="poker-stat-card" style="background: #fff; border: 1px solid #c3c4c7; border-radius: 4px; padding: 20px; box-shadow: 0 1px 1px rgba(0,0,0,.04);">
                     <div class="dashicons dashicons-calendar-alt" style="font-size: 48px; color: #d63638; opacity: 0.3; float: right;"></div>
-                    <h3 style="margin: 0 0 10px 0; color: #50575e; font-size: 14px; font-weight: 400;"><?php _e('Seasons', 'poker-tournament-import'); ?></h3>
+                    <h3 style="margin: 0 0 10px 0; color: #50575e; font-size: 14px; font-weight: 400;"><?php esc_html_e('Seasons', 'poker-tournament-import'); ?></h3>
                     <div style="font-size: 32px; font-weight: 600; color: #1d2327; margin-bottom: 10px;"><?php echo number_format($total_seasons); ?></div>
-                    <a href="<?php echo admin_url('edit.php?post_type=tournament_season'); ?>" class="button button-small"><?php _e('View All', 'poker-tournament-import'); ?></a>
+                    <a href="<?php echo esc_url(admin_url('edit.php?post_type=tournament_season')); ?>" class="button button-small"><?php esc_html_e('View All', 'poker-tournament-import'); ?></a>
                 </div>
 
                 <div class="poker-stat-card" style="background: #fff; border: 1px solid #c3c4c7; border-radius: 4px; padding: 20px; box-shadow: 0 1px 1px rgba(0,0,0,.04);">
                     <div class="dashicons dashicons-calculator" style="font-size: 48px; color: #8c8f94; opacity: 0.3; float: right;"></div>
-                    <h3 style="margin: 0 0 10px 0; color: #50575e; font-size: 14px; font-weight: 400;"><?php _e('Formulas', 'poker-tournament-import'); ?></h3>
+                    <h3 style="margin: 0 0 10px 0; color: #50575e; font-size: 14px; font-weight: 400;"><?php esc_html_e('Formulas', 'poker-tournament-import'); ?></h3>
                     <div style="font-size: 32px; font-weight: 600; color: #1d2327; margin-bottom: 10px;"><?php echo number_format($total_formulas); ?></div>
-                    <a href="<?php echo admin_url('admin.php?page=poker-formula-manager'); ?>" class="button button-small"><?php _e('Manage', 'poker-tournament-import'); ?></a>
+                    <a href="<?php echo esc_url(admin_url('admin.php?page=poker-formula-manager')); ?>" class="button button-small"><?php esc_html_e('Manage', 'poker-tournament-import'); ?></a>
                 </div>
             </div>
 
@@ -400,33 +429,33 @@ class Poker_Tournament_Import_Admin {
                 <div style="background: #fff; border: 1px solid #c3c4c7; border-radius: 4px; padding: 20px; box-shadow: 0 1px 1px rgba(0,0,0,.04);">
                     <h2 style="margin: 0 0 15px 0; padding: 0; font-size: 18px; color: #1d2327;">
                         <span class="dashicons dashicons-database" style="color: #2271b1;"></span>
-                        <?php _e('Data Mart Health', 'poker-tournament-import'); ?>
+                        <?php esc_html_e('Data Mart Health', 'poker-tournament-import'); ?>
                     </h2>
 
                     <table class="widefat" style="margin-top: 10px;">
                         <tbody>
                             <tr>
-                                <td style="padding: 8px;"><strong><?php _e('Status', 'poker-tournament-import'); ?></strong></td>
+                                <td style="padding: 8px;"><strong><?php esc_html_e('Status', 'poker-tournament-import'); ?></strong></td>
                                 <td style="padding: 8px;">
                                     <?php if ($datamart_exists): ?>
-                                        <span style="color: #00a32a; font-weight: 600;">●</span> <?php _e('Active', 'poker-tournament-import'); ?>
+                                        <span style="color: #00a32a; font-weight: 600;">●</span> <?php esc_html_e('Active', 'poker-tournament-import'); ?>
                                     <?php else: ?>
-                                        <span style="color: #d63638; font-weight: 600;">●</span> <?php _e('Not Created', 'poker-tournament-import'); ?>
+                                        <span style="color: #d63638; font-weight: 600;">●</span> <?php esc_html_e('Not Created', 'poker-tournament-import'); ?>
                                     <?php endif; ?>
                                 </td>
                             </tr>
                             <tr>
-                                <td style="padding: 8px;"><strong><?php _e('Records', 'poker-tournament-import'); ?></strong></td>
+                                <td style="padding: 8px;"><strong><?php esc_html_e('Records', 'poker-tournament-import'); ?></strong></td>
                                 <td style="padding: 8px;"><?php echo number_format($datamart_row_count); ?></td>
                             </tr>
                             <tr>
-                                <td style="padding: 8px;"><strong><?php _e('Last Refresh', 'poker-tournament-import'); ?></strong></td>
+                                <td style="padding: 8px;"><strong><?php esc_html_e('Last Refresh', 'poker-tournament-import'); ?></strong></td>
                                 <td style="padding: 8px;">
                                     <?php
                                     if ($datamart_last_refresh) {
                                         echo esc_html(date_i18n('M j, Y g:i A', strtotime($datamart_last_refresh)));
                                     } else {
-                                        echo '<em>' . __('Never', 'poker-tournament-import') . '</em>';
+                                        echo '<em>' . esc_html__('Never', 'poker-tournament-import') . '</em>';
                                     }
                                     ?>
                                 </td>
@@ -435,8 +464,8 @@ class Poker_Tournament_Import_Admin {
                     </table>
 
                     <p style="margin: 15px 0 0 0;">
-                        <a href="<?php echo admin_url('admin.php?page=poker-tournament-import-settings'); ?>" class="button">
-                            <?php _e('Refresh Statistics', 'poker-tournament-import'); ?>
+                        <a href="<?php echo esc_url(admin_url('admin.php?page=poker-tournament-import-settings')); ?>" class="button">
+                            <?php esc_html_e('Refresh Statistics', 'poker-tournament-import'); ?>
                         </a>
                     </p>
                 </div>
@@ -445,28 +474,28 @@ class Poker_Tournament_Import_Admin {
                 <div style="background: #fff; border: 1px solid #c3c4c7; border-radius: 4px; padding: 20px; box-shadow: 0 1px 1px rgba(0,0,0,.04);">
                     <h2 style="margin: 0 0 15px 0; padding: 0; font-size: 18px; color: #1d2327;">
                         <span class="dashicons dashicons-admin-tools" style="color: #2271b1;"></span>
-                        <?php _e('Quick Actions', 'poker-tournament-import'); ?>
+                        <?php esc_html_e('Quick Actions', 'poker-tournament-import'); ?>
                     </h2>
 
                     <div style="display: flex; flex-direction: column; gap: 10px;">
-                        <a href="<?php echo admin_url('admin.php?page=poker-tournament-import-import'); ?>" class="button button-primary button-large" style="text-align: center;">
+                        <a href="<?php echo esc_url(admin_url('admin.php?page=poker-tournament-import-import')); ?>" class="button button-primary button-large" style="text-align: center;">
                             <span class="dashicons dashicons-upload"></span>
-                            <?php _e('Import Tournament', 'poker-tournament-import'); ?>
+                            <?php esc_html_e('Import Tournament', 'poker-tournament-import'); ?>
                         </a>
 
-                        <a href="<?php echo admin_url('edit.php?post_type=tournament'); ?>" class="button button-large" style="text-align: center;">
+                        <a href="<?php echo esc_url(admin_url('edit.php?post_type=tournament')); ?>" class="button button-large" style="text-align: center;">
                             <span class="dashicons dashicons-list-view"></span>
-                            <?php _e('View Tournaments', 'poker-tournament-import'); ?>
+                            <?php esc_html_e('View Tournaments', 'poker-tournament-import'); ?>
                         </a>
 
-                        <a href="<?php echo admin_url('edit.php?post_type=player'); ?>" class="button button-large" style="text-align: center;">
+                        <a href="<?php echo esc_url(admin_url('edit.php?post_type=player')); ?>" class="button button-large" style="text-align: center;">
                             <span class="dashicons dashicons-groups"></span>
-                            <?php _e('View Players', 'poker-tournament-import'); ?>
+                            <?php esc_html_e('View Players', 'poker-tournament-import'); ?>
                         </a>
 
-                        <a href="<?php echo admin_url('admin.php?page=poker-formula-manager'); ?>" class="button button-large" style="text-align: center;">
+                        <a href="<?php echo esc_url(admin_url('admin.php?page=poker-formula-manager')); ?>" class="button button-large" style="text-align: center;">
                             <span class="dashicons dashicons-calculator"></span>
-                            <?php _e('Manage Formulas', 'poker-tournament-import'); ?>
+                            <?php esc_html_e('Manage Formulas', 'poker-tournament-import'); ?>
                         </a>
                     </div>
                 </div>
@@ -477,16 +506,16 @@ class Poker_Tournament_Import_Admin {
             <div style="background: #fff; border: 1px solid #c3c4c7; border-radius: 4px; padding: 20px; box-shadow: 0 1px 1px rgba(0,0,0,.04); margin: 20px 0;">
                 <h2 style="margin: 0 0 15px 0; padding: 0; font-size: 18px; color: #1d2327;">
                     <span class="dashicons dashicons-clock" style="color: #2271b1;"></span>
-                    <?php _e('Recent Activity', 'poker-tournament-import'); ?>
+                    <?php esc_html_e('Recent Activity', 'poker-tournament-import'); ?>
                 </h2>
 
                 <table class="widefat striped">
                     <thead>
                         <tr>
-                            <th><?php _e('Tournament', 'poker-tournament-import'); ?></th>
-                            <th><?php _e('Date Imported', 'poker-tournament-import'); ?></th>
-                            <th><?php _e('Status', 'poker-tournament-import'); ?></th>
-                            <th><?php _e('Actions', 'poker-tournament-import'); ?></th>
+                            <th><?php esc_html_e('Tournament', 'poker-tournament-import'); ?></th>
+                            <th><?php esc_html_e('Date Imported', 'poker-tournament-import'); ?></th>
+                            <th><?php esc_html_e('Status', 'poker-tournament-import'); ?></th>
+                            <th><?php esc_html_e('Actions', 'poker-tournament-import'); ?></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -503,11 +532,11 @@ class Poker_Tournament_Import_Admin {
                                 );
                                 $status_color = isset($status_colors[$tournament->post_status]) ? $status_colors[$tournament->post_status] : '#8c8f94';
                                 ?>
-                                <span style="color: <?php echo $status_color; ?>; font-weight: 600;">●</span>
+                                <span style="color: <?php echo esc_html($status_color); ?>; font-weight: 600;">●</span>
                                 <?php echo esc_html(ucfirst($tournament->post_status)); ?>
                             </td>
                             <td>
-                                <a href="<?php echo get_permalink($tournament->ID); ?>" class="button button-small" target="_blank"><?php _e('View', 'poker-tournament-import'); ?></a>
+                                <a href="<?php echo esc_url(get_permalink($tournament->ID)); ?>" class="button button-small" target="_blank"><?php esc_html_e('View', 'poker-tournament-import'); ?></a>
                             </td>
                         </tr>
                         <?php endforeach; ?>
@@ -521,16 +550,16 @@ class Poker_Tournament_Import_Admin {
             <div style="background: #fff; border: 1px solid #c3c4c7; border-radius: 4px; padding: 20px; box-shadow: 0 1px 1px rgba(0,0,0,.04); margin: 20px 0;">
                 <h2 style="margin: 0 0 15px 0; padding: 0; font-size: 18px; color: #1d2327;">
                     <span class="dashicons dashicons-calendar-alt" style="color: #2271b1;"></span>
-                    <?php _e('Seasons', 'poker-tournament-import'); ?>
+                    <?php esc_html_e('Seasons', 'poker-tournament-import'); ?>
                 </h2>
 
                 <table class="widefat striped">
                     <thead>
                         <tr>
-                            <th><?php _e('Season', 'poker-tournament-import'); ?></th>
-                            <th><?php _e('Tournaments', 'poker-tournament-import'); ?></th>
-                            <th><?php _e('Status', 'poker-tournament-import'); ?></th>
-                            <th><?php _e('Actions', 'poker-tournament-import'); ?></th>
+                            <th><?php esc_html_e('Season', 'poker-tournament-import'); ?></th>
+                            <th><?php esc_html_e('Tournaments', 'poker-tournament-import'); ?></th>
+                            <th><?php esc_html_e('Status', 'poker-tournament-import'); ?></th>
+                            <th><?php esc_html_e('Actions', 'poker-tournament-import'); ?></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -547,15 +576,15 @@ class Poker_Tournament_Import_Admin {
                                 );
                                 $status_color = isset($status_colors[$season->post_status]) ? $status_colors[$season->post_status] : '#8c8f94';
                                 ?>
-                                <span style="color: <?php echo $status_color; ?>; font-weight: 600;">●</span>
+                                <span style="color: <?php echo esc_html($status_color); ?>; font-weight: 600;">●</span>
                                 <?php echo esc_html(ucfirst($season->post_status)); ?>
                             </td>
                             <td>
-                                <a href="<?php echo get_permalink($season->ID); ?>" class="button button-small" target="_blank">
-                                    <?php _e('View', 'poker-tournament-import'); ?>
+                                <a href="<?php echo esc_url(get_permalink($season->ID)); ?>" class="button button-small" target="_blank">
+                                    <?php esc_html_e('View', 'poker-tournament-import'); ?>
                                 </a>
-                                <a href="<?php echo get_edit_post_link($season->ID); ?>" class="button button-small">
-                                    <?php _e('Edit', 'poker-tournament-import'); ?>
+                                <a href="<?php echo esc_url(get_edit_post_link($season->ID)); ?>" class="button button-small">
+                                    <?php esc_html_e('Edit', 'poker-tournament-import'); ?>
                                 </a>
                             </td>
                         </tr>
@@ -569,7 +598,7 @@ class Poker_Tournament_Import_Admin {
             <p class="description" style="text-align: center; margin-top: 20px; color: #8c8f94;">
                 <?php
                 /* translators: %s: plugin version number */
-                printf(__('Poker Tournament Import v%s', 'poker-tournament-import'), POKER_TOURNAMENT_IMPORT_VERSION); ?>
+                printf(esc_html__('Poker Tournament Import v%s', 'poker-tournament-import'), esc_html(POKER_TOURNAMENT_IMPORT_VERSION)); ?>
             </p>
         </div>
         <?php
@@ -584,53 +613,53 @@ class Poker_Tournament_Import_Admin {
             <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
 
             <div class="poker-import-upload-area">
-                <h2><?php _e('Import Tournament from .tdt File', 'poker-tournament-import'); ?></h2>
+                <h2><?php esc_html_e('Import Tournament from .tdt File', 'poker-tournament-import'); ?></h2>
 
                 <form method="post" enctype="multipart/form-data" id="poker-import-form">
                     <?php wp_nonce_field('poker_import_tournament', 'poker_import_nonce'); ?>
 
                     <div class="upload-area">
-                        <p><?php _e('Select a Tournament Director (.tdt) file to import:', 'poker-tournament-import'); ?></p>
+                        <p><?php esc_html_e('Select a Tournament Director (.tdt) file to import:', 'poker-tournament-import'); ?></p>
                         <input type="file" name="tdt_file" id="tdt_file" accept=".tdt" required>
                     </div>
 
                     <div class="import-options">
                         <label>
                             <input type="checkbox" name="create_players" value="1" checked>
-                            <?php _e('Create new players automatically', 'poker-tournament-import'); ?>
+                            <?php esc_html_e('Create new players automatically', 'poker-tournament-import'); ?>
                         </label>
                         <br>
                         <label>
                             <input type="checkbox" name="publish_immediately" value="1">
-                            <?php _e('Publish tournament immediately', 'poker-tournament-import'); ?>
+                            <?php esc_html_e('Publish tournament immediately', 'poker-tournament-import'); ?>
                         </label>
                         <br>
                         <label>
                             <input type="checkbox" name="enable_debug_this_import" value="1">
-                            <?php _e('Enable debug for this import only', 'poker-tournament-import'); ?>
+                            <?php esc_html_e('Enable debug for this import only', 'poker-tournament-import'); ?>
                         </label>
                         <?php if (get_option('poker_import_debug_mode', 0)) { ?>
-                            <p class="description"><?php _e('Note: Global debug mode is already enabled.', 'poker-tournament-import'); ?></p>
+                            <p class="description"><?php esc_html_e('Note: Global debug mode is already enabled.', 'poker-tournament-import'); ?></p>
                         <?php } ?>
                     </div>
 
                     <div class="formula-import-section" style="margin-top: 20px; padding: 15px; background: #f9f9f9; border-left: 4px solid #2271b1;">
-                        <h3 style="margin-top: 0;"><?php _e('Points Formula', 'poker-tournament-import'); ?></h3>
+                        <h3 style="margin-top: 0;"><?php esc_html_e('Points Formula', 'poker-tournament-import'); ?></h3>
                         <p class="description" style="margin-bottom: 15px;">
-                            <?php _e('Choose how tournament points should be calculated:', 'poker-tournament-import'); ?>
+                            <?php esc_html_e('Choose how tournament points should be calculated:', 'poker-tournament-import'); ?>
                         </p>
 
                         <label style="display: block; margin-bottom: 10px;">
                             <input type="radio" name="formula_mode" value="auto" checked>
-                            <strong><?php _e('Auto-detect (Recommended)', 'poker-tournament-import'); ?></strong>
+                            <strong><?php esc_html_e('Auto-detect (Recommended)', 'poker-tournament-import'); ?></strong>
                             <span class="description" style="display: block; margin-left: 25px; color: #666;">
-                                <?php _e('Uses formula from .tdt file if present, otherwise uses global default', 'poker-tournament-import'); ?>
+                                <?php esc_html_e('Uses formula from .tdt file if present, otherwise uses global default', 'poker-tournament-import'); ?>
                             </span>
                         </label>
 
                         <label style="display: block; margin-bottom: 10px;">
                             <input type="radio" name="formula_mode" value="override">
-                            <strong><?php _e('Use specific formula:', 'poker-tournament-import'); ?></strong>
+                            <strong><?php esc_html_e('Use specific formula:', 'poker-tournament-import'); ?></strong>
                         </label>
 
                         <div id="formula-selector" style="margin-left: 25px; margin-bottom: 10px; display: none;">
@@ -655,16 +684,16 @@ class Poker_Tournament_Import_Admin {
                                 ?>
                             </select>
                             <p class="description">
-                                <?php _e('This will override any formula in the .tdt file', 'poker-tournament-import'); ?>
+                                <?php esc_html_e('This will override any formula in the .tdt file', 'poker-tournament-import'); ?>
                             </p>
                         </div>
 
                         <div id="formula-preview-box" style="display: none; margin-top: 15px; padding: 10px; background: white; border: 1px solid #ddd;">
-                            <strong><?php _e('Selected Formula:', 'poker-tournament-import'); ?></strong>
+                            <strong><?php esc_html_e('Selected Formula:', 'poker-tournament-import'); ?></strong>
                             <p id="formula-description" style="margin: 5px 0; font-style: italic;"></p>
                             <details>
                                 <summary style="cursor: pointer; color: #2271b1;">
-                                    <?php _e('View formula code', 'poker-tournament-import'); ?>
+                                    <?php esc_html_e('View formula code', 'poker-tournament-import'); ?>
                                 </summary>
                                 <pre id="formula-code" style="margin: 10px 0; padding: 10px; background: #f5f5f5; overflow-x: auto; font-size: 11px;"></pre>
                             </details>
@@ -711,7 +740,7 @@ class Poker_Tournament_Import_Admin {
                     </script>
 
                     <p class="submit">
-                        <input type="submit" name="import_tournament" class="button button-primary" value="<?php _e('Import Tournament', 'poker-tournament-import'); ?>">
+                        <input type="submit" name="import_tournament" class="button button-primary" value="<?php esc_html_e('Import Tournament', 'poker-tournament-import'); ?>">
                         <input type="hidden" name="import_tournament_hidden" value="1">
                     </p>
                 </form>
@@ -723,7 +752,7 @@ class Poker_Tournament_Import_Admin {
                 if (check_admin_referer('poker_import_tournament', 'poker_import_nonce')) {
                     $this->handle_import_submission();
                 } else {
-                    echo '<div class="notice notice-error"><p>' . __('Security check failed. Please try again.', 'poker-tournament-import') . '</p></div>';
+                    echo '<div class="notice notice-error"><p>' . esc_html__('Security check failed. Please try again.', 'poker-tournament-import') . '</p></div>';
                 }
             }
             ?>
@@ -747,7 +776,7 @@ class Poker_Tournament_Import_Admin {
 
         if (!isset($_FILES['tdt_file']) || $_FILES['tdt_file']['error'] !== UPLOAD_ERR_OK) {
             Poker_Tournament_Import_Debug::log_error('File upload error', $_FILES['tdt_file']);
-            echo '<div class="notice notice-error"><p>' . __('Please select a valid .tdt file.', 'poker-tournament-import') . '</p></div>';
+            echo '<div class="notice notice-error"><p>' . esc_html__('Please select a valid .tdt file.', 'poker-tournament-import') . '</p></div>';
 
             // Always show debug status in case of error
             $this->show_debug_output();
@@ -789,7 +818,7 @@ class Poker_Tournament_Import_Admin {
 
             if (!empty($errors)) {
                 Poker_Tournament_Import_Debug::log_error('Validation failed', $errors);
-                echo '<div class="notice notice-error"><p>' . __('Errors found in file:', 'poker-tournament-import') . '</p>';
+                echo '<div class="notice notice-error"><p>' . esc_html__('Errors found in file:', 'poker-tournament-import') . '</p>';
                 echo '<ul>';
                 foreach ($errors as $error) {
                     echo '<li>' . esc_html($error) . '</li>';
@@ -802,7 +831,7 @@ class Poker_Tournament_Import_Admin {
             // Display warnings if any
             if (!empty($warnings)) {
                 Poker_Tournament_Import_Debug::log_warning('Validation warnings found', $warnings);
-                echo '<div class="notice notice-warning"><p>' . __('Warnings found during import:', 'poker-tournament-import') . '</p>';
+                echo '<div class="notice notice-warning"><p>' . esc_html__('Warnings found during import:', 'poker-tournament-import') . '</p>';
                 echo '<ul>';
                 foreach ($warnings as $warning) {
                     echo '<li>' . esc_html($warning) . '</li>';
@@ -836,15 +865,15 @@ class Poker_Tournament_Import_Admin {
                     Poker_Tournament_Import_Debug::log_success('Tournament import completed successfully', $import_result['created_posts']);
                     echo '<div class="notice notice-success"><p>' .
                         /* translators: %s: tournament title */
-                        sprintf(__('Tournament "%s" imported successfully!', 'poker-tournament-import'),
-                            esc_html($tournament_data['metadata']['title'])) . '</p></div>';
+                        esc_html(sprintf(esc_html__('Tournament "%s" imported successfully!', 'poker-tournament-import'),
+                            $tournament_data['metadata']['title'])) . '</p></div>';
 
                     // Show summary of what was created
                     $this->show_import_summary($import_result['created_posts']);
                 } else {
                     Poker_Tournament_Import_Debug::log_error('Tournament import failed', $import_result['message']);
                     echo '<div class="notice notice-error"><p>' .
-                        __('Import failed:', 'poker-tournament-import') . ' ' .
+                        esc_html__('Import failed:', 'poker-tournament-import') . ' ' .
                         esc_html($import_result['message']) . '</p></div>';
                 }
             }
@@ -855,7 +884,7 @@ class Poker_Tournament_Import_Admin {
 
         } catch (Exception $e) {
             Poker_Tournament_Import_Debug::log_error('Import exception caught', $e);
-            echo '<div class="notice notice-error"><p>' . __('Import failed:', 'poker-tournament-import') . ' ' . esc_html($e->getMessage()) . '</p></div>';
+            echo '<div class="notice notice-error"><p>' . esc_html__('Import failed:', 'poker-tournament-import') . ' ' . esc_html($e->getMessage()) . '</p></div>';
         }
 
         // Always show debug output for testing
@@ -868,28 +897,28 @@ class Poker_Tournament_Import_Admin {
      */
     private function show_import_preview($tournament_data) {
         echo '<div class="import-preview">';
-        echo '<h3>' . __('Import Preview', 'poker-tournament-import') . '</h3>';
+        echo '<h3>' . esc_html__('Import Preview', 'poker-tournament-import') . '</h3>';
 
         if (!empty($tournament_data['metadata'])) {
-            echo '<h4>' . __('Tournament Information', 'poker-tournament-import') . '</h4>';
+            echo '<h4>' . esc_html__('Tournament Information', 'poker-tournament-import') . '</h4>';
             echo '<table class="widefat">';
-            echo '<tr><td>' . __('Title', 'poker-tournament-import') . '</td><td>' . esc_html($tournament_data['metadata']['title']) . '</td></tr>';
+            echo '<tr><td>' . esc_html__('Title', 'poker-tournament-import') . '</td><td>' . esc_html($tournament_data['metadata']['title']) . '</td></tr>';
             if (!empty($tournament_data['metadata']['league_name'])) {
-                echo '<tr><td>' . __('Series', 'poker-tournament-import') . '</td><td>' . esc_html($tournament_data['metadata']['league_name']) . '</td></tr>';
+                echo '<tr><td>' . esc_html__('Series', 'poker-tournament-import') . '</td><td>' . esc_html($tournament_data['metadata']['league_name']) . '</td></tr>';
             }
             if (!empty($tournament_data['metadata']['season_name'])) {
-                echo '<tr><td>' . __('Season', 'poker-tournament-import') . '</td><td>' . esc_html($tournament_data['metadata']['season_name']) . '</td></tr>';
+                echo '<tr><td>' . esc_html__('Season', 'poker-tournament-import') . '</td><td>' . esc_html($tournament_data['metadata']['season_name']) . '</td></tr>';
             }
             if (!empty($tournament_data['metadata']['start_time'])) {
-                echo '<tr><td>' . __('Date', 'poker-tournament-import') . '</td><td>' . esc_html($tournament_data['metadata']['start_time']) . '</td></tr>';
+                echo '<tr><td>' . esc_html__('Date', 'poker-tournament-import') . '</td><td>' . esc_html($tournament_data['metadata']['start_time']) . '</td></tr>';
             }
             echo '</table>';
         }
 
         if (!empty($tournament_data['players'])) {
-            echo '<h4>' . __('Players Found', 'poker-tournament-import') . '</h4>';
+            echo '<h4>' . esc_html__('Players Found', 'poker-tournament-import') . '</h4>';
             /* translators: %d: number of players */
-            echo '<p>' . sprintf(__('Found %d players in the tournament.', 'poker-tournament-import'), count($tournament_data['players'])) . '</p>';
+            echo '<p>' . esc_html(sprintf(esc_html__('Found %d players in the tournament.', 'poker-tournament-import'), count($tournament_data['players']))) . '</p>';
         }
 
         echo '</div>';
@@ -901,7 +930,7 @@ class Poker_Tournament_Import_Admin {
     private function show_debug_output() {
         // Only show debug output if debug is enabled for this import
         if ((isset($_POST['import_tournament']) || isset($_POST['import_tournament_hidden'])) && Poker_Tournament_Import_Debug::is_import_debug_enabled()) {
-            echo Poker_Tournament_Import_Debug::render_debug_output();
+            echo wp_kses_post(Poker_Tournament_Import_Debug::render_debug_output());
         }
     }
 
@@ -940,19 +969,20 @@ class Poker_Tournament_Import_Admin {
     private function show_duplicate_confirmation($tournament_data, $duplicate_tournament) {
         ?>
         <div class="notice notice-warning">
-            <h3><?php _e('Duplicate Tournament Detected', 'poker-tournament-import'); ?></h3>
+            <h3><?php esc_html_e('Duplicate Tournament Detected', 'poker-tournament-import'); ?></h3>
             <p>
                 <?php
                 /* translators: 1: tournament link and title, 2: import date */
                 printf(
-                    __('A tournament with the same UUID already exists: <strong>%1$s</strong>. This tournament was imported on %2$s.', 'poker-tournament-import'),
+                    /* translators: 1: tournament link and title, 2: import date */
+                    esc_html__('A tournament with the same UUID already exists: <strong>%1$s</strong>. This tournament was imported on %2$s.', 'poker-tournament-import'),
                     sprintf('<a href="%s">%s</a>', esc_url($duplicate_tournament['edit_url']), esc_html($duplicate_tournament['title'])),
                     get_the_date('F j, Y g:i a', $duplicate_tournament['post_id'])
                 );
                 ?>
             </p>
             <p>
-                <?php _e('Do you want to overwrite this tournament with the new data? This will replace all tournament data including player results.', 'poker-tournament-import'); ?>
+                <?php esc_html_e('Do you want to overwrite this tournament with the new data? This will replace all tournament data including player results.', 'poker-tournament-import'); ?>
             </p>
             <form method="post" enctype="multipart/form-data">
                 <?php wp_nonce_field('poker_import_overwrite', 'poker_import_overwrite_nonce'); ?>
@@ -961,10 +991,10 @@ class Poker_Tournament_Import_Admin {
 
                 <p>
                     <button type="submit" name="confirm_overwrite" class="button button-primary">
-                        <?php _e('Yes, Overwrite Tournament', 'poker-tournament-import'); ?>
+                        <?php esc_html_e('Yes, Overwrite Tournament', 'poker-tournament-import'); ?>
                     </button>
                     <button type="button" class="button" onclick="history.back()">
-                        <?php _e('Cancel', 'poker-tournament-import'); ?>
+                        <?php esc_html_e('Cancel', 'poker-tournament-import'); ?>
                     </button>
                 </p>
             </form>
@@ -973,9 +1003,9 @@ class Poker_Tournament_Import_Admin {
     }
 
     /**
-     * Import tournament data into WordPress posts
+     * Import tournament data into WordPress posts (v2.8.9: Made public for AJAX import)
      */
-    private function import_tournament_data($tournament_data, $parser = null) {
+    public function import_tournament_data($tournament_data, $parser = null) {
         global $wpdb;
         Poker_Tournament_Import_Debug::log_function('import_tournament_data started');
 
@@ -1502,35 +1532,35 @@ class Poker_Tournament_Import_Admin {
      */
     private function show_import_summary($created_posts) {
         echo '<div class="import-summary">';
-        echo '<h4>' . __('Import Summary', 'poker-tournament-import') . '</h4>';
+        echo '<h4>' . esc_html__('Import Summary', 'poker-tournament-import') . '</h4>';
         echo '<ul>';
 
         if (isset($created_posts['tournament'])) {
             /* translators: %s: URL to edit tournament */
-            echo '<li>' . sprintf(__('Tournament created: <a href="%s">Edit Tournament</a>', 'poker-tournament-import'),
-                get_edit_post_link($created_posts['tournament'])) . '</li>';
+            echo '<li>' . esc_html(sprintf(esc_html__('Tournament created: <a href="%s">Edit Tournament</a>', 'poker-tournament-import'),
+                esc_url(get_edit_post_link($created_posts['tournament'])))) . '</li>';
         }
 
         if (isset($created_posts['series'])) {
             /* translators: %s: URL to edit series */
-            echo '<li>' . sprintf(__('Series: <a href="%s">Edit Series</a>', 'poker-tournament-import'),
-                get_edit_post_link($created_posts['series'])) . '</li>';
+            echo '<li>' . esc_html(sprintf(esc_html__('Series: <a href="%s">Edit Series</a>', 'poker-tournament-import'),
+                esc_url(get_edit_post_link($created_posts['series'])))) . '</li>';
         }
 
         if (isset($created_posts['season'])) {
             /* translators: %s: URL to edit season */
-            echo '<li>' . sprintf(__('Season: <a href="%s">Edit Season</a>', 'poker-tournament-import'),
-                get_edit_post_link($created_posts['season'])) . '</li>';
+            echo '<li>' . esc_html(sprintf(esc_html__('Season: <a href="%s">Edit Season</a>', 'poker-tournament-import'),
+                esc_url(get_edit_post_link($created_posts['season'])))) . '</li>';
         }
 
         if (isset($created_posts['players'])) {
             /* translators: %d: number of player profiles */
-            echo '<li>' . sprintf(__('%d player profiles created', 'poker-tournament-import'), $created_posts['players']) . '</li>';
+            echo '<li>' . esc_html(sprintf(esc_html__('%d player profiles created', 'poker-tournament-import'), $created_posts['players'])) . '</li>';
         }
 
         if (isset($created_posts['player_results'])) {
             /* translators: %d: number of player results */
-            echo '<li>' . sprintf(__('%d player results imported (buy-ins, winnings, points)', 'poker-tournament-import'), $created_posts['player_results']) . '</li>';
+            echo '<li>' . esc_html(sprintf(esc_html__('%d player results imported (buy-ins, winnings, points)', 'poker-tournament-import'), $created_posts['player_results'])) . '</li>';
         }
 
         echo '</ul>';
@@ -1555,13 +1585,13 @@ class Poker_Tournament_Import_Admin {
                 if ($import_result['success']) {
                     echo '<div class="notice notice-success"><p>' .
                         /* translators: %s: tournament title */
-                        sprintf(__('Tournament "%s" has been overwritten successfully!', 'poker-tournament-import'),
-                            esc_html($tournament_data['metadata']['title'])) . '</p></div>';
+                        esc_html(sprintf(esc_html__('Tournament "%s" has been overwritten successfully!', 'poker-tournament-import'),
+                            $tournament_data['metadata']['title'])) . '</p></div>';
 
                     $this->show_import_summary($import_result['created_posts']);
                 } else {
                     echo '<div class="notice notice-error"><p>' .
-                        __('Overwrite failed:', 'poker-tournament-import') . ' ' .
+                        esc_html__('Overwrite failed:', 'poker-tournament-import') . ' ' .
                         esc_html($import_result['message']) . '</p></div>';
                 }
             }
@@ -1584,77 +1614,100 @@ class Poker_Tournament_Import_Admin {
 
                 <table class="form-table">
                     <tr>
-                        <th scope="row"><?php _e('Default Buy-in Amount', 'poker-tournament-import'); ?></th>
+                        <th scope="row"><?php esc_html_e('Default Buy-in Amount', 'poker-tournament-import'); ?></th>
                         <td>
                             <input type="number" name="poker_import_default_buyin" value="<?php echo esc_attr(get_option('poker_import_default_buyin', 200)); ?>" class="small-text">
-                            <p class="description"><?php _e('Default buy-in amount for new tournaments.', 'poker-tournament-import'); ?></p>
+                            <p class="description"><?php esc_html_e('Default buy-in amount for new tournaments.', 'poker-tournament-import'); ?></p>
                         </td>
                     </tr>
 
                     <tr>
-                        <th scope="row"><?php _e('Auto-publish Tournaments', 'poker-tournament-import'); ?></th>
+                        <th scope="row"><?php esc_html_e('Auto-publish Tournaments', 'poker-tournament-import'); ?></th>
                         <td>
                             <label>
                                 <input type="checkbox" name="poker_import_auto_publish" value="1" <?php checked(get_option('poker_import_auto_publish', 0)); ?>>
-                                <?php _e('Automatically publish tournaments after import', 'poker-tournament-import'); ?>
+                                <?php esc_html_e('Automatically publish tournaments after import', 'poker-tournament-import'); ?>
                             </label>
                         </td>
                     </tr>
 
                     <tr>
-                        <th scope="row"><?php _e('Debug Mode', 'poker-tournament-import'); ?></th>
+                        <th scope="row"><?php esc_html_e('Debug Mode', 'poker-tournament-import'); ?></th>
                         <td>
                             <label>
                                 <input type="checkbox" name="poker_import_debug_mode" value="1" <?php checked(get_option('poker_import_debug_mode', 0)); ?>>
-                                <?php _e('Enable debug mode for troubleshooting', 'poker-tournament-import'); ?>
+                                <?php esc_html_e('Enable debug mode for troubleshooting', 'poker-tournament-import'); ?>
                             </label>
-                            <p class="description"><?php _e('Show detailed debug information during import process. Useful for troubleshooting import issues.', 'poker-tournament-import'); ?></p>
+                            <p class="description"><?php esc_html_e('Show detailed debug information during import process. Useful for troubleshooting import issues.', 'poker-tournament-import'); ?></p>
                         </td>
                     </tr>
 
                     <tr>
-                        <th scope="row"><?php _e('Debug Logging', 'poker-tournament-import'); ?></th>
+                        <th scope="row"><?php esc_html_e('Debug Logging', 'poker-tournament-import'); ?></th>
                         <td>
                             <label>
                                 <input type="checkbox" name="poker_import_debug_logging" value="1" <?php checked(get_option('poker_import_debug_logging', 0)); ?>>
-                                <?php _e('Enable debug logging to error log', 'poker-tournament-import'); ?>
+                                <?php esc_html_e('Enable debug logging to error log', 'poker-tournament-import'); ?>
                             </label>
-                            <p class="description"><?php _e('Write debug information to PHP error log. Check your server error logs.', 'poker-tournament-import'); ?></p>
+                            <p class="description"><?php esc_html_e('Write debug information to PHP error log. Check your server error logs.', 'poker-tournament-import'); ?></p>
                         </td>
                     </tr>
 
                     <tr>
-                        <th scope="row"><?php _e('Show Statistics Debug Info', 'poker-tournament-import'); ?></th>
+                        <th scope="row"><?php esc_html_e('Show Statistics Debug Info', 'poker-tournament-import'); ?></th>
                         <td>
                             <label>
                                 <input type="checkbox" name="poker_import_show_debug_stats" value="1" <?php checked(get_option('poker_import_show_debug_stats', 0)); ?>>
-                                <?php _e('Display technical debug information in dashboard', 'poker-tournament-import'); ?>
+                                <?php esc_html_e('Display technical debug information in dashboard', 'poker-tournament-import'); ?>
                             </label>
-                            <p class="description"><?php _e('Show database tables, field analysis, and other technical debug info in the dashboard. Hidden by default.', 'poker-tournament-import'); ?></p>
+                            <p class="description"><?php esc_html_e('Show database tables, field analysis, and other technical debug info in the dashboard. Hidden by default.', 'poker-tournament-import'); ?></p>
                         </td>
                     </tr>
 
                     <tr>
-                        <th scope="row"><?php _e('Currency Symbol', 'poker-tournament-import'); ?></th>
+                        <th scope="row"><?php esc_html_e('Currency Symbol', 'poker-tournament-import'); ?></th>
                         <td>
                             <input type="text" name="poker_currency_symbol" value="<?php echo esc_attr(get_option('poker_currency_symbol', '$')); ?>" class="regular-text">
-                            <p class="description"><?php _e('Currency symbol or code to display with monetary values. Leading/trailing spaces are preserved.', 'poker-tournament-import'); ?></p>
+                            <p class="description"><?php esc_html_e('Currency symbol or code to display with monetary values. Leading/trailing spaces are preserved.', 'poker-tournament-import'); ?></p>
                         </td>
                     </tr>
 
                     <tr>
-                        <th scope="row"><?php _e('Currency Position', 'poker-tournament-import'); ?></th>
+                        <th scope="row"><?php esc_html_e('Currency Position', 'poker-tournament-import'); ?></th>
                         <td>
                             <label>
                                 <input type="radio" name="poker_currency_position" value="prefix" <?php checked(get_option('poker_currency_position', 'prefix'), 'prefix'); ?>>
-                                <?php _e('Prefix (before amount)', 'poker-tournament-import'); ?>
+                                <?php esc_html_e('Prefix (before amount)', 'poker-tournament-import'); ?>
                             </label>
                             <br>
                             <label>
                                 <input type="radio" name="poker_currency_position" value="postfix" <?php checked(get_option('poker_currency_position', 'prefix'), 'postfix'); ?>>
-                                <?php _e('Postfix (after amount)', 'poker-tournament-import'); ?>
+                                <?php esc_html_e('Postfix (after amount)', 'poker-tournament-import'); ?>
                             </label>
-                            <p class="description"><?php _e('Position of the currency symbol relative to the amount.', 'poker-tournament-import'); ?></p>
+                            <p class="description"><?php esc_html_e('Position of the currency symbol relative to the amount.', 'poker-tournament-import'); ?></p>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row"><?php esc_html_e('Hit Counting Method', 'poker-tournament-import'); ?></th>
+                        <td>
+                            <label>
+                                <input type="radio" name="poker_hit_counting_method" value="auto" <?php checked(get_option('poker_hit_counting_method', 'auto'), 'auto'); ?>>
+                                <?php esc_html_e('Automatic (use .tdt file setting)', 'poker-tournament-import'); ?>
+                            </label>
+                            <p class="description" style="margin-left: 25px; margin-top: 5px;"><?php esc_html_e('Uses the FullCreditHit configuration from each .tdt file. Recommended for most setups.', 'poker-tournament-import'); ?></p>
+                            <br>
+                            <label>
+                                <input type="radio" name="poker_hit_counting_method" value="full_credit" <?php checked(get_option('poker_hit_counting_method', 'auto'), 'full_credit'); ?>>
+                                <?php esc_html_e('Full Credit (count all eliminations)', 'poker-tournament-import'); ?>
+                            </label>
+                            <p class="description" style="margin-left: 25px; margin-top: 5px;"><?php esc_html_e('If you eliminate the same player multiple times (due to rebuys), each elimination counts as a separate hit. Override all .tdt file settings.', 'poker-tournament-import'); ?></p>
+                            <br>
+                            <label>
+                                <input type="radio" name="poker_hit_counting_method" value="unique_victims" <?php checked(get_option('poker_hit_counting_method', 'auto'), 'unique_victims'); ?>>
+                                <?php esc_html_e('Unique Victims (count each player once)', 'poker-tournament-import'); ?>
+                            </label>
+                            <p class="description" style="margin-left: 25px; margin-top: 5px;"><?php esc_html_e('If you eliminate the same player multiple times (due to rebuys), only the first elimination counts. Override all .tdt file settings.', 'poker-tournament-import'); ?></p>
                         </td>
                     </tr>
                 </table>
@@ -1664,22 +1717,22 @@ class Poker_Tournament_Import_Admin {
 
             <!-- Statistics Refresh Section -->
             <div class="statistics-refresh-section" style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #ccc;">
-                <h2><?php _e('Statistics Data Mart', 'poker-tournament-import'); ?></h2>
-                <p><?php _e('The statistics data mart provides fast dashboard performance by pre-calculating tournament statistics. Refresh statistics after importing tournaments or when dashboard data appears outdated.', 'poker-tournament-import'); ?></p>
+                <h2><?php esc_html_e('Statistics Data Mart', 'poker-tournament-import'); ?></h2>
+                <p><?php esc_html_e('The statistics data mart provides fast dashboard performance by pre-calculating tournament statistics. Refresh statistics after importing tournaments or when dashboard data appears outdated.', 'poker-tournament-import'); ?></p>
 
                 <?php
                 $last_refresh = get_option('poker_statistics_last_refresh', '');
                 if ($last_refresh) {
-                    echo '<p><strong>' . __('Last Refresh:', 'poker-tournament-import') . '</strong> ' . esc_html(date_i18n('F j, Y g:i a', strtotime($last_refresh))) . '</p>';
+                    echo '<p><strong>' . esc_html__('Last Refresh:', 'poker-tournament-import') . '</strong> ' . esc_html(date_i18n('F j, Y g:i a', strtotime($last_refresh))) . '</p>';
                 } else {
-                    echo '<p><strong>' . __('Last Refresh:', 'poker-tournament-import') . '</strong> ' . __('Never', 'poker-tournament-import') . '</p>';
+                    echo '<p><strong>' . esc_html__('Last Refresh:', 'poker-tournament-import') . '</strong> ' . esc_html__('Never', 'poker-tournament-import') . '</p>';
                 }
 
                 if (class_exists('Poker_Statistics_Engine')) {
                     $stats_engine = Poker_Statistics_Engine::get_instance();
                     $dashboard_stats = $stats_engine->get_dashboard_statistics();
                     if (!empty($dashboard_stats['last_updated'])) {
-                        echo '<p><strong>' . __('Data Last Updated:', 'poker-tournament-import') . '</strong> ' . esc_html(date_i18n('F j, Y g:i a', strtotime($dashboard_stats['last_updated']))) . '</p>';
+                        echo '<p><strong>' . esc_html__('Data Last Updated:', 'poker-tournament-import') . '</strong> ' . esc_html(date_i18n('F j, Y g:i a', strtotime($dashboard_stats['last_updated']))) . '</p>';
                     }
                 }
                 ?>
@@ -1689,11 +1742,11 @@ class Poker_Tournament_Import_Admin {
                     <p>
                         <button type="submit" name="refresh_statistics" class="button button-secondary">
                             <span class="dashicons dashicons-update" style="vertical-align: middle; margin-right: 5px;"></span>
-                            <?php _e('Refresh Statistics Now', 'poker-tournament-import'); ?>
+                            <?php esc_html_e('Refresh Statistics Now', 'poker-tournament-import'); ?>
                         </button>
                         <span class="spinner" style="display: none; vertical-align: middle; margin-left: 10px;"></span>
                     </p>
-                    <p class="description"><?php _e('Recalculate all tournament statistics. This may take a few moments on sites with many tournaments.', 'poker-tournament-import'); ?></p>
+                    <p class="description"><?php esc_html_e('Recalculate all tournament statistics. This may take a few moments on sites with many tournaments.', 'poker-tournament-import'); ?></p>
                 </form>
 
                 <div id="statistics-refresh-result" style="margin-top: 15px;"></div>
@@ -1705,10 +1758,10 @@ class Poker_Tournament_Import_Admin {
                     <p>
                         <button type="submit" name="repair_database" class="button button-secondary" onclick="return confirm('This will recreate missing database tables and recalculate statistics. Continue?')">
                             <span class="dashicons dashicons-tools" style="vertical-align: middle; margin-right: 5px;"></span>
-                            <?php _e('Repair Database Tables', 'poker-tournament-import'); ?>
+                            <?php esc_html_e('Repair Database Tables', 'poker-tournament-import'); ?>
                         </button>
                     </p>
-                    <p class="description"><?php _e('Recreate missing database tables and fix statistics calculation issues. Use this if tables are missing or statistics are not calculating correctly.', 'poker-tournament-import'); ?></p>
+                    <p class="description"><?php esc_html_e('Recreate missing database tables and fix statistics calculation issues. Use this if tables are missing or statistics are not calculating correctly.', 'poker-tournament-import'); ?></p>
                 </form>
 
                 <form method="post" id="data-repair-form">
@@ -1716,18 +1769,18 @@ class Poker_Tournament_Import_Admin {
                     <p>
                         <button type="submit" name="repair_player_data" class="button button-secondary" onclick="return confirm('This will populate missing player data for all existing tournaments. This may take several minutes. Continue?')">
                             <span class="dashicons dashicons-database-import" style="vertical-align: middle; margin-right: 5px;"></span>
-                            <?php _e('Repair Player Data', 'poker-tournament-import'); ?>
+                            <?php esc_html_e('Repair Player Data', 'poker-tournament-import'); ?>
                         </button>
                     </p>
-                    <p class="description"><?php _e('Populate missing player data in the poker_tournament_players table for all existing tournaments. Use this if dashboard shows 0 players or empty top players section.', 'poker-tournament-import'); ?></p>
+                    <p class="description"><?php esc_html_e('Populate missing player data in the poker_tournament_players table for all existing tournaments. Use this if dashboard shows 0 players or empty top players section.', 'poker-tournament-import'); ?></p>
                 </form>
             </div>
 
             <!-- Debug Information Section -->
             <?php if (get_option('poker_import_show_debug_stats', 0)): ?>
             <div class="statistics-debug-section" style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #ccc;">
-                <h2><?php _e('Debug Information', 'poker-tournament-import'); ?></h2>
-                <p><?php _e('Technical information to help diagnose statistics calculation issues.', 'poker-tournament-import'); ?></p>
+                <h2><?php esc_html_e('Debug Information', 'poker-tournament-import'); ?></h2>
+                <p><?php esc_html_e('Technical information to help diagnose statistics calculation issues.', 'poker-tournament-import'); ?></p>
 
                 <?php if (class_exists('Poker_Statistics_Engine')): ?>
                     <?php
@@ -1735,50 +1788,50 @@ class Poker_Tournament_Import_Admin {
                     $debug_info = $stats_engine->debug_statistics();
                     ?>
 
-                    <h3><?php _e('Database Tables', 'poker-tournament-import'); ?></h3>
+                    <h3><?php esc_html_e('Database Tables', 'poker-tournament-import'); ?></h3>
                     <table class="widefat">
                         <tr>
-                            <td><?php _e('Statistics Table Exists:', 'poker-tournament-import'); ?></td>
+                            <td><?php esc_html_e('Statistics Table Exists:', 'poker-tournament-import'); ?></td>
                             <td><?php echo $debug_info['stats_table_exists'] ? '✅ Yes' : '❌ No'; ?></td>
                         </tr>
                         <tr>
-                            <td><?php _e('Players Table Exists:', 'poker-tournament-import'); ?></td>
+                            <td><?php esc_html_e('Players Table Exists:', 'poker-tournament-import'); ?></td>
                             <td><?php echo $debug_info['players_table_exists'] ? '✅ Yes' : '❌ No'; ?></td>
                         </tr>
                         <tr>
-                            <td><?php _e('Statistics Records:', 'poker-tournament-import'); ?></td>
+                            <td><?php esc_html_e('Statistics Records:', 'poker-tournament-import'); ?></td>
                             <td><?php echo esc_html($debug_info['stats_count']); ?></td>
                         </tr>
                     </table>
 
-                    <h3><?php _e('Raw Data Counts', 'poker-tournament-import'); ?></h3>
+                    <h3><?php esc_html_e('Raw Data Counts', 'poker-tournament-import'); ?></h3>
                     <table class="widefat">
                         <tr>
-                            <td><?php _e('Published Tournaments:', 'poker-tournament-import'); ?></td>
+                            <td><?php esc_html_e('Published Tournaments:', 'poker-tournament-import'); ?></td>
                             <td><?php echo esc_html($debug_info['raw_tournament_count']); ?></td>
                         </tr>
                         <tr>
-                            <td><?php _e('Published Series:', 'poker-tournament-import'); ?></td>
+                            <td><?php esc_html_e('Published Series:', 'poker-tournament-import'); ?></td>
                             <td><?php echo esc_html($debug_info['raw_series_count']); ?></td>
                         </tr>
                         <tr>
-                            <td><?php _e('Players in Database:', 'poker-tournament-import'); ?></td>
+                            <td><?php esc_html_e('Players in Database:', 'poker-tournament-import'); ?></td>
                             <td><?php echo esc_html($debug_info['raw_players_in_db']); ?></td>
                         </tr>
                         <tr>
-                            <td><?php _e('Total Prize Pool (from _prize_pool):', 'poker-tournament-import'); ?></td>
+                            <td><?php esc_html_e('Total Prize Pool (from _prize_pool):', 'poker-tournament-import'); ?></td>
                             <td>$<?php echo esc_html(number_format($debug_info['raw_prize_pool'], 0)); ?></td>
                         </tr>
                         <tr>
-                            <td><?php _e('Best Prize Pool Field:', 'poker-tournament-import'); ?></td>
+                            <td><?php esc_html_e('Best Prize Pool Field:', 'poker-tournament-import'); ?></td>
                             <td><code><?php echo esc_html($debug_info['best_prize_field']); ?></code></td>
                         </tr>
                     </table>
 
-                    <h3><?php _e('Field Name Analysis', 'poker-tournament-import'); ?></h3>
+                    <h3><?php esc_html_e('Field Name Analysis', 'poker-tournament-import'); ?></h3>
                     <table class="widefat">
                         <tr>
-                            <th colspan="3"><?php _e('Prize Pool Fields Found:', 'poker-tournament-import'); ?></th>
+                            <th colspan="3"><?php esc_html_e('Prize Pool Fields Found:', 'poker-tournament-import'); ?></th>
                         </tr>
                         <?php foreach ($debug_info['prize_pool_fields'] as $field => $data): ?>
                         <tr>
@@ -1788,7 +1841,7 @@ class Poker_Tournament_Import_Admin {
                         </tr>
                         <?php endforeach; ?>
                         <tr>
-                            <th colspan="3"><?php _e('UUID Fields Found:', 'poker-tournament-import'); ?></th>
+                            <th colspan="3"><?php esc_html_e('UUID Fields Found:', 'poker-tournament-import'); ?></th>
                         </tr>
                         <?php foreach ($debug_info['uuid_fields'] as $field => $count): ?>
                         <tr>
@@ -1798,18 +1851,18 @@ class Poker_Tournament_Import_Admin {
                         <?php endforeach; ?>
                     </table>
 
-                    <h3><?php _e('Current Statistics', 'poker-tournament-import'); ?></h3>
+                    <h3><?php esc_html_e('Current Statistics', 'poker-tournament-import'); ?></h3>
                     <table class="widefat">
                         <?php foreach ($debug_info['current_stats'] as $key => $value): ?>
                         <tr>
                             <td><?php echo esc_html(ucwords(str_replace('_', ' ', $key))); ?>:</td>
-                            <td><?php echo is_numeric($value) ? number_format($value, 0) : ($value ?: 'Never'); ?></td>
+                            <td><?php echo esc_html(is_numeric($value) ? number_format($value, 0) : ($value ?: 'Never')); ?></td>
                         </tr>
                         <?php endforeach; ?>
                     </table>
 
                     <?php if ($debug_info['raw_tournament_count'] > 0): ?>
-                    <h3><?php _e('Sample Tournament Data', 'poker-tournament-import'); ?></h3>
+                    <h3><?php esc_html_e('Sample Tournament Data', 'poker-tournament-import'); ?></h3>
                     <?php
                     $sample_tournaments = get_posts(array(
                         'post_type' => 'tournament',
@@ -1823,24 +1876,24 @@ class Poker_Tournament_Import_Admin {
                     <table class="widefat">
                         <thead>
                             <tr>
-                                <th><?php _e('Tournament', 'poker-tournament-import'); ?></th>
-                                <th><?php _e('Date', 'poker-tournament-import'); ?></th>
-                                <th><?php _e('Prize Pool', 'poker-tournament-import'); ?></th>
-                                <th><?php _e('UUID', 'poker-tournament-import'); ?></th>
+                                <th><?php esc_html_e('Tournament', 'poker-tournament-import'); ?></th>
+                                <th><?php esc_html_e('Date', 'poker-tournament-import'); ?></th>
+                                <th><?php esc_html_e('Prize Pool', 'poker-tournament-import'); ?></th>
+                                <th><?php esc_html_e('UUID', 'poker-tournament-import'); ?></th>
                             </tr>
                         </thead>
                         <tbody>
                         <?php foreach ($sample_tournaments as $tournament): ?>
                         <tr>
-                            <td><a href="<?php echo get_edit_post_link($tournament->ID); ?>"><?php echo esc_html($tournament->post_title); ?></a></td>
+                            <td><a href="<?php echo esc_url(get_edit_post_link($tournament->ID)); ?>"><?php echo esc_html($tournament->post_title); ?></a></td>
                             <td><?php echo get_the_date('Y-m-d', $tournament->ID); ?></td>
                             <td><?php
                                 $prize_pool = get_post_meta($tournament->ID, '_prize_pool', true);
-                                echo $prize_pool ? '$' . number_format($prize_pool, 0) : 'Not set';
+                                echo esc_html($prize_pool ? '$' . number_format($prize_pool, 0) : 'Not set');
                             ?></td>
                             <td><?php
                                 $uuid = get_post_meta($tournament->ID, 'tournament_uuid', true);
-                                echo $uuid ? esc_html(substr($uuid, 0, 8) . '...') : 'Not set';
+                                echo $uuid ? esc_html(substr($uuid, 0, 8)) . '...' : esc_html('Not set');
                             ?></td>
                         </tr>
                         <?php endforeach; ?>
@@ -1850,7 +1903,7 @@ class Poker_Tournament_Import_Admin {
                     <?php endif; ?>
 
                 <?php else: ?>
-                    <p><?php _e('Statistics engine not available.', 'poker-tournament-import'); ?></p>
+                    <p><?php esc_html_e('Statistics engine not available.', 'poker-tournament-import'); ?></p>
                 <?php endif; ?>
             </div>
             <?php endif; ?>
@@ -1866,7 +1919,7 @@ class Poker_Tournament_Import_Admin {
         if (isset($_POST['refresh_statistics']) && check_admin_referer('poker_refresh_statistics_admin', 'poker_refresh_stats_nonce')) {
 
             if (!current_user_can('manage_options')) {
-                wp_die(__('You do not have sufficient permissions to access this page.', 'poker-tournament-import'));
+                wp_die(esc_html__('You do not have sufficient permissions to access this page.', 'poker-tournament-import'));
             }
 
             // Start output buffering to capture any messages
@@ -1885,45 +1938,45 @@ class Poker_Tournament_Import_Admin {
 
                         ob_clean();
                         echo '<div class="notice notice-success is-dismissible">';
-                        echo '<p><strong>' . __('Statistics refreshed successfully!', 'poker-tournament-import') . '</strong></p>';
+                        echo '<p><strong>' . esc_html__('Statistics refreshed successfully!', 'poker-tournament-import') . '</strong></p>';
                         echo '<ul>';
                         /* translators: %d: number of tournaments */
-                        echo '<li>' . sprintf(__('Total Tournaments: %d', 'poker-tournament-import'), intval($dashboard_stats['total_tournaments'])) . '</li>';
+                        echo '<li>' . esc_html(sprintf(esc_html__('Total Tournaments: %d', 'poker-tournament-import'), intval($dashboard_stats['total_tournaments']))) . '</li>';
                         /* translators: %d: number of players */
-                        echo '<li>' . sprintf(__('Total Players: %d', 'poker-tournament-import'), intval($dashboard_stats['total_players'])) . '</li>';
+                        echo '<li>' . esc_html(sprintf(esc_html__('Total Players: %d', 'poker-tournament-import'), intval($dashboard_stats['total_players']))) . '</li>';
                         /* translators: %s: formatted prize pool amount */
-                        echo '<li>' . sprintf(__('Total Prize Pool: %s', 'poker-tournament-import'), esc_html('$' . number_format($dashboard_stats['total_prize_pool'], 0))) . '</li>';
+                        echo '<li>' . esc_html(sprintf(esc_html__('Total Prize Pool: %s', 'poker-tournament-import'), '$' . number_format($dashboard_stats['total_prize_pool'], 0))) . '</li>';
                         /* translators: %d: number of series */
-                        echo '<li>' . sprintf(__('Active Series: %d', 'poker-tournament-import'), intval($dashboard_stats['active_series'])) . '</li>';
+                        echo '<li>' . esc_html(sprintf(esc_html__('Active Series: %d', 'poker-tournament-import'), intval($dashboard_stats['active_series']))) . '</li>';
                         echo '</ul>';
-                        echo '<p><em>' . __('Dashboard will now show updated data.', 'poker-tournament-import') . '</em></p>';
+                        echo '<p><em>' . esc_html__('Dashboard will now show updated data.', 'poker-tournament-import') . '</em></p>';
                         echo '</div>';
                     } else {
                         ob_clean();
                         echo '<div class="notice notice-error">';
-                        echo '<p><strong>' . __('Statistics refresh failed!', 'poker-tournament-import') . '</strong></p>';
-                        echo '<p>' . __('Please check your error logs for details.', 'poker-tournament-import') . '</p>';
+                        echo '<p><strong>' . esc_html__('Statistics refresh failed!', 'poker-tournament-import') . '</strong></p>';
+                        echo '<p>' . esc_html__('Please check your error logs for details.', 'poker-tournament-import') . '</p>';
                         echo '</div>';
                     }
                 } catch (Exception $e) {
                     ob_clean();
                     echo '<div class="notice notice-error">';
-                    echo '<p><strong>' . __('Error refreshing statistics:', 'poker-tournament-import') . '</strong></p>';
+                    echo '<p><strong>' . esc_html__('Error refreshing statistics:', 'poker-tournament-import') . '</strong></p>';
                     echo '<p>' . esc_html($e->getMessage()) . '</p>';
                     echo '</div>';
                 }
             } else {
                 ob_clean();
                 echo '<div class="notice notice-error">';
-                echo '<p><strong>' . __('Statistics engine not available!', 'poker-tournament-import') . '</strong></p>';
-                echo '<p>' . __('Please ensure the plugin is properly activated.', 'poker-tournament-import') . '</p>';
+                echo '<p><strong>' . esc_html__('Statistics engine not available!', 'poker-tournament-import') . '</strong></p>';
+                echo '<p>' . esc_html__('Please ensure the plugin is properly activated.', 'poker-tournament-import') . '</p>';
                 echo '</div>';
             }
 
             // Clean output buffer and add to admin notices
             $message = ob_get_clean();
             add_action('admin_notices', function() use ($message) {
-                echo $message;
+                echo esc_html($message);
             });
         }
     }
@@ -1933,7 +1986,7 @@ class Poker_Tournament_Import_Admin {
      */
     public function handle_database_repair() {
         if (!current_user_can('manage_options')) {
-            wp_die(__('You do not have sufficient permissions to access this page.', 'poker-tournament-import'));
+            wp_die(esc_html__('You do not have sufficient permissions to access this page.', 'poker-tournament-import'));
         }
 
         // Start output buffering
@@ -1946,6 +1999,7 @@ class Poker_Tournament_Import_Admin {
             $stats_table_name = $wpdb->prefix . 'poker_statistics';
             $charset_collate = $wpdb->get_charset_collate();
 
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
             $table_exists = $wpdb->get_var("SHOW TABLES LIKE '{$stats_table_name}'");
 
             if (!$table_exists) {
@@ -1963,21 +2017,22 @@ class Poker_Tournament_Import_Admin {
                     KEY last_updated (last_updated)
                 ) {$charset_collate};";
 
+                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
                 $result = $wpdb->query($stats_sql);
 
                 if ($result !== false) {
                     echo '<div class="notice notice-success is-dismissible">';
-                    echo '<p><strong>' . __('Statistics table created successfully!', 'poker-tournament-import') . '</strong></p>';
+                    echo '<p><strong>' . esc_html__('Statistics table created successfully!', 'poker-tournament-import') . '</strong></p>';
                     echo '</div>';
                 } else {
                     echo '<div class="notice notice-error">';
-                    echo '<p><strong>' . __('Failed to create statistics table:', 'poker-tournament-import') . '</strong></p>';
+                    echo '<p><strong>' . esc_html__('Failed to create statistics table:', 'poker-tournament-import') . '</strong></p>';
                     echo '<p>' . esc_html($wpdb->last_error) . '</p>';
                     echo '</div>';
                 }
             } else {
                 echo '<div class="notice notice-info is-dismissible">';
-                echo '<p><strong>' . __('Statistics table already exists.', 'poker-tournament-import') . '</strong></p>';
+                echo '<p><strong>' . esc_html__('Statistics table already exists.', 'poker-tournament-import') . '</strong></p>';
                 echo '</div>';
             }
 
@@ -1992,27 +2047,27 @@ class Poker_Tournament_Import_Admin {
                     $dashboard_stats = $stats_engine->get_dashboard_statistics();
 
                     echo '<div class="notice notice-success is-dismissible">';
-                    echo '<p><strong>' . __('Statistics calculated successfully!', 'poker-tournament-import') . '</strong></p>';
+                    echo '<p><strong>' . esc_html__('Statistics calculated successfully!', 'poker-tournament-import') . '</strong></p>';
                     echo '<ul>';
                     /* translators: %d: number of tournaments */
-                    echo '<li>' . sprintf(__('Total Tournaments: %d', 'poker-tournament-import'), intval($dashboard_stats['total_tournaments'])) . '</li>';
+                    echo '<li>' . esc_html(sprintf(esc_html__('Total Tournaments: %d', 'poker-tournament-import'), intval($dashboard_stats['total_tournaments']))) . '</li>';
                     /* translators: %d: number of players */
-                    echo '<li>' . sprintf(__('Total Players: %d', 'poker-tournament-import'), intval($dashboard_stats['total_players'])) . '</li>';
+                    echo '<li>' . esc_html(sprintf(esc_html__('Total Players: %d', 'poker-tournament-import'), intval($dashboard_stats['total_players']))) . '</li>';
                     /* translators: %d: number of series */
-                    echo '<li>' . sprintf(__('Active Series: %d', 'poker-tournament-import'), intval($dashboard_stats['active_series'])) . '</li>';
+                    echo '<li>' . esc_html(sprintf(esc_html__('Active Series: %d', 'poker-tournament-import'), intval($dashboard_stats['active_series']))) . '</li>';
                     echo '</ul>';
                     echo '</div>';
                 } else {
                     echo '<div class="notice notice-warning">';
-                    echo '<p><strong>' . __('Statistics calculation returned no results.', 'poker-tournament-import') . '</strong></p>';
-                    echo '<p>' . __('This may indicate that tournaments don\'t have prize pool data set.', 'poker-tournament-import') . '</p>';
+                    echo '<p><strong>' . esc_html__('Statistics calculation returned no results.', 'poker-tournament-import') . '</strong></p>';
+                    echo '<p>' . esc_html__('This may indicate that tournaments don\'t have prize pool data set.', 'poker-tournament-import') . '</p>';
                     echo '</div>';
                 }
             }
 
         } catch (Exception $e) {
             echo '<div class="notice notice-error">';
-            echo '<p><strong>' . __('Database repair failed:', 'poker-tournament-import') . '</strong></p>';
+            echo '<p><strong>' . esc_html__('Database repair failed:', 'poker-tournament-import') . '</strong></p>';
             echo '<p>' . esc_html($e->getMessage()) . '</p>';
             echo '</div>';
         }
@@ -2020,6 +2075,7 @@ class Poker_Tournament_Import_Admin {
         // Clean output buffer and add to admin notices
         $message = ob_get_clean();
         add_action('admin_notices', function() use ($message) {
+            // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Content already escaped during construction
             echo $message;
         });
     }
@@ -2061,7 +2117,7 @@ class Poker_Tournament_Import_Admin {
                 $this->render_analytics_tab_content();
                 break;
             default:
-                echo '<div class="error">' . __('Unknown view', 'poker-tournament-import') . '</div>';
+                echo '<div class="error">' . esc_html__('Unknown view', 'poker-tournament-import') . '</div>';
                 break;
         }
 
@@ -2094,7 +2150,7 @@ class Poker_Tournament_Import_Admin {
                 $this->render_calendar_view();
                 break;
             default:
-                echo '<div class="error">' . __('Unknown view type', 'poker-tournament-import') . '</div>';
+                echo '<div class="error">' . esc_html__('Unknown view type', 'poker-tournament-import') . '</div>';
                 break;
         }
 
@@ -2146,6 +2202,7 @@ class Poker_Tournament_Import_Admin {
             $winner_winnings = 0;
 
             if ($tournament_uuid) {
+                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
                 $winner = $wpdb->get_row($wpdb->prepare(
                     "SELECT p.post_title as winner_name, tp.winnings as winner_winnings
                      FROM $table_name tp
@@ -2207,19 +2264,19 @@ class Poker_Tournament_Import_Admin {
         ));
 
         echo '<div class="tournaments-detail-view">';
-        echo '<h3>' . __('All Tournaments', 'poker-tournament-import') . '</h3>';
+        echo '<h3>' . esc_html__('All Tournaments', 'poker-tournament-import') . '</h3>';
 
         if (!empty($tournaments)) {
             echo '<div class="tournaments-table-wrapper">';
             echo '<table class="widefat tournaments-table">';
             echo '<thead>';
             echo '<tr>';
-            echo '<th>' . __('Tournament', 'poker-tournament-import') . '</th>';
-            echo '<th>' . __('Date', 'poker-tournament-import') . '</th>';
-            echo '<th>' . __('Players', 'poker-tournament-import') . '</th>';
-            echo '<th>' . __('Prize Pool', 'poker-tournament-import') . '</th>';
-            echo '<th>' . __('Winner', 'poker-tournament-import') . '</th>';
-            echo '<th>' . __('Actions', 'poker-tournament-import') . '</th>';
+            echo '<th>' . esc_html__('Tournament', 'poker-tournament-import') . '</th>';
+            echo '<th>' . esc_html__('Date', 'poker-tournament-import') . '</th>';
+            echo '<th>' . esc_html__('Players', 'poker-tournament-import') . '</th>';
+            echo '<th>' . esc_html__('Prize Pool', 'poker-tournament-import') . '</th>';
+            echo '<th>' . esc_html__('Winner', 'poker-tournament-import') . '</th>';
+            echo '<th>' . esc_html__('Actions', 'poker-tournament-import') . '</th>';
             echo '</tr>';
             echo '</thead>';
             echo '<tbody>';
@@ -2234,6 +2291,7 @@ class Poker_Tournament_Import_Admin {
                 // Get winner
                 $winner_name = '';
                 if ($tournament_uuid) {
+                    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
                     $winner = $wpdb->get_row($wpdb->prepare(
                         "SELECT p.post_title as winner_name
                          FROM $table_name tp
@@ -2247,14 +2305,14 @@ class Poker_Tournament_Import_Admin {
                 }
 
                 echo '<tr>';
-                echo '<td><strong><a href="' . get_permalink($tournament->ID) . '">' . esc_html($tournament->post_title) . '</a></strong></td>';
+                echo '<td><strong><a href="' . esc_url(get_permalink($tournament->ID)) . '">' . esc_html($tournament->post_title) . '</a></strong></td>';
                 echo '<td>' . esc_html($tournament_date ? date_i18n('M j, Y', strtotime($tournament_date)) : get_the_date('M j, Y', $tournament->ID)) . '</td>';
                 echo '<td>' . esc_html($players_count ?: '--') . '</td>';
                 echo '<td>' . esc_html($currency . number_format($prize_pool ?: 0, 0)) . '</td>';
                 echo '<td>' . ($winner_name ? '<a href="#">' . esc_html($winner_name) . '</a>' : '--') . '</td>';
                 echo '<td>';
-                echo '<a href="' . get_edit_post_link($tournament->ID) . '" class="button button-small">' . __('Edit', 'poker-tournament-import') . '</a> ';
-                echo '<a href="' . get_permalink($tournament->ID) . '" class="button button-small">' . __('View', 'poker-tournament-import') . '</a>';
+                echo '<a href="' . esc_url(get_edit_post_link($tournament->ID)) . '" class="button button-small">' . esc_html__('Edit', 'poker-tournament-import') . '</a> ';
+                echo '<a href="' . esc_url(get_permalink($tournament->ID)) . '" class="button button-small">' . esc_html__('View', 'poker-tournament-import') . '</a>';
                 echo '</td>';
                 echo '</tr>';
             }
@@ -2263,7 +2321,7 @@ class Poker_Tournament_Import_Admin {
             echo '</table>';
             echo '</div>';
         } else {
-            echo '<p>' . __('No tournaments found.', 'poker-tournament-import') . '</p>';
+            echo '<p>' . esc_html__('No tournaments found.', 'poker-tournament-import') . '</p>';
         }
 
         echo '</div>';
@@ -2276,6 +2334,7 @@ class Poker_Tournament_Import_Admin {
         global $wpdb;
         $table_name = $wpdb->prefix . 'poker_tournament_players';
 
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         $top_players = $wpdb->get_results($wpdb->prepare(
             "SELECT tp.player_id,
                     COUNT(*) as tournaments_played,
@@ -2290,25 +2349,26 @@ class Poker_Tournament_Import_Admin {
         ));
 
         echo '<div class="players-detail-view">';
-        echo '<h3>' . __('All Players', 'poker-tournament-import') . '</h3>';
+        echo '<h3>' . esc_html__('All Players', 'poker-tournament-import') . '</h3>';
 
         if (!empty($top_players)) {
             echo '<div class="players-table-wrapper">';
             echo '<table class="widefat players-table">';
             echo '<thead>';
             echo '<tr>';
-            echo '<th>' . __('Player', 'poker-tournament-import') . '</th>';
-            echo '<th>' . __('Tournaments', 'poker-tournament-import') . '</th>';
-            echo '<th>' . __('Total Winnings', 'poker-tournament-import') . '</th>';
-            echo '<th>' . __('Total Points', 'poker-tournament-import') . '</th>';
-            echo '<th>' . __('Best Finish', 'poker-tournament-import') . '</th>';
-            echo '<th>' . __('Avg Finish', 'poker-tournament-import') . '</th>';
-            echo '<th>' . __('Actions', 'poker-tournament-import') . '</th>';
+            echo '<th>' . esc_html__('Player', 'poker-tournament-import') . '</th>';
+            echo '<th>' . esc_html__('Tournaments', 'poker-tournament-import') . '</th>';
+            echo '<th>' . esc_html__('Total Winnings', 'poker-tournament-import') . '</th>';
+            echo '<th>' . esc_html__('Total Points', 'poker-tournament-import') . '</th>';
+            echo '<th>' . esc_html__('Best Finish', 'poker-tournament-import') . '</th>';
+            echo '<th>' . esc_html__('Avg Finish', 'poker-tournament-import') . '</th>';
+            echo '<th>' . esc_html__('Actions', 'poker-tournament-import') . '</th>';
             echo '</tr>';
             echo '</thead>';
             echo '<tbody>';
 
             foreach ($top_players as $index => $player) {
+                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
                 $player_post = $wpdb->get_row($wpdb->prepare(
                     "SELECT p.ID, p.post_title
                      FROM {$wpdb->postmeta} pm
@@ -2326,7 +2386,7 @@ class Poker_Tournament_Import_Admin {
                 echo '<tr class="' . esc_attr($rank_class) . '">';
                 echo '<td>';
                 if ($player_post) {
-                    echo '<a href="' . get_permalink($player_post->ID) . '">' . esc_html($player_post->post_title) . '</a>';
+                    echo '<a href="' . esc_url(get_permalink($player_post->ID)) . '">' . esc_html($player_post->post_title) . '</a>';
                 } else {
                     echo esc_html($player->player_id);
                 }
@@ -2334,12 +2394,12 @@ class Poker_Tournament_Import_Admin {
                 echo '<td>' . esc_html($player->tournaments_played) . '</td>';
                 echo '<td>$' . esc_html(number_format($player->total_winnings, 0)) . '</td>';
                 echo '<td>' . esc_html(number_format($player->total_points, 1)) . '</td>';
-                echo '<td>' . esc_html($player->best_finish) . get_ordinal_suffix($player->best_finish) . '</td>';
+                echo '<td>' . esc_html($player->best_finish) . esc_html(get_ordinal_suffix($player->best_finish)) . '</td>';
                 echo '<td>' . esc_html(number_format($player->avg_finish, 1)) . '</td>';
                 echo '<td>';
                 if ($player_post) {
-                    echo '<a href="' . get_edit_post_link($player_post->ID) . '" class="button button-small">' . __('Edit', 'poker-tournament-import') . '</a> ';
-                    echo '<a href="' . get_permalink($player_post->ID) . '" class="button button-small">' . __('View', 'poker-tournament-import') . '</a>';
+                    echo '<a href="' . esc_url(get_edit_post_link($tournament->ID)) . '" class="button button-small">' . esc_html__('Edit', 'poker-tournament-import') . '</a> ';
+                    echo '<a href="' . esc_url(get_permalink($player_post->ID)) . '" class="button button-small">' . esc_html__('View', 'poker-tournament-import') . '</a>';
                 }
                 echo '</td>';
                 echo '</tr>';
@@ -2349,7 +2409,7 @@ class Poker_Tournament_Import_Admin {
             echo '</table>';
             echo '</div>';
         } else {
-            echo '<p>' . __('No players found.', 'poker-tournament-import') . '</p>';
+            echo '<p>' . esc_html__('No players found.', 'poker-tournament-import') . '</p>';
         }
 
         echo '</div>';
@@ -2367,7 +2427,7 @@ class Poker_Tournament_Import_Admin {
         ));
 
         echo '<div class="series-detail-view">';
-        echo '<h3>' . __('All Series', 'poker-tournament-import') . '</h3>';
+        echo '<h3>' . esc_html__('All Series', 'poker-tournament-import') . '</h3>';
 
         if (!empty($series_list)) {
             echo '<div class="series-grid">';
@@ -2382,18 +2442,18 @@ class Poker_Tournament_Import_Admin {
                 )));
 
                 echo '<div class="series-card">';
-                echo '<h4><a href="' . get_edit_post_link($series->ID) . '">' . esc_html($series->post_title) . '</a></h4>';
+                echo '<h4><a href="' . esc_url(get_edit_post_link($series->ID)) . '">' . esc_html($series->post_title) . '</a></h4>';
                 /* translators: %d: number of tournaments in series */
-                echo '<p>' . sprintf(_n('%d tournament', '%d tournaments', $tournament_count, 'poker-tournament-import'), $tournament_count) . '</p>';
+                echo '<p>' . esc_html(sprintf(_n('%d tournament', '%d tournaments', $tournament_count, 'poker-tournament-import'), $tournament_count)) . '</p>';
                 echo '<div class="series-actions">';
-                echo '<a href="' . get_edit_post_link($series->ID) . '" class="button button-small">' . __('Edit', 'poker-tournament-import') . '</a> ';
-                echo '[series_overview id="' . $series->ID . '"]';
+                echo '<a href="' . esc_url(get_edit_post_link($tournament->ID)) . '" class="button button-small">' . esc_html__('Edit', 'poker-tournament-import') . '</a> ';
+                echo '[series_overview id="' . esc_attr($series->ID) . '"]';
                 echo '</div>';
                 echo '</div>';
             }
             echo '</div>';
         } else {
-            echo '<p>' . __('No series found.', 'poker-tournament-import') . '</p>';
+            echo '<p>' . esc_html__('No series found.', 'poker-tournament-import') . '</p>';
         }
 
         echo '</div>';
@@ -2407,9 +2467,10 @@ class Poker_Tournament_Import_Admin {
         $table_name = $wpdb->prefix . 'poker_tournament_players';
 
         echo '<div class="analytics-detail-view">';
-        echo '<h3>' . __('Tournament Analytics', 'poker-tournament-import') . '</h3>';
+        echo '<h3>' . esc_html__('Tournament Analytics', 'poker-tournament-import') . '</h3>';
 
         // Prize pool distribution
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         $prize_distribution = $wpdb->get_results(
             "SELECT
                 CASE
@@ -2432,7 +2493,7 @@ class Poker_Tournament_Import_Admin {
 
         echo '<div class="analytics-grid">';
         echo '<div class="analytics-card">';
-        echo '<h4>' . __('Prize Pool Distribution', 'poker-tournament-import') . '</h4>';
+        echo '<h4>' . esc_html__('Prize Pool Distribution', 'poker-tournament-import') . '</h4>';
         if (!empty($prize_distribution)) {
             echo '<div class="chart-container">';
             foreach ($prize_distribution as $range) {
@@ -2453,14 +2514,14 @@ class Poker_Tournament_Import_Admin {
             }
             echo '</div>';
         } else {
-            echo '<p>' . __('No data available', 'poker-tournament-import') . '</p>';
+            echo '<p>' . esc_html__('No data available', 'poker-tournament-import') . '</p>';
         }
         echo '</div>';
 
         // Player participation trends
         echo '<div class="analytics-card">';
-        echo '<h4>' . __('Player Participation', 'poker-tournament-import') . '</h4>';
-        echo '<p>' . __('Analytics features coming soon', 'poker-tournament-import') . '</p>';
+        echo '<h4>' . esc_html__('Player Participation', 'poker-tournament-import') . '</h4>';
+        echo '<p>' . esc_html__('Analytics features coming soon', 'poker-tournament-import') . '</p>';
         echo '</div>';
 
         echo '</div>'; // analytics-grid
@@ -2472,8 +2533,8 @@ class Poker_Tournament_Import_Admin {
      */
     private function render_detailed_tournaments_view() {
         echo '<div class="detailed-tournaments-view">';
-        echo '<h3>' . __('Tournament Details', 'poker-tournament-import') . '</h3>';
-        echo '<p>' . __('Detailed tournament analytics coming soon', 'poker-tournament-import') . '</p>';
+        echo '<h3>' . esc_html__('Tournament Details', 'poker-tournament-import') . '</h3>';
+        echo '<p>' . esc_html__('Detailed tournament analytics coming soon', 'poker-tournament-import') . '</p>';
         echo '</div>';
     }
 
@@ -2482,8 +2543,8 @@ class Poker_Tournament_Import_Admin {
      */
     private function render_detailed_players_view() {
         echo '<div class="detailed-players-view">';
-        echo '<h3>' . __('Player Details', 'poker-tournament-import') . '</h3>';
-        echo '<p>' . __('Detailed player analytics coming soon', 'poker-tournament-import') . '</p>';
+        echo '<h3>' . esc_html__('Player Details', 'poker-tournament-import') . '</h3>';
+        echo '<p>' . esc_html__('Detailed player analytics coming soon', 'poker-tournament-import') . '</p>';
         echo '</div>';
     }
 
@@ -2494,6 +2555,7 @@ class Poker_Tournament_Import_Admin {
         global $wpdb;
         $table_name = $wpdb->prefix . 'poker_tournament_players';
 
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         $leaderboard = $wpdb->get_results($wpdb->prepare(
             "SELECT tp.player_id,
                     COUNT(*) as tournaments_played,
@@ -2508,25 +2570,26 @@ class Poker_Tournament_Import_Admin {
         ));
 
         echo '<div class="detailed-leaderboard-view">';
-        echo '<h3>' . __('Complete Leaderboard', 'poker-tournament-import') . '</h3>';
+        echo '<h3>' . esc_html__('Complete Leaderboard', 'poker-tournament-import') . '</h3>';
 
         if (!empty($leaderboard)) {
             echo '<div class="leaderboard-table-wrapper">';
             echo '<table class="widefat leaderboard-table">';
             echo '<thead>';
             echo '<tr>';
-            echo '<th>' . __('Rank', 'poker-tournament-import') . '</th>';
-            echo '<th>' . __('Player', 'poker-tournament-import') . '</th>';
-            echo '<th>' . __('Tournaments', 'poker-tournament-import') . '</th>';
-            echo '<th>' . __('Winnings', 'poker-tournament-import') . '</th>';
-            echo '<th>' . __('Points', 'poker-tournament-import') . '</th>';
-            echo '<th>' . __('Best Finish', 'poker-tournament-import') . '</th>';
-            echo '<th>' . __('Avg Finish', 'poker-tournament-import') . '</th>';
+            echo '<th>' . esc_html__('Rank', 'poker-tournament-import') . '</th>';
+            echo '<th>' . esc_html__('Player', 'poker-tournament-import') . '</th>';
+            echo '<th>' . esc_html__('Tournaments', 'poker-tournament-import') . '</th>';
+            echo '<th>' . esc_html__('Winnings', 'poker-tournament-import') . '</th>';
+            echo '<th>' . esc_html__('Points', 'poker-tournament-import') . '</th>';
+            echo '<th>' . esc_html__('Best Finish', 'poker-tournament-import') . '</th>';
+            echo '<th>' . esc_html__('Avg Finish', 'poker-tournament-import') . '</th>';
             echo '</tr>';
             echo '</thead>';
             echo '<tbody>';
 
             foreach ($leaderboard as $index => $player) {
+                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
                 $player_post = $wpdb->get_row($wpdb->prepare(
                     "SELECT p.ID, p.post_title
                      FROM {$wpdb->postmeta} pm
@@ -2545,7 +2608,7 @@ class Poker_Tournament_Import_Admin {
                 echo '<td class="rank"><span class="rank-number">' . esc_html($index + 1) . '</span></td>';
                 echo '<td>';
                 if ($player_post) {
-                    echo '<a href="' . get_permalink($player_post->ID) . '">' . esc_html($player_post->post_title) . '</a>';
+                    echo '<a href="' . esc_url(get_permalink($player_post->ID)) . '">' . esc_html($player_post->post_title) . '</a>';
                 } else {
                     echo esc_html($player->player_id);
                 }
@@ -2553,7 +2616,7 @@ class Poker_Tournament_Import_Admin {
                 echo '<td>' . esc_html($player->tournaments_played) . '</td>';
                 echo '<td>$' . esc_html(number_format($player->total_winnings, 0)) . '</td>';
                 echo '<td>' . esc_html(number_format($player->total_points, 1)) . '</td>';
-                echo '<td>' . esc_html($player->best_finish) . get_ordinal_suffix($player->best_finish) . '</td>';
+                echo '<td>' . esc_html($player->best_finish) . esc_html(get_ordinal_suffix($player->best_finish)) . '</td>';
                 echo '<td>' . esc_html(number_format($player->avg_finish, 1)) . '</td>';
                 echo '</tr>';
             }
@@ -2562,7 +2625,7 @@ class Poker_Tournament_Import_Admin {
             echo '</table>';
             echo '</div>';
         } else {
-            echo '<p>' . __('No leaderboard data available', 'poker-tournament-import') . '</p>';
+            echo '<p>' . esc_html__('No leaderboard data available', 'poker-tournament-import') . '</p>';
         }
 
         echo '</div>';
@@ -2573,8 +2636,8 @@ class Poker_Tournament_Import_Admin {
      */
     private function render_calendar_view() {
         echo '<div class="calendar-view">';
-        echo '<h3>' . __('Tournament Calendar', 'poker-tournament-import') . '</h3>';
-        echo '<p>' . __('Calendar view coming soon', 'poker-tournament-import') . '</p>';
+        echo '<h3>' . esc_html__('Tournament Calendar', 'poker-tournament-import') . '</h3>';
+        echo '<p>' . esc_html__('Calendar view coming soon', 'poker-tournament-import') . '</p>';
         echo '</div>';
     }
 
@@ -2595,14 +2658,17 @@ class Poker_Tournament_Import_Admin {
         Poker_Tournament_Import_Debug::log('Starting player insertion for tournament', 'UUID: ' . $tournament_uuid . ', Players: ' . count($tournament_data['players']));
 
         // **ENHANCED DEBUGGING**: Check table structure and existing data
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         $table_check = $wpdb->get_var("SHOW TABLES LIKE '{$table_name}'");
         Poker_Tournament_Import_Debug::log('Table existence check', $table_check ? 'Table exists' : 'Table missing');
 
         if ($table_check) {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
             $existing_count = $wpdb->get_var("SELECT COUNT(*) FROM {$table_name}");
             Poker_Tournament_Import_Debug::log('Existing records in table', $existing_count . ' records found');
 
             // Check table structure
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
             $table_structure = $wpdb->get_results("DESCRIBE {$table_name}");
             $structure_info = array();
             foreach ($table_structure as $column) {
@@ -2628,7 +2694,8 @@ class Poker_Tournament_Import_Admin {
                     'buyins' => $total_buyins,  // Store COUNT of entries
                     'rebuys' => 0, // Default to 0 for now
                     'addons' => 0, // Default to 0 for now
-                    'points' => $player_data['points'] ?? 0
+                    'points' => $player_data['points'] ?? 0,
+                    'hits' => $player_data['hits'] ?? 0  // v2.7.2: Include hits from GameHistoryItem validation
                 );
 
                 // **ENHANCED DEBUGGING**: Log the exact data being inserted
@@ -2641,6 +2708,7 @@ class Poker_Tournament_Import_Admin {
                     'buyins' => $total_buyins
                 ));
 
+                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
                 $result = $wpdb->insert($table_name, $player_record);
                 $insert_id = $wpdb->insert_id;
 
@@ -2671,7 +2739,9 @@ class Poker_Tournament_Import_Admin {
 
         // **ENHANCED DEBUGGING**: Final verification
         if ($table_check) {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
             $final_count = $wpdb->get_var("SELECT COUNT(*) FROM {$table_name}");
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
             $tournament_players = $wpdb->get_var($wpdb->prepare(
                 "SELECT COUNT(*) FROM {$table_name} WHERE tournament_id = %s",
                 $tournament_uuid
@@ -2685,6 +2755,7 @@ class Poker_Tournament_Import_Admin {
             ));
 
             // Show sample of inserted data
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
             $sample_data = $wpdb->get_results($wpdb->prepare(
                 "SELECT * FROM {$table_name} WHERE tournament_id = %s LIMIT 3",
                 $tournament_uuid
@@ -2815,7 +2886,7 @@ class Poker_Tournament_Import_Admin {
      */
     public function handle_player_data_repair() {
         if (!current_user_can('manage_options')) {
-            wp_die(__('You do not have sufficient permissions to access this page.', 'poker-tournament-import'));
+            wp_die(esc_html__('You do not have sufficient permissions to access this page.', 'poker-tournament-import'));
         }
 
         // Start output buffering
@@ -2839,9 +2910,9 @@ class Poker_Tournament_Import_Admin {
             $total_players_inserted = 0;
 
             echo '<div class="notice notice-info is-dismissible">';
-            echo '<p><strong>' . __('Starting Player Data Repair Process...', 'poker-tournament-import') . '</strong></p>';
+            echo '<p><strong>' . esc_html__('Starting Player Data Repair Process...', 'poker-tournament-import') . '</strong></p>';
             /* translators: %d: number of tournaments */
-            echo '<p>' . sprintf(__('Found %d tournaments to process.', 'poker-tournament-import'), $total_tournaments) . '</p>';
+            echo '<p>' . esc_html(sprintf(esc_html__('Found %d tournaments to process.', 'poker-tournament-import'), $total_tournaments)) . '</p>';
             echo '</div>';
 
             foreach ($tournaments as $tournament) {
@@ -2856,6 +2927,7 @@ class Poker_Tournament_Import_Admin {
                 $uuid_to_use = $tournament_uuid ?: $tournament_uuid_alt;
 
                 // Check if this tournament already has players in the data mart
+                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
                 $existing_players = $wpdb->get_var($wpdb->prepare(
                     "SELECT COUNT(*) FROM {$table_name} WHERE tournament_id = %s",
                     $uuid_to_use
@@ -2885,9 +2957,9 @@ class Poker_Tournament_Import_Admin {
                         echo '<p>' .
                             sprintf(
                                 /* translators: 1: tournament title, 2: number of players added */
-                                __('✅ Repaired tournament: %1$s - %2$d players added', 'poker-tournament-import'),
+                                esc_html__('✅ Repaired tournament: %1$s - %2$d players added', 'poker-tournament-import'),
                                 esc_html($tournament->post_title),
-                                $players_inserted
+                                esc_html($players_inserted)
                             ) . '</p>';
                         echo '</div>';
                     } else {
@@ -2895,7 +2967,7 @@ class Poker_Tournament_Import_Admin {
                         echo '<p>' .
                             sprintf(
                                 /* translators: %s: tournament title */
-                                __('⚠️ Tournament: %s - No players inserted', 'poker-tournament-import'),
+                                esc_html__('⚠️ Tournament: %s - No players inserted', 'poker-tournament-import'),
                                 esc_html($tournament->post_title)
                             ) . '</p>';
                         echo '</div>';
@@ -2914,27 +2986,27 @@ class Poker_Tournament_Import_Admin {
                     $dashboard_stats = $stats_engine->get_dashboard_statistics();
 
                     echo '<div class="notice notice-success is-dismissible">';
-                    echo '<p><strong>' . __('Player Data Repair Completed!', 'poker-tournament-import') . '</strong></p>';
+                    echo '<p><strong>' . esc_html__('Player Data Repair Completed!', 'poker-tournament-import') . '</strong></p>';
                     echo '<ul>';
                     /* translators: 1: number repaired, 2: total number */
-                    echo '<li>' . sprintf(__('Tournaments Repaired: %1$d of %2$d', 'poker-tournament-import'), $repaired_tournaments, $total_tournaments) . '</li>';
+                    echo '<li>' . esc_html(sprintf(esc_html__('Tournaments Repaired: %1$d of %2$d', 'poker-tournament-import'), $repaired_tournaments, $total_tournaments)) . '</li>';
                     /* translators: %d: number of players */
-                    echo '<li>' . sprintf(__('Total Players Added: %d', 'poker-tournament-import'), $total_players_inserted) . '</li>';
+                    echo '<li>' . esc_html(sprintf(esc_html__('Total Players Added: %d', 'poker-tournament-import'), $total_players_inserted)) . '</li>';
                     /* translators: %d: number of players */
-                    echo '<li>' . sprintf(__('Current Total Players: %d', 'poker-tournament-import'), intval($dashboard_stats['total_players'])) . '</li>';
+                    echo '<li>' . esc_html(sprintf(esc_html__('Current Total Players: %d', 'poker-tournament-import'), intval($dashboard_stats['total_players']))) . '</li>';
                     echo '</ul>';
                     echo '</div>';
                 } else {
                     echo '<div class="notice notice-warning">';
-                    echo '<p><strong>' . __('Data Repaired but Statistics Update Failed', 'poker-tournament-import') . '</strong></p>';
-                    echo '<p>' . __('Please try refreshing statistics manually.', 'poker-tournament-import') . '</p>';
+                    echo '<p><strong>' . esc_html__('Data Repaired but Statistics Update Failed', 'poker-tournament-import') . '</strong></p>';
+                    echo '<p>' . esc_html__('Please try refreshing statistics manually.', 'poker-tournament-import') . '</p>';
                     echo '</div>';
                 }
             }
 
         } catch (Exception $e) {
             echo '<div class="notice notice-error">';
-            echo '<p><strong>' . __('Player Data Repair Failed:', 'poker-tournament-import') . '</strong></p>';
+            echo '<p><strong>' . esc_html__('Player Data Repair Failed:', 'poker-tournament-import') . '</strong></p>';
             echo '<p>' . esc_html($e->getMessage()) . '</p>';
             echo '</div>';
         }
@@ -2942,6 +3014,7 @@ class Poker_Tournament_Import_Admin {
         // Clean output buffer and add to admin notices
         $message = ob_get_clean();
         add_action('admin_notices', function() use ($message) {
+            // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Content already escaped during construction
             echo $message;
         });
     }
@@ -3192,15 +3265,15 @@ class Poker_Tournament_Import_Admin {
         $content .= '<div class="tournament-overview">';
 
         // Tournament header information
-        $content .= '<h3>' . __('Tournament Overview', 'poker-tournament-import') . '</h3>';
-        $content .= '<p><strong>' . __('Game:', 'poker-tournament-import') . '</strong> ' . esc_html($game_type) . '</p>';
-        $content .= '<p><strong>' . __('Structure:', 'poker-tournament-import') . '</strong> ' . esc_html($structure) . '</p>';
-        $content .= '<p><strong>' . __('Buy-in:', 'poker-tournament-import') . '</strong> ' . esc_html($currency . number_format($buy_in, 0)) . '</p>';
-        $content .= '<p><strong>' . __('Players:', 'poker-tournament-import') . '</strong> ' . esc_html($players_count) . '</p>';
-        $content .= '<p><strong>' . __('Prize Pool:', 'poker-tournament-import') . '</strong> ' . esc_html($currency . number_format($prize_pool, 0)) . '</p>';
+        $content .= '<h3>' . esc_html__('Tournament Overview', 'poker-tournament-import') . '</h3>';
+        $content .= '<p><strong>' . esc_html__('Game:', 'poker-tournament-import') . '</strong> ' . esc_html($game_type) . '</p>';
+        $content .= '<p><strong>' . esc_html__('Structure:', 'poker-tournament-import') . '</strong> ' . esc_html($structure) . '</p>';
+        $content .= '<p><strong>' . esc_html__('Buy-in:', 'poker-tournament-import') . '</strong> ' . esc_html($currency . number_format($buy_in, 0)) . '</p>';
+        $content .= '<p><strong>' . esc_html__('Players:', 'poker-tournament-import') . '</strong> ' . esc_html($players_count) . '</p>';
+        $content .= '<p><strong>' . esc_html__('Prize Pool:', 'poker-tournament-import') . '</strong> ' . esc_html($currency . number_format($prize_pool, 0)) . '</p>';
 
         if (!empty($metadata['start_time'])) {
-            $content .= '<p><strong>' . __('Date:', 'poker-tournament-import') . '</strong> ' . esc_html(date_i18n(get_option('date_format'), strtotime($metadata['start_time']))) . '</p>';
+            $content .= '<p><strong>' . esc_html__('Date:', 'poker-tournament-import') . '</strong> ' . esc_html(date_i18n(get_option('date_format'), strtotime($metadata['start_time']))) . '</p>';
         }
 
         $content .= '</div>';
@@ -3208,24 +3281,24 @@ class Poker_Tournament_Import_Admin {
         // Add series/season information if available
         if (!empty($metadata['league_name'])) {
             $content .= '<div class="tournament-series-info">';
-            $content .= '<h4>' . __('Series Information', 'poker-tournament-import') . '</h4>';
-            $content .= '<p><strong>' . __('Series:', 'poker-tournament-import') . '</strong> ' . esc_html($metadata['league_name']) . '</p>';
+            $content .= '<h4>' . esc_html__('Series Information', 'poker-tournament-import') . '</h4>';
+            $content .= '<p><strong>' . esc_html__('Series:', 'poker-tournament-import') . '</strong> ' . esc_html($metadata['league_name']) . '</p>';
             if (!empty($metadata['season_name'])) {
-                $content .= '<p><strong>' . __('Season:', 'poker-tournament-import') . '</strong> ' . esc_html($metadata['season_name']) . '</p>';
+                $content .= '<p><strong>' . esc_html__('Season:', 'poker-tournament-import') . '</strong> ' . esc_html($metadata['season_name']) . '</p>';
             }
             $content .= '</div>';
         }
 
         // Add points calculation information
         $content .= '<div class="tournament-points-info">';
-        $content .= '<h4>' . __('Points System', 'poker-tournament-import') . '</h4>';
-        $content .= '<p>' . __('This tournament uses the Tournament Director points calculation system. Points are awarded based on finish position, number of players, and knockout bonuses.', 'poker-tournament-import') . '</p>';
-        $content .= '<p><em>' . __('Points are calculated using: T33, T80 thresholds, average buy-in, and knockout bonuses as per the Tournament Director formula.', 'poker-tournament-import') . '</em></p>';
+        $content .= '<h4>' . esc_html__('Points System', 'poker-tournament-import') . '</h4>';
+        $content .= '<p>' . esc_html__('This tournament uses the Tournament Director points calculation system. Points are awarded based on finish position, number of players, and knockout bonuses.', 'poker-tournament-import') . '</p>';
+        $content .= '<p><em>' . esc_html__('Points are calculated using: T33, T80 thresholds, average buy-in, and knockout bonuses as per the Tournament Director formula.', 'poker-tournament-import') . '</em></p>';
         $content .= '</div>';
 
         // Add results preview
         $content .= '<div class="tournament-results-preview">';
-        $content .= '<h4>' . __('Results Summary', 'poker-tournament-import') . '</h4>';
+        $content .= '<h4>' . esc_html__('Results Summary', 'poker-tournament-import') . '</h4>';
 
         if (!empty($tournament_data['players'])) {
             // **CRITICAL FIX**: Ensure we use chronologically processed player data for post content
@@ -3299,13 +3372,13 @@ class Poker_Tournament_Import_Admin {
                 $winnings = !empty($player['winnings']) ? $currency . number_format(floatval($player['winnings']), 0) : '$0';
                 $points = !empty($player['points']) ? number_format(floatval($player['points']), 1) : '0';
 
-                $content .= '<li><strong>' . esc_html($player_name) . '</strong> - ' . __('Winnings:', 'poker-tournament-import') . ' ' . esc_html($winnings) . ', ' . __('Points:', 'poker-tournament-import') . ' ' . esc_html($points) . '</li>';
+                $content .= '<li><strong>' . esc_html($player_name) . '</strong> - ' . esc_html__('Winnings:', 'poker-tournament-import') . ' ' . esc_html($winnings) . ', ' . esc_html__('Points:', 'poker-tournament-import') . ' ' . esc_html($points) . '</li>';
             }
             $content .= '</ol>';
 
             if ($players_count > 3) {
                 /* translators: %d: number of additional players */
-                $content .= '<p><em>' . sprintf(__('... and %d more players. See complete results below.', 'poker-tournament-import'), $players_count - 3) . '</em></p>';
+                $content .= '<p><em>' . sprintf(esc_html__('... and %d more players. See complete results below.', 'poker-tournament-import'), $players_count - 3) . '</em></p>';
             }
         }
 
@@ -3313,7 +3386,7 @@ class Poker_Tournament_Import_Admin {
 
         // Add shortcode for full results
         $content .= '<div class="full-tournament-results">';
-        $content .= '<h4>' . __('Complete Tournament Results', 'poker-tournament-import') . '</h4>';
+        $content .= '<h4>' . esc_html__('Complete Tournament Results', 'poker-tournament-import') . '</h4>';
         $content .= '[tournament_results show_players="true" show_structure="true"]';
         $content .= '</div>';
 
@@ -4332,6 +4405,7 @@ class Poker_Tournament_Import_Admin {
     private function get_prize_distribution_analytics($stats_engine) {
         global $wpdb;
 
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         $prize_distribution = $wpdb->get_results(
             "SELECT
                 CASE
@@ -4418,13 +4492,13 @@ class Poker_Tournament_Import_Admin {
         ?>
         <div class="poker-formula-meta-box">
             <p class="description">
-                <?php _e('Configure the points calculation formula for this tournament. If a formula was extracted from the .tdt file, it will be shown below. You can override it with a custom formula.', 'poker-tournament-import'); ?>
+                <?php esc_html_e('Configure the points calculation formula for this tournament. If a formula was extracted from the .tdt file, it will be shown below. You can override it with a custom formula.', 'poker-tournament-import'); ?>
             </p>
 
             <?php if ($is_tdt_formula): ?>
                 <div class="notice notice-info inline">
                     <p>
-                        <strong><?php _e('Formula from .tdt file:', 'poker-tournament-import'); ?></strong>
+                        <strong><?php esc_html_e('Formula from .tdt file:', 'poker-tournament-import'); ?></strong>
                         <?php if ($formula_description): ?>
                             <br><?php echo esc_html($formula_description); ?>
                         <?php endif; ?>
@@ -4436,7 +4510,7 @@ class Poker_Tournament_Import_Admin {
                 <tr>
                     <th scope="row">
                         <label for="tournament_formula_override">
-                            <?php _e('Formula Override', 'poker-tournament-import'); ?>
+                            <?php esc_html_e('Formula Override', 'poker-tournament-import'); ?>
                         </label>
                     </th>
                     <td>
@@ -4446,17 +4520,17 @@ class Poker_Tournament_Import_Admin {
                                    name="tournament_formula_override"
                                    value="1"
                                    <?php checked(!empty($formula_string)); ?>>
-                            <?php _e('Use custom formula for this tournament', 'poker-tournament-import'); ?>
+                            <?php esc_html_e('Use custom formula for this tournament', 'poker-tournament-import'); ?>
                         </label>
                         <p class="description">
-                            <?php _e('Check this box to override the global formula with a tournament-specific calculation.', 'poker-tournament-import'); ?>
+                            <?php esc_html_e('Check this box to override the global formula with a tournament-specific calculation.', 'poker-tournament-import'); ?>
                         </p>
                     </td>
                 </tr>
                 <tr id="formula_editor_row" style="<?php echo empty($formula_string) ? 'display:none;' : ''; ?>">
                     <th scope="row">
                         <label for="tournament_formula">
-                            <?php _e('Formula', 'poker-tournament-import'); ?>
+                            <?php esc_html_e('Formula', 'poker-tournament-import'); ?>
                         </label>
                     </th>
                     <td>
@@ -4465,18 +4539,18 @@ class Poker_Tournament_Import_Admin {
                             name="tournament_formula"
                             class="large-text formula-editor-textarea"
                             rows="8"
-                            placeholder="<?php esc_attr_e('Enter formula (e.g., 100 * (n - r + 1))', 'poker-tournament-import'); ?>"
+                            placeholder="<?php esc_attresc_html_e('Enter formula (e.g., 100 * (n - r + 1))', 'poker-tournament-import'); ?>"
                         ><?php echo esc_textarea($formula_string); ?></textarea>
                         <p class="description">
-                            <?php _e('Enter a custom points calculation formula using Tournament Director syntax.', 'poker-tournament-import'); ?>
-                            <?php _e('Available variables: n (players), r (rank), buyins, rebuys, addOns, etc.', 'poker-tournament-import'); ?>
+                            <?php esc_html_e('Enter a custom points calculation formula using Tournament Director syntax.', 'poker-tournament-import'); ?>
+                            <?php esc_html_e('Available variables: n (players), r (rank), buyins, rebuys, addOns, etc.', 'poker-tournament-import'); ?>
                         </p>
                     </td>
                 </tr>
                 <tr id="formula_description_row" style="<?php echo empty($formula_string) ? 'display:none;' : ''; ?>">
                     <th scope="row">
                         <label for="tournament_formula_description">
-                            <?php _e('Formula Description', 'poker-tournament-import'); ?>
+                            <?php esc_html_e('Formula Description', 'poker-tournament-import'); ?>
                         </label>
                     </th>
                     <td>
@@ -4485,7 +4559,7 @@ class Poker_Tournament_Import_Admin {
                                name="tournament_formula_description"
                                class="large-text"
                                value="<?php echo esc_attr($formula_description); ?>"
-                               placeholder="<?php esc_attr_e('Optional description of this formula', 'poker-tournament-import'); ?>">
+                               placeholder="<?php esc_attresc_html_e('Optional description of this formula', 'poker-tournament-import'); ?>">
                     </td>
                 </tr>
             </table>
@@ -4562,7 +4636,7 @@ class Poker_Tournament_Import_Admin {
                     // Add success notice
                     add_action('admin_notices', function() {
                         echo '<div class="notice notice-success is-dismissible"><p>' .
-                             __('Tournament formula saved successfully.', 'poker-tournament-import') .
+                             esc_html__('Tournament formula saved successfully.', 'poker-tournament-import') .
                              '</p></div>';
                     });
                 } else {
@@ -4571,7 +4645,7 @@ class Poker_Tournament_Import_Admin {
                     add_action('admin_notices', function() use ($error_message) {
                         echo '<div class="notice notice-error is-dismissible"><p>' .
                              /* translators: %s: error message */
-                             sprintf(__('Formula validation failed: %s', 'poker-tournament-import'), esc_html($error_message)) .
+                             sprintf(esc_html__('Formula validation failed: %s', 'poker-tournament-import'), esc_html($error_message)) .
                              '</p></div>';
                     });
                 }
@@ -4580,7 +4654,7 @@ class Poker_Tournament_Import_Admin {
                 add_action('admin_notices', function() use ($e) {
                     echo '<div class="notice notice-error is-dismissible"><p>' .
                          /* translators: %s: error message */
-                         sprintf(__('Formula error: %s', 'poker-tournament-import'), esc_html($e->getMessage())) .
+                         sprintf(esc_html__('Formula error: %s', 'poker-tournament-import'), esc_html($e->getMessage())) .
                          '</p></div>';
                 });
             }
@@ -4588,5 +4662,41 @@ class Poker_Tournament_Import_Admin {
             // Remove formula override if checkbox is unchecked
             delete_post_meta($post_id, '_tournament_points_formula');
         }
+    }
+
+    /**
+     * Cached database query helper
+     * Wraps $wpdb queries with WordPress object cache
+     *
+     * @param string $query_type 'get_results', 'get_var', 'get_col', or 'query'
+     * @param string $sql SQL query
+     * @param mixed $args Optional query arguments
+     * @param int $cache_time Cache duration in seconds (default: 1 hour)
+     * @return mixed Query results
+     */
+    private function cached_query($query_type, $sql, $args = null, $cache_time = HOUR_IN_SECONDS) {
+        global $wpdb;
+
+        // Generate cache key from query
+        $cache_key = 'poker_' . md5($sql . serialize($args));
+        $cache_group = 'poker_tournament';
+
+        // Try to get from cache
+        $results = wp_cache_get($cache_key, $cache_group);
+
+        if (false === $results) {
+            // Cache miss - query database
+            if ($args !== null) {
+                $prepared_sql = $wpdb->prepare($sql, $args);
+                $results = $wpdb->$query_type($prepared_sql);
+            } else {
+                $results = $wpdb->$query_type($sql);
+            }
+
+            // Store in cache
+            wp_cache_set($cache_key, $results, $cache_group, $cache_time);
+        }
+
+        return $results;
     }
 }

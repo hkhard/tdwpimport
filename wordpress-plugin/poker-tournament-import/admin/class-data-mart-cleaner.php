@@ -76,11 +76,11 @@ class Poker_Data_Mart_Cleaner {
         }
 
         if (!wp_verify_nonce($_POST['_wpnonce'], 'poker_data_mart_cleaner')) {
-            wp_die(__('Security check failed.', 'poker-tournament-import'));
+            wp_die(esc_html__('Security check failed.', 'poker-tournament-import'));
         }
 
         if (!current_user_can('manage_options')) {
-            wp_die(__('You do not have sufficient permissions to access this page.', 'poker-tournament-import'));
+            wp_die(esc_html__('You do not have sufficient permissions to access this page.', 'poker-tournament-import'));
         }
 
         $action = sanitize_text_field($_POST['poker_cleaner_action']);
@@ -141,6 +141,7 @@ class Poker_Data_Mart_Cleaner {
         $table_name = $wpdb->prefix . 'poker_statistics';
 
         // Step 1: Verify table exists
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         $table_exists = $wpdb->get_var("SHOW TABLES LIKE '{$table_name}'");
         if (!$table_exists) {
             error_log("Poker Data Mart: Statistics table {$table_name} does not exist");
@@ -148,6 +149,7 @@ class Poker_Data_Mart_Cleaner {
         }
 
         // Step 2: Count records before cleaning for verification
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         $record_count_before = $wpdb->get_var("SELECT COUNT(*) FROM {$table_name}");
         error_log("Poker Data Mart: Statistics table has {$record_count_before} records before cleaning");
 
@@ -157,6 +159,7 @@ class Poker_Data_Mart_Cleaner {
         if ($result === false) {
             // Step 4: Fallback to DELETE if TRUNCATE fails
             error_log("Poker Data Mart: TRUNCATE failed, trying DELETE - " . $wpdb->last_error);
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
             $result = $wpdb->query("DELETE FROM {$table_name}");
 
             if ($result === false) {
@@ -170,6 +173,7 @@ class Poker_Data_Mart_Cleaner {
         }
 
         // Step 5: Verify the table was actually cleaned
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         $record_count_after = $wpdb->get_var("SELECT COUNT(*) FROM {$table_name}");
 
         if ($record_count_after == 0) {
@@ -325,9 +329,11 @@ class Poker_Data_Mart_Cleaner {
             error_log("Poker Data Mart: Processing table {$table_suffix} as {$table_name}");
 
             // Check if table exists before truncating
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
             $table_exists = $wpdb->get_var("SHOW TABLES LIKE '{$table_name}'");
             if ($table_exists) {
                 // Count records before truncation for logging
+                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
                 $record_count = $wpdb->get_var("SELECT COUNT(*) FROM {$table_name}");
                 error_log("Poker Data Mart: Table {$table_name} exists with {$record_count} records, truncating...");
 
@@ -395,6 +401,7 @@ class Poker_Data_Mart_Cleaner {
         global $wpdb;
 
         // Get all transients related to our plugin
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         $transients = $wpdb->get_results(
             "SELECT option_name FROM {$wpdb->options}
              WHERE option_name LIKE '_transient_poker_%'
@@ -501,6 +508,7 @@ class Poker_Data_Mart_Cleaner {
         );
 
         foreach ($meta_keys as $meta_key) {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
             $result = $wpdb->query(
                 $wpdb->prepare(
                     "DELETE FROM {$wpdb->postmeta} WHERE meta_key LIKE %s",
@@ -534,6 +542,7 @@ class Poker_Data_Mart_Cleaner {
         );
 
         foreach ($user_meta_keys as $meta_key) {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
             $result = $wpdb->query(
                 $wpdb->prepare(
                     "DELETE FROM {$wpdb->usermeta} WHERE meta_key LIKE %s",
@@ -623,9 +632,11 @@ class Poker_Data_Mart_Cleaner {
             $table_name = $wpdb->prefix . $table_suffix;
 
             // Check if table exists
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
             $table_exists = $wpdb->get_var("SHOW TABLES LIKE '{$table_name}'");
 
             if ($table_exists) {
+                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
                 $count = $wpdb->get_var("SELECT COUNT(*) FROM {$table_name}");
                 $stats[$table_suffix] = array(
                     'exists' => true,
@@ -652,7 +663,7 @@ class Poker_Data_Mart_Cleaner {
     public function render_admin_page() {
         ?>
         <div class="wrap">
-            <h1><?php _e('Poker Tournament Data Mart Cleaner', 'poker-tournament-import'); ?></h1>
+            <h1><?php esc_html_e('Poker Tournament Data Mart Cleaner', 'poker-tournament-import'); ?></h1>
 
             <?php if (isset($_GET['cleaned'])): ?>
                 <div class="notice notice-success is-dismissible">
@@ -660,28 +671,28 @@ class Poker_Data_Mart_Cleaner {
                     $cleaned = sanitize_text_field($_GET['cleaned']);
                     switch ($cleaned) {
                         case 'statistics':
-                            echo '<p>' . __('Statistics table cleaned successfully!', 'poker-tournament-import') . '</p>';
+                            echo '<p>' . esc_html__('Statistics table cleaned successfully!', 'poker-tournament-import') . '</p>';
                             break;
                         case 'financial':
-                            echo '<p>' . __('Financial data tables cleaned successfully!', 'poker-tournament-import') . '</p>';
+                            echo '<p>' . esc_html__('Financial data tables cleaned successfully!', 'poker-tournament-import') . '</p>';
                             break;
                         case 'player_data':
-                            echo '<p>' . __('Player data cleaned successfully!', 'poker-tournament-import') . '</p>';
+                            echo '<p>' . esc_html__('Player data cleaned successfully!', 'poker-tournament-import') . '</p>';
                             break;
                         case 'analytics':
-                            echo '<p>' . __('Analytics tables cleaned successfully!', 'poker-tournament-import') . '</p>';
+                            echo '<p>' . esc_html__('Analytics tables cleaned successfully!', 'poker-tournament-import') . '</p>';
                             break;
                         case 'options':
-                            echo '<p>' . __('WordPress options cleaned successfully!', 'poker-tournament-import') . '</p>';
+                            echo '<p>' . esc_html__('WordPress options cleaned successfully!', 'poker-tournament-import') . '</p>';
                             break;
                         case 'all':
-                            echo '<p>' . __('All data mart tables cleaned successfully!', 'poker-tournament-import') . '</p>';
+                            echo '<p>' . esc_html__('All data mart tables cleaned successfully!', 'poker-tournament-import') . '</p>';
                             break;
                         case 'reset_all':
-                            echo '<p>' . __('Complete plugin data reset successful!', 'poker-tournament-import') . '</p>';
+                            echo '<p>' . esc_html__('Complete plugin data reset successful!', 'poker-tournament-import') . '</p>';
                             break;
                         case 'migrated':
-                            echo '<p>' . __('Tournament data migration completed successfully!', 'poker-tournament-import') . '</p>';
+                            echo '<p>' . esc_html__('Tournament data migration completed successfully!', 'poker-tournament-import') . '</p>';
                             break;
                     }
                     ?>
@@ -689,14 +700,14 @@ class Poker_Data_Mart_Cleaner {
             <?php endif; ?>
 
             <div class="card">
-                <h2><?php _e('Current Data Mart Status', 'poker-tournament-import'); ?></h2>
+                <h2><?php esc_html_e('Current Data Mart Status', 'poker-tournament-import'); ?></h2>
                 <table class="wp-list-table widefat fixed striped">
                     <thead>
                         <tr>
-                            <th><?php _e('Table', 'poker-tournament-import'); ?></th>
-                            <th><?php _e('Description', 'poker-tournament-import'); ?></th>
-                            <th><?php _e('Records', 'poker-tournament-import'); ?></th>
-                            <th><?php _e('Status', 'poker-tournament-import'); ?></th>
+                            <th><?php esc_html_e('Table', 'poker-tournament-import'); ?></th>
+                            <th><?php esc_html_e('Description', 'poker-tournament-import'); ?></th>
+                            <th><?php esc_html_e('Records', 'poker-tournament-import'); ?></th>
+                            <th><?php esc_html_e('Status', 'poker-tournament-import'); ?></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -709,7 +720,7 @@ class Poker_Data_Mart_Cleaner {
                         <tr>
                             <td><code><?php echo esc_html($table_suffix); ?></code></td>
                             <td><?php echo esc_html($info['description']); ?></td>
-                            <td><?php echo number_format_i18n($info['count']); ?></td>
+                            <td><?php echo esc_html(number_format_i18n($info['count'])); ?></td>
                             <td><span class="<?php echo esc_attr($status_class); ?>"><?php echo esc_html($status_text); ?></span></td>
                         </tr>
                         <?php endforeach; ?>
@@ -719,7 +730,7 @@ class Poker_Data_Mart_Cleaner {
 
             <!-- CRITICAL FIX: Tournament Migration Section -->
             <div class="card">
-                <h2><?php _e('Tournament Chronological Processing Status', 'poker-tournament-import'); ?></h2>
+                <h2><?php esc_html_e('Tournament Chronological Processing Status', 'poker-tournament-import'); ?></h2>
                 <?php
                 $migration_stats = $this->get_enhanced_data_mart_stats();
                 $migration_status = $migration_stats['migration_status'];
@@ -727,75 +738,76 @@ class Poker_Data_Mart_Cleaner {
                 <table class="wp-list-table widefat fixed striped">
                     <thead>
                         <tr>
-                            <th><?php _e('Status', 'poker-tournament-import'); ?></th>
-                            <th><?php _e('Count', 'poker-tournament-import'); ?></th>
-                            <th><?php _e('Action', 'poker-tournament-import'); ?></th>
+                            <th><?php esc_html_e('Status', 'poker-tournament-import'); ?></th>
+                            <th><?php esc_html_e('Count', 'poker-tournament-import'); ?></th>
+                            <th><?php esc_html_e('Action', 'poker-tournament-import'); ?></th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
-                            <td><span class="status-success"><?php _e('Tournaments with Chronological Processing', 'poker-tournament-import'); ?></span></td>
-                            <td class="migration-status-migrated"><?php echo number_format_i18n($migration_status['migrated_count']); ?></td>
-                            <td><span class="status-success"><?php _e('✓ Ready', 'poker-tournament-import'); ?></span></td>
+                            <td><span class="status-success"><?php esc_html_e('Tournaments with Chronological Processing', 'poker-tournament-import'); ?></span></td>
+                            <td class="migration-status-migrated"><?php echo esc_html(number_format_i18n($migration_status['migrated_count'])); ?></td>
+                            <td><span class="status-success"><?php esc_html_e('✓ Ready', 'poker-tournament-import'); ?></span></td>
                         </tr>
                         <tr>
-                            <td><span class="status-warning"><?php _e('Tournaments Needing Re-import', 'poker-tournament-import'); ?></span></td>
-                            <td class="migration-status-needs-reimport"><?php echo number_format_i18n($migration_status['needs_reimport_count']); ?></td>
+                            <td><span class="status-warning"><?php esc_html_e('Tournaments Needing Re-import', 'poker-tournament-import'); ?></span></td>
+                            <td class="migration-status-needs-reimport"><?php echo esc_html(number_format_i18n($migration_status['needs_reimport_count'])); ?></td>
                             <td>
-                                <button type="button" class="button poker-ajax-button" data-action="migrate_tournaments" <?php echo $migration_status['needs_reimport_count'] > 0 ? '' : 'disabled'; ?>>
-                                    <?php _e('Migrate Now', 'poker-tournament-import'); ?>
+                                <button type="button" class="button poker-ajax-button" data-action="migrate_tournaments" <?php echo esc_attr($migration_status['needs_reimport_count'] > 0 ? '' : 'disabled'); ?>>
+                                    <?php esc_html_e('Migrate Now', 'poker-tournament-import'); ?>
                                 </button>
                             </td>
                         </tr>
                         <tr>
-                            <td><span class="status-info"><?php _e('Total Tournaments', 'poker-tournament-import'); ?></span></td>
-                            <td class="migration-status-total"><?php echo number_format_i18n($migration_status['total_tournaments']); ?></td>
-                            <td><span class="status-info"><?php _e('─', 'poker-tournament-import'); ?></span></td>
+                            <td><span class="status-info"><?php esc_html_e('Total Tournaments', 'poker-tournament-import'); ?></span></td>
+                            <td class="migration-status-total"><?php echo esc_html(number_format_i18n($migration_status['total_tournaments'])); ?></td>
+                            <td><span class="status-info"><?php esc_html_e('─', 'poker-tournament-import'); ?></span></td>
                         </tr>
                     </tbody>
                 </table>
 
                 <?php if ($migration_status['needs_reimport_count'] > 0): ?>
                     <div class="migration-notice" style="background: #fcf9e6; border: 1px solid #f0ad4e; border-radius: 4px; padding: 10px; margin-top: 15px;">
-                        <p><strong><?php _e('Migration Needed:', 'poker-tournament-import'); ?></strong> <?php
+                        <p><strong><?php esc_html_e('Migration Needed:', 'poker-tournament-import'); ?></strong> <?php
                         /* translators: %d: number of tournaments needing re-import */
-                        echo sprintf(
+                        echo esc_html(sprintf(
+                              /* translators: %d: tournaments re-imported */
                             __('%d tournaments were imported before version 2.1.3 and lack raw TDT content needed for chronological processing. Re-import these tournaments with their original .tdt files to enable accurate results.', 'poker-tournament-import'),
                             $migration_status['needs_reimport_count']
-                        ); ?></p>
+                        )); ?></p>
                     </div>
                 <?php endif; ?>
             </div>
 
             <div class="card">
-                <h2><?php _e('Data Cleaning Options', 'poker-tournament-import'); ?></h2>
-                <p><strong><?php _e('⚠️ WARNING: These actions are irreversible and will permanently delete data!', 'poker-tournament-import'); ?></strong></p>
+                <h2><?php esc_html_e('Data Cleaning Options', 'poker-tournament-import'); ?></h2>
+                <p><strong><?php esc_html_e('⚠️ WARNING: These actions are irreversible and will permanently delete data!', 'poker-tournament-import'); ?></strong></p>
 
                 <div class="cleaning-options">
                     <!-- Basic Cleaning -->
                     <div class="option-group">
-                        <h3><?php _e('Basic Cleaning', 'poker-tournament-import'); ?></h3>
-                        <p><?php _e('Remove calculated statistics and analytics while preserving raw tournament data.', 'poker-tournament-import'); ?></p>
+                        <h3><?php esc_html_e('Basic Cleaning', 'poker-tournament-import'); ?></h3>
+                        <p><?php esc_html_e('Remove calculated statistics and analytics while preserving raw tournament data.', 'poker-tournament-import'); ?></p>
 
                         <button type="button" class="button poker-ajax-button" data-action="clean_statistics">
-                            <?php _e('Clean Statistics Only', 'poker-tournament-import'); ?>
+                            <?php esc_html_e('Clean Statistics Only', 'poker-tournament-import'); ?>
                         </button>
 
                         <button type="button" class="button poker-ajax-button" data-action="clean_financial" style="margin-left: 10px;">
-                            <?php _e('Clean Financial Data', 'poker-tournament-import'); ?>
+                            <?php esc_html_e('Clean Financial Data', 'poker-tournament-import'); ?>
                         </button>
                     </div>
 
                     <!-- Complete Reset -->
                     <div class="option-group danger-zone">
-                        <h3><?php _e('⚠️ DANGER ZONE - Complete Reset', 'poker-tournament-import'); ?></h3>
-                        <p><strong><?php _e('This will remove ALL plugin data including tournament posts, player posts, series posts, taxonomies, post meta, statistics tables, uploaded files, options, transients, and user meta. This action cannot be undone!', 'poker-tournament-import'); ?></strong></p>
+                        <h3><?php esc_html_e('⚠️ DANGER ZONE - Complete Reset', 'poker-tournament-import'); ?></h3>
+                        <p><strong><?php esc_html_e('This will remove ALL plugin data including tournament posts, player posts, series posts, taxonomies, post meta, statistics tables, uploaded files, options, transients, and user meta. This action cannot be undone!', 'poker-tournament-import'); ?></strong></p>
 
                         <form method="post" action="" style="display: inline;">
                             <?php wp_nonce_field('poker_data_mart_cleaner'); ?>
                             <input type="hidden" name="poker_cleaner_action" value="reset_all">
                             <button type="submit" class="button button-link-delete" onclick="return confirm('<?php echo esc_js(__('Are you absolutely sure you want to delete ALL plugin data? This cannot be undone!', 'poker-tournament-import')); ?>')">
-                                <?php _e('Reset All Plugin Data', 'poker-tournament-import'); ?>
+                                <?php esc_html_e('Reset All Plugin Data', 'poker-tournament-import'); ?>
                             </button>
                         </form>
                     </div>
@@ -803,22 +815,22 @@ class Poker_Data_Mart_Cleaner {
             </div>
 
             <div class="card">
-                <h2><?php _e('Explanation of Data Types', 'poker-tournament-import'); ?></h2>
+                <h2><?php esc_html_e('Explanation of Data Types', 'poker-tournament-import'); ?></h2>
                 <dl>
-                    <dt><strong><?php _e('Statistics', 'poker-tournament-import'); ?></strong></dt>
-                    <dd><?php _e('Calculated dashboard metrics like total tournaments, players, prize pools, and KPIs.', 'poker-tournament-import'); ?></dd>
+                    <dt><strong><?php esc_html_e('Statistics', 'poker-tournament-import'); ?></strong></dt>
+                    <dd><?php esc_html_e('Calculated dashboard metrics like total tournaments, players, prize pools, and KPIs.', 'poker-tournament-import'); ?></dd>
 
-                    <dt><strong><?php _e('Financial Data', 'poker-tournament-import'); ?></strong></dt>
-                    <dd><?php _e('Tournament financial summaries, ROI calculations, cost breakdowns, and revenue analytics.', 'poker-tournament-import'); ?></dd>
+                    <dt><strong><?php esc_html_e('Financial Data', 'poker-tournament-import'); ?></strong></dt>
+                    <dd><?php esc_html_e('Tournament financial summaries, ROI calculations, cost breakdowns, and revenue analytics.', 'poker-tournament-import'); ?></dd>
 
-                    <dt><strong><?php _e('Player Data', 'poker-tournament-import'); ?></strong></dt>
-                    <dd><?php _e('Player ROI tracking, performance metrics, and investment analysis.', 'poker-tournament-import'); ?></dd>
+                    <dt><strong><?php esc_html_e('Player Data', 'poker-tournament-import'); ?></strong></dt>
+                    <dd><?php esc_html_e('Player ROI tracking, performance metrics, and investment analysis.', 'poker-tournament-import'); ?></dd>
 
-                    <dt><strong><?php _e('Analytics', 'poker-tournament-import'); ?></strong></dt>
-                    <dd><?php _e('Monthly revenue trends, profit analytics, and growth metrics.', 'poker-tournament-import'); ?></dd>
+                    <dt><strong><?php esc_html_e('Analytics', 'poker-tournament-import'); ?></strong></dt>
+                    <dd><?php esc_html_e('Monthly revenue trends, profit analytics, and growth metrics.', 'poker-tournament-import'); ?></dd>
 
-                    <dt><strong><?php _e('Complete Reset', 'poker-tournament-import'); ?></strong></dt>
-                    <dd><?php _e('Removes EVERYTHING: All tournament posts, player posts, series posts, season posts, all taxonomies and terms, all post meta data, all data mart tables, uploaded .tdt files, plugin options, transients, and user meta data. Complete plugin factory reset.', 'poker-tournament-import'); ?></dd>
+                    <dt><strong><?php esc_html_e('Complete Reset', 'poker-tournament-import'); ?></strong></dt>
+                    <dd><?php esc_html_e('Removes EVERYTHING: All tournament posts, player posts, series posts, season posts, all taxonomies and terms, all post meta data, all data mart tables, uploaded .tdt files, plugin options, transients, and user meta data. Complete plugin factory reset.', 'poker-tournament-import'); ?></dd>
                 </dl>
             </div>
         </div>
@@ -974,7 +986,7 @@ class Poker_Data_Mart_Cleaner {
 
         <script>
         jQuery(document).ready(function($) {
-            var nonce = '<?php echo wp_create_nonce("poker_data_mart_cleaner"); ?>';
+            var nonce = '<?php echo esc_attr(wp_create_nonce("poker_data_mart_cleaner")); ?>';
 
             // Initialize AJAX functionality
             $('.poker-ajax-button').on('click', function(e) {
@@ -998,7 +1010,7 @@ class Poker_Data_Mart_Cleaner {
 
                 // Show loading state
                 $button.addClass('poker-ajax-disabled');
-                $button.html('<span class="poker-spinner"></span>' + '<?php _e('Processing...', 'poker-tournament-import'); ?>');
+                $button.html('<span class="poker-spinner"></span>' + '<?php esc_html_e('Processing...', 'poker-tournament-import'); ?>');
 
                 // Remove previous messages
                 $('.poker-ajax-message').remove();
@@ -1047,7 +1059,7 @@ class Poker_Data_Mart_Cleaner {
                         $button.html(originalText);
 
                         // Show error message
-                        var errorMessage = '<?php _e('AJAX request failed. Please try again.', 'poker-tournament-import'); ?>';
+                        var errorMessage = '<?php esc_html_e('AJAX request failed. Please try again.', 'poker-tournament-import'); ?>';
                         if (xhr.responseJSON && xhr.responseJSON.message) {
                             errorMessage = xhr.responseJSON.message;
                         }
@@ -1086,9 +1098,9 @@ class Poker_Data_Mart_Cleaner {
                         $statusCell.removeClass('status-active status-inactive');
 
                         if (info.count > 0) {
-                            $statusCell.addClass('status-active').text('<?php _e('Has Data', 'poker-tournament-import'); ?>');
+                            $statusCell.addClass('status-active').text('<?php esc_html_e('Has Data', 'poker-tournament-import'); ?>');
                         } else {
-                            $statusCell.addClass('status-inactive').text('<?php _e('Empty', 'poker-tournament-import'); ?>');
+                            $statusCell.addClass('status-inactive').text('<?php esc_html_e('Empty', 'poker-tournament-import'); ?>');
                         }
                     }
                 });
@@ -1114,8 +1126,8 @@ class Poker_Data_Mart_Cleaner {
                 if (migrationStatus.needs_reimport_count > 0) {
                     if ($migrationNotice.length === 0) {
                         var noticeHtml = '<div class="migration-notice" style="background: #fcf9e6; border: 1px solid #f0ad4e; border-radius: 4px; padding: 10px; margin-top: 15px;">' +
-                                       '<p><strong><?php _e('Migration Needed:', 'poker-tournament-import'); ?></strong> ' +
-                                       '<?php /* translators: %d: number of tournaments needing re-import */ echo sprintf(__('%d tournaments were imported before version 2.1.3 and lack raw TDT content needed for chronological processing. Re-import these tournaments with their original .tdt files to enable accurate results.', 'poker-tournament-import'), '{COUNT}'); ?></p></div>';
+                                       '<p><strong><?php esc_html_e('Migration Needed:', 'poker-tournament-import'); ?></strong> ' +
+                                       '<?php /* translators: %d: number of tournaments needing re-import */ echo esc_html(sprintf(__('%d tournaments were imported before version 2.1.3 and lack raw TDT content needed for chronological processing. Re-import these tournaments with their original .tdt files to enable accurate results.', 'poker-tournament-import'), '{COUNT}')); ?></p></div>';
                         noticeHtml = noticeHtml.replace('{COUNT}', migrationStatus.needs_reimport_count);
                         $('.migration-status-table').closest('.card').append(noticeHtml);
                     }
@@ -1247,12 +1259,12 @@ class Poker_Data_Mart_Cleaner {
     public function handle_ajax_cleaning() {
         // Verify nonce
         if (!wp_verify_nonce($_POST['nonce'], 'poker_data_mart_cleaner')) {
-            wp_die(__('Security check failed.', 'poker-tournament-import'));
+            wp_die(esc_html__('Security check failed.', 'poker-tournament-import'));
         }
 
         // Check capabilities
         if (!current_user_can('manage_options')) {
-            wp_die(__('You do not have sufficient permissions.', 'poker-tournament-import'));
+            wp_die(esc_html__('You do not have sufficient permissions.', 'poker-tournament-import'));
         }
 
         $action = sanitize_text_field($_POST['cleaning_action']);
@@ -1268,9 +1280,9 @@ class Poker_Data_Mart_Cleaner {
                     $result = $this->clean_statistics_table();
                     if ($result) {
                         $response['success'] = true;
-                        $response['message'] = __('Statistics table cleaned successfully!', 'poker-tournament-import');
+                        $response['message'] = esc_html__('Statistics table cleaned successfully!', 'poker-tournament-import');
                     } else {
-                        $response['message'] = __('Failed to clean statistics table.', 'poker-tournament-import');
+                        $response['message'] = esc_html__('Failed to clean statistics table.', 'poker-tournament-import');
                     }
                     break;
 
@@ -1278,9 +1290,9 @@ class Poker_Data_Mart_Cleaner {
                     $result = $this->clean_financial_tables();
                     if ($result) {
                         $response['success'] = true;
-                        $response['message'] = __('Financial data tables cleaned successfully!', 'poker-tournament-import');
+                        $response['message'] = esc_html__('Financial data tables cleaned successfully!', 'poker-tournament-import');
                     } else {
-                        $response['message'] = __('Failed to clean financial data tables.', 'poker-tournament-import');
+                        $response['message'] = esc_html__('Failed to clean financial data tables.', 'poker-tournament-import');
                     }
                     break;
 
@@ -1288,9 +1300,9 @@ class Poker_Data_Mart_Cleaner {
                     $result = $this->clean_player_data();
                     if ($result) {
                         $response['success'] = true;
-                        $response['message'] = __('Player data cleaned successfully!', 'poker-tournament-import');
+                        $response['message'] = esc_html__('Player data cleaned successfully!', 'poker-tournament-import');
                     } else {
-                        $response['message'] = __('Failed to clean player data.', 'poker-tournament-import');
+                        $response['message'] = esc_html__('Failed to clean player data.', 'poker-tournament-import');
                     }
                     break;
 
@@ -1298,9 +1310,9 @@ class Poker_Data_Mart_Cleaner {
                     $result = $this->clean_analytics_tables();
                     if ($result) {
                         $response['success'] = true;
-                        $response['message'] = __('Analytics tables cleaned successfully!', 'poker-tournament-import');
+                        $response['message'] = esc_html__('Analytics tables cleaned successfully!', 'poker-tournament-import');
                     } else {
-                        $response['message'] = __('Failed to clean analytics tables.', 'poker-tournament-import');
+                        $response['message'] = esc_html__('Failed to clean analytics tables.', 'poker-tournament-import');
                     }
                     break;
 
@@ -1308,9 +1320,9 @@ class Poker_Data_Mart_Cleaner {
                     $result = $this->clean_wordpress_options();
                     if ($result) {
                         $response['success'] = true;
-                        $response['message'] = __('WordPress options cleaned successfully!', 'poker-tournament-import');
+                        $response['message'] = esc_html__('WordPress options cleaned successfully!', 'poker-tournament-import');
                     } else {
-                        $response['message'] = __('Failed to clean WordPress options.', 'poker-tournament-import');
+                        $response['message'] = esc_html__('Failed to clean WordPress options.', 'poker-tournament-import');
                     }
                     break;
 
@@ -1318,14 +1330,14 @@ class Poker_Data_Mart_Cleaner {
                     $result = $this->clean_all_data_mart();
                     if ($result) {
                         $response['success'] = true;
-                        $response['message'] = __('All data mart tables cleaned successfully!', 'poker-tournament-import');
+                        $response['message'] = esc_html__('All data mart tables cleaned successfully!', 'poker-tournament-import');
                     } else {
-                        $response['message'] = __('Failed to clean all data mart tables.', 'poker-tournament-import');
+                        $response['message'] = esc_html__('Failed to clean all data mart tables.', 'poker-tournament-import');
                     }
                     break;
 
                 default:
-                    $response['message'] = __('Unknown cleaning action.', 'poker-tournament-import');
+                    $response['message'] = esc_html__('Unknown cleaning action.', 'poker-tournament-import');
                     break;
             }
 
@@ -1336,7 +1348,7 @@ class Poker_Data_Mart_Cleaner {
 
         } catch (Exception $e) {
             /* translators: %s: error message */
-            $response['message'] = sprintf(__('Error: %s', 'poker-tournament-import'), $e->getMessage());
+            $response['message'] = esc_html(sprintf(__('Error: %s', 'poker-tournament-import'), $e->getMessage()));
             Poker_Tournament_Import_Debug::log_error('AJAX cleaning error: ' . $e->getMessage());
         }
 
@@ -1349,12 +1361,12 @@ class Poker_Data_Mart_Cleaner {
     public function handle_ajax_migration() {
         // Verify nonce
         if (!wp_verify_nonce($_POST['nonce'], 'poker_data_mart_cleaner')) {
-            wp_die(__('Security check failed.', 'poker-tournament-import'));
+            wp_die(esc_html__('Security check failed.', 'poker-tournament-import'));
         }
 
         // Check capabilities
         if (!current_user_can('manage_options')) {
-            wp_die(__('You do not have sufficient permissions.', 'poker-tournament-import'));
+            wp_die(esc_html__('You do not have sufficient permissions.', 'poker-tournament-import'));
         }
 
         $response = array(
@@ -1367,9 +1379,9 @@ class Poker_Data_Mart_Cleaner {
             $result = $this->migrate_tournament_data();
             if ($result) {
                 $response['success'] = true;
-                $response['message'] = __('Tournament data migration completed successfully!', 'poker-tournament-import');
+                $response['message'] = esc_html__('Tournament data migration completed successfully!', 'poker-tournament-import');
             } else {
-                $response['message'] = __('No tournaments needed migration.', 'poker-tournament-import');
+                $response['message'] = esc_html__('No tournaments needed migration.', 'poker-tournament-import');
             }
 
             // Get updated migration status
@@ -1377,7 +1389,7 @@ class Poker_Data_Mart_Cleaner {
 
         } catch (Exception $e) {
             /* translators: %s: error message */
-            $response['message'] = sprintf(__('Error: %s', 'poker-tournament-import'), $e->getMessage());
+            $response['message'] = esc_html(sprintf(__('Error: %s', 'poker-tournament-import'), $e->getMessage()));
             Poker_Tournament_Import_Debug::log_error('AJAX migration error: ' . $e->getMessage());
         }
 
@@ -1390,12 +1402,12 @@ class Poker_Data_Mart_Cleaner {
     public function handle_ajax_status() {
         // Verify nonce
         if (!wp_verify_nonce($_GET['nonce'], 'poker_data_mart_cleaner')) {
-            wp_die(__('Security check failed.', 'poker-tournament-import'));
+            wp_die(esc_html__('Security check failed.', 'poker-tournament-import'));
         }
 
         // Check capabilities
         if (!current_user_can('manage_options')) {
-            wp_die(__('You do not have sufficient permissions.', 'poker-tournament-import'));
+            wp_die(esc_html__('You do not have sufficient permissions.', 'poker-tournament-import'));
         }
 
         $response = array(
@@ -1409,10 +1421,46 @@ class Poker_Data_Mart_Cleaner {
         } catch (Exception $e) {
             $response['success'] = false;
             /* translators: %s: error message */
-            $response['message'] = sprintf(__('Error: %s', 'poker-tournament-import'), $e->getMessage());
+            $response['message'] = esc_html(sprintf(__('Error: %s', 'poker-tournament-import'), $e->getMessage()));
             Poker_Tournament_Import_Debug::log_error('AJAX status error: ' . $e->getMessage());
         }
 
         wp_send_json($response);
+    }
+
+    /**
+     * Cached database query helper
+     * Wraps $wpdb queries with WordPress object cache
+     *
+     * @param string $query_type 'get_results', 'get_var', 'get_col', or 'query'
+     * @param string $sql SQL query
+     * @param mixed $args Optional query arguments
+     * @param int $cache_time Cache duration in seconds (default: 1 hour)
+     * @return mixed Query results
+     */
+    private function cached_query($query_type, $sql, $args = null, $cache_time = HOUR_IN_SECONDS) {
+        global $wpdb;
+
+        // Generate cache key from query
+        $cache_key = 'poker_' . md5($sql . serialize($args));
+        $cache_group = 'poker_tournament';
+
+        // Try to get from cache
+        $results = wp_cache_get($cache_key, $cache_group);
+
+        if (false === $results) {
+            // Cache miss - query database
+            if ($args !== null) {
+                $prepared_sql = $wpdb->prepare($sql, $args);
+                $results = $wpdb->$query_type($prepared_sql);
+            } else {
+                $results = $wpdb->$query_type($sql);
+            }
+
+            // Store in cache
+            wp_cache_set($cache_key, $results, $cache_group, $cache_time);
+        }
+
+        return $results;
     }
 }

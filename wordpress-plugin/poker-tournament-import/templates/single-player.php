@@ -25,6 +25,26 @@ if (!defined('ABSPATH')) {
 <body <?php body_class(); ?>>
 <?php wp_body_open(); ?>
 
+<!-- Theme Header Template Part (v2.8.10: Block theme support) -->
+<?php block_template_part('header'); ?>
+
+<!-- Breadcrumb Navigation -->
+<?php
+$home_url = home_url('/');
+$post_type = get_post_type();
+$post_type_obj = get_post_type_object($post_type);
+$archive_url = get_post_type_archive_link($post_type);
+?>
+<nav class="poker-breadcrumbs" style="padding: 10px 20px; background: #f5f5f5; margin-bottom: 20px; font-size: 14px; max-width: 1200px; margin-left: auto; margin-right: auto;">
+    <a href="<?php echo esc_url($home_url); ?>" style="color: #2271b1; text-decoration: none;">Home</a>
+    <span style="margin: 0 8px; color: #666;">›</span>
+    <?php if ($archive_url): ?>
+        <a href="<?php echo esc_url($archive_url); ?>" style="color: #2271b1; text-decoration: none;"><?php echo esc_html($post_type_obj->labels->name); ?></a>
+        <span style="margin: 0 8px; color: #666;">›</span>
+    <?php endif; ?>
+    <span style="color: #666;"><?php the_title(); ?></span>
+</nav>
+
 <div class="poker-player-wrapper">
     <main id="primary" class="site-main">
         <?php while (have_posts()) : the_post(); ?>
@@ -35,29 +55,29 @@ if (!defined('ABSPATH')) {
                 <header class="player-single-header">
                     <div class="player-profile-section">
                         <div class="player-avatar-large">
-                            <?php echo substr(get_the_title(), 0, 2); ?>
+                            <?php echo esc_html(substr(get_the_title(), 0, 2)); ?>
                         </div>
                         <div class="player-title-section">
                             <h1 class="player-title"><?php the_title(); ?></h1>
                             <div class="player-subtitle">
-                                <?php _e('Professional Poker Player', 'poker-tournament-import'); ?>
+                                <?php esc_html_e('Professional Poker Player', 'poker-tournament-import'); ?>
                             </div>
                         </div>
                     </div>
 
                     <div class="player-actions">
                         <button class="print-profile" onclick="window.print()">
-                            <i class="icon-print"></i> <?php _e('Print Profile', 'poker-tournament-import'); ?>
+                            <i class="icon-print"></i> <?php esc_html_e('Print Profile', 'poker-tournament-import'); ?>
                         </button>
                         <button class="export-profile" data-player-id="<?php the_ID(); ?>" data-format="csv">
-                            <i class="icon-download"></i> <?php _e('Export Stats', 'poker-tournament-import'); ?>
+                            <i class="icon-download"></i> <?php esc_html_e('Export Stats', 'poker-tournament-import'); ?>
                         </button>
                     </div>
                 </header>
 
                 <!-- Player Career Stats -->
                 <section class="player-career-stats">
-                    <h2><?php _e('Career Statistics', 'poker-tournament-import'); ?></h2>
+                    <h2><?php esc_html_e('Career Statistics', 'poker-tournament-import'); ?></h2>
                     <?php
                     // Use shortcode to display player stats
                     echo do_shortcode('[player_profile id="' . get_the_ID() . '" show_stats="true"]');
@@ -66,7 +86,7 @@ if (!defined('ABSPATH')) {
 
                 <!-- Performance Chart -->
                 <section class="player-performance-chart">
-                    <h2><?php _e('Performance Overview', 'poker-tournament-import'); ?></h2>
+                    <h2><?php esc_html_e('Performance Overview', 'poker-tournament-import'); ?></h2>
                     <?php
                     $player_uuid = get_post_meta(get_the_ID(), 'player_uuid', true);
                     global $wpdb;
@@ -74,6 +94,7 @@ if (!defined('ABSPATH')) {
 
                     if ($player_uuid) {
                         // Get tournament history for chart
+                        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
                         $tournaments = $wpdb->get_results($wpdb->prepare(
                             "SELECT tp.finish_position, tp.winnings, tp.points,
                                     p.post_title as tournament_name,
@@ -111,28 +132,28 @@ if (!defined('ABSPATH')) {
                             // Create performance cards
                             echo '<div class="performance-cards">';
                             echo '<div class="perf-card achievement">';
-                            echo '<div class="perf-number">' . esc_html($best_finish) . get_ordinal_suffix($best_finish) . '</div>';
-                            echo '<div class="perf-label">' . __('Best Finish', 'poker-tournament-import') . '</div>';
+                            echo '<div class="perf-number">' . esc_html($best_finish) . esc_html(get_ordinal_suffix($best_finish)) . '</div>';
+                            echo '<div class="perf-label">' . esc_html__('Best Finish', 'poker-tournament-import') . '</div>';
                             echo '</div>';
                             echo '<div class="perf-card success">';
                             echo '<div class="perf-number">' . esc_html($cashes) . '</div>';
-                            echo '<div class="perf-label">' . __('Total Cashes', 'poker-tournament-import') . '</div>';
+                            echo '<div class="perf-label">' . esc_html__('Total Cashes', 'poker-tournament-import') . '</div>';
                             echo '</div>';
                             echo '<div class="perf-card money">';
                             echo '<div class="perf-number">$' . esc_html(number_format($total_winnings, 0)) . '</div>';
-                            echo '<div class="perf-label">' . __('Total Winnings', 'poker-tournament-import') . '</div>';
+                            echo '<div class="perf-label">' . esc_html__('Total Winnings', 'poker-tournament-import') . '</div>';
                             echo '</div>';
                             echo '<div class="perf-card consistency">';
                             $cash_rate = count($tournaments) > 0 ? ($cashes / count($tournaments)) * 100 : 0;
                             echo '<div class="perf-number">' . esc_html(round($cash_rate, 1)) . '%</div>';
-                            echo '<div class="perf-label">' . __('Cash Rate', 'poker-tournament-import') . '</div>';
+                            echo '<div class="perf-label">' . esc_html__('Cash Rate', 'poker-tournament-import') . '</div>';
                             echo '</div>';
                             echo '</div>';
 
                             // Position distribution chart
                             if (!empty($position_counts)) {
                                 echo '<div class="position-distribution">';
-                                echo '<h3>' . __('Finishing Position Distribution', 'poker-tournament-import') . '</h3>';
+                                echo '<h3>' . esc_html__('Finishing Position Distribution', 'poker-tournament-import') . '</h3>';
                                 echo '<div class="position-bars">';
 
                                 ksort($position_counts);
@@ -147,11 +168,11 @@ if (!defined('ABSPATH')) {
                                     elseif ($position <= 9) $color_class = 'final-table';
 
                                     echo '<div class="position-bar">';
-                                    echo '<div class="position-label">' . esc_html($position) . get_ordinal_suffix($position) . '</div>';
+                                    echo '<div class="position-label">' . esc_html($position) . esc_html(get_ordinal_suffix($position)) . '</div>';
                                     echo '<div class="position-bar-container">';
                                     echo '<div class="position-bar-fill ' . esc_attr($color_class) . '" style="width: ' . esc_attr($percentage) . '%"></div>';
                                     echo '</div>';
-                                    echo '<div class="position-count">' . esc_html($count) . ' ' . _n('time', 'times', $count, 'poker-tournament-import') . '</div>';
+                                    echo '<div class="position-count">' . esc_html($count) . ' ' . esc_html(_n('time', 'times', $count, 'poker-tournament-import')) . '</div>';
                                     echo '</div>';
                                 }
 
@@ -173,7 +194,7 @@ if (!defined('ABSPATH')) {
                         <div class="player-main-content">
                             <?php if (get_the_content()) : ?>
                             <div class="player-biography">
-                                <h2><?php _e('Biography', 'poker-tournament-import'); ?></h2>
+                                <h2><?php esc_html_e('Biography', 'poker-tournament-import'); ?></h2>
                                 <div class="player-biography-content">
                                     <?php the_content(); ?>
                                 </div>
@@ -182,9 +203,10 @@ if (!defined('ABSPATH')) {
 
                             <!-- Tournament History -->
                             <div class="player-tournament-history-section">
-                                <h2><?php _e('Tournament History', 'poker-tournament-import'); ?></h2>
+                                <h2><?php esc_html_e('Tournament History', 'poker-tournament-import'); ?></h2>
                                 <?php
                                 if ($player_uuid) {
+                                    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
                                     $history_tournaments = $wpdb->get_results($wpdb->prepare(
                                         "SELECT tp.*, p.post_title as tournament_name, p.post_date,
                                                 pm.meta_value as tournament_date,
@@ -209,12 +231,12 @@ if (!defined('ABSPATH')) {
                                         echo '<table class="tournament-history-table">';
                                         echo '<thead>';
                                         echo '<tr>';
-                                        echo '<th>' . __('Date', 'poker-tournament-import') . '</th>';
-                                        echo '<th>' . __('Tournament', 'poker-tournament-import') . '</th>';
-                                        echo '<th>' . __('Series', 'poker-tournament-import') . '</th>';
-                                        echo '<th>' . __('Position', 'poker-tournament-import') . '</th>';
-                                        echo '<th>' . __('Winnings', 'poker-tournament-import') . '</th>';
-                                        echo '<th>' . __('Points', 'poker-tournament-import') . '</th>';
+                                        echo '<th>' . esc_html__('Date', 'poker-tournament-import') . '</th>';
+                                        echo '<th>' . esc_html__('Tournament', 'poker-tournament-import') . '</th>';
+                                        echo '<th>' . esc_html__('Series', 'poker-tournament-import') . '</th>';
+                                        echo '<th>' . esc_html__('Position', 'poker-tournament-import') . '</th>';
+                                        echo '<th>' . esc_html__('Winnings', 'poker-tournament-import') . '</th>';
+                                        echo '<th>' . esc_html__('Points', 'poker-tournament-import') . '</th>';
                                         echo '</tr>';
                                         echo '</thead>';
                                         echo '<tbody>';
@@ -232,9 +254,9 @@ if (!defined('ABSPATH')) {
 
                                             echo '<tr class="' . esc_attr($position_class) . '">';
                                             echo '<td>' . esc_html($display_date) . '</td>';
-                                            echo '<td><a href="' . get_permalink($tournament->tournament_id) . '">' . esc_html($tournament->tournament_name) . '</a></td>';
-                                            echo '<td>' . ($tournament->series_name ? '<a href="' . get_permalink($tournament->series_id) . '">' . esc_html($tournament->series_name) . '</a>' : '-') . '</td>';
-                                            echo '<td class="position">' . esc_html($tournament->finish_position) . get_ordinal_suffix($tournament->finish_position) . '</td>';
+                                            echo '<td><a href="' . esc_url(get_permalink($tournament->tournament_id)) . '">' . esc_html($tournament->tournament_name) . '</a></td>';
+                                            echo '<td>' . ($tournament->series_name ? '<a href="' . esc_url(get_permalink($tournament->series_id)) . '">' . esc_html($tournament->series_name) . '</a>' : '-') . '</td>';
+                                            echo '<td class="position">' . esc_html($tournament->finish_position) . esc_html(get_ordinal_suffix($tournament->finish_position)) . '</td>';
                                             echo '<td class="winnings">$' . esc_html(number_format($tournament->winnings, 2)) . '</td>';
                                             echo '<td class="points">' . esc_html(number_format($tournament->points, 1)) . '</td>';
                                             echo '</tr>';
@@ -244,7 +266,7 @@ if (!defined('ABSPATH')) {
                                         echo '</table>';
                                         echo '</div>';
                                     } else {
-                                        echo '<p class="no-tournaments">' . __('No tournament history available for this player.', 'poker-tournament-import') . '</p>';
+                                        echo '<p class="no-tournaments">' . esc_html__('No tournament history available for this player.', 'poker-tournament-import') . '</p>';
                                     }
                                 }
                                 ?>
@@ -255,13 +277,15 @@ if (!defined('ABSPATH')) {
                         <aside class="player-sidebar">
                             <!-- Achievement Badges -->
                             <div class="sidebar-widget player-achievements">
-                                <h3><?php _e('Achievements', 'poker-tournament-import'); ?></h3>
+                                <h3><?php esc_html_e('Achievements', 'poker-tournament-import'); ?></h3>
                                 <?php
                                 if ($player_uuid) {
+                                    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
                                     $wins = $wpdb->get_var($wpdb->prepare(
                                         "SELECT COUNT(*) FROM $table_name WHERE player_id = %s AND finish_position = 1",
                                         $player_uuid
                                     ));
+                                    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
                                     $final_tables = $wpdb->get_var($wpdb->prepare(
                                         "SELECT COUNT(*) FROM $table_name WHERE player_id = %s AND finish_position <= 9",
                                         $player_uuid
@@ -273,7 +297,7 @@ if (!defined('ABSPATH')) {
                                         echo '<div class="achievement-badge gold" title="' . esc_attr(sprintf(_n('%d tournament victory', '%d tournament victories', $wins, 'poker-tournament-import'), $wins)) . '">';
                                         echo '<div class="badge-icon">🏆</div>';
                                         echo '<div class="badge-count">' . esc_html($wins) . '</div>';
-                                        echo '<div class="badge-label">' . __('Wins', 'poker-tournament-import') . '</div>';
+                                        echo '<div class="badge-label">' . esc_html__('Wins', 'poker-tournament-import') . '</div>';
                                         echo '</div>';
                                     }
 
@@ -282,7 +306,7 @@ if (!defined('ABSPATH')) {
                                         echo '<div class="achievement-badge final-table" title="' . esc_attr(sprintf(_n('%d final table appearance', '%d final table appearances', $final_tables, 'poker-tournament-import'), $final_tables)) . '">';
                                         echo '<div class="badge-icon">🎯</div>';
                                         echo '<div class="badge-count">' . esc_html($final_tables) . '</div>';
-                                        echo '<div class="badge-label">' . __('Final Tables', 'poker-tournament-import') . '</div>';
+                                        echo '<div class="badge-label">' . esc_html__('Final Tables', 'poker-tournament-import') . '</div>';
                                         echo '</div>';
                                     }
                                     echo '</div>';
@@ -292,9 +316,10 @@ if (!defined('ABSPATH')) {
 
                             <!-- Recent Performance -->
                             <div class="sidebar-widget recent-performance">
-                                <h3><?php _e('Recent Performance', 'poker-tournament-import'); ?></h3>
+                                <h3><?php esc_html_e('Recent Performance', 'poker-tournament-import'); ?></h3>
                                 <?php
                                 if ($player_uuid) {
+                                    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
                                     $recent_tournaments = $wpdb->get_results($wpdb->prepare(
                                         "SELECT tp.finish_position, tp.winnings, p.post_title as tournament_name,
                                                 pm.meta_value as tournament_date
@@ -348,9 +373,10 @@ if (!defined('ABSPATH')) {
 
                             <!-- Top Series -->
                             <div class="sidebar-widget top-series">
-                                <h3><?php _e('Top Series', 'poker-tournament-import'); ?></h3>
+                                <h3><?php esc_html_e('Top Series', 'poker-tournament-import'); ?></h3>
                                 <?php
                                 if ($player_uuid) {
+                                    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
                                     $top_series = $wpdb->get_results($wpdb->prepare(
                                         "SELECT ps.post_title as series_name, ps.ID as series_id,
                                                 COUNT(*) as tournaments_played,
@@ -372,12 +398,12 @@ if (!defined('ABSPATH')) {
                                         echo '<ul class="top-series-list">';
                                         foreach ($top_series as $series) {
                                             echo '<li>';
-                                            echo '<a href="' . get_permalink($series->series_id) . '">';
+                                            echo '<a href="' . esc_url(get_permalink($series->series_id)) . '">';
                                             echo '<div class="series-info">';
                                             echo '<span class="series-name">' . esc_html($series->series_name) . '</span>';
                                             echo '<span class="series-stats">';
-                                            echo esc_html($series->tournaments_played) . ' ' . _n('tournament', 'tournaments', $series->tournaments_played, 'poker-tournament-import');
-                                            echo ' • Best: ' . esc_html($series->best_finish) . get_ordinal_suffix($series->best_finish);
+                                            echo esc_html($series->tournaments_played) . ' ' . esc_html(_n('tournament', 'tournaments', $series->tournaments_played, 'poker-tournament-import'));
+                                            echo ' • Best: ' . esc_html($series->best_finish) . esc_html(get_ordinal_suffix($series->best_finish));
                                             echo '</span>';
                                             echo '</div>';
                                             echo '<div class="series-winnings">$' . esc_html(number_format($series->total_winnings, 0)) . '</div>';
@@ -395,10 +421,11 @@ if (!defined('ABSPATH')) {
 
                 <!-- Related Players -->
                 <section class="related-players-section">
-                    <h2><?php _e('Related Players', 'poker-tournament-import'); ?></h2>
+                    <h2><?php esc_html_e('Related Players', 'poker-tournament-import'); ?></h2>
                     <?php
                     // Find players who competed in the same tournaments
                     if ($player_uuid) {
+                        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
                         $related_players = $wpdb->get_results($wpdb->prepare(
                             "SELECT DISTINCT tp2.player_id, p.post_title as player_name, p.ID as player_post_id,
                                     COUNT(*) as shared_tournaments
@@ -417,11 +444,11 @@ if (!defined('ABSPATH')) {
                             echo '<div class="related-players-grid">';
                             foreach ($related_players as $player) {
                                 echo '<div class="related-player-card">';
-                                echo '<a href="' . get_permalink($player->player_post_id) . '">';
-                                echo '<div class="related-player-avatar">' . substr($player->player_name, 0, 2) . '</div>';
+                                echo '<a href="' . esc_url(get_permalink($player->player_post_id)) . '">';
+                                echo '<div class="related-player-avatar">' . esc_html(substr($player->player_name, 0, 2)) . '</div>';
                                 echo '<div class="related-player-info">';
                                 echo '<div class="related-player-name">' . esc_html($player->player_name) . '</div>';
-                                echo '<div class="shared-tournaments">' . esc_html($player->shared_tournaments) . ' ' . _n('shared tournament', 'shared tournaments', $player->shared_tournaments, 'poker-tournament-import') . '</div>';
+                                echo '<div class="shared-tournaments">' . esc_html($player->shared_tournaments) . ' ' . esc_html(_n('shared tournament', 'shared tournaments', $player->shared_tournaments, 'poker-tournament-import')) . '</div>';
                                 echo '</div>';
                                 echo '</a>';
                                 echo '</div>';
@@ -437,6 +464,9 @@ if (!defined('ABSPATH')) {
         <?php endwhile; ?>
     </main>
 </div>
+
+<!-- Theme Footer Template Part (v2.8.10: Block theme support) -->
+<?php block_template_part('footer'); ?>
 
 <?php wp_footer(); ?>
 </body>

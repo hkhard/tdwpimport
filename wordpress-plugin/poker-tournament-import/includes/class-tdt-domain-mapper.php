@@ -411,30 +411,75 @@ class Poker_Tournament_Domain_Mapper {
     /**
      * Extract game history
      *
+     * v2.8.4: Fixed to unwrap GameHistory constructor (like GamePrizes)
      * @param array $entries Tournament object entries
      * @return array Game history items
      */
     private function extract_game_history($entries) {
+        error_log("=== v2.8.4 extract_game_history START ===");
+        error_log("Total entries keys: " . count($entries));
+        
         $history = array();
 
         if (!isset($entries['History'])) {
+            error_log("⚠️ v2.8.4: 'History' key NOT FOUND in entries!");
             return $history;
         }
 
-        $history_node = $entries['History'];
+        error_log("✓ v2.8.4: Found 'History' key");
+        $history_wrapper = $entries['History'];
+        
+        // v2.8.4: Check if wrapped in GameHistory constructor (like GamePrizes)
+        if ($this->is_new_with_ctor($history_wrapper, 'GameHistory')) {
+            error_log("✓ v2.8.4: Found GameHistory wrapper, unwrapping...");
+            // Extract the inner GameHistory object
+            $game_history_obj = $this->expect_object($history_wrapper['arg']);
+            $gh_entries = $game_history_obj['entries'];
+
+            // Get the inner History field (the actual array)
+            if (!isset($gh_entries['History'])) {
+                error_log("⚠️ v2.8.4: No History field inside GameHistory wrapper");
+                return $history;
+            }
+
+            $history_node = $gh_entries['History'];
+            error_log("✓ v2.8.4: Unwrapped GameHistory, found inner History array");
+        } else {
+            // Direct array format (older files or different structure)
+            error_log("ℹ️ v2.8.4: No GameHistory wrapper, using direct format");
+            $history_node = $history_wrapper;
+        }
+        
+        // Now check if the unwrapped node is an Array
         if (!$this->is_type($history_node, 'Array')) {
+            error_log("⚠️ v2.8.4: History node is NOT an Array type after unwrapping");
             return $history;
         }
 
-        foreach ($history_node['items'] as $history_item) {
+        $items_count = count($history_node['items'] ?? []);
+        error_log("✓ v2.8.4: Found History array with {$items_count} items");
+        
+        $extracted_count = 0;
+        $filtered_count = 0;
+
+        foreach ($history_node['items'] as $idx => $history_item) {
             if ($this->is_new_with_ctor($history_item, 'GameHistoryItem')) {
                 $item = $this->extract_game_history_item($history_item);
                 if ($item) {
                     $history[] = $item;
+                    $extracted_count++;
+                    if ($extracted_count <= 3 || $extracted_count === $items_count) {
+                        error_log("  [{$idx}] ✓ v2.8.4: " . substr($item['text'], 0, 60));
+                    }
+                } else {
+                    $filtered_count++;
                 }
             }
         }
 
+        error_log("=== v2.8.4 extract_game_history END ===");
+        error_log("✓ v2.8.4: Extracted {$extracted_count} items, Filtered {$filtered_count}, Total {$items_count}");
+        
         return $history;
     }
 
@@ -680,7 +725,7 @@ class Poker_Tournament_Domain_Mapper {
      */
     private function assert_type($node, $type) {
         if (!is_array($node) || !isset($node['_type']) || $node['_type'] !== $type) {
-            throw new Exception("Expected {$type} node");
+            throw new Exception(esc_html("Expected {$type} node"));
         }
     }
 

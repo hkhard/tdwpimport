@@ -25,21 +25,21 @@ if (!defined('ABSPATH')) {
                     <div class="season-title-section">
                         <h1 class="season-title"><?php the_title(); ?></h1>
                         <div class="season-subtitle">
-                            <?php _e('Tournament Season', 'poker-tournament-import'); ?>
+                            <?php esc_html_e('Tournament Season', 'poker-tournament-import'); ?>
                         </div>
                         <?php if (get_the_content()) : ?>
                             <div class="season-description-brief">
-                                <?php echo wp_trim_words(get_the_content(), 30); ?>
+                                <?php echo esc_html(wp_trim_words(get_the_content(), 30)); ?>
                             </div>
                         <?php endif; ?>
                     </div>
 
                     <div class="season-actions">
                         <button class="print-season" onclick="window.print()">
-                            <i class="icon-print"></i> <?php _e('Print Season', 'poker-tournament-import'); ?>
+                            <i class="icon-print"></i> <?php esc_html_e('Print Season', 'poker-tournament-import'); ?>
                         </button>
                         <button class="export-season" data-season-id="<?php the_ID(); ?>" data-format="csv">
-                            <i class="icon-download"></i> <?php _e('Export All', 'poker-tournament-import'); ?>
+                            <i class="icon-download"></i> <?php esc_html_e('Export All', 'poker-tournament-import'); ?>
                         </button>
                     </div>
                 </header>

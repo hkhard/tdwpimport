@@ -25,6 +25,26 @@ if (!defined('ABSPATH')) {
 <body <?php body_class(); ?>>
 <?php wp_body_open(); ?>
 
+<!-- Theme Header Template Part (v2.8.10: Block theme support) -->
+<?php block_template_part('header'); ?>
+
+<!-- Breadcrumb Navigation -->
+<?php
+$home_url = home_url('/');
+$post_type = get_post_type();
+$post_type_obj = get_post_type_object($post_type);
+$archive_url = get_post_type_archive_link($post_type);
+?>
+<nav class="poker-breadcrumbs" style="padding: 10px 20px; background: #f5f5f5; margin-bottom: 20px; font-size: 14px; max-width: 1200px; margin-left: auto; margin-right: auto;">
+    <a href="<?php echo esc_url($home_url); ?>" style="color: #2271b1; text-decoration: none;">Home</a>
+    <span style="margin: 0 8px; color: #666;">›</span>
+    <?php if ($archive_url): ?>
+        <a href="<?php echo esc_url($archive_url); ?>" style="color: #2271b1; text-decoration: none;"><?php echo esc_html($post_type_obj->labels->name); ?></a>
+        <span style="margin: 0 8px; color: #666;">›</span>
+    <?php endif; ?>
+    <span style="color: #666;"><?php the_title(); ?></span>
+</nav>
+
 <div class="poker-season-wrapper">
     <main id="primary" class="site-main">
         <?php while (have_posts()) : the_post(); ?>
@@ -36,21 +56,21 @@ if (!defined('ABSPATH')) {
                     <div class="season-title-section">
                         <h1 class="season-title"><?php the_title(); ?></h1>
                         <div class="season-subtitle">
-                            <?php _e('Tournament Season', 'poker-tournament-import'); ?>
+                            <?php esc_html_e('Tournament Season', 'poker-tournament-import'); ?>
                         </div>
                         <?php if (get_the_content()) : ?>
                             <div class="season-description-brief">
-                                <?php echo wp_trim_words(get_the_content(), 30); ?>
+                                <?php echo esc_html(wp_trim_words(get_the_content(), 30)); ?>
                             </div>
                         <?php endif; ?>
                     </div>
 
                     <div class="season-actions">
                         <button class="print-season" onclick="window.print()">
-                            <i class="icon-print"></i> <?php _e('Print Season', 'poker-tournament-import'); ?>
+                            <i class="icon-print"></i> <?php esc_html_e('Print Season', 'poker-tournament-import'); ?>
                         </button>
                         <button class="export-season" data-season-id="<?php the_ID(); ?>" data-format="csv">
-                            <i class="icon-download"></i> <?php _e('Export All', 'poker-tournament-import'); ?>
+                            <i class="icon-download"></i> <?php esc_html_e('Export All', 'poker-tournament-import'); ?>
                         </button>
                     </div>
                 </header>
@@ -142,6 +162,9 @@ if (!defined('ABSPATH')) {
     }
 }
 </style>
+
+<!-- Theme Footer Template Part (v2.8.10: Block theme support) -->
+<?php block_template_part('footer'); ?>
 
 <?php wp_footer(); ?>
 </body>

@@ -52,13 +52,13 @@ class Poker_Tournament_Parser {
         }
 
         if (!file_exists($this->file_path)) {
-            throw new Exception("File not found: {$this->file_path}");
+            throw new Exception(esc_html("File not found: {$this->file_path}"));
         }
 
         // Read file content
         $this->raw_content = file_get_contents($this->file_path);
         if ($this->raw_content === false) {
-            throw new Exception("Failed to read file: {$this->file_path}");
+            throw new Exception(esc_html("Failed to read file: {$this->file_path}"));
         }
 
         // Parse the content
@@ -87,6 +87,8 @@ class Poker_Tournament_Parser {
     /**
      * Extract tournament data from raw content using AST-based parser
      *
+     * v2.8.4: GameHistory extraction fixed (unwrapping GameHistory constructor)
+     * v2.8.0: Added prize validation and bubble calculation
      * v2.4.9: Replaced regex-based extraction with proper lexer/parser/AST approach
      * to correctly handle deeply nested structures (4+ levels of nesting)
      *
@@ -114,7 +116,7 @@ class Poker_Tournament_Parser {
         } catch (Exception $e) {
             // Log the parsing error
             Poker_Tournament_Import_Debug::log_error("AST Parser failed: " . $e->getMessage());
-            throw new Exception("Failed to parse .tdt file: " . $e->getMessage());
+            throw new Exception("Failed to parse .tdt file: " . esc_html($e->getMessage()));
         }
 
         // POST-PROCESSING: Calculate per-player total_invested using financial data
@@ -143,10 +145,35 @@ class Poker_Tournament_Parser {
         // CRITICAL FIX: Enhance players with elimination data from GameHistory
         $data['players'] = $this->enhance_players_with_elimination_data($data['players'], $data['game_history']);
 
-        // Calculate rankings and winnings
+        // v2.8.4: DEBUG - Log game_history before ranking calculation
+        error_log("=== v2.8.4: ABOUT TO CALL calculate_player_rankings ===");
+        error_log("Players count: " . count($data['players']));
+        error_log("GameHistory count: " . count($data['game_history']));
+        if (!empty($data['game_history'])) {
+            error_log("v2.8.4: GameHistory first 2 items:");
+            for ($i = 0; $i < min(2, count($data['game_history'])); $i++) {
+                error_log("  [{$i}] text: " . ($data['game_history'][$i]['text'] ?? 'NO TEXT'));
+                error_log("  [{$i}] timestamp: " . ($data['game_history'][$i]['timestamp'] ?? 'NO TIMESTAMP'));
+            }
+            $last_idx = count($data['game_history']) - 1;
+            error_log("v2.8.4: GameHistory LAST item:");
+            error_log("  [{$last_idx}] text: " . ($data['game_history'][$last_idx]['text'] ?? 'NO TEXT'));
+        } else {
+            error_log("⚠️ v2.8.4: GameHistory is STILL EMPTY!");
+        }
+
+        // v2.8.0: Calculate rankings (handles rebuys correctly via LATEST elimination timestamp)
         $data['players'] = $this->calculate_player_rankings($data['players'], $data['game_history']);
 
-        // NEW v2.4.25: Calculate hits from elimination data
+        // v2.8.0: Validate rankings with Prizes and calculate bubble position
+        $validation = $this->validate_rankings_with_prizes($data['players'], $data['prizes']);
+        $data['metadata']['bubble_position'] = $validation['bubble_position'];
+        
+        if (!empty($validation['discrepancies'])) {
+            Poker_Tournament_Import_Debug::log_warning("Prize validation found " . count($validation['discrepancies']) . " discrepancies");
+        }
+
+        // v2.7.0: Calculate hits from elimination data
         $data['players'] = $this->calculate_hits_from_eliminations($data['players']);
 
         // Calculate Tournament Director points using formula system
@@ -442,6 +469,31 @@ class Poker_Tournament_Parser {
         }
 
         return $financial;
+    }
+
+    /**
+     * Extract FullCreditHit configuration from GamePlayersConfig
+     *
+     * v2.7.1: Extracts the FullCreditHit setting which controls how eliminations are counted:
+     * - true: Count ALL eliminations (if you bust Player A twice during rebuys, you get 2 hits)
+     * - false: Count UNIQUE victims only (if you bust Player A twice, you only get 1 hit)
+     *
+     * @param string $content Raw .tdt file content
+     * @return bool|null FullCreditHit value or null if not found
+     */
+    private function extract_fullcredithit_config($content) {
+        // Pattern: Config: new GamePlayersConfig({...FullCreditHit: true/false...})
+        if (preg_match('/Config:\s*new\s+GamePlayersConfig\s*\(\s*\{[^}]*FullCreditHit:\s*(true|false)/i', $content, $matches)) {
+            $full_credit_hit = ($matches[1] === 'true');
+            
+            Poker_Tournament_Import_Debug::log_success("v2.7.1: Extracted FullCreditHit configuration from .tdt file");
+            Poker_Tournament_Import_Debug::log("  FullCreditHit: " . ($full_credit_hit ? 'true (count all eliminations)' : 'false (count unique victims only)'));
+            
+            return $full_credit_hit;
+        }
+        
+        Poker_Tournament_Import_Debug::log("v2.7.1: FullCreditHit not found in .tdt file - will use WordPress setting or default");
+        return null;
     }
 
 
@@ -972,51 +1024,428 @@ class Poker_Tournament_Parser {
     }
 
     /**
-     * Calculate player rankings using NEW chronological GameHistory processing
-     * This replaces the old bust-out timestamp comparison approach
+     * Calculate player rankings from GameHistoryItem (handles rebuys correctly)
+     *
+     * v2.8.0: COMPLETE REWRITE - Matches 100% tested Python prototype
+     * - Handles rebuys: uses LATEST elimination per unique player
+     * - Simple timestamp sorting instead of complex state tracking
+     * - 16 unique players = 16 unique ranks (regardless of total buyins)
+     *
+     * @param array $players Player data
+     * @param array $game_history GameHistory items
+     * @return array Players with finish_position assigned
      */
     private function calculate_player_rankings($players, $game_history = array()) {
-        Poker_Tournament_Import_Debug::log_function("calculate_player_rankings", [
-            'players_count' => count($players),
-            'game_history_count' => count($game_history)
-        ]);
+        error_log("=== v2.8.0 calculate_player_rankings START ===");
+        error_log("Players count: " . count($players));
+        error_log("GameHistory count: " . count($game_history));
+        
+        // DEBUG: Dump first few game_history items to see format
+        if (count($game_history) > 0) {
+            error_log("GameHistory sample (first 3 items):");
+            for ($i = 0; $i < min(3, count($game_history)); $i++) {
+                error_log("  Item {$i}: " . print_r($game_history[$i], true));
+            }
+            // Also check last item (should be "Tournament ended" or "X won the tournament")
+            $last_idx = count($game_history) - 1;
+            error_log("GameHistory LAST item:");
+            error_log("  Item {$last_idx}: " . print_r($game_history[$last_idx], true));
+        } else {
+            error_log("⚠️ CRITICAL: game_history array is EMPTY!");
+        }
+        
+        Poker_Tournament_Import_Debug::log_success("v2.8.0: GameHistoryItem ranking with rebuy support");
 
-        Poker_Tournament_Import_Debug::log_success("Using NEW chronological GameHistory processing (not bust-out timestamps)");
+        // 1. Find winner from "X won the tournament"
+        $winner_uuid = null;
+        foreach ($game_history as $item) {
+            if (preg_match('/(.+) won the tournament/', $item['text'], $m)) {
+                $winner_name = trim($m[1]);
+                $winner_uuid = $this->map_player_name_to_uuid($winner_name, $players);
+                if ($winner_uuid && isset($players[$winner_uuid])) {
+                    $players[$winner_uuid]['finish_position'] = 1;
+                    error_log("✓ WINNER: {$players[$winner_uuid]['nickname']} = rank 1");
+                    Poker_Tournament_Import_Debug::log("Rank 1: {$players[$winner_uuid]['nickname']}");
+                }
+                break;
+            }
+        }
+        
+        if (!$winner_uuid) {
+            error_log("⚠️ NO WINNER DETECTED - checking why...");
+            // Try to find any item with "won" in it
+            foreach ($game_history as $idx => $item) {
+                if (isset($item['text']) && stripos($item['text'], 'won') !== false) {
+                    error_log("  Found item #{$idx} with 'won': " . $item['text']);
+                }
+            }
+        }
 
-        // Use the new chronological processing approach
-        $players = $this->process_game_history_chronologically($game_history, $players);
+        // 2. Extract ALL eliminations, keep LATEST per unique player
+        $final_eliminations = array();  // uuid => latest_timestamp
 
+        foreach ($game_history as $item) {
+            if (preg_match('/(.+) busted out of the tournament \(Table .+?, Seat \d+\) by (.+) \(Table .+?, Seat \d+\)/',
+                           $item['text'], $m)) {
+                $victim_name = trim($m[1]);
+                $victim_uuid = $this->map_player_name_to_uuid($victim_name, $players);
+
+                if ($victim_uuid) {
+                    $previous_time = isset($final_eliminations[$victim_uuid]) ? $final_eliminations[$victim_uuid] : null;
+
+                    // Keep updating - LATEST elimination wins (handles rebuys)
+                    $final_eliminations[$victim_uuid] = $item['timestamp'];
+
+                    if ($previous_time && $previous_time !== $item['timestamp']) {
+                        Poker_Tournament_Import_Debug::log(
+                            "Rebuy detected: {$victim_name} - updating to latest elimination @ {$item['timestamp']}"
+                        );
+                    }
+                }
+            }
+        }
+        
+        if (count($final_eliminations) === 0) {
+            error_log("⚠️ NO ELIMINATIONS EXTRACTED - checking why...");
+            // Try to find any item with "busted" in it
+            foreach ($game_history as $idx => $item) {
+                if (isset($item['text']) && stripos($item['text'], 'busted') !== false) {
+                    error_log("  Found item #{$idx} with 'busted': " . $item['text']);
+                }
+            }
+        }
+
+        error_log("Unique players eliminated: " . count($final_eliminations));
+        Poker_Tournament_Import_Debug::log(
+            "Unique players eliminated: " . count($final_eliminations) .
+            " (total eliminations in history may be higher due to rebuys)"
+        );
+
+        // 3. Sort by timestamp DESC (latest elimination = better finish)
+        arsort($final_eliminations);
+
+        // 4. Assign ranks 2, 3, 4... to UNIQUE players
+        $rank = 2;
+        foreach ($final_eliminations as $uuid => $timestamp) {
+            if ($uuid !== $winner_uuid && isset($players[$uuid])) {
+                $players[$uuid]['finish_position'] = $rank;
+                error_log("✓ RANK {$rank}: {$players[$uuid]['nickname']} (eliminated @ " . date('H:i:s', (int)($timestamp/1000)) . ")");
+                Poker_Tournament_Import_Debug::log(
+                    "Rank {$rank}: {$players[$uuid]['nickname']} " .
+                    "(final elimination @ " . date('H:i:s', (int)($timestamp/1000)) . ")"
+                );
+                $rank++;
+            }
+        }
+
+        // 5. Unranked players (edge case - shouldn't happen)
+        $total_players = count($players);
+        foreach ($players as $uuid => $player) {
+            if (!isset($player['finish_position'])) {
+                $players[$uuid]['finish_position'] = $rank;
+                error_log("⚠ RANK {$rank}: {$player['nickname']} (no elimination found - edge case)");
+                Poker_Tournament_Import_Debug::log_warning(
+                    "Rank {$rank}: {$player['nickname']} (no elimination found)"
+                );
+                $rank++;
+            }
+        }
+
+        // Verify: unique players = unique ranks
+        $ranked_count = $rank - 1;
+        if ($ranked_count !== $total_players) {
+            error_log("⚠ MISMATCH: {$ranked_count} ranks assigned, {$total_players} players total");
+            Poker_Tournament_Import_Debug::log_warning(
+                "Rank count mismatch: {$ranked_count} ranks assigned, {$total_players} players total"
+            );
+        } else {
+            error_log("✓ SUCCESS: {$total_players} unique players = {$ranked_count} unique ranks");
+            Poker_Tournament_Import_Debug::log_success(
+                "✅ {$total_players} unique players = {$ranked_count} unique ranks"
+            );
+        }
+
+        error_log("=== v2.8.0 calculate_player_rankings END ===");
         return $players;
     }
 
-  
     /**
-     * Calculate player hits by counting eliminations from buyin data
+     * Validate rankings against Prizes section and calculate bubble position
      *
-     * v2.4.25: Hits are calculated from actual elimination data in buyins,
-     * not from the HitsAdjustment field which may be missing or incorrect
+     * v2.8.0: Cross-validates finish_position with GamePrizes to ensure accuracy
+     * Also calculates bubble position (first non-paid position)
+     *
+     * @param array $players Players with finish_position
+     * @param array $prizes Prizes from .tdt file
+     * @return array Validation results including bubble position
+     */
+    private function validate_rankings_with_prizes($players, $prizes) {
+        $bubble_position = null;
+        $discrepancies = array();
+        $validated_count = 0;
+
+        if (empty($prizes)) {
+            Poker_Tournament_Import_Debug::log("No prizes section found for validation");
+            return array(
+                'bubble_position' => null,
+                'discrepancies' => array(),
+                'validated_count' => 0
+            );
+        }
+
+        // Calculate bubble = last prize position + 1
+        $max_prize_rank = 0;
+        foreach ($prizes as $prize) {
+            if (isset($prize['Recipient']) && $prize['Recipient'] > $max_prize_rank) {
+                $max_prize_rank = $prize['Recipient'];
+            }
+        }
+        $bubble_position = $max_prize_rank + 1;
+
+        Poker_Tournament_Import_Debug::log(
+            "Prizes: {$max_prize_rank} paid positions → Bubble = rank {$bubble_position}"
+        );
+
+        // Cross-validate each prize with finish_position
+        foreach ($prizes as $prize) {
+            $recipient_rank = $prize['Recipient'] ?? null;
+            $awarded_uuids = $prize['AwardedToPlayers'] ?? array();
+
+            if (!$recipient_rank || empty($awarded_uuids)) {
+                continue;
+            }
+
+            foreach ($awarded_uuids as $uuid) {
+                if (isset($players[$uuid])) {
+                    $finish_pos = $players[$uuid]['finish_position'];
+
+                    if ($finish_pos === $recipient_rank) {
+                        $validated_count++;
+                        Poker_Tournament_Import_Debug::log(
+                            "✅ Prize validation: {$players[$uuid]['nickname']} rank {$finish_pos} matches prize #{$recipient_rank}"
+                        );
+                    } else {
+                        $discrepancies[] = array(
+                            'player' => $players[$uuid]['nickname'],
+                            'finish_position' => $finish_pos,
+                            'prize_recipient' => $recipient_rank
+                        );
+                        Poker_Tournament_Import_Debug::log_warning(
+                            "⚠️  Prize mismatch: {$players[$uuid]['nickname']} rank {$finish_pos} vs prize #{$recipient_rank}"
+                        );
+                    }
+                }
+            }
+        }
+
+        if (empty($discrepancies)) {
+            Poker_Tournament_Import_Debug::log_success(
+                "✅ Prize validation: {$validated_count} positions validated, 0 discrepancies"
+            );
+        } else {
+            Poker_Tournament_Import_Debug::log_warning(
+                "Prize validation: {$validated_count} validated, " . count($discrepancies) . " discrepancies found"
+            );
+        }
+
+        return array(
+            'bubble_position' => $bubble_position,
+            'discrepancies' => $discrepancies,
+            'validated_count' => $validated_count
+        );
+    }
+
+
+    /**
+     * Extract ALL BustOut records from entire file for validation
+     *
+     * v2.7.0: Extracts all BustOut records to validate GameHistoryItem eliminations
+     * against actual bust-out data, filtering spurious history entries
+     *
+     * @param array $players Players array
+     * @return array Array of bustout records with eliminator name and time
+     */
+    private function extract_all_bustout_records($players) {
+        $bustout_set = array();
+        
+        // Build UUID to name map
+        $uuid_to_name = array();
+        foreach ($players as $uuid => $player) {
+            $uuid_to_name[$uuid] = $player['nickname'];
+        }
+        
+        // Extract ALL BustOut records from entire file
+        preg_match_all('/BustOut: new GameBustOut\(\{Time: (\d+), Round: \d+, HitmanUUID: \[(.*?)\]/', 
+            $this->raw_content, $matches, PREG_SET_ORDER);
+        
+        foreach ($matches as $match) {
+            $bust_time = intval($match[1]);
+            
+            // Extract all UUIDs from HitmanUUID array
+            preg_match_all('/"([^"]+)"/', $match[2], $uuid_matches);
+            
+            foreach ($uuid_matches[1] as $hitman_uuid) {
+                if (isset($uuid_to_name[$hitman_uuid])) {
+                    $bustout_set[] = array(
+                        'eliminator' => $uuid_to_name[$hitman_uuid],
+                        'time' => $bust_time
+                    );
+                }
+            }
+        }
+        
+        Poker_Tournament_Import_Debug::log("v2.7.0: Extracted " . count($bustout_set) . " BustOut records for validation");
+        
+        return $bustout_set;
+    }
+
+    /**
+     * Validate elimination against BustOut records
+     *
+     * v2.7.0: Validates GameHistoryItem elimination entries against actual
+     * BustOut records to filter spurious history entries
+     *
+     * @param string $eliminator Eliminator player name
+     * @param int $elim_time Elimination timestamp from GameHistoryItem
+     * @param array $bustout_set Array of bustout records
+     * @return bool True if validated, false if spurious
+     */
+    private function validate_elimination($eliminator, $elim_time, $bustout_set) {
+        $tolerance = 1000; // 1 second tolerance for timestamp matching
+        
+        foreach ($bustout_set as $bustout) {
+            if ($bustout['eliminator'] === $eliminator &&
+                abs($bustout['time'] - $elim_time) <= $tolerance) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+
+    /**
+     * Calculate player hits from GameHistoryItem eliminations validated against BustOut records
+     *
+     * v2.8.11: FIXED - Shared eliminations (split pots) now correctly credit all eliminators
+     * v2.7.1: Enhanced with FullCreditHit hybrid configuration support
+     * v2.7.0: MAJOR CHANGE - Uses GameHistoryItem as primary source for eliminations,
+     * validated against BustOut records to filter spurious entries. This is the
+     * CORRECT way to count hits per Tournament Director's actual implementation.
+     *
+     * Hit Counting Modes:
+     * - full_credit: Count ALL eliminations (if you bust Player A twice during rebuys, you get 2 hits)
+     * - unique_victims: Count UNIQUE victims only (if you bust Player A twice, you get 1 hit)
+     *
+     * Shared Eliminations (v2.8.11):
+     * - When multiple players eliminate someone (split pot), ALL participants get credit
+     * - Pattern: "X busted out... by Player1 (Table A, Seat 1), Player2 (Table B, Seat 2)"
+     * - Each eliminator validated independently against BustOut records
+     *
+     * Configuration Priority:
+     * 1. WordPress setting (poker_hit_counting_method)
+     * 2. .tdt file FullCreditHit setting
+     * 3. Default: full_credit (true)
+     *
+     * Why this approach:
+     * - GameHistoryItem contains the definitive tournament narrative
+     * - BustOut/HitmanUUID can have errors or missing data
+     * - Cross-validation filters spurious GameHistoryItem entries (found 5 in 16 tournaments)
      *
      * @param array $players Players array
      * @return array Players with updated hit counts
      */
     private function calculate_hits_from_eliminations($players) {
-        // Initialize hit counts to zero
-        $hit_counts = array();
-        foreach ($players as $uuid => $player) {
-            $hit_counts[$uuid] = 0;
+        // Determine hit counting mode using hybrid approach
+        $wp_setting = get_option('poker_hit_counting_method', 'auto');
+        $tdt_fullcredithit = $this->extract_fullcredithit_config($this->raw_content);
+        
+        // Apply hybrid logic
+        if ($wp_setting === 'full_credit') {
+            $count_all_eliminations = true;
+            $mode_source = 'WordPress setting (full_credit)';
+        } elseif ($wp_setting === 'unique_victims') {
+            $count_all_eliminations = false;
+            $mode_source = 'WordPress setting (unique_victims)';
+        } else {
+            // 'auto' - use .tdt file setting, default to true if not found
+            $count_all_eliminations = ($tdt_fullcredithit !== null) ? $tdt_fullcredithit : true;
+            $mode_source = ($tdt_fullcredithit !== null) 
+                ? '.tdt file (FullCreditHit: ' . ($tdt_fullcredithit ? 'true' : 'false') . ')'
+                : 'default (true)';
         }
 
-        // Count eliminations: loop through all players' buyins and count
-        // how many times each player's UUID appears as an eliminator
+        Poker_Tournament_Import_Debug::log("v2.7.1: Hit counting mode: " . ($count_all_eliminations ? 'FULL CREDIT' : 'UNIQUE VICTIMS') . " (source: $mode_source)");
+
+        // Initialize hit counts and victim tracking
+        $hit_counts = array();
+        $victims_by_eliminator = array(); // Track unique victims per eliminator
+        
         foreach ($players as $uuid => $player) {
-            if (isset($player['buyins']) && is_array($player['buyins'])) {
-                foreach ($player['buyins'] as $buyin) {
-                    if (isset($buyin['eliminated_by']) && is_array($buyin['eliminated_by'])) {
-                        foreach ($buyin['eliminated_by'] as $eliminator_uuid) {
+            $hit_counts[$uuid] = 0;
+            $victims_by_eliminator[$uuid] = array();
+        }
+
+        // Extract BustOut records for validation
+        $bustout_set = $this->extract_all_bustout_records($players);
+
+        // Extract game history (already sorted chronologically)
+        $game_history = $this->extract_game_history($this->raw_content);
+
+        // Build name to UUID mapping for quick lookup
+        $name_to_uuid = array();
+        foreach ($players as $uuid => $player) {
+            $name_to_uuid[$player['nickname']] = $uuid;
+        }
+
+        // Parse eliminations from GameHistoryItem entries
+        $validated_count = 0;
+        $rejected_count = 0;
+
+        foreach ($game_history as $item) {
+            // Look for elimination pattern: "{victim} busted out of the tournament (Table X, Seat Y) by {eliminator(s)}..."
+            // Handles both single: "by Name (Table X, Seat Y)" and shared: "by Name1 (Table X, Seat Y), Name2 (Table Z, Seat W)"
+            if (preg_match('/(.+) busted out of the tournament \(Table .+?, Seat \d+\) by (.+)$/',
+                          $item['text'], $matches)) {
+
+                $victim_name = trim($matches[1]);
+                $eliminator_section = trim($matches[2]);
+                $elim_time = $item['timestamp'];
+
+                // Parse eliminator name(s) - handle both single and multiple eliminators
+                // Format: "Name1 (Table X, Seat Y)" or "Name1 (Table X, Seat Y), Name2 (Table Z, Seat W)"
+                preg_match_all('/([^(,]+)\s*\(Table/', $eliminator_section, $elim_matches);
+                $eliminator_names = array_map('trim', $elim_matches[1]);
+
+                // Process each eliminator (typically 1, but can be 2+ for shared pots)
+                foreach ($eliminator_names as $eliminator_name) {
+                    // Validate against BustOut records
+                    if ($this->validate_elimination($eliminator_name, $elim_time, $bustout_set)) {
+                        // Valid elimination - count based on mode
+                        if (isset($name_to_uuid[$eliminator_name]) && isset($name_to_uuid[$victim_name])) {
+                            $eliminator_uuid = $name_to_uuid[$eliminator_name];
+                            $victim_uuid = $name_to_uuid[$victim_name];
+
                             if (isset($hit_counts[$eliminator_uuid])) {
-                                $hit_counts[$eliminator_uuid]++;
+                                if ($count_all_eliminations) {
+                                    // Full credit mode: count every elimination
+                                    $hit_counts[$eliminator_uuid]++;
+                                    $validated_count++;
+                                } else {
+                                    // Unique victims mode: count each victim only once
+                                    if (!in_array($victim_uuid, $victims_by_eliminator[$eliminator_uuid])) {
+                                        $victims_by_eliminator[$eliminator_uuid][] = $victim_uuid;
+                                        $hit_counts[$eliminator_uuid]++;
+                                        $validated_count++;
+                                    } else {
+                                        Poker_Tournament_Import_Debug::log("  SKIPPED duplicate victim: $eliminator_name -> $victim_name (unique victims mode)");
+                                    }
+                                }
                             }
                         }
+                    } else {
+                        // Spurious GameHistoryItem entry - reject
+                        $rejected_count++;
+                        Poker_Tournament_Import_Debug::log("  REJECTED spurious elimination: $eliminator_name -> $victim_name @ $elim_time");
                     }
                 }
             }
@@ -1028,7 +1457,12 @@ class Poker_Tournament_Parser {
         }
 
         // Debug logging
-        Poker_Tournament_Import_Debug::log_success("v2.4.25: Calculated hits from elimination data");
+        Poker_Tournament_Import_Debug::log_success("v2.7.1: Calculated hits from GameHistoryItem with BustOut validation");
+        Poker_Tournament_Import_Debug::log("  Validated eliminations: $validated_count");
+        if ($rejected_count > 0) {
+            Poker_Tournament_Import_Debug::log("  Rejected spurious entries: $rejected_count");
+        }
+        
         foreach ($players as $uuid => $player) {
             if ($player['hits'] > 0) {
                 Poker_Tournament_Import_Debug::log("  {$player['nickname']}: {$player['hits']} hits");

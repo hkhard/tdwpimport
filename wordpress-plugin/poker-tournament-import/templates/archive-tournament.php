@@ -27,10 +27,10 @@ get_header(); ?>
             <div class="archive-controls">
                 <div class="view-toggle">
                     <button class="view-btn active" data-view="grid">
-                        <i class="icon-grid"></i> <?php _e('Grid', 'poker-tournament-import'); ?>
+                        <i class="icon-grid"></i> <?php esc_html_e('Grid', 'poker-tournament-import'); ?>
                     </button>
                     <button class="view-btn" data-view="list">
-                        <i class="icon-list"></i> <?php _e('List', 'poker-tournament-import'); ?>
+                        <i class="icon-list"></i> <?php esc_html_e('List', 'poker-tournament-import'); ?>
                     </button>
                 </div>
 
@@ -46,7 +46,7 @@ get_header(); ?>
 
                     if ($series_options) {
                         echo '<select id="series-filter" class="filter-select">';
-                        echo '<option value="">' . __('All Series', 'poker-tournament-import') . '</option>';
+                        echo '<option value="">' . esc_html__('All Series', 'poker-tournament-import') . '</option>';
                         foreach ($series_options as $series) {
                             echo '<option value="' . esc_attr($series->ID) . '">' . esc_html($series->post_title) . '</option>';
                         }
@@ -55,24 +55,24 @@ get_header(); ?>
                     ?>
 
                     <select id="date-filter" class="filter-select">
-                        <option value=""><?php _e('All Dates', 'poker-tournament-import'); ?></option>
-                        <option value="30"><?php _e('Last 30 Days', 'poker-tournament-import'); ?></option>
-                        <option value="90"><?php _e('Last 90 Days', 'poker-tournament-import'); ?></option>
-                        <option value="365"><?php _e('Last Year', 'poker-tournament-import'); ?></option>
+                        <option value=""><?php esc_html_e('All Dates', 'poker-tournament-import'); ?></option>
+                        <option value="30"><?php esc_html_e('Last 30 Days', 'poker-tournament-import'); ?></option>
+                        <option value="90"><?php esc_html_e('Last 90 Days', 'poker-tournament-import'); ?></option>
+                        <option value="365"><?php esc_html_e('Last Year', 'poker-tournament-import'); ?></option>
                     </select>
 
                     <select id="sort-filter" class="filter-select">
-                        <option value="date_desc"><?php _e('Latest First', 'poker-tournament-import'); ?></option>
-                        <option value="date_asc"><?php _e('Oldest First', 'poker-tournament-import'); ?></option>
-                        <option value="title_asc"><?php _e('Title (A-Z)', 'poker-tournament-import'); ?></option>
-                        <option value="title_desc"><?php _e('Title (Z-A)', 'poker-tournament-import'); ?></option>
-                        <option value="players_desc"><?php _e('Most Players', 'poker-tournament-import'); ?></option>
-                        <option value="prize_desc"><?php _e('Largest Prize Pool', 'poker-tournament-import'); ?></option>
+                        <option value="date_desc"><?php esc_html_e('Latest First', 'poker-tournament-import'); ?></option>
+                        <option value="date_asc"><?php esc_html_e('Oldest First', 'poker-tournament-import'); ?></option>
+                        <option value="title_asc"><?php esc_html_e('Title (A-Z)', 'poker-tournament-import'); ?></option>
+                        <option value="title_desc"><?php esc_html_e('Title (Z-A)', 'poker-tournament-import'); ?></option>
+                        <option value="players_desc"><?php esc_html_e('Most Players', 'poker-tournament-import'); ?></option>
+                        <option value="prize_desc"><?php esc_html_e('Largest Prize Pool', 'poker-tournament-import'); ?></option>
                     </select>
                 </div>
 
                 <div class="archive-search">
-                    <input type="search" id="tournament-search" placeholder="<?php _e('Search tournaments...', 'poker-tournament-import'); ?>">
+                    <input type="search" id="tournament-search" placeholder="<?php esc_html_e('Search tournaments...', 'poker-tournament-import'); ?>">
                     <button type="button" id="search-btn">
                         <i class="icon-search"></i>
                     </button>
@@ -87,25 +87,27 @@ get_header(); ?>
                 global $wpdb;
                 $table_name = $wpdb->prefix . 'poker_tournament_players';
                 $total_tournaments = wp_count_posts('tournament')->publish;
+                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
                 $total_players = $wpdb->get_var("SELECT COUNT(DISTINCT player_id) FROM $table_name");
+                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
                 $total_prize_pool = $wpdb->get_var("SELECT SUM(winnings) FROM $table_name WHERE winnings > 0");
                 ?>
 
                 <div class="stat-card">
                     <div class="stat-number"><?php echo esc_html($total_tournaments); ?></div>
-                    <div class="stat-label"><?php _e('Total Tournaments', 'poker-tournament-import'); ?></div>
+                    <div class="stat-label"><?php esc_html_e('Total Tournaments', 'poker-tournament-import'); ?></div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-number"><?php echo esc_html($total_players ?: 0); ?></div>
-                    <div class="stat-label"><?php _e('Unique Players', 'poker-tournament-import'); ?></div>
+                    <div class="stat-label"><?php esc_html_e('Unique Players', 'poker-tournament-import'); ?></div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-number">$<?php echo esc_html(number_format($total_prize_pool ?: 0, 0)); ?></div>
-                    <div class="stat-label"><?php _e('Total Prize Money', 'poker-tournament-import'); ?></div>
+                    <div class="stat-label"><?php esc_html_e('Total Prize Money', 'poker-tournament-import'); ?></div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-number"><?php echo esc_html($total_tournaments > 0 ? number_format($total_prize_pool / $total_tournaments, 0) : 0); ?></div>
-                    <div class="stat-label"><?php _e('Average Prize Pool', 'poker-tournament-import'); ?></div>
+                    <div class="stat-label"><?php esc_html_e('Average Prize Pool', 'poker-tournament-import'); ?></div>
                 </div>
             </div>
         </section>
@@ -132,6 +134,7 @@ get_header(); ?>
                         $winner_name = '';
                         $winner_avatar = '';
                         if ($tournament_uuid) {
+                            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
                             $winner = $wpdb->get_row($wpdb->prepare(
                                 "SELECT tp.player_id, p.post_title as player_name
                                  FROM $table_name tp
@@ -156,7 +159,7 @@ get_header(); ?>
                                     <div class="tournament-winner">
                                         <div class="winner-avatar"><?php echo esc_html($winner_avatar); ?></div>
                                         <div class="winner-info">
-                                            <span class="winner-label"><?php _e('Winner:', 'poker-tournament-import'); ?></span>
+                                            <span class="winner-label"><?php esc_html_e('Winner:', 'poker-tournament-import'); ?></span>
                                             <span class="winner-name"><?php echo esc_html($winner_name); ?></span>
                                         </div>
                                     </div>
@@ -164,7 +167,7 @@ get_header(); ?>
 
                                 <?php if ($series_name) : ?>
                                     <div class="tournament-series-badge">
-                                        <a href="<?php echo get_permalink($series_id); ?>"><?php echo esc_html($series_name); ?></a>
+                                        <a href="<?php echo esc_url(get_permalink($series_id)); ?>"><?php echo esc_html($series_name); ?></a>
                                     </div>
                                 <?php endif; ?>
                             </div>
@@ -181,7 +184,7 @@ get_header(); ?>
                                     </div>
                                     <div class="meta-item">
                                         <span class="meta-icon">👥</span>
-                                        <span class="meta-value"><?php echo esc_html($players_count ?: '--'); ?> <?php _e('players', 'poker-tournament-import'); ?></span>
+                                        <span class="meta-value"><?php echo esc_html($players_count ?: '--'); ?> <?php esc_html_e('players', 'poker-tournament-import'); ?></span>
                                     </div>
                                     <div class="meta-item">
                                         <span class="meta-icon">💰</span>
@@ -202,10 +205,10 @@ get_header(); ?>
 
                             <div class="tournament-card-footer">
                                 <a href="<?php the_permalink(); ?>" class="btn btn-primary">
-                                    <?php _e('View Results', 'poker-tournament-import'); ?>
+                                    <?php esc_html_e('View Results', 'poker-tournament-import'); ?>
                                 </a>
                                 <button class="btn btn-secondary quick-view" data-tournament-id="<?php the_ID(); ?>">
-                                    <?php _e('Quick View', 'poker-tournament-import'); ?>
+                                    <?php esc_html_e('Quick View', 'poker-tournament-import'); ?>
                                 </button>
                             </div>
                         </div>
@@ -225,7 +228,7 @@ get_header(); ?>
                                         <?php if ($series_name) : ?>
                                             <span class="list-meta-item">
                                                 <i class="icon-tag"></i>
-                                                <a href="<?php echo get_permalink($series_id); ?>"><?php echo esc_html($series_name); ?></a>
+                                                <a href="<?php echo esc_url(get_permalink($series_id)); ?>"><?php echo esc_html($series_name); ?></a>
                                             </span>
                                         <?php endif; ?>
                                         <?php if ($winner_name) : ?>
@@ -240,21 +243,21 @@ get_header(); ?>
                                 <div class="list-item-stats">
                                     <div class="stat-badge">
                                         <span class="stat-value"><?php echo esc_html($players_count ?: '--'); ?></span>
-                                        <span class="stat-label"><?php _e('Players', 'poker-tournament-import'); ?></span>
+                                        <span class="stat-label"><?php esc_html_e('Players', 'poker-tournament-import'); ?></span>
                                     </div>
                                     <div class="stat-badge">
                                         <span class="stat-value"><?php echo esc_html($currency . number_format($prize_pool ?: 0, 0)); ?></span>
-                                        <span class="stat-label"><?php _e('Prize Pool', 'poker-tournament-import'); ?></span>
+                                        <span class="stat-label"><?php esc_html_e('Prize Pool', 'poker-tournament-import'); ?></span>
                                     </div>
                                     <div class="stat-badge">
                                         <span class="stat-value"><?php echo esc_html($currency . $buy_in); ?></span>
-                                        <span class="stat-label"><?php _e('Buy-in', 'poker-tournament-import'); ?></span>
+                                        <span class="stat-label"><?php esc_html_e('Buy-in', 'poker-tournament-import'); ?></span>
                                     </div>
                                 </div>
 
                                 <div class="list-item-actions">
                                     <a href="<?php the_permalink(); ?>" class="btn btn-sm btn-primary">
-                                        <?php _e('View Results', 'poker-tournament-import'); ?>
+                                        <?php esc_html_e('View Results', 'poker-tournament-import'); ?>
                                     </a>
                                 </div>
                             </div>
@@ -278,12 +281,12 @@ get_header(); ?>
 
                 <div class="no-tournaments-found">
                     <div class="no-results-icon">🎰</div>
-                    <h2><?php _e('No Tournaments Found', 'poker-tournament-import'); ?></h2>
-                    <p><?php _e('There are no tournaments to display at this time.', 'poker-tournament-import'); ?></p>
+                    <h2><?php esc_html_e('No Tournaments Found', 'poker-tournament-import'); ?></h2>
+                    <p><?php esc_html_e('There are no tournaments to display at this time.', 'poker-tournament-import'); ?></p>
                     <?php if (current_user_can('manage_options')) : ?>
                         <p>
-                            <a href="<?php echo admin_url('admin.php?page=poker-tournament-import'); ?>" class="btn btn-primary">
-                                <?php _e('Import Your First Tournament', 'poker-tournament-import'); ?>
+                            <a href="<?php echo esc_url(admin_url('admin.php?page=poker-tournament-import')); ?>" class="btn btn-primary">
+                                <?php esc_html_e('Import Your First Tournament', 'poker-tournament-import'); ?>
                             </a>
                         </p>
                     <?php endif; ?>
@@ -296,7 +299,7 @@ get_header(); ?>
         <div id="quick-view-modal" class="modal" style="display: none;">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h3><?php _e('Tournament Quick View', 'poker-tournament-import'); ?></h3>
+                    <h3><?php esc_html_e('Tournament Quick View', 'poker-tournament-import'); ?></h3>
                     <button class="modal-close">&times;</button>
                 </div>
                 <div class="modal-body">

@@ -1040,6 +1040,57 @@
     color: #333;
 }
 
+/* v2.8.6: Tournament Winner Banner Styles */
+.winner-highlight {
+    padding: 30px;
+    border-radius: 8px;
+    margin: 20px 0;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.winner-highlight.chronological {
+    background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+    border-left: 4px solid #4CAF50;
+}
+
+.winner-highlight.legacy {
+    background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+    border-left: 4px solid #66BB6A;
+}
+
+.winner-trophy {
+    font-size: 48px;
+}
+
+.winner-details h2 {
+    margin: 0 0 8px 0;
+    color: #2e7d32;
+}
+
+.winner-details .winner-name {
+    font-size: 24px;
+    font-weight: 600;
+    color: #1b5e20;
+}
+
+.winner-prize {
+    font-size: 18px;
+    color: #388e3c;
+    margin: 8px 0;
+}
+
+.chronological-badge,
+.legacy-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    background: rgba(76, 175, 80, 0.15);
+    color: #2e7d32;
+}
+
 /* Series Results Styles */
 .series-results-table-wrapper {
     background: white;
@@ -1883,14 +1934,17 @@
 .progress-fill {
     height: 100%;
     background: linear-gradient(90deg, #3498db, #2ecc71);
-    animation: progress-animation 2s infinite;
+    /* v2.8.6: Removed bouncing animation - width set via inline style in template */
+    transition: width 0.3s ease;
 }
 
+/* v2.8.6: Commented out bouncing animation
 @keyframes progress-animation {
     0% { width: 0%; }
     50% { width: 100%; }
     100% { width: 0%; }
 }
+*/
 
 .progress-message {
     font-size: 14px;

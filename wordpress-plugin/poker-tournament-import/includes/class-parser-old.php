@@ -45,13 +45,13 @@ class Poker_Tournament_Parser {
         }
 
         if (!file_exists($this->file_path)) {
-            throw new Exception("File not found: {$this->file_path}");
+            throw new Exception(esc_html("File not found: {$this->file_path}"));
         }
 
         // Read file content
         $this->raw_content = file_get_contents($this->file_path);
         if ($this->raw_content === false) {
-            throw new Exception("Failed to read file: {$this->file_path}");
+            throw new Exception(esc_html("Failed to read file: {$this->file_path}"));
         }
 
         // Parse the content

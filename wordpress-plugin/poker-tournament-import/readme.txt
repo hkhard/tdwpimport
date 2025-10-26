@@ -3,7 +3,7 @@ Contributors: hkHard
 Tags: poker, tournament, import, results, bulk-import
 Requires at least: 6.0
 Tested up to: 6.8
-Stable tag: 2.9.4
+Stable tag: 2.9.14
 Requires PHP: 8.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -77,6 +77,63 @@ Use the following shortcodes:
 6. **NEW: Interactive leaderboard with sorting**
 
 == Changelog ==
+
+= 2.9.14 - January 24, 2025 =
+* CRITICAL FIX: Season dropdown now shows correct tournament counts for all seasons
+* Fixed: Latest season was showing (0) tournaments due to cache bug
+* Fixed: Changed wp_cache_set() from wrong variable $leaderboard to correct $tournament_count (line 2557)
+* Fixed: Cache key now season-specific instead of using func_get_args() (line 2544)
+* Technical: Cache key changed from 'poker_query_' + md5() to 'poker_season_count_' + season_id
+* Result: All seasons now display accurate tournament counts in dashboard dropdown
+
+= 2.9.13 - January 24, 2025 =
+* CRITICAL FIX: Bulk import now matches regular import EXACTLY - NO DISCREPANCIES
+* FIXED: Player detection in tournaments now works - players properly linked to results
+* FIXED: Prizes and payouts now display correctly in bulk imports
+* FIXED: Tournament metadata storage completely rewritten to match regular import
+* Added: calculate_and_store_prize_pool() to batch processor (was completely missing!)
+* Added: process_player_roi_data() call after player insertion (was missing!)
+* Added: 8 helper methods to batch processor matching regular import:
+  - count_rebuys() / count_addons() - Count player entries
+  - extract_buy_in_from_tournament_data() - Extract buy-in amounts
+  - extract_currency_from_tournament_data() - Extract currency symbols
+  - extract_game_type_from_tournament_data() - Extract game types
+  - extract_structure_from_tournament_data() - Extract tournament structures
+  - calculate_points_summary() - Calculate points statistics
+  - calculate_enhanced_tournament_stats() - Calculate comprehensive stats
+* Replaced: save_tournament_meta() now stores ALL 15+ metadata fields:
+  - tournament_uuid, series/season names/UUIDs, _tournament_date
+  - _tournament_points_formula, _formula_used, _formula_description, _formula_code
+  - tournament_data (full data object), _buy_in, _currency, _game_type
+  - _tournament_structure, _points_summary, _tournament_stats
+  - Taxonomy auto-categorization now applied
+* Enhanced: create_tournament() flow now matches regular import step-by-step:
+  - Creates series/season/players → Creates tournament post → Stores ALL metadata
+  - Inserts tournament players → Calculates prize pool → Processes ROI data → Triggers stats
+* Technical: Prize pool meta fields now stored (_prize_pool, _players_count, _total_winnings)
+* Technical: Financial data now processed via Statistics Engine
+* Result: Batch imports now have IDENTICAL data to regular imports - same fields, same tables, same routines
+
+= 2.9.12 - January 24, 2025 =
+* CRITICAL FIX: Tournament names now display correctly in bulk import (was "Untitled Tournament")
+* Fixed: Batch processor now uses correct data structure for tournament name
+* Fixed: Changed from $tournament_data['name'] to $tournament_data['metadata']['title']
+* Fixed: Changed from $tournament_data['date'] to $tournament_data['metadata']['start_time']
+* Enhanced: Tournament post dates now set correctly from metadata
+* Technical: Added post_date and post_date_gmt setting matching regular import behavior
+* Result: Bulk imported tournaments now show proper names and dates
+
+= 2.9.11 - January 24, 2025 =
+* MAJOR FIX: Bulk import now creates player, series, and season posts (not just empty tournament posts)
+* Fixed: Batch processor now uses same logic as regular import for creating associated custom post types
+* Added: create_or_find_series() method to batch processor for series post creation
+* Added: create_or_find_season() method to batch processor for season post creation
+* Added: create_or_find_player() method to batch processor for player post creation
+* Enhanced: create_tournament() now creates all related posts before tournament creation
+* Technical: Series/season posts created from league_name/season_name metadata with UUID matching
+* Technical: Player posts created for all participants with UUID matching
+* Technical: Tournament posts now properly linked to series/season via _series_id/_season_id meta
+* Result: Bulk imported tournaments now have full content with players, series, and seasons
 
 = 2.9.10 - January 24, 2025 =
 * CRITICAL FIX: Import options now properly respected (skip duplicates checkbox works)

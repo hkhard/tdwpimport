@@ -206,19 +206,19 @@ class Poker_Tournament_Import_Debug {
             <div class="debug-header">
                 <h4>🐛 Debug Information</h4>
                 <div class="debug-stats">
-                    <span>⏱️ Total Time: <?php echo $total_time; ?>ms</span>
-                    <span>💾 Peak Memory: <?php echo $peak_memory; ?>MB</span>
-                    <span>📝 Messages: <?php echo count(self::$debug_messages); ?></span>
+                    <span>⏱️ Total Time: <?php echo esc_html($total_time); ?>ms</span>
+                    <span>💾 Peak Memory: <?php echo esc_html($peak_memory); ?>MB</span>
+                    <span>📝 Messages: <?php echo esc_html(count(self::$debug_messages)); ?></span>
                 </div>
             </div>
 
             <div class="debug-messages">
                 <?php foreach (self::$debug_messages as $index => $msg): ?>
-                    <div class="debug-message <?php echo self::get_message_class($msg['message']); ?>">
+                    <div class="debug-message <?php echo esc_attr(self::get_message_class($msg['message'])); ?>">
                         <div class="debug-message-header">
-                            <span class="debug-index">#<?php echo $index + 1; ?></span>
-                            <span class="debug-timestamp"><?php echo $msg['timestamp']; ?></span>
-                            <span class="debug-memory"><?php echo $msg['memory']; ?>MB</span>
+                            <span class="debug-index">#<?php echo esc_html($index + 1); ?></span>
+                            <span class="debug-timestamp"><?php echo esc_html($msg['timestamp']); ?></span>
+                            <span class="debug-memory"><?php echo esc_html($msg['memory']); ?>MB</span>
                         </div>
                         <div class="debug-message-content">
                             <?php echo esc_html($msg['message']); ?>

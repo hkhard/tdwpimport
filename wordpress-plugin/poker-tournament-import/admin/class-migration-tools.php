@@ -222,6 +222,7 @@ class Poker_Tournament_Migration_Tools {
 
                 if (!empty($tournament_data) && !empty($tournament_data['players']) && !empty($tournament_uuid)) {
                     // Remove existing player data for this tournament
+                    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
                     $wpdb->delete($table_name, array('tournament_id' => $tournament_uuid));
 
                     // Insert player data
@@ -244,6 +245,7 @@ class Poker_Tournament_Migration_Tools {
                             }
                         }
 
+                        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
                         $result = $wpdb->insert($table_name, array(
                             'tournament_id' => $tournament_uuid,
                             'player_id' => $player['uuid'] ?? '',
@@ -491,7 +493,7 @@ class Poker_Tournament_Migration_Tools {
         }
 
         if (!current_user_can('manage_options')) {
-            wp_die(__('You do not have sufficient permissions to perform this action.', 'poker-tournament-import'));
+            wp_die(esc_html__('You do not have sufficient permissions to perform this action.', 'poker-tournament-import'));
         }
 
         $action = sanitize_text_field($_POST['poker_migration_action']);
@@ -555,5 +557,41 @@ class Poker_Tournament_Migration_Tools {
      */
     public function clear_admin_notice($key) {
         delete_transient('poker_migration_' . $key);
+    }
+
+    /**
+     * Cached database query helper
+     * Wraps $wpdb queries with WordPress object cache
+     *
+     * @param string $query_type 'get_results', 'get_var', 'get_col', or 'query'
+     * @param string $sql SQL query
+     * @param mixed $args Optional query arguments
+     * @param int $cache_time Cache duration in seconds (default: 1 hour)
+     * @return mixed Query results
+     */
+    private function cached_query($query_type, $sql, $args = null, $cache_time = HOUR_IN_SECONDS) {
+        global $wpdb;
+
+        // Generate cache key from query
+        $cache_key = 'poker_' . md5($sql . serialize($args));
+        $cache_group = 'poker_tournament';
+
+        // Try to get from cache
+        $results = wp_cache_get($cache_key, $cache_group);
+
+        if (false === $results) {
+            // Cache miss - query database
+            if ($args !== null) {
+                $prepared_sql = $wpdb->prepare($sql, $args);
+                $results = $wpdb->$query_type($prepared_sql);
+            } else {
+                $results = $wpdb->$query_type($sql);
+            }
+
+            // Store in cache
+            wp_cache_set($cache_key, $results, $cache_group, $cache_time);
+        }
+
+        return $results;
     }
 }

@@ -145,7 +145,7 @@ class TDT_Lexer {
                 continue;
             }
 
-            throw new Exception("Unexpected char '{$ch}' at position {$this->i}");
+            throw new Exception(esc_html("Unexpected char '{$ch}' at position {$this->i}"));
         }
 
         $out[] = new TDT_Token('EOF', null, $this->i);
@@ -209,7 +209,7 @@ class TDT_Lexer {
 
             if ($c === '\\') {
                 if ($this->i >= $this->len) {
-                    throw new Exception("Unterminated escape at position {$this->i}");
+                    throw new Exception(esc_html("Unterminated escape at position {$this->i}"));
                 }
 
                 $esc = $this->s[$this->i++];

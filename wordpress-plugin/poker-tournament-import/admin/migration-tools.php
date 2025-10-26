@@ -48,42 +48,43 @@ class Poker_Migration_Admin_Page {
         $verification = $this->migration_tools->verify_relationships();
         ?>
         <div class="migration-status-card">
-            <h2><?php _e('Migration Status', 'poker-tournament-import'); ?></h2>
+            <h2><?php esc_html_e('Migration Status', 'poker-tournament-import'); ?></h2>
             <div class="status-grid">
                 <div class="status-item">
-                    <span class="status-number"><?php echo $verification['total']; ?></span>
-                    <span class="status-label"><?php _e('Total Tournaments', 'poker-tournament-import'); ?></span>
+                    <span class="status-number"><?php echo esc_html($verification['total']); ?></span>
+                    <span class="status-label"><?php esc_html_e('Total Tournaments', 'poker-tournament-import'); ?></span>
                 </div>
-                <div class="status-item <?php echo $migration_count > 0 ? 'needs-attention' : 'good'; ?>">
-                    <span class="status-number"><?php echo $migration_count; ?></span>
-                    <span class="status-label"><?php _e('Need Migration', 'poker-tournament-import'); ?></span>
-                </div>
-                <div class="status-item">
-                    <span class="status-number"><?php echo $verification['has_both']; ?></span>
-                    <span class="status-label"><?php _e('Complete Relationships', 'poker-tournament-import'); ?></span>
+                <div class="status-item <?php echo esc_attr($migration_count > 0 ? 'needs-attention' : 'good'); ?>">
+                    <span class="status-number"><?php echo esc_html($migration_count); ?></span>
+                    <span class="status-label"><?php esc_html_e('Need Migration', 'poker-tournament-import'); ?></span>
                 </div>
                 <div class="status-item">
-                    <span class="status-number"><?php echo $verification['has_neither']; ?></span>
-                    <span class="status-label"><?php _e('No Relationships', 'poker-tournament-import'); ?></span>
+                    <span class="status-number"><?php echo esc_html($verification['has_both']); ?></span>
+                    <span class="status-label"><?php esc_html_e('Complete Relationships', 'poker-tournament-import'); ?></span>
+                </div>
+                <div class="status-item">
+                    <span class="status-number"><?php echo esc_html($verification['has_neither']); ?></span>
+                    <span class="status-label"><?php esc_html_e('No Relationships', 'poker-tournament-import'); ?></span>
                 </div>
             </div>
 
             <?php if ($migration_count > 0): ?>
                 <div class="migration-notice">
-                    <p><strong><?php _e('Attention:', 'poker-tournament-import'); ?></strong>
+                    <p><strong><?php esc_html_e('Attention:', 'poker-tournament-import'); ?></strong>
                     <?php
                     /* translators: %d: number of tournaments */
                     printf(
-                        __('%d tournaments need migration to fix series/season relationships.', 'poker-tournament-import'),
-                        $migration_count
+                        /* translators: %d: number of tournaments */
+                        esc_html__('%d tournaments need migration to fix series/season relationships.', 'poker-tournament-import'),
+                        esc_html($migration_count)
                     );
                     ?>
                     </p>
                 </div>
             <?php else: ?>
                 <div class="migration-success">
-                    <p><strong><?php _e('Excellent!', 'poker-tournament-import'); ?></strong>
-                    <?php _e('All tournaments have proper series/season relationships.', 'poker-tournament-import'); ?>
+                    <p><strong><?php esc_html_e('Excellent!', 'poker-tournament-import'); ?></strong>
+                    <?php esc_html_e('All tournaments have proper series/season relationships.', 'poker-tournament-import'); ?>
                     </p>
                 </div>
             <?php endif; ?>
@@ -98,17 +99,17 @@ class Poker_Migration_Admin_Page {
         $migration_count = $this->migration_tools->get_migration_count();
         ?>
         <div class="migration-actions-card">
-            <h2><?php _e('Migration Actions', 'poker-tournament-import'); ?></h2>
+            <h2><?php esc_html_e('Migration Actions', 'poker-tournament-import'); ?></h2>
 
             <?php if ($migration_count > 0): ?>
                 <div class="action-section">
-                    <h3><?php _e('Bulk Migration', 'poker-tournament-import'); ?></h3>
-                    <p><?php _e('Migrate all tournaments that are missing series/season relationships. This will:', 'poker-tournament-import'); ?></p>
+                    <h3><?php esc_html_e('Bulk Migration', 'poker-tournament-import'); ?></h3>
+                    <p><?php esc_html_e('Migrate all tournaments that are missing series/season relationships. This will:', 'poker-tournament-import'); ?></p>
                     <ul>
-                        <li><?php _e('Find or create series posts based on tournament data', 'poker-tournament-import'); ?></li>
-                        <li><?php _e('Find or create season posts based on tournament data', 'poker-tournament-import'); ?></li>
-                        <li><?php _e('Link tournaments to their series and seasons', 'poker-tournament-import'); ?></li>
-                        <li><?php _e('Apply tournament type/format/category taxonomies', 'poker-tournament-import'); ?></li>
+                        <li><?php esc_html_e('Find or create series posts based on tournament data', 'poker-tournament-import'); ?></li>
+                        <li><?php esc_html_e('Find or create season posts based on tournament data', 'poker-tournament-import'); ?></li>
+                        <li><?php esc_html_e('Link tournaments to their series and seasons', 'poker-tournament-import'); ?></li>
+                        <li><?php esc_html_e('Apply tournament type/format/category taxonomies', 'poker-tournament-import'); ?></li>
                     </ul>
 
                     <form method="post" class="migration-form">
@@ -119,12 +120,12 @@ class Poker_Migration_Admin_Page {
                                     onclick="return confirm('<?php
                                     esc_attr_e('This will migrate all tournaments. Are you sure?', 'poker-tournament-import');
                                     ?>')">
-                                <?php _e('Migrate All Tournaments', 'poker-tournament-import'); ?>
+                                <?php esc_html_e('Migrate All Tournaments', 'poker-tournament-import'); ?>
                             </button>
                             <span class="migration-count">
                                 (<?php
                                 /* translators: %d: number of tournaments */
-                                printf(__('%d tournaments will be migrated', 'poker-tournament-import'), $migration_count); ?>)
+                                printf(esc_html__('%d tournaments will be migrated', 'poker-tournament-import'), esc_html($migration_count)); ?>)
                             </span>
                         </p>
                     </form>
@@ -132,28 +133,28 @@ class Poker_Migration_Admin_Page {
             <?php endif; ?>
 
             <div class="action-section">
-                <h3><?php _e('Data Verification', 'poker-tournament-import'); ?></h3>
-                <p><?php _e('Verify the integrity of tournament relationships and identify any issues.', 'poker-tournament-import'); ?></p>
+                <h3><?php esc_html_e('Data Verification', 'poker-tournament-import'); ?></h3>
+                <p><?php esc_html_e('Verify the integrity of tournament relationships and identify any issues.', 'poker-tournament-import'); ?></p>
 
                 <form method="post" class="migration-form">
                     <?php wp_nonce_field('poker_migration_action', 'nonce'); ?>
                     <input type="hidden" name="poker_migration_action" value="verify">
                     <p>
                         <button type="submit" class="button">
-                            <?php _e('Verify Relationships', 'poker-tournament-import'); ?>
+                            <?php esc_html_e('Verify Relationships', 'poker-tournament-import'); ?>
                         </button>
                     </p>
                 </form>
             </div>
 
             <div class="action-section">
-                <h3><?php _e('Player Data Synchronization', 'poker-tournament-import'); ?></h3>
-                <p><strong><?php _e('Critical Fix:', 'poker-tournament-import'); ?></strong>
-                <?php _e('Sync tournament player data from import files to database tables. This fixes:', 'poker-tournament-import'); ?></p>
+                <h3><?php esc_html_e('Player Data Synchronization', 'poker-tournament-import'); ?></h3>
+                <p><strong><?php esc_html_e('Critical Fix:', 'poker-tournament-import'); ?></strong>
+                <?php esc_html_e('Sync tournament player data from import files to database tables. This fixes:', 'poker-tournament-import'); ?></p>
                 <ul>
-                    <li><?php _e('Empty tournament displays (no player data)', 'poker-tournament-import'); ?></li>
-                    <li><?php _e('Tab interface not showing content', 'poker-tournament-import'); ?></li>
-                    <li><?php _e('Player statistics not calculating', 'poker-tournament-import'); ?></li>
+                    <li><?php esc_html_e('Empty tournament displays (no player data)', 'poker-tournament-import'); ?></li>
+                    <li><?php esc_html_e('Tab interface not showing content', 'poker-tournament-import'); ?></li>
+                    <li><?php esc_html_e('Player statistics not calculating', 'poker-tournament-import'); ?></li>
                 </ul>
 
                 <form method="post" class="migration-form">
@@ -164,7 +165,7 @@ class Poker_Migration_Admin_Page {
                                 onclick="return confirm('<?php
                                 esc_attr_e('This will sync all tournament player data to fix display issues. Continue?', 'poker-tournament-import');
                                 ?>')">
-                            <?php _e('Sync All Player Data', 'poker-tournament-import'); ?>
+                            <?php esc_html_e('Sync All Player Data', 'poker-tournament-import'); ?>
                         </button>
                     </p>
                 </form>
@@ -183,45 +184,45 @@ class Poker_Migration_Admin_Page {
             $this->migration_tools->clear_admin_notice('verification_results');
             ?>
             <div class="verification-results-card">
-                <h2><?php _e('Verification Results', 'poker-tournament-import'); ?></h2>
+                <h2><?php esc_html_e('Verification Results', 'poker-tournament-import'); ?></h2>
 
                 <div class="verification-summary">
-                    <h3><?php _e('Relationship Status Summary', 'poker-tournament-import'); ?></h3>
+                    <h3><?php esc_html_e('Relationship Status Summary', 'poker-tournament-import'); ?></h3>
                     <table class="wp-list-table widefat striped">
                         <tr>
-                            <td><?php _e('Total Tournaments', 'poker-tournament-import'); ?></td>
-                            <td><?php echo $verification_results['total']; ?></td>
+                            <td><?php esc_html_e('Total Tournaments', 'poker-tournament-import'); ?></td>
+                            <td><?php echo esc_html($verification_results['total']); ?></td>
                         </tr>
                         <tr>
-                            <td><?php _e('Have Series Relationship', 'poker-tournament-import'); ?></td>
-                            <td><?php echo $verification_results['has_series']; ?></td>
+                            <td><?php esc_html_e('Have Series Relationship', 'poker-tournament-import'); ?></td>
+                            <td><?php echo esc_html($verification_results['has_series']); ?></td>
                         </tr>
                         <tr>
-                            <td><?php _e('Have Season Relationship', 'poker-tournament-import'); ?></td>
-                            <td><?php echo $verification_results['has_season']; ?></td>
+                            <td><?php esc_html_e('Have Season Relationship', 'poker-tournament-import'); ?></td>
+                            <td><?php echo esc_html($verification_results['has_season']); ?></td>
                         </tr>
                         <tr>
-                            <td><?php _e('Have Both Relationships', 'poker-tournament-import'); ?></td>
-                            <td><?php echo $verification_results['has_both']; ?></td>
+                            <td><?php esc_html_e('Have Both Relationships', 'poker-tournament-import'); ?></td>
+                            <td><?php echo esc_html($verification_results['has_both']); ?></td>
                         </tr>
                         <tr>
-                            <td><?php _e('Have No Relationships', 'poker-tournament-import'); ?></td>
-                            <td><?php echo $verification_results['has_neither']; ?></td>
+                            <td><?php esc_html_e('Have No Relationships', 'poker-tournament-import'); ?></td>
+                            <td><?php echo esc_html($verification_results['has_neither']); ?></td>
                         </tr>
                     </table>
                 </div>
 
                 <?php if (!empty($verification_results['orphaned_series']) || !empty($verification_results['orphaned_seasons'])): ?>
                     <div class="orphaned-relationships">
-                        <h3><?php _e('Orphaned Relationships Found', 'poker-tournament-import'); ?></h3>
+                        <h3><?php esc_html_e('Orphaned Relationships Found', 'poker-tournament-import'); ?></h3>
 
                         <?php if (!empty($verification_results['orphaned_series'])): ?>
-                            <p><strong><?php _e('Tournaments with broken series relationships:', 'poker-tournament-import'); ?></strong></p>
+                            <p><strong><?php esc_html_e('Tournaments with broken series relationships:', 'poker-tournament-import'); ?></strong></p>
                             <ul>
                                 <?php foreach ($verification_results['orphaned_series'] as $tournament_id): ?>
                                     <li>
-                                        <a href="<?php echo get_edit_post_link($tournament_id); ?>">
-                                            <?php echo get_the_title($tournament_id); ?> (ID: <?php echo $tournament_id; ?>)
+                                        <a href="<?php echo esc_url(get_edit_post_link($tournament_id)); ?>">
+                                            <?php echo esc_html(get_the_title($tournament_id)); ?> (ID: <?php echo esc_html($tournament_id); ?>)
                                         </a>
                                     </li>
                                 <?php endforeach; ?>
@@ -229,12 +230,12 @@ class Poker_Migration_Admin_Page {
                         <?php endif; ?>
 
                         <?php if (!empty($verification_results['orphaned_seasons'])): ?>
-                            <p><strong><?php _e('Tournaments with broken season relationships:', 'poker-tournament-import'); ?></strong></p>
+                            <p><strong><?php esc_html_e('Tournaments with broken season relationships:', 'poker-tournament-import'); ?></strong></p>
                             <ul>
                                 <?php foreach ($verification_results['orphaned_seasons'] as $tournament_id): ?>
                                     <li>
-                                        <a href="<?php echo get_edit_post_link($tournament_id); ?>">
-                                            <?php echo get_the_title($tournament_id); ?> (ID: <?php echo $tournament_id; ?>)
+                                        <a href="<?php echo esc_url(get_edit_post_link($tournament_id)); ?>">
+                                            <?php echo esc_html(get_the_title($tournament_id)); ?> (ID: <?php echo esc_html($tournament_id); ?>)
                                         </a>
                                     </li>
                                 <?php endforeach; ?>
@@ -251,27 +252,27 @@ class Poker_Migration_Admin_Page {
             $this->migration_tools->clear_admin_notice('migration_results');
             ?>
             <div class="migration-results-card">
-                <h2><?php _e('Migration Results', 'poker-tournament-import'); ?></h2>
+                <h2><?php esc_html_e('Migration Results', 'poker-tournament-import'); ?></h2>
 
                 <div class="migration-summary">
                     <?php if ($migration_results['success'] > 0): ?>
                         <div class="success-notice">
-                            <p><strong><?php _e('Migration Successful!', 'poker-tournament-import'); ?></strong></p>
+                            <p><strong><?php esc_html_e('Migration Successful!', 'poker-tournament-import'); ?></strong></p>
                             <p><?php
                             /* translators: %d: number of tournaments */
-                            printf(__('%d tournaments were successfully migrated.', 'poker-tournament-import'), $migration_results['success']); ?></p>
+                            printf(esc_html__('%d tournaments were successfully migrated.', 'poker-tournament-import'), esc_html($migration_results['success'])); ?></p>
                         </div>
                     <?php endif; ?>
 
                     <?php if ($migration_results['failed'] > 0): ?>
                         <div class="error-notice">
-                            <p><strong><?php _e('Migration Issues Found', 'poker-tournament-import'); ?></strong></p>
+                            <p><strong><?php esc_html_e('Migration Issues Found', 'poker-tournament-import'); ?></strong></p>
                             <p><?php
                             /* translators: %d: number of tournaments */
-                            printf(__('%d tournaments could not be migrated.', 'poker-tournament-import'), $migration_results['failed']); ?></p>
+                            printf(esc_html__('%d tournaments could not be migrated.', 'poker-tournament-import'), esc_html($migration_results['failed'])); ?></p>
 
                             <?php if (!empty($migration_results['errors'])): ?>
-                                <h4><?php _e('Errors:', 'poker-tournament-import'); ?></h4>
+                                <h4><?php esc_html_e('Errors:', 'poker-tournament-import'); ?></h4>
                                 <ul>
                                     <?php foreach ($migration_results['errors'] as $error): ?>
                                         <li><?php echo esc_html($error); ?></li>
@@ -290,28 +291,28 @@ class Poker_Migration_Admin_Page {
             $this->migration_tools->clear_admin_notice('sync_results');
             ?>
             <div class="migration-results-card">
-                <h2><?php _e('Player Data Sync Results', 'poker-tournament-import'); ?></h2>
+                <h2><?php esc_html_e('Player Data Sync Results', 'poker-tournament-import'); ?></h2>
 
                 <div class="migration-summary">
                     <?php if ($sync_results['synced'] > 0): ?>
                         <div class="success-notice">
-                            <p><strong><?php _e('Sync Successful!', 'poker-tournament-import'); ?></strong></p>
+                            <p><strong><?php esc_html_e('Sync Successful!', 'poker-tournament-import'); ?></strong></p>
                             <p><?php
                             /* translators: %d: number of tournaments */
-                            printf(__('%d tournaments had their player data synchronized successfully.', 'poker-tournament-import'), $sync_results['synced']); ?></p>
-                            <p><em><?php _e('This should fix the empty tournament displays and tab interface issues.', 'poker-tournament-import'); ?></em></p>
+                            printf(esc_html__('%d tournaments had their player data synchronized successfully.', 'poker-tournament-import'), esc_html($sync_results['synced'])); ?></p>
+                            <p><em><?php esc_html_e('This should fix the empty tournament displays and tab interface issues.', 'poker-tournament-import'); ?></em></p>
                         </div>
                     <?php endif; ?>
 
                     <?php if ($sync_results['failed'] > 0): ?>
                         <div class="error-notice">
-                            <p><strong><?php _e('Sync Issues Found', 'poker-tournament-import'); ?></strong></p>
+                            <p><strong><?php esc_html_e('Sync Issues Found', 'poker-tournament-import'); ?></strong></p>
                             <p><?php
                             /* translators: %d: number of tournaments */
-                            printf(__('%d tournaments could not be synced.', 'poker-tournament-import'), $sync_results['failed']); ?></p>
+                            printf(esc_html__('%d tournaments could not be synced.', 'poker-tournament-import'), esc_html($sync_results['failed'])); ?></p>
 
                             <?php if (!empty($sync_results['errors'])): ?>
-                                <h4><?php _e('Errors:', 'poker-tournament-import'); ?></h4>
+                                <h4><?php esc_html_e('Errors:', 'poker-tournament-import'); ?></h4>
                                 <ul>
                                     <?php foreach (array_slice($sync_results['errors'], 0, 10) as $error): ?>
                                         <li><?php echo esc_html($error); ?></li>
@@ -319,44 +320,44 @@ class Poker_Migration_Admin_Page {
                                     <?php if (count($sync_results['errors']) > 10): ?>
                                         <li><?php
                                         /* translators: %d: number of additional errors */
-                                        printf(__('... and %d more errors', 'poker-tournament-import'), count($sync_results['errors']) - 10); ?></li>
+                                        printf(esc_html__('... and %d more errors', 'poker-tournament-import'), count($sync_results['errors']) - 10); ?></li>
                                     <?php endif; ?>
                                 </ul>
                             <?php endif; ?>
 
                             <?php if (!empty($sync_results['diagnostics'])): ?>
-                                <h4><?php _e('Tournament Diagnostics:', 'poker-tournament-import'); ?></h4>
+                                <h4><?php esc_html_e('Tournament Diagnostics:', 'poker-tournament-import'); ?></h4>
                                 <div class="diagnostics-table">
                                     <table class="wp-list-table widefat striped">
                                         <thead>
                                             <tr>
-                                                <th><?php _e('Tournament ID', 'poker-tournament-import'); ?></th>
-                                                <th><?php _e('Title', 'poker-tournament-import'); ?></th>
-                                                <th><?php _e('Has Data', 'poker-tournament-import'); ?></th>
-                                                <th><?php _e('Players', 'poker-tournament-import'); ?></th>
-                                                <th><?php _e('Has UUID', 'poker-tournament-import'); ?></th>
-                                                <th><?php _e('Meta Keys', 'poker-tournament-import'); ?></th>
+                                                <th><?php esc_html_e('Tournament ID', 'poker-tournament-import'); ?></th>
+                                                <th><?php esc_html_e('Title', 'poker-tournament-import'); ?></th>
+                                                <th><?php esc_html_e('Has Data', 'poker-tournament-import'); ?></th>
+                                                <th><?php esc_html_e('Players', 'poker-tournament-import'); ?></th>
+                                                <th><?php esc_html_e('Has UUID', 'poker-tournament-import'); ?></th>
+                                                <th><?php esc_html_e('Meta Keys', 'poker-tournament-import'); ?></th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             <?php foreach ($sync_results['diagnostics'] as $diag): ?>
                                                 <tr>
-                                                    <td><?php echo $diag['tournament_id']; ?></td>
+                                                    <td><?php echo esc_html($diag['tournament_id']); ?></td>
                                                     <td><?php echo esc_html($diag['title']); ?></td>
                                                     <td>
-                                                        <span class="status-<?php echo $diag['has_tournament_data'] ? 'good' : 'bad'; ?>">
-                                                            <?php echo $diag['has_tournament_data'] ? '✓' : '✗'; ?>
+                                                        <span class="status-<?php echo esc_attr($diag['has_tournament_data'] ? 'good' : 'bad'); ?>">
+                                                            <?php echo esc_html($diag['has_tournament_data'] ? '✓' : '✗'); ?>
                                                         </span>
                                                     </td>
-                                                    <td><?php echo $diag['player_count']; ?></td>
+                                                    <td><?php echo esc_html($diag['player_count']); ?></td>
                                                     <td>
-                                                        <span class="status-<?php echo $diag['has_uuid'] ? 'good' : 'bad'; ?>">
-                                                            <?php echo $diag['has_uuid'] ? '✓' : '✗'; ?>
+                                                        <span class="status-<?php echo esc_attr($diag['has_uuid'] ? 'good' : 'bad'); ?>">
+                                                            <?php echo esc_html($diag['has_uuid'] ? '✓' : '✗'); ?>
                                                         </span>
                                                     </td>
                                                     <td>
                                                         <code style="font-size: 11px;">
-                                                            <?php echo implode(', ', array_keys($diag['all_meta_keys'])); ?>
+                                                            <?php echo esc_html(implode(', ', array_keys($diag['all_meta_keys']))); ?>
                                                         </code>
                                                     </td>
                                                 </tr>

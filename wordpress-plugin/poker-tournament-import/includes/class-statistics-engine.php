@@ -103,6 +103,7 @@ class Poker_Statistics_Engine {
     public function update_statistic($name, $value, $type = 'count', $related_id = null) {
         global $wpdb;
 
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         $result = $wpdb->replace(
             $this->stats_table,
             array(
@@ -125,17 +126,31 @@ class Poker_Statistics_Engine {
     }
 
     /**
-     * Get a single statistic value
+     * Get a single statistic value (with WordPress caching)
      */
     public function get_statistic($name) {
         global $wpdb;
 
+        // Try WordPress cache first
+        $cache_key = 'poker_stat_' . $name;
+        $cached_value = wp_cache_get($cache_key, 'poker_statistics');
+
+        if ($cached_value !== false) {
+            return floatval($cached_value);
+        }
+
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         $value = $wpdb->get_var($wpdb->prepare(
             "SELECT stat_value FROM {$this->stats_table} WHERE stat_name = %s LIMIT 1",
             $name
         ));
 
-        return $value !== null ? floatval($value) : 0;
+        $result = $value !== null ? floatval($value) : 0;
+
+        // Cache for 1 hour
+        wp_cache_set($cache_key, $result, 'poker_statistics', HOUR_IN_SECONDS);
+
+        return $result;
     }
 
     /**
@@ -154,6 +169,24 @@ class Poker_Statistics_Engine {
      */
     public function clear_all_statistics() {
         global $wpdb;
+
+        // Clear WordPress cache for all statistics
+        $stat_names = array(
+            'total_tournaments', 'total_players', 'active_series', 'total_prize_pool',
+            'avg_prize_pool', 'recent_tournaments_30d', 'new_players_30d',
+            'total_entries', 'total_cashouts', 'total_payouts', 'average_players_per_tournament',
+            'average_entry_fee', 'largest_prize_pool', 'highest_single_payout',
+            'average_finish_position', 'total_unique_players', 'total_revenue',
+            'total_costs', 'total_profit', 'average_profit_per_tournament',
+            'profit_margin_percentage', 'total_rake_collected', 'average_rake_per_tournament',
+            'buy_in_to_prize_pool_ratio', 'prize_pool_efficiency',
+            'most_profitable_tournament_type', 'revenue_growth_rate_30d', 'profit_growth_rate_30d'
+        );
+
+        foreach ($stat_names as $name) {
+            wp_cache_delete('poker_stat_' . $name, 'poker_statistics');
+        }
+
         return $wpdb->query("TRUNCATE TABLE {$this->stats_table}");
     }
 
@@ -163,6 +196,7 @@ class Poker_Statistics_Engine {
      */
     private function get_unique_players() {
         global $wpdb;
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         return intval($wpdb->get_var("SELECT COUNT(DISTINCT player_id) FROM {$this->players_table}"));
     }
 
@@ -180,6 +214,7 @@ class Poker_Statistics_Engine {
     private function get_recent_tournaments($days = 30) {
         global $wpdb;
 
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         $count = $wpdb->get_var($wpdb->prepare(
             "SELECT COUNT(*) FROM {$wpdb->posts}
              WHERE post_type = 'tournament' AND post_status = 'publish'
@@ -201,12 +236,14 @@ class Poker_Statistics_Engine {
 
         foreach ($possible_uuid_fields as $uuid_field) {
             // Check if this UUID field exists in tournaments
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
             $field_count = $wpdb->get_var($wpdb->prepare(
                 "SELECT COUNT(*) FROM {$wpdb->postmeta} WHERE meta_key = %s",
                 $uuid_field
             ));
 
             if ($field_count && $field_count > 0) {
+                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
                 $count = $wpdb->get_var($wpdb->prepare(
                     "SELECT COUNT(DISTINCT tp.player_id)
                      FROM {$this->players_table} tp
@@ -245,6 +282,7 @@ class Poker_Statistics_Engine {
     public function get_last_updated() {
         global $wpdb;
 
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         $last_updated = $wpdb->get_var("SELECT MAX(last_updated) FROM {$this->stats_table}");
 
         return $last_updated ? $last_updated : false;
@@ -344,6 +382,7 @@ class Poker_Statistics_Engine {
      */
     private function has_statistics() {
         global $wpdb;
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         $count = $wpdb->get_var("SELECT COUNT(*) FROM {$this->stats_table}");
         return intval($count) > 0;
     }
@@ -363,7 +402,7 @@ class Poker_Statistics_Engine {
         check_ajax_referer('poker_refresh_statistics', 'nonce');
 
         if (!current_user_can('manage_options')) {
-            wp_die(__('You do not have sufficient permissions to access this page.', 'poker-tournament-import'));
+            wp_die(esc_html__('You do not have sufficient permissions to access this page.', 'poker-tournament-import'));
         }
 
         $result = $this->refresh_statistics();
@@ -386,7 +425,60 @@ class Poker_Statistics_Engine {
      */
     private function get_total_entries() {
         global $wpdb;
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         $total = $wpdb->get_var("SELECT SUM(buyins) FROM {$this->players_table}");
+        return intval($total ?: 0);
+    }
+
+    /**
+     * Get total entries with date filtering and season filtering
+     *
+     * @param string|null $start_date Start date filter
+     * @param string|null $end_date End date filter
+     * @param int $series_id Series ID filter (deprecated)
+     * @param int|string|null $season_id Season ID to filter by
+     */
+    private function get_total_entries_filtered($start_date = null, $end_date = null, $series_id = 0, $season_id = null) {
+        global $wpdb;
+
+        $query = "SELECT SUM(tp.buyins)
+                 FROM {$this->players_table} tp
+                 LEFT JOIN {$wpdb->postmeta} pm ON pm.meta_value = tp.tournament_id AND pm.meta_key = 'tournament_uuid'
+                 LEFT JOIN {$wpdb->posts} p ON pm.post_id = p.ID
+                 WHERE p.post_status = 'publish'";
+        $params = array();
+
+        if ($start_date && $end_date) {
+            $query .= " AND p.post_date >= %s AND p.post_date <= %s";
+            $params[] = $start_date . ' 00:00:00';
+            $params[] = $end_date . ' 23:59:59';
+        }
+
+        if ($series_id > 0) {
+            $query .= " AND pm.post_id IN (
+                SELECT object_id FROM {$wpdb->term_relationships}
+                WHERE term_taxonomy_id = %d
+            )";
+            $params[] = $series_id;
+        }
+
+        // Add season filter if provided and not 'all'
+        if ($season_id && $season_id !== 'all') {
+            $query .= " AND p.ID IN (
+                SELECT post_id FROM {$wpdb->postmeta}
+                WHERE meta_key = '_season_id' AND meta_value = %d
+            )";
+            $params[] = intval($season_id);
+        }
+
+        if (!empty($params)) {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
+            $total = $wpdb->get_var($wpdb->prepare($query, $params));
+        } else {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
+            $total = $wpdb->get_var($query);
+        }
+
         return intval($total ?: 0);
     }
 
@@ -395,6 +487,7 @@ class Poker_Statistics_Engine {
      */
     private function get_total_cashouts() {
         global $wpdb;
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         $count = $wpdb->get_var("SELECT COUNT(*) FROM {$this->players_table} WHERE winnings > 0");
         return intval($count ?: 0);
     }
@@ -404,6 +497,7 @@ class Poker_Statistics_Engine {
      */
     private function get_total_payouts() {
         global $wpdb;
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         $total = $wpdb->get_var("SELECT SUM(winnings) FROM {$this->players_table}");
         return floatval($total ?: 0);
     }
@@ -435,6 +529,7 @@ class Poker_Statistics_Engine {
         $possible_fields = array('_prize_pool', 'prize_pool', '_tournament_prize_pool', 'tournament_prize_pool');
 
         foreach ($possible_fields as $field) {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
             $max = $wpdb->get_var($wpdb->prepare(
                 "SELECT MAX(CAST(meta_value AS DECIMAL(10,2))) FROM {$wpdb->postmeta} WHERE meta_key = %s AND meta_value != ''",
                 $field
@@ -445,6 +540,7 @@ class Poker_Statistics_Engine {
         }
 
         // Fallback: calculate from players table
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         $max = $wpdb->get_var(
             "SELECT MAX(winnings) FROM {$this->players_table}"
         );
@@ -456,6 +552,7 @@ class Poker_Statistics_Engine {
      */
     private function get_highest_single_payout() {
         global $wpdb;
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         $max = $wpdb->get_var("SELECT MAX(winnings) FROM {$this->players_table}");
         return floatval($max ?: 0);
     }
@@ -465,6 +562,7 @@ class Poker_Statistics_Engine {
      */
     private function get_average_finish_position() {
         global $wpdb;
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         $avg = $wpdb->get_var("SELECT AVG(finish_position) FROM {$this->players_table} WHERE finish_position > 0");
         return floatval($avg ?: 0);
     }
@@ -510,8 +608,10 @@ class Poker_Statistics_Engine {
         }
 
         if (!empty($params)) {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
             $count = $wpdb->get_var($wpdb->prepare($query, $params));
         } else {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
             $count = $wpdb->get_var($query);
         }
 
@@ -560,8 +660,10 @@ class Poker_Statistics_Engine {
         }
 
         if (!empty($params)) {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
             $count = $wpdb->get_var($wpdb->prepare($query, $params));
         } else {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
             $count = $wpdb->get_var($query);
         }
 
@@ -612,6 +714,7 @@ class Poker_Statistics_Engine {
                 $params[] = intval($season_id);
             }
 
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
             $total = $wpdb->get_var($wpdb->prepare($query, $params));
             if ($total && $total > 0) {
                 return floatval($total);
@@ -624,16 +727,61 @@ class Poker_Statistics_Engine {
     /**
      * Get average players per tournament with date filtering and season filtering
      *
+     * v2.8.14: Fixed to count unique physical players per tournament instead of total entries
+     *
      * @param string|null $start_date Start date filter
      * @param string|null $end_date End date filter
      * @param int $series_id Series ID filter (deprecated)
      * @param int|string|null $season_id Season ID to filter by
      */
     public function get_average_players_per_tournament($start_date = null, $end_date = null, $series_id = 0, $season_id = null) {
-        $total_tournaments = $this->get_total_tournaments($start_date, $end_date, $series_id, $season_id);
-        $total_players = $this->get_total_players($start_date, $end_date, $series_id, $season_id);
+        global $wpdb;
 
-        return $total_tournaments > 0 ? $total_players / $total_tournaments : 0;
+        // Calculate average of unique player counts per tournament
+        $query = "SELECT AVG(player_count) as avg_players
+                 FROM (
+                     SELECT COUNT(DISTINCT tp.player_id) as player_count
+                     FROM {$this->players_table} tp
+                     LEFT JOIN {$wpdb->postmeta} pm ON pm.meta_value = tp.tournament_id AND pm.meta_key = 'tournament_uuid'
+                     LEFT JOIN {$wpdb->posts} p ON pm.post_id = p.ID
+                     WHERE p.post_status = 'publish'";
+        $params = array();
+
+        if ($start_date && $end_date) {
+            $query .= " AND p.post_date >= %s AND p.post_date <= %s";
+            $params[] = $start_date . ' 00:00:00';
+            $params[] = $end_date . ' 23:59:59';
+        }
+
+        if ($series_id > 0) {
+            $query .= " AND pm.post_id IN (
+                SELECT object_id FROM {$wpdb->term_relationships}
+                WHERE term_taxonomy_id = %d
+            )";
+            $params[] = $series_id;
+        }
+
+        // Add season filter if provided and not 'all'
+        if ($season_id && $season_id !== 'all') {
+            $query .= " AND p.ID IN (
+                SELECT post_id FROM {$wpdb->postmeta}
+                WHERE meta_key = '_season_id' AND meta_value = %d
+            )";
+            $params[] = intval($season_id);
+        }
+
+        $query .= " GROUP BY tp.tournament_id
+                 ) as tournament_counts";
+
+        if (!empty($params)) {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
+            $avg = $wpdb->get_var($wpdb->prepare($query, $params));
+        } else {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
+            $avg = $wpdb->get_var($query);
+        }
+
+        return floatval($avg ?: 0);
     }
 
     /**
@@ -700,6 +848,7 @@ class Poker_Statistics_Engine {
         $params[] = $per_page;
         $params[] = $offset;
 
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         return $wpdb->get_results($wpdb->prepare($query, $params));
     }
 
@@ -708,6 +857,7 @@ class Poker_Statistics_Engine {
      */
     public function get_total_players_count() {
         global $wpdb;
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         return intval($wpdb->get_var("SELECT COUNT(DISTINCT player_id) FROM {$this->players_table}"));
     }
 
@@ -720,15 +870,20 @@ class Poker_Statistics_Engine {
 
         // DEBUG: Check if ROI table exists and has data (for admin users only)
         if (current_user_can('manage_options')) {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
             $roi_exists = $wpdb->get_var("SHOW TABLES LIKE '$roi_table'") === $roi_table;
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
             $roi_count = $roi_exists ? $wpdb->get_var("SELECT COUNT(*) FROM $roi_table") : 0;
             error_log("Statistics Engine - Top Players Debug - ROI table exists: " . ($roi_exists ? 'YES' : 'NO'));
             error_log("Statistics Engine - Top Players Debug - ROI table rows: " . $roi_count);
 
             // Check if ROI table has any non-null net_profit values
             if ($roi_exists && $roi_count > 0) {
+                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
                 $non_null_count = $wpdb->get_var("SELECT COUNT(*) FROM $roi_table WHERE net_profit IS NOT NULL");
+                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
                 $positive_profit = $wpdb->get_var("SELECT COUNT(*) FROM $roi_table WHERE net_profit > 0");
+                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
                 $sample_data = $wpdb->get_results("SELECT player_id, net_profit, total_invested, total_winnings FROM $roi_table LIMIT 5", ARRAY_A);
                 error_log("Statistics Engine - Top Players Debug - Non-null net_profit rows: " . $non_null_count);
                 error_log("Statistics Engine - Top Players Debug - Positive net_profit rows: " . $positive_profit);
@@ -768,6 +923,7 @@ class Poker_Statistics_Engine {
                    LIMIT %d";
         $params[] = $limit;
 
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         $results = $wpdb->get_results($wpdb->prepare($query, $params));
 
         // DEBUG: Log results count
@@ -787,6 +943,7 @@ class Poker_Statistics_Engine {
     public function get_monthly_player_growth() {
         global $wpdb;
 
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         return $wpdb->get_results(
             "SELECT
                 DATE_FORMAT(p.post_date, '%Y-%m') as month,
@@ -807,6 +964,7 @@ class Poker_Statistics_Engine {
     public function get_new_players_count($days = 30) {
         global $wpdb;
 
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         return intval($wpdb->get_var($wpdb->prepare(
             "SELECT COUNT(DISTINCT tp.player_id)
              FROM {$this->players_table} tp
@@ -825,6 +983,7 @@ class Poker_Statistics_Engine {
 
         // This is a simplified version - returning players are those who played
         // in the period but had their first tournament before this period
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         return intval($wpdb->get_var($wpdb->prepare(
             "SELECT COUNT(DISTINCT tp.player_id)
              FROM {$this->players_table} tp
@@ -849,6 +1008,7 @@ class Poker_Statistics_Engine {
     public function get_monthly_tournament_counts() {
         global $wpdb;
 
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         return $wpdb->get_results(
             "SELECT
                 DATE_FORMAT(post_date, '%Y-%m') as month,
@@ -869,6 +1029,7 @@ class Poker_Statistics_Engine {
     public function get_average_tournament_size_growth() {
         global $wpdb;
 
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         return $wpdb->get_results(
             "SELECT
                 DATE_FORMAT(post_date, '%Y-%m') as month,
@@ -889,6 +1050,7 @@ class Poker_Statistics_Engine {
     public function get_prize_pool_growth_trends() {
         global $wpdb;
 
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         return $wpdb->get_results(
             "SELECT
                 DATE_FORMAT(post_date, '%Y-%m') as month,
@@ -916,15 +1078,20 @@ class Poker_Statistics_Engine {
 
         // DEBUG: Check if ROI table exists and has data (for admin users only)
         if (current_user_can('manage_options')) {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
             $roi_exists = $wpdb->get_var("SHOW TABLES LIKE '$roi_table'") === $roi_table;
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
             $roi_count = $roi_exists ? $wpdb->get_var("SELECT COUNT(*) FROM $roi_table") : 0;
             error_log("Statistics Engine - Player Leaderboard Debug - ROI table exists: " . ($roi_exists ? 'YES' : 'NO'));
             error_log("Statistics Engine - Player Leaderboard Debug - ROI table rows: " . $roi_count);
 
             // Check if ROI table has any non-null net_profit values
             if ($roi_exists && $roi_count > 0) {
+                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
                 $non_null_count = $wpdb->get_var("SELECT COUNT(*) FROM $roi_table WHERE net_profit IS NOT NULL");
+                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
                 $positive_profit = $wpdb->get_var("SELECT COUNT(*) FROM $roi_table WHERE net_profit > 0");
+                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
                 $sample_data = $wpdb->get_results("SELECT player_id, net_profit, total_invested, total_winnings FROM $roi_table LIMIT 5", ARRAY_A);
                 error_log("Statistics Engine - Player Leaderboard Debug - Non-null net_profit rows: " . $non_null_count);
                 error_log("Statistics Engine - Player Leaderboard Debug - Positive net_profit rows: " . $positive_profit);
@@ -986,6 +1153,7 @@ class Poker_Statistics_Engine {
              LIMIT %d";
         $params[] = $limit;
 
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         $leaderboard = $wpdb->get_results($wpdb->prepare($query, $params));
 
         // DEBUG: Log results count
@@ -998,6 +1166,7 @@ class Poker_Statistics_Engine {
 
         // Add player names from WordPress posts and calculate season points
         foreach ($leaderboard as &$player) {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
             $player_post = $wpdb->get_row($wpdb->prepare(
                 "SELECT p.ID, p.post_title
                  FROM {$wpdb->postmeta} pm
@@ -1064,6 +1233,7 @@ class Poker_Statistics_Engine {
         }
 
         // Get tournament points for player (filtered by season if specified)
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         $results = $wpdb->get_results($wpdb->prepare($query, $params));
 
         if (empty($results)) {
@@ -1170,6 +1340,7 @@ class Poker_Statistics_Engine {
         global $wpdb;
 
         // Get daily participation for last N days
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         $trends = $wpdb->get_results($wpdb->prepare(
             "SELECT
                 DATE(p.post_date) as date,
@@ -1198,7 +1369,9 @@ class Poker_Statistics_Engine {
 
         // Check database tables
         global $wpdb;
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         $debug_info['stats_table_exists'] = $wpdb->get_var("SHOW TABLES LIKE '{$this->stats_table}'") ? true : false;
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         $debug_info['players_table_exists'] = $wpdb->get_var("SHOW TABLES LIKE '{$this->players_table}'") ? true : false;
 
         // Check raw data counts
@@ -1207,8 +1380,10 @@ class Poker_Statistics_Engine {
         $debug_info['raw_player_count'] = wp_count_posts('player')->publish;
 
         // **CRITICAL**: Check players table data
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         $total_players_records = $wpdb->get_var("SELECT COUNT(*) FROM {$this->players_table}");
         $debug_info['players_table_records'] = intval($total_players_records);
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         $debug_info['raw_players_in_db'] = $wpdb->get_var("SELECT COUNT(DISTINCT player_id) FROM {$this->players_table}");
 
         // Check tournament UUIDs and their player data
@@ -1232,6 +1407,7 @@ class Poker_Statistics_Engine {
                 $uuid_to_check = $tournament_uuid ?: $tournament_uuid_alt;
 
                 // Check if this tournament has players in the data mart
+                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
                 $player_count = $wpdb->get_var($wpdb->prepare(
                     "SELECT COUNT(*) FROM {$this->players_table} WHERE tournament_id = %s",
                     $uuid_to_check
@@ -1258,10 +1434,12 @@ class Poker_Statistics_Engine {
         $debug_info['prize_pool_fields'] = array();
         $possible_prize_fields = array('_prize_pool', 'prize_pool', '_tournament_prize_pool', 'tournament_prize_pool');
         foreach ($possible_prize_fields as $field) {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
             $count = $wpdb->get_var($wpdb->prepare(
                 "SELECT COUNT(*) FROM {$wpdb->postmeta} WHERE meta_key = %s",
                 $field
             ));
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
             $total = $wpdb->get_var($wpdb->prepare(
                 "SELECT SUM(CAST(meta_value AS DECIMAL(10,2))) FROM {$wpdb->postmeta} WHERE meta_key = %s AND meta_value != ''",
                 $field
@@ -1276,6 +1454,7 @@ class Poker_Statistics_Engine {
         $debug_info['uuid_fields'] = array();
         $possible_uuid_fields = array('tournament_uuid', '_tournament_uuid', 'uuid', '_uuid');
         foreach ($possible_uuid_fields as $field) {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
             $count = $wpdb->get_var($wpdb->prepare(
                 "SELECT COUNT(*) FROM {$wpdb->postmeta} WHERE meta_key = %s",
                 $field
@@ -1287,6 +1466,7 @@ class Poker_Statistics_Engine {
         $debug_info['player_uuid_fields'] = array();
         $possible_player_uuid_fields = array('player_uuid', '_player_uuid', 'uuid', '_uuid');
         foreach ($possible_player_uuid_fields as $field) {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
             $count = $wpdb->get_var($wpdb->prepare(
                 "SELECT COUNT(*) FROM {$wpdb->postmeta} WHERE meta_key = %s",
                 $field
@@ -1307,6 +1487,7 @@ class Poker_Statistics_Engine {
         $debug_info['best_prize_field'] = $best_prize_field;
 
         // Check statistics table
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         $debug_info['stats_count'] = $wpdb->get_var("SELECT COUNT(*) FROM {$this->stats_table}");
         $debug_info['last_updated'] = $this->get_last_updated();
 
@@ -1337,6 +1518,7 @@ class Poker_Statistics_Engine {
 
         // Get financial summary from enhanced data mart
         $financial_table = $wpdb->prefix . 'poker_financial_summary';
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         $financial_summary = $wpdb->get_row(
             "SELECT
                 SUM(tournament_revenue) as total_revenue,
@@ -1382,6 +1564,7 @@ class Poker_Statistics_Engine {
         global $wpdb;
 
         // Calculate total rake from tournament data
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         $total_rake = $wpdb->get_var(
             "SELECT SUM(CAST(meta_value AS DECIMAL(10,2)))
              FROM {$wpdb->postmeta}
@@ -1420,6 +1603,7 @@ class Poker_Statistics_Engine {
         $financial_table = $wpdb->prefix . 'poker_financial_summary';
 
         // Find most profitable tournament type
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         $most_profitable = $wpdb->get_row(
             "SELECT
                 p.post_title as tournament_type,
@@ -1455,11 +1639,13 @@ class Poker_Statistics_Engine {
         $current_month = date('Y-m');
         $previous_month = date('Y-m', strtotime('-1 month'));
 
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         $current_data = $wpdb->get_row($wpdb->prepare(
             "SELECT total_revenue, total_profit FROM {$revenue_analytics_table} WHERE analytics_period = %s",
             $current_month
         ));
 
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         $previous_data = $wpdb->get_row($wpdb->prepare(
             "SELECT total_revenue, total_profit FROM {$revenue_analytics_table} WHERE analytics_period = %s",
             $previous_month
@@ -1501,6 +1687,7 @@ class Poker_Statistics_Engine {
         $revenue_analytics_table = $wpdb->prefix . 'poker_revenue_analytics';
 
         // Recent financial performance
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         $recent_data = $wpdb->get_results($wpdb->prepare(
             "SELECT
                 DATE(p.post_date) as date,
@@ -1520,6 +1707,7 @@ class Poker_Statistics_Engine {
         ));
 
         // Monthly trends
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         $monthly_trends = $wpdb->get_results(
             "SELECT
                 analytics_period,
@@ -1586,6 +1774,7 @@ class Poker_Statistics_Engine {
         $prize_pool_efficiency = $total_revenue > 0 ? ($prize_pool / $total_revenue) * 100 : 0;
 
         // Store financial summary
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         $result = $wpdb->replace(
             $financial_table,
             array(
@@ -1636,6 +1825,7 @@ class Poker_Statistics_Engine {
         $current_period = date('Y-m');
 
         // Check if record exists for current month
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         $existing = $wpdb->get_row($wpdb->prepare(
             "SELECT * FROM {$analytics_table} WHERE analytics_period = %s",
             $current_period
@@ -1654,6 +1844,7 @@ class Poker_Statistics_Engine {
             $profit_margin_percentage = $new_total_revenue > 0 ? ($new_total_profit / $new_total_revenue) * 100 : 0;
 
             // Update existing record
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
             $wpdb->update(
                 $analytics_table,
                 array(
@@ -1673,6 +1864,7 @@ class Poker_Statistics_Engine {
             );
         } else {
             // Insert new record
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
             $wpdb->insert(
                 $analytics_table,
                 array(
@@ -1701,6 +1893,7 @@ class Poker_Statistics_Engine {
         $player_roi_table = $wpdb->prefix . 'poker_player_roi';
 
         // Get tournament post ID from UUID
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         $tournament_post = $wpdb->get_row($wpdb->prepare(
             "SELECT post_id FROM {$wpdb->postmeta}
              WHERE meta_key = 'tournament_uuid' AND meta_value = %s LIMIT 1",
@@ -1752,6 +1945,7 @@ class Poker_Statistics_Engine {
                     $net_profit = $winnings - $total_invested;
                     $roi_percentage = $total_invested > 0 ? ($net_profit / $total_invested) * 100 : 0;
 
+                    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
                     $wpdb->replace(
                         $player_roi_table,
                         array(
@@ -1781,12 +1975,14 @@ class Poker_Statistics_Engine {
 
         if ($player_id) {
             // Get ROI data for specific player
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
             return $wpdb->get_results($wpdb->prepare(
                 "SELECT * FROM {$player_roi_table} WHERE player_id = %s ORDER BY tournament_date DESC",
                 $player_id
             ));
         } else {
             // Get top ROI performers
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
             return $wpdb->get_results($wpdb->prepare(
                 "SELECT
                     player_id,
@@ -1817,6 +2013,7 @@ class Poker_Statistics_Engine {
         if ($tournament_id) {
             $tournament_uuid = get_post_meta($tournament_id, 'tournament_uuid', true);
             if ($tournament_uuid) {
+                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
                 return $wpdb->get_results($wpdb->prepare(
                     "SELECT * FROM {$costs_table} WHERE tournament_id = %s ORDER BY cost_amount DESC",
                     $tournament_uuid
@@ -1824,6 +2021,7 @@ class Poker_Statistics_Engine {
             }
         } else {
             // Get cost analysis across all tournaments
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
             return $wpdb->get_results(
                 "SELECT
                     cost_category,
@@ -1857,6 +2055,7 @@ class Poker_Statistics_Engine {
         error_log("ROI Migration: Starting migration to populate poker_player_roi table");
 
         // Get all tournaments with player data
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         $tournaments = $wpdb->get_results(
             "SELECT DISTINCT tp.tournament_id
              FROM {$this->players_table} tp"
@@ -1868,6 +2067,7 @@ class Poker_Statistics_Engine {
             $tournament_uuid = $tournament->tournament_id;
 
             // Get tournament post ID from meta
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
             $tournament_post = $wpdb->get_row($wpdb->prepare(
                 "SELECT post_id
                  FROM {$wpdb->postmeta}
@@ -1900,6 +2100,7 @@ class Poker_Statistics_Engine {
             }
 
             // Get all players for this tournament
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
             $players = $wpdb->get_results($wpdb->prepare(
                 "SELECT player_id, winnings, buyins, rebuys, addons, finish_position
                  FROM {$this->players_table}
@@ -1929,6 +2130,7 @@ class Poker_Statistics_Engine {
                 $roi_percentage = $total_invested > 0 ? ($net_profit / $total_invested) * 100 : 0;
 
                 // Insert ROI record
+                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
                 $result = $wpdb->replace(
                     $player_roi_table,
                     array(

@@ -359,34 +359,107 @@ class Poker_Tournament_Batch_Processor {
     }
 
     /**
-     * Create new tournament post from parsed data
+     * Create new tournament post from parsed data - MATCHES regular import exactly
      *
      * @param array $tournament_data Parsed tournament data
      * @return array Result with tournament_id
      */
     private function create_tournament($tournament_data) {
-        // Sanitize data
-        $tournament_name = sanitize_text_field($tournament_data['name'] ?? 'Untitled Tournament');
-        $tournament_date = sanitize_text_field($tournament_data['date'] ?? current_time('Y-m-d'));
+        // Get metadata
+        $metadata = $tournament_data['metadata'];
+        $status = 'publish'; // Always publish in bulk import
 
-        // Create post
-        $post_id = wp_insert_post(array(
+        // Sanitize tournament data
+        $tournament_name = sanitize_text_field($metadata['title'] ?? 'Untitled Tournament');
+
+        // Create or find series post
+        $series_id = 0;
+        if (!empty($metadata['league_name'])) {
+            $series_id = $this->create_or_find_series(
+                $metadata['league_name'],
+                $metadata['league_uuid'] ?? '',
+                $status
+            );
+        }
+
+        // Create or find season post
+        $season_id = 0;
+        if (!empty($metadata['season_name'])) {
+            $season_id = $this->create_or_find_season(
+                $metadata['season_name'],
+                $metadata['season_uuid'] ?? '',
+                $status
+            );
+        }
+
+        // Create player posts
+        $player_ids = array();
+        if (!empty($tournament_data['players']) && is_array($tournament_data['players'])) {
+            foreach ($tournament_data['players'] as $player_uuid => $player_data) {
+                $player_id = $this->create_or_find_player(
+                    $player_data['nickname'],
+                    $player_uuid,
+                    $status
+                );
+                if ($player_id) {
+                    $player_ids[$player_uuid] = $player_id;
+                }
+            }
+        }
+
+        // Prepare post data
+        $post_data = array(
             'post_title' => $tournament_name,
             'post_type' => 'tournament',
-            'post_status' => 'publish',
+            'post_status' => $status,
             'post_content' => wp_kses_post($tournament_data['description'] ?? ''),
-        ));
+        );
+
+        // Set tournament date if available
+        if (!empty($metadata['start_time'])) {
+            $post_data['post_date'] = date('Y-m-d H:i:s', strtotime($metadata['start_time']));
+            $post_data['post_date_gmt'] = get_gmt_from_date($post_data['post_date']);
+        }
+
+        // Create tournament post
+        $post_id = wp_insert_post($post_data);
 
         if (is_wp_error($post_id)) {
             throw new Exception($post_id->get_error_message());
         }
 
-        // Save tournament meta data
+        // Save tournament meta data (now with ALL metadata like regular import)
         $this->save_tournament_meta($post_id, $tournament_data);
 
-        // Save players data
+        // Store series and season relationships
+        if ($series_id > 0) {
+            update_post_meta($post_id, '_series_id', $series_id);
+        }
+        if ($season_id > 0) {
+            update_post_meta($post_id, '_season_id', $season_id);
+        }
+
+        // Store player relationships
+        if (!empty($player_ids)) {
+            update_post_meta($post_id, 'tournament_players', $player_ids);
+        }
+
+        // Save players data to database table
+        $players_inserted = 0;
         if (!empty($tournament_data['players']) && is_array($tournament_data['players'])) {
-            $this->save_tournament_players($post_id, $tournament_data);
+            $players_inserted = $this->save_tournament_players($post_id, $tournament_data);
+        }
+
+        // **CRITICAL**: Calculate and store prize pool (was missing!)
+        $this->calculate_and_store_prize_pool($post_id, $tournament_data);
+
+        // **CRITICAL**: Process player ROI data (was missing!)
+        if (class_exists('Poker_Statistics_Engine')) {
+            $stats_engine = Poker_Statistics_Engine::get_instance();
+            $tournament_uuid = $metadata['uuid'] ?? '';
+            if ($tournament_uuid) {
+                $stats_engine->process_player_roi_data($tournament_uuid, $tournament_data);
+            }
         }
 
         // Trigger statistics refresh (async)
@@ -394,6 +467,10 @@ class Poker_Tournament_Batch_Processor {
 
         return array(
             'tournament_id' => $post_id,
+            'series_id' => $series_id,
+            'season_id' => $season_id,
+            'players_created' => count($player_ids),
+            'players_inserted' => $players_inserted,
         );
     }
 
@@ -441,42 +518,103 @@ class Poker_Tournament_Batch_Processor {
     }
 
     /**
-     * Save tournament meta data
+     * Save tournament meta data - MATCHES regular import exactly
      *
      * @param int   $post_id Tournament post ID
      * @param array $tournament_data Parsed tournament data
      */
     private function save_tournament_meta($post_id, $tournament_data) {
-        // Save all meta fields
-        $meta_fields = array(
-            'tournament_name',
-            'tournament_date',
-            'tournament_venue',
-            'buy_in',
-            'prize_pool',
-            'total_players',
-            'start_time',
-            'end_time',
-            'blind_structure',
-            'prize_structure',
-            'game_type',
-            'tournament_director',
-            'tournament_notes',
-        );
+        $metadata = $tournament_data['metadata'];
 
-        foreach ($meta_fields as $field) {
-            if (isset($tournament_data[$field])) {
-                update_post_meta($post_id, $field, sanitize_text_field($tournament_data[$field]));
+        // Store tournament UUID
+        if (!empty($metadata['uuid'])) {
+            update_post_meta($post_id, 'tournament_uuid', $metadata['uuid']);
+        }
+
+        // Store series info
+        if (!empty($metadata['league_name'])) {
+            update_post_meta($post_id, 'tournament_series_name', $metadata['league_name']);
+        }
+        if (!empty($metadata['league_uuid'])) {
+            update_post_meta($post_id, 'tournament_series_uuid', $metadata['league_uuid']);
+        }
+
+        // Store season info
+        if (!empty($metadata['season_name'])) {
+            update_post_meta($post_id, 'tournament_season_name', $metadata['season_name']);
+        }
+        if (!empty($metadata['season_uuid'])) {
+            update_post_meta($post_id, 'tournament_season_uuid', $metadata['season_uuid']);
+        }
+
+        // Store tournament date (with underscore prefix for template compatibility)
+        if (!empty($metadata['start_time'])) {
+            update_post_meta($post_id, 'tournament_date', $metadata['start_time']);
+            update_post_meta($post_id, '_tournament_date', $metadata['start_time']);
+        }
+
+        // Store PointsForPlaying formula from .tdt file
+        if (!empty($metadata['points_formula'])) {
+            update_post_meta($post_id, '_tournament_points_formula', $metadata['points_formula']);
+        }
+
+        // Store which formula was actually used for points calculation
+        if (isset($tournament_data['players'])) {
+            $first_player = reset($tournament_data['players']);
+            if (isset($first_player['points_calculation']['formula_used'])) {
+                update_post_meta($post_id, '_formula_used', $first_player['points_calculation']['formula_used']);
+
+                if (isset($first_player['points_calculation']['formula_description'])) {
+                    update_post_meta($post_id, '_formula_description', $first_player['points_calculation']['formula_description']);
+                }
+
+                if (isset($first_player['points_calculation']['formula_code'])) {
+                    update_post_meta($post_id, '_formula_code', $first_player['points_calculation']['formula_code']);
+                }
             }
         }
 
-        // Save structured data as JSON
-        if (isset($tournament_data['blind_levels']) && is_array($tournament_data['blind_levels'])) {
-            update_post_meta($post_id, 'blind_levels', wp_json_encode($tournament_data['blind_levels']));
+        // Store full tournament data
+        update_post_meta($post_id, 'tournament_data', $tournament_data);
+
+        // Extract and store buy-in information
+        $buy_in = $this->extract_buy_in_from_tournament_data($tournament_data);
+        if ($buy_in > 0) {
+            update_post_meta($post_id, '_buy_in', $buy_in);
         }
 
-        if (isset($tournament_data['prizes']) && is_array($tournament_data['prizes'])) {
-            update_post_meta($post_id, 'prizes', wp_json_encode($tournament_data['prizes']));
+        // Extract and store currency information
+        $currency = $this->extract_currency_from_tournament_data($tournament_data);
+        update_post_meta($post_id, '_currency', $currency);
+
+        // Extract and store game type
+        $game_type = $this->extract_game_type_from_tournament_data($tournament_data);
+        if ($game_type) {
+            update_post_meta($post_id, '_game_type', $game_type);
+        }
+
+        // Extract and store tournament structure
+        $structure = $this->extract_structure_from_tournament_data($tournament_data);
+        if ($structure) {
+            update_post_meta($post_id, '_tournament_structure', $structure);
+        }
+
+        // Calculate and store points calculation summary
+        $points_summary = $this->calculate_points_summary($tournament_data);
+        if ($points_summary) {
+            update_post_meta($post_id, '_points_summary', $points_summary);
+        }
+
+        // Calculate and store enhanced tournament statistics
+        $tournament_stats = $this->calculate_enhanced_tournament_stats($tournament_data);
+        if ($tournament_stats) {
+            update_post_meta($post_id, '_tournament_stats', $tournament_stats);
+        }
+
+        // Apply taxonomy auto-categorization
+        if (class_exists('Poker_Tournament_Import_Taxonomies')) {
+            $taxonomies = new Poker_Tournament_Import_Taxonomies();
+            $taxonomies->auto_categorize_tournament($post_id, $tournament_data);
         }
     }
 
@@ -526,6 +664,624 @@ class Poker_Tournament_Batch_Processor {
         }
 
         return $players_inserted;
+    }
+
+    /**
+     * Create or find series post by name and UUID
+     *
+     * @param string $series_name Series name
+     * @param string $series_uuid Series UUID
+     * @param string $status      Post status (publish or draft)
+     * @return int Post ID or 0 on failure
+     */
+    private function create_or_find_series($series_name, $series_uuid = '', $status = 'draft') {
+        // First, try to find existing series by UUID
+        if (!empty($series_uuid)) {
+            $args = array(
+                'post_type' => 'tournament_series',
+                'meta_query' => array(
+                    array(
+                        'key' => 'series_uuid',
+                        'value' => $series_uuid,
+                        'compare' => '='
+                    )
+                ),
+                'posts_per_page' => 1
+            );
+
+            $existing_series = get_posts($args);
+            if (!empty($existing_series)) {
+                return $existing_series[0]->ID;
+            }
+        }
+
+        // Try to find by name if no UUID match
+        $args = array(
+            'post_type' => 'tournament_series',
+            'title' => $series_name,
+            'posts_per_page' => 1
+        );
+
+        $existing_series = get_posts($args);
+        if (!empty($existing_series)) {
+            return $existing_series[0]->ID;
+        }
+
+        // Create new series
+        $post_data = array(
+            'post_title' => $series_name,
+            'post_content' => '',
+            'post_status' => $status,
+            'post_type' => 'tournament_series'
+        );
+
+        $post_id = wp_insert_post($post_data);
+
+        if ($post_id && !is_wp_error($post_id)) {
+            if (!empty($series_uuid)) {
+                update_post_meta($post_id, 'series_uuid', $series_uuid);
+            }
+            return $post_id;
+        }
+
+        return 0;
+    }
+
+    /**
+     * Create or find season post by name and UUID
+     *
+     * @param string $season_name Season name
+     * @param string $season_uuid Season UUID
+     * @param string $status      Post status (publish or draft)
+     * @return int Post ID or 0 on failure
+     */
+    private function create_or_find_season($season_name, $season_uuid = '', $status = 'draft') {
+        // First, try to find existing season by UUID
+        if (!empty($season_uuid)) {
+            $args = array(
+                'post_type' => 'tournament_season',
+                'meta_query' => array(
+                    array(
+                        'key' => 'season_uuid',
+                        'value' => $season_uuid,
+                        'compare' => '='
+                    )
+                ),
+                'posts_per_page' => 1
+            );
+
+            $existing_season = get_posts($args);
+            if (!empty($existing_season)) {
+                return $existing_season[0]->ID;
+            }
+        }
+
+        // Try to find by name if no UUID match
+        $args = array(
+            'post_type' => 'tournament_season',
+            'title' => $season_name,
+            'posts_per_page' => 1
+        );
+
+        $existing_season = get_posts($args);
+        if (!empty($existing_season)) {
+            return $existing_season[0]->ID;
+        }
+
+        // Create new season
+        $post_data = array(
+            'post_title' => $season_name,
+            'post_content' => '',
+            'post_status' => $status,
+            'post_type' => 'tournament_season'
+        );
+
+        $post_id = wp_insert_post($post_data);
+
+        if ($post_id && !is_wp_error($post_id)) {
+            if (!empty($season_uuid)) {
+                update_post_meta($post_id, 'season_uuid', $season_uuid);
+            }
+            return $post_id;
+        }
+
+        return 0;
+    }
+
+    /**
+     * Create or find player post by name and UUID
+     *
+     * @param string $player_name Player name
+     * @param string $player_uuid Player UUID
+     * @param string $status      Post status (publish or draft)
+     * @return int Post ID or 0 on failure
+     */
+    private function create_or_find_player($player_name, $player_uuid, $status = 'draft') {
+        // First, try to find existing player by UUID
+        $args = array(
+            'post_type' => 'player',
+            'meta_query' => array(
+                array(
+                    'key' => 'player_uuid',
+                    'value' => $player_uuid,
+                    'compare' => '='
+                )
+            ),
+            'posts_per_page' => 1
+        );
+
+        $existing_player = get_posts($args);
+        if (!empty($existing_player)) {
+            return $existing_player[0]->ID;
+        }
+
+        // Try to find by name if no UUID match
+        $args = array(
+            'post_type' => 'player',
+            'title' => $player_name,
+            'posts_per_page' => 1
+        );
+
+        $existing_player = get_posts($args);
+        if (!empty($existing_player)) {
+            return $existing_player[0]->ID;
+        }
+
+        // Create new player
+        $post_data = array(
+            'post_title' => $player_name,
+            'post_content' => '',
+            'post_status' => $status,
+            'post_type' => 'player'
+        );
+
+        $post_id = wp_insert_post($post_data);
+
+        if ($post_id && !is_wp_error($post_id)) {
+            update_post_meta($post_id, 'player_uuid', $player_uuid);
+            return $post_id;
+        }
+
+        return 0;
+    }
+
+    /**
+     * Count total rebuys across all players
+     *
+     * @param array $tournament_data Tournament data with players
+     * @return int Total rebuys count
+     */
+    private function count_rebuys($tournament_data) {
+        $total_rebuys = 0;
+
+        if (!empty($tournament_data['players'])) {
+            foreach ($tournament_data['players'] as $player_data) {
+                $rebuys = intval($player_data['rebuys'] ?? 0);
+                $total_rebuys += $rebuys;
+            }
+        }
+
+        return $total_rebuys;
+    }
+
+    /**
+     * Count total addons across all players
+     *
+     * @param array $tournament_data Tournament data with players
+     * @return int Total addons count
+     */
+    private function count_addons($tournament_data) {
+        $total_addons = 0;
+
+        if (!empty($tournament_data['players'])) {
+            foreach ($tournament_data['players'] as $player_data) {
+                $addons = intval($player_data['addons'] ?? 0);
+                $total_addons += $addons;
+            }
+        }
+
+        return $total_addons;
+    }
+
+    /**
+     * Calculate and store prize pool from tournament data
+     *
+     * @param int   $tournament_id   Tournament post ID
+     * @param array $tournament_data Tournament data with players
+     * @return float Total prize pool amount
+     */
+    private function calculate_and_store_prize_pool($tournament_id, $tournament_data) {
+        if (empty($tournament_data['players'])) {
+            return 0;
+        }
+
+        // Calculate total prize pool from sum of all buy-ins
+        $total_prize_pool = 0;
+        foreach ($tournament_data['players'] as $player_data) {
+            if (!empty($player_data['buyins'])) {
+                foreach ($player_data['buyins'] as $buyin) {
+                    $total_prize_pool += $buyin['amount'] ?? 0;
+                }
+            }
+        }
+
+        // Also calculate from winnings as verification
+        $total_winnings = 0;
+        foreach ($tournament_data['players'] as $player_data) {
+            $total_winnings += $player_data['winnings'] ?? 0;
+        }
+
+        // Store the prize pool in tournament meta
+        update_post_meta($tournament_id, '_prize_pool', $total_prize_pool);
+        update_post_meta($tournament_id, 'prize_pool_calculated', $total_prize_pool);
+
+        // Store player count
+        update_post_meta($tournament_id, '_players_count', count($tournament_data['players']));
+
+        // Store total winnings for verification
+        update_post_meta($tournament_id, '_total_winnings', $total_winnings);
+
+        // Process tournament financial data
+        if (class_exists('Poker_Statistics_Engine')) {
+            $stats_engine = Poker_Statistics_Engine::get_instance();
+
+            // Prepare financial data for processing
+            $financial_data = array(
+                'buy_in' => $tournament_data['buy_in'] ?? 0,
+                'players' => count($tournament_data['players']),
+                'rebuys' => $this->count_rebuys($tournament_data),
+                'addons' => $this->count_addons($tournament_data),
+                'prize_pool' => $total_prize_pool,
+                'currency' => $tournament_data['currency'] ?? 'USD'
+            );
+
+            $stats_engine->process_tournament_financial_data($tournament_id, $financial_data);
+        }
+
+        return $total_prize_pool;
+    }
+
+    /**
+     * Extract buy-in amount from tournament data
+     *
+     * @param array $tournament_data Tournament data
+     * @return float Buy-in amount
+     */
+    private function extract_buy_in_from_tournament_data($tournament_data) {
+        // Method 1: Check if buy-in is in financial data
+        if (!empty($tournament_data['financial']['buy_in'])) {
+            return floatval($tournament_data['financial']['buy_in']);
+        }
+
+        // Method 2: Extract from first player's buy-in data
+        if (!empty($tournament_data['players'])) {
+            $first_player = reset($tournament_data['players']);
+            if (!empty($first_player['buyins']) && is_array($first_player['buyins'])) {
+                $first_buyin = reset($first_player['buyins']);
+                if (!empty($first_buyin['amount'])) {
+                    return floatval($first_buyin['amount']);
+                }
+            }
+        }
+
+        // Method 3: Extract from metadata
+        if (!empty($tournament_data['metadata']['buy_in'])) {
+            return floatval($tournament_data['metadata']['buy_in']);
+        }
+
+        // Method 4: Calculate from tournament data structure
+        if (!empty($tournament_data['entries'])) {
+            $total_buyins = 0;
+            foreach ($tournament_data['entries'] as $entry) {
+                if (!empty($entry['amount'])) {
+                    $total_buyins = floatval($entry['amount']);
+                    break; // Use first entry amount as standard buy-in
+                }
+            }
+            if ($total_buyins > 0) {
+                return $total_buyins;
+            }
+        }
+
+        // Fallback to default if nothing found
+        return floatval(get_option('poker_import_default_buyin', 200));
+    }
+
+    /**
+     * Extract currency from tournament data
+     *
+     * @param array $tournament_data Tournament data
+     * @return string Currency symbol
+     */
+    private function extract_currency_from_tournament_data($tournament_data) {
+        // Method 1: Check if currency is in financial data
+        if (!empty($tournament_data['financial']['currency'])) {
+            return $tournament_data['financial']['currency'];
+        }
+
+        // Method 2: Extract from metadata
+        if (!empty($tournament_data['metadata']['currency'])) {
+            return $tournament_data['metadata']['currency'];
+        }
+
+        // Method 3: Look for currency symbols in player data
+        if (!empty($tournament_data['players'])) {
+            $first_player = reset($tournament_data['players']);
+            if (!empty($first_player['winnings']) && is_string($first_player['winnings'])) {
+                if (strpos($first_player['winnings'], '$') !== false) {
+                    return '$';
+                } elseif (strpos($first_player['winnings'], '€') !== false) {
+                    return '€';
+                } elseif (strpos($first_player['winnings'], '£') !== false) {
+                    return '£';
+                }
+            }
+        }
+
+        // Fallback to default currency
+        return '$';
+    }
+
+    /**
+     * Extract game type from tournament data
+     *
+     * @param array $tournament_data Tournament data
+     * @return string Game type
+     */
+    private function extract_game_type_from_tournament_data($tournament_data) {
+        // Method 1: Check metadata
+        if (!empty($tournament_data['metadata']['game_type'])) {
+            return $tournament_data['metadata']['game_type'];
+        }
+
+        if (!empty($tournament_data['metadata']['variant'])) {
+            return $tournament_data['metadata']['variant'];
+        }
+
+        // Method 2: Check tournament description
+        if (!empty($tournament_data['metadata']['description'])) {
+            $description = strtolower($tournament_data['metadata']['description']);
+            if (strpos($description, 'hold\'em') !== false || strpos($description, 'holdem') !== false) {
+                if (strpos($description, 'omaha') !== false) {
+                    return 'Omaha Hold\'em';
+                } else {
+                    return 'Texas Hold\'em';
+                }
+            } elseif (strpos($description, 'omaha') !== false) {
+                return 'Omaha';
+            } elseif (strpos($description, 'stud') !== false) {
+                return 'Stud';
+            } elseif (strpos($description, 'draw') !== false) {
+                return 'Draw';
+            }
+        }
+
+        // Method 3: Default to Texas Hold'em (most common)
+        return 'Texas Hold\'em';
+    }
+
+    /**
+     * Extract tournament structure from tournament data
+     *
+     * @param array $tournament_data Tournament data
+     * @return string Structure description
+     */
+    private function extract_structure_from_tournament_data($tournament_data) {
+        $structure_parts = array();
+
+        // Extract betting limits
+        if (!empty($tournament_data['metadata']['betting_structure'])) {
+            $structure_parts[] = $tournament_data['metadata']['betting_structure'];
+        } elseif (!empty($tournament_data['metadata']['limits'])) {
+            $structure_parts[] = $tournament_data['metadata']['limits'];
+        }
+
+        // Extract format
+        if (!empty($tournament_data['metadata']['format'])) {
+            $structure_parts[] = $tournament_data['metadata']['format'];
+        }
+
+        // Build structure description
+        if (!empty($structure_parts)) {
+            return implode(' - ', $structure_parts);
+        }
+
+        // Default structures based on common patterns
+        if (!empty($tournament_data['metadata']['description'])) {
+            $description = strtolower($tournament_data['metadata']['description']);
+            if (strpos($description, 'no limit') !== false || strpos($description, 'nl') !== false) {
+                return 'No Limit Hold\'em';
+            } elseif (strpos($description, 'pot limit') !== false || strpos($description, 'pl') !== false) {
+                return 'Pot Limit Hold\'em';
+            } elseif (strpos($description, 'fixed limit') !== false || strpos($description, 'fl') !== false) {
+                return 'Fixed Limit Hold\'em';
+            }
+        }
+
+        // Fallback
+        return 'No Limit Hold\'em';
+    }
+
+    /**
+     * Calculate points summary from tournament data
+     *
+     * @param array $tournament_data Tournament data with players
+     * @return array Points summary statistics
+     */
+    private function calculate_points_summary($tournament_data) {
+        if (empty($tournament_data['players'])) {
+            return array();
+        }
+
+        $players = $tournament_data['players'];
+        $total_players = count($players);
+        $points_summary = array(
+            'total_players' => $total_players,
+            'total_points_awarded' => 0,
+            'max_points' => 0,
+            'min_points' => PHP_FLOAT_MAX,
+            'avg_points' => 0,
+            'players_with_points' => 0,
+            'points_distribution' => array(),
+            'top_point_scorer' => null,
+            'formula_used' => 'Tournament Director Formula'
+        );
+
+        $total_points = 0;
+        foreach ($players as $player) {
+            $points = isset($player['points']) ? floatval($player['points']) : 0;
+
+            if ($points > 0) {
+                $points_summary['players_with_points']++;
+                $total_points += $points;
+
+                if ($points > $points_summary['max_points']) {
+                    $points_summary['max_points'] = $points;
+                    $points_summary['top_point_scorer'] = array(
+                        'name' => $player['nickname'] ?? 'Unknown',
+                        'finish_position' => intval($player['finish_position'] ?? 0),
+                        'points' => $points
+                    );
+                }
+
+                if ($points < $points_summary['min_points']) {
+                    $points_summary['min_points'] = $points;
+                }
+            }
+
+            // Categorize points for distribution analysis
+            if ($points >= 100) {
+                $category = '100+';
+            } elseif ($points >= 50) {
+                $category = '50-99';
+            } elseif ($points >= 25) {
+                $category = '25-49';
+            } elseif ($points >= 10) {
+                $category = '10-24';
+            } elseif ($points > 0) {
+                $category = '1-9';
+            } else {
+                $category = '0';
+            }
+
+            if (!isset($points_summary['points_distribution'][$category])) {
+                $points_summary['points_distribution'][$category] = 0;
+            }
+            $points_summary['points_distribution'][$category]++;
+        }
+
+        $points_summary['total_points_awarded'] = $total_points;
+        $points_summary['avg_points'] = $total_players > 0 ? round($total_points / $total_players, 2) : 0;
+
+        // Calculate T33 and T80 thresholds for reference
+        $points_summary['t33_threshold'] = max(1, round($total_players * 0.33));
+        $points_summary['t80_threshold'] = max(1, round($total_players * 0.80));
+
+        // Sort distribution categories
+        ksort($points_summary['points_distribution']);
+
+        return $points_summary;
+    }
+
+    /**
+     * Calculate enhanced tournament statistics
+     *
+     * @param array $tournament_data Tournament data with players
+     * @return array Enhanced statistics
+     */
+    private function calculate_enhanced_tournament_stats($tournament_data) {
+        if (empty($tournament_data['players'])) {
+            return array();
+        }
+
+        $players = $tournament_data['players'];
+        $total_players = count($players);
+        $currency = $this->extract_currency_from_tournament_data($tournament_data);
+        $buy_in = $this->extract_buy_in_from_tournament_data($tournament_data);
+
+        $stats = array(
+            'players_count' => $total_players,
+            'total_buyins' => $total_players,
+            'total_rebuys' => 0,
+            'total_addons' => 0,
+            'gross_prize_pool' => 0,
+            'net_prize_pool' => 0,
+            'total_winnings' => 0,
+            'total_fees' => 0,
+            'average_buyin' => $buy_in,
+            'paid_positions' => 0,
+            'cash_rate' => 0,
+            'first_place_prize' => 0,
+            'smallest_cash' => PHP_FLOAT_MAX,
+            'largest_cash' => 0,
+            'average_cash' => 0,
+            'currency' => $currency,
+            'tournament_duration_hours' => 0,
+            'players_per_hour' => 0,
+            'profitable_players' => 0
+        );
+
+        $total_winnings = 0;
+        $total_buyins_amount = 0;
+        $paid_positions = 0;
+
+        foreach ($players as $player) {
+            // Calculate buy-ins, rebuys, addons
+            $player_buyins = 0;
+            if (!empty($player['buyins']) && is_array($player['buyins'])) {
+                foreach ($player['buyins'] as $buyin) {
+                    $player_buyins += floatval($buyin['amount'] ?? 0);
+                }
+            }
+            $total_buyins_amount += $player_buyins;
+
+            // Track rebuys and addons
+            $stats['total_rebuys'] += intval($player['rebuys'] ?? 0);
+            $stats['total_addons'] += intval($player['addons'] ?? 0);
+
+            // Calculate winnings
+            $winnings = floatval($player['winnings'] ?? 0);
+            $total_winnings += $winnings;
+
+            if ($winnings > 0) {
+                $paid_positions++;
+                $stats['profitable_players']++;
+
+                if ($winnings > $stats['largest_cash']) {
+                    $stats['largest_cash'] = $winnings;
+                    if (intval($player['finish_position'] ?? 0) == 1) {
+                        $stats['first_place_prize'] = $winnings;
+                    }
+                }
+
+                if ($winnings < $stats['smallest_cash']) {
+                    $stats['smallest_cash'] = $winnings;
+                }
+            }
+        }
+
+        $stats['total_winnings'] = $total_winnings;
+        $stats['gross_prize_pool'] = $total_buyins_amount;
+        $stats['average_buyin'] = $total_players > 0 ? round($total_buyins_amount / $total_players, 2) : $buy_in;
+        $stats['paid_positions'] = $paid_positions;
+        $stats['cash_rate'] = $total_players > 0 ? round(($paid_positions / $total_players) * 100, 2) : 0;
+        $stats['average_cash'] = $paid_positions > 0 ? round($total_winnings / $paid_positions, 2) : 0;
+
+        if ($stats['smallest_cash'] === PHP_FLOAT_MAX) {
+            $stats['smallest_cash'] = 0;
+        }
+
+        // Calculate tournament duration if start/end times available
+        if (!empty($tournament_data['metadata']['start_time']) && !empty($tournament_data['metadata']['end_time'])) {
+            $start_time = strtotime($tournament_data['metadata']['start_time']);
+            $end_time = strtotime($tournament_data['metadata']['end_time']);
+            if ($start_time && $end_time && $end_time > $start_time) {
+                $stats['tournament_duration_hours'] = round(($end_time - $start_time) / 3600, 2);
+                $stats['players_per_hour'] = $stats['tournament_duration_hours'] > 0 ? round($total_players / $stats['tournament_duration_hours'], 2) : 0;
+            }
+        }
+
+        return $stats;
     }
 
     /**

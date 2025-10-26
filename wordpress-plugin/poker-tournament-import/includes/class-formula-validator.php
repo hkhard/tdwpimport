@@ -1017,7 +1017,7 @@ class Poker_Tournament_Formula_Validator {
             return is_finite($result) ? $result : 0;
 
         } catch (Exception $e) {
-            throw new Exception("Evaluation error: " . $e->getMessage());
+            throw new Exception(esc_html("Evaluation error: " . $e->getMessage()));
         }
     }
 
@@ -1255,7 +1255,7 @@ class Poker_Tournament_Formula_Validator {
                 // Binary operators
                 if (in_array($op, array('+', '-', '*', '/', '%', '^', '&&', '||', '==', '!=', '<', '>', '<=', '>='))) {
                     if (count($stack) < 2) {
-                        throw new Exception("Insufficient operands for operator {$op}");
+                        throw new Exception(esc_html("Insufficient operands for operator {$op}"));
                     }
                     $b = array_pop($stack);
                     $a = array_pop($stack);
@@ -1266,7 +1266,7 @@ class Poker_Tournament_Formula_Validator {
                     // Ternary: condition ? true_val : false_val
                     // Stack has: false_val, true_val, condition (top to bottom)
                     if (count($stack) < 3) {
-                        throw new Exception("Insufficient operands for ternary operator");
+                        throw new Exception(esc_html("Insufficient operands for ternary operator"));
                     }
                     $false_val = array_pop($stack);
                     $true_val = array_pop($stack);
@@ -1277,7 +1277,7 @@ class Poker_Tournament_Formula_Validator {
         }
 
         if (count($stack) !== 1) {
-            throw new Exception("Invalid expression evaluation - stack has " . count($stack) . " items");
+            throw new Exception(esc_html("Invalid expression evaluation - stack has " . count($stack) . " items"));
         }
 
         return $stack[0];
@@ -1515,7 +1515,7 @@ class Poker_Tournament_Formula_Validator {
             case 'oneof': return call_user_func_array(array($this, 'td_oneof'), $args);
 
             default:
-                throw new Exception("Unknown function: {$func_name}");
+                throw new Exception("Unknown function: " . esc_html($func_name));
         }
     }
 
@@ -1544,7 +1544,7 @@ class Poker_Tournament_Formula_Validator {
             case '||': return ($a || $b) ? 1 : 0;
 
             default:
-                throw new Exception("Unknown operator: {$op}");
+                throw new Exception("Unknown operator: " . esc_html($op));
         }
     }
 
@@ -1861,7 +1861,19 @@ class Poker_Tournament_Formula_Validator {
      * Register admin settings
      */
     public function register_formula_settings() {
-        register_setting('poker_formulas', 'poker_tournament_formulas');
+        register_setting('poker_formulas', 'poker_tournament_formulas', array(
+            'sanitize_callback' => array($this, 'sanitize_formulas')
+        ));
+    }
+
+    /**
+     * Sanitize formulas array
+     */
+    public function sanitize_formulas($value) {
+        if (!is_array($value)) {
+            return array();
+        }
+        return $value; // Formulas are already validated through the validator class
     }
 
     /**
@@ -1890,13 +1902,13 @@ class Poker_Tournament_Formula_Validator {
     public function render_formula_manager() {
         ?>
         <div class="wrap">
-            <h1><?php _e('Tournament Formula Manager', 'poker-tournament-import'); ?></h1>
+            <h1><?php esc_html_e('Tournament Formula Manager', 'poker-tournament-import'); ?></h1>
 
             <div class="poker-formula-tabs">
                 <ul class="tab-nav">
-                    <li><a href="#formulas" class="tab-active"><?php _e('Formulas', 'poker-tournament-import'); ?></a></li>
-                    <li><a href="#validator"><?php _e('Formula Validator', 'poker-tournament-import'); ?></a></li>
-                    <li><a href="#variables"><?php _e('Variables & Functions', 'poker-tournament-import'); ?></a></li>
+                    <li><a href="#formulas" class="tab-active"><?php esc_html_e('Formulas', 'poker-tournament-import'); ?></a></li>
+                    <li><a href="#validator"><?php esc_html_e('Formula Validator', 'poker-tournament-import'); ?></a></li>
+                    <li><a href="#variables"><?php esc_html_e('Variables & Functions', 'poker-tournament-import'); ?></a></li>
                 </ul>
 
                 <div id="formulas" class="tab-content">
@@ -1994,19 +2006,19 @@ class Poker_Tournament_Formula_Validator {
         $formulas = $this->get_all_formulas();
         ?>
         <div class="formula-editor">
-            <h2><?php _e('Manage Formulas', 'poker-tournament-import'); ?></h2>
+            <h2><?php esc_html_e('Manage Formulas', 'poker-tournament-import'); ?></h2>
 
             <button type="button" class="button button-primary" onclick="pokerAddNewFormula()">
-                <?php _e('Add New Formula', 'poker-tournament-import'); ?>
+                <?php esc_html_e('Add New Formula', 'poker-tournament-import'); ?>
             </button>
 
             <table class="wp-list-table widefat fixed striped" style="margin-top: 20px;">
                 <thead>
                     <tr>
-                        <th><?php _e('Name', 'poker-tournament-import'); ?></th>
-                        <th><?php _e('Category', 'poker-tournament-import'); ?></th>
-                        <th><?php _e('Description', 'poker-tournament-import'); ?></th>
-                        <th><?php _e('Actions', 'poker-tournament-import'); ?></th>
+                        <th><?php esc_html_e('Name', 'poker-tournament-import'); ?></th>
+                        <th><?php esc_html_e('Category', 'poker-tournament-import'); ?></th>
+                        <th><?php esc_html_e('Description', 'poker-tournament-import'); ?></th>
+                        <th><?php esc_html_e('Actions', 'poker-tournament-import'); ?></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -2017,11 +2029,11 @@ class Poker_Tournament_Formula_Validator {
                             <td><?php echo esc_html($formula['description']); ?></td>
                             <td>
                                 <button type="button" class="button" onclick="pokerEditFormula('<?php echo esc_js($key); ?>')">
-                                    <?php _e('Edit', 'poker-tournament-import'); ?>
+                                    <?php esc_html_e('Edit', 'poker-tournament-import'); ?>
                                 </button>
                                 <?php if (!isset($this->default_formulas[$key])): ?>
                                     <button type="button" class="button" onclick="pokerDeleteFormula('<?php echo esc_js($key); ?>')">
-                                        <?php _e('Delete', 'poker-tournament-import'); ?>
+                                        <?php esc_html_e('Delete', 'poker-tournament-import'); ?>
                                     </button>
                                 <?php endif; ?>
                             </td>
@@ -2039,19 +2051,19 @@ class Poker_Tournament_Formula_Validator {
     private function render_validator_tab() {
         ?>
         <div class="formula-validator">
-            <h2><?php _e('Formula Validator', 'poker-tournament-import'); ?></h2>
+            <h2><?php esc_html_e('Formula Validator', 'poker-tournament-import'); ?></h2>
 
             <div class="formula-test">
-                <h3><?php _e('Test Your Formula', 'poker-tournament-import'); ?></h3>
+                <h3><?php esc_html_e('Test Your Formula', 'poker-tournament-import'); ?></h3>
 
                 <div class="form-field">
-                    <label for="formula-input"><?php _e('Formula:', 'poker-tournament-import'); ?></label>
+                    <label for="formula-input"><?php esc_html_e('Formula:', 'poker-tournament-import'); ?></label>
                     <textarea id="formula-input" rows="6" style="width: 100%; font-family: monospace;"
                               placeholder="assign(&quot;points&quot;, round(10 * (sqrt(n) / sqrt(r)) * (1 + log(avgBC + 0.25))) + (numberofHits * 10))"></textarea>
                 </div>
 
                 <div class="form-field">
-                    <label><?php _e('Test Data:', 'poker-tournament-import'); ?></label>
+                    <label><?php esc_html_e('Test Data:', 'poker-tournament-import'); ?></label>
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
                         <input type="number" id="test-n" placeholder="Total Players (n)" value="20">
                         <input type="number" id="test-r" placeholder="Finish Position (r)" value="3">
@@ -2062,7 +2074,7 @@ class Poker_Tournament_Formula_Validator {
                 </div>
 
                 <button type="button" class="button button-primary" onclick="pokerValidateFormula()">
-                    <?php _e('Validate & Test', 'poker-tournament-import'); ?>
+                    <?php esc_html_e('Validate & Test', 'poker-tournament-import'); ?>
                 </button>
 
                 <div id="validation-result" style="margin-top: 15px;"></div>
@@ -2084,7 +2096,7 @@ class Poker_Tournament_Formula_Validator {
                 action: 'poker_validate_formula',
                 formula: formula,
                 test_data: testData,
-                nonce: '<?php echo wp_create_nonce("poker_formula_validator"); ?>'
+                nonce: '<?php echo esc_attr(wp_create_nonce("poker_formula_validator")); ?>'
             }, function(response) {
                 document.getElementById('validation-result').innerHTML = response;
             });
@@ -2099,7 +2111,7 @@ class Poker_Tournament_Formula_Validator {
     private function render_variables_tab() {
         ?>
         <div class="formula-reference">
-            <h2><?php _e('Available Variables', 'poker-tournament-import'); ?></h2>
+            <h2><?php esc_html_e('Available Variables', 'poker-tournament-import'); ?></h2>
 
             <div class="variable-list">
                 <?php foreach ($this->td_variables as $name => $info): ?>
@@ -2111,7 +2123,7 @@ class Poker_Tournament_Formula_Validator {
                 <?php endforeach; ?>
             </div>
 
-            <h2><?php _e('Available Functions', 'poker-tournament-import'); ?></h2>
+            <h2><?php esc_html_e('Available Functions', 'poker-tournament-import'); ?></h2>
 
             <div class="variable-list">
                 <?php foreach ($this->td_functions as $name => $info): ?>

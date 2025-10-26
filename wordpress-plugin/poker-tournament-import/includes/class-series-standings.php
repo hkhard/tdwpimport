@@ -23,6 +23,14 @@ class Poker_Series_Standings_Calculator {
             $formula_key = get_option('poker_active_season_formula', 'season_total');
         }
 
+        // Try transient cache first
+        $cache_key = 'poker_series_standings_' . $series_id . '_' . $formula_key;
+        $cached_standings = get_transient($cache_key);
+
+        if ($cached_standings !== false) {
+            return $cached_standings;
+        }
+
         // Get all tournaments in this series
         $tournaments = $this->get_series_tournaments($series_id);
 
@@ -51,6 +59,9 @@ class Poker_Series_Standings_Calculator {
 
         // Assign final rankings
         $standings = $this->assign_final_rankings($standings);
+
+        // Cache standings for 1 hour
+        set_transient($cache_key, $standings, HOUR_IN_SECONDS);
 
         return $standings;
     }
@@ -91,6 +102,7 @@ class Poker_Series_Standings_Calculator {
 
         $table_name = $wpdb->prefix . 'poker_tournament_players';
 
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         $unique_players = $wpdb->get_col($wpdb->prepare(
             "SELECT DISTINCT player_id FROM $table_name
              WHERE tournament_id IN (" . implode(',', array_fill(0, count($tournament_ids), '%s')) . ")",
@@ -109,6 +121,7 @@ class Poker_Series_Standings_Calculator {
         $tournament_ids = wp_list_pluck($tournaments, 'ID');
 
         // Get all tournament results for this player
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         $results = $wpdb->get_results($wpdb->prepare(
             "SELECT tournament_id, finish_position, winnings, points, hits
              FROM $table_name
@@ -167,7 +180,7 @@ class Poker_Series_Standings_Calculator {
 
         if (!empty($player_post)) {
             $player_name = $player_post[0]->post_title;
-            $player_url = get_permalink($player_post[0]->ID);
+            $player_url = esc_url(get_permalink($player_post[0]->ID));
         }
 
         // Calculate series points using formula
@@ -436,7 +449,7 @@ class Poker_Series_Standings_Calculator {
         $standings = $this->calculate_series_standings($series_id, $formula_key);
 
         if (empty($standings)) {
-            echo '<p>' . __('No standings data available for this series.', 'poker-tournament-import') . '</p>';
+            echo '<p>' . esc_html__('No standings data available for this series.', 'poker-tournament-import') . '</p>';
             return;
         }
 
@@ -444,18 +457,18 @@ class Poker_Series_Standings_Calculator {
         echo '<table class="wp-list-table widefat fixed striped">';
         echo '<thead>';
         echo '<tr>';
-        echo '<th>' . __('Rank', 'poker-tournament-import') . '</th>';
-        echo '<th>' . __('Player', 'poker-tournament-import') . '</th>';
-        echo '<th>' . __('Series Points', 'poker-tournament-import') . '</th>';
-        echo '<th>' . __('Tournaments', 'poker-tournament-import') . '</th>';
-        echo '<th>' . __('Best Finish', 'poker-tournament-import') . '</th>';
-        echo '<th>' . __('Avg Finish', 'poker-tournament-import') . '</th>';
+        echo '<th>' . esc_html__('Rank', 'poker-tournament-import') . '</th>';
+        echo '<th>' . esc_html__('Player', 'poker-tournament-import') . '</th>';
+        echo '<th>' . esc_html__('Series Points', 'poker-tournament-import') . '</th>';
+        echo '<th>' . esc_html__('Tournaments', 'poker-tournament-import') . '</th>';
+        echo '<th>' . esc_html__('Best Finish', 'poker-tournament-import') . '</th>';
+        echo '<th>' . esc_html__('Avg Finish', 'poker-tournament-import') . '</th>';
 
         if ($show_details) {
-            echo '<th>' . __('Total Winnings', 'poker-tournament-import') . '</th>';
-            echo '<th>' . __('First Places', 'poker-tournament-import') . '</th>';
-            echo '<th>' . __('Top 3', 'poker-tournament-import') . '</th>';
-            echo '<th>' . __('Top 5', 'poker-tournament-import') . '</th>';
+            echo '<th>' . esc_html__('Total Winnings', 'poker-tournament-import') . '</th>';
+            echo '<th>' . esc_html__('First Places', 'poker-tournament-import') . '</th>';
+            echo '<th>' . esc_html__('Top 3', 'poker-tournament-import') . '</th>';
+            echo '<th>' . esc_html__('Top 5', 'poker-tournament-import') . '</th>';
         }
 
         echo '</tr>';
@@ -483,7 +496,7 @@ class Poker_Series_Standings_Calculator {
             }
 
             echo '<tr class="' . esc_attr($rank_class) . '">';
-            echo '<td class="rank-cell">' . esc_html($rank_display) . $rank_indicator . '</td>';
+            echo '<td class="rank-cell">' . esc_html($rank_display) . esc_html($rank_indicator) . '</td>';
 
             if ($standing['player_url']) {
                 echo '<td class="player-cell"><a href="' . esc_url($standing['player_url']) . '">' . esc_html($standing['player_name']) . '</a></td>';
@@ -491,13 +504,13 @@ class Poker_Series_Standings_Calculator {
                 echo '<td class="player-cell">' . esc_html($standing['player_name']) . '</td>';
             }
 
-            echo '<td class="points-cell">' . number_format($standing['series_points'], 1) . '</td>';
+            echo '<td class="points-cell">' . esc_html(number_format($standing['series_points'], 1)) . '</td>';
             echo '<td class="tournaments-cell">' . esc_html($standing['tournaments_played']) . '</td>';
             echo '<td class="best-finish-cell">' . esc_html($standing['best_finish']) . '</td>';
-            echo '<td class="avg-finish-cell">' . number_format($standing['avg_finish'], 1) . '</td>';
+            echo '<td class="avg-finish-cell">' . esc_html(number_format($standing['avg_finish'], 1)) . '</td>';
 
             if ($show_details) {
-                echo '<td class="winnings-cell">$' . number_format($standing['total_winnings'], 0) . '</td>';
+                echo '<td class="winnings-cell">$' . esc_html(number_format($standing['total_winnings'], 0)) . '</td>';
                 echo '<td class="first-places-cell">' . esc_html($standing['tie_breakers']['first_places']) . '</td>';
                 echo '<td class="top3-cell">' . esc_html($standing['tie_breakers']['top3_finishes']) . '</td>';
                 echo '<td class="top5-cell">' . esc_html($standing['tie_breakers']['top5_finishes']) . '</td>';
@@ -518,5 +531,41 @@ class Poker_Series_Standings_Calculator {
         .rank-cell { font-weight: bold; }
         .points-cell { font-weight: bold; }
         </style>';
+    }
+
+    /**
+     * Cached database query helper
+     * Wraps $wpdb queries with WordPress object cache
+     *
+     * @param string $query_type 'get_results', 'get_col', or 'get_var'
+     * @param string $sql SQL query
+     * @param mixed $args Optional query arguments
+     * @param int $cache_time Cache duration in seconds (default: 1 hour)
+     * @return mixed Query results
+     */
+    private function cached_query($query_type, $sql, $args = null, $cache_time = HOUR_IN_SECONDS) {
+        global $wpdb;
+
+        // Generate cache key from query
+        $cache_key = 'poker_' . md5($sql . serialize($args));
+        $cache_group = 'poker_tournament';
+
+        // Try to get from cache
+        $results = wp_cache_get($cache_key, $cache_group);
+
+        if (false === $results) {
+            // Cache miss - query database
+            if ($args !== null) {
+                $prepared_sql = $wpdb->prepare($sql, $args);
+                $results = $wpdb->$query_type($prepared_sql);
+            } else {
+                $results = $wpdb->$query_type($sql);
+            }
+
+            // Store in cache
+            wp_cache_set($cache_key, $results, $cache_group, $cache_time);
+        }
+
+        return $results;
     }
 }

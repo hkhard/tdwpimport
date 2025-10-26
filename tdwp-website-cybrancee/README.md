@@ -1,19 +1,20 @@
-# TD WP Import Website - Cybrancee/Plesk Edition
+# TD WP Import Website - Static HTML for Cybrancee
 
-Marketing website for Tournament Director WordPress Import plugin, configured for Cybrancee hosting with Node.js/Plesk support. Runs in `/tdwpimport` subfolder at nikielhard.se.
+Marketing website for Tournament Director WordPress Import plugin. Static HTML export for simple deployment on any hosting. Runs in `/tdwpimport` subfolder at nikielhard.se.
 
 ## 🎯 What's Different in This Version
 
-**Configured for Cybrancee/Plesk Node.js hosting:**
+**Static HTML export for PHP/Apache hosting:**
 - ✅ Base path set to `/tdwpimport` (runs in subfolder)
-- ✅ Standalone build mode for Node.js
-- ✅ Image optimization disabled (better for shared hosting)
+- ✅ Pure HTML/CSS/JS - no Node.js or PHP needed
+- ✅ Works on any hosting (Apache, nginx, etc.)
 - ✅ All internal links updated for subfolder routing
 - ✅ Content updated to v2.9.14 with bulk import features
+- ✅ Includes `.htaccess` for Apache
 
-**See detailed deployment guides:**
-- 📘 **QUICK_START.md** - 5-minute deployment
-- 📗 **PLESK_DEPLOYMENT.md** - Complete Plesk setup guide
+**See deployment guides:**
+- 📘 **DEPLOY.md** - 3-step quick deploy
+- 📗 **STATIC_DEPLOYMENT.md** - Complete guide with troubleshooting
 
 ## 🚀 Quick Start
 
