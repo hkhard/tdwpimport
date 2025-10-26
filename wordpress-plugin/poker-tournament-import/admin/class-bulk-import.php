@@ -648,8 +648,8 @@ class Poker_Tournament_Bulk_Import {
         $max_files = ini_get('max_file_uploads') ?: 20;
 
         if (count($files) > $max_files) {
-            /* translators: %d: maximum number of files allowed */
             return new WP_Error('too_many_files',
+                /* translators: %d: maximum number of files allowed */
                 sprintf(__('Too many files. Maximum allowed: %d', 'poker-tournament-import'), $max_files),
                 array('status' => 400)
             );
@@ -690,8 +690,8 @@ class Poker_Tournament_Bulk_Import {
         // Check file size
         $max_size = wp_max_upload_size();
         if ($file['size'] > $max_size) {
-            /* translators: %s: maximum file size formatted as human-readable (e.g., "10 MB") */
             return new WP_Error('file_too_large',
+                /* translators: %s: maximum file size formatted as human-readable (e.g., "10 MB") */
                 sprintf(__('File exceeds maximum size of %s.', 'poker-tournament-import'), size_format($max_size))
             );
         }
