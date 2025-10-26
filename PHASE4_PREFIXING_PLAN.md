@@ -3,7 +3,8 @@
 ## Overview
 WordPress.org requires 4+ character unique prefixes for all global scope items to avoid naming collisions.
 
-**Suggested Prefix:** `poker_` or `POKER_` (6 characters, unique to plugin)
+**Recommended Prefix:** `tdwp_` or `TDWP_` (4 characters, Tournament Director WordPress)
+**Why:** More distinctive than `tdwp_` which is too generic. Better branding alignment.
 
 ---
 
@@ -11,13 +12,15 @@ WordPress.org requires 4+ character unique prefixes for all global scope items t
 
 ### Category 1: Classes (Currently Compliant)
 **Status:** ✅ Already properly prefixed
-**Pattern:** All classes use `Poker_Tournament_*` prefix
+**Current Pattern:** Classes use `Poker_Tournament_*` prefix
 **Examples:**
 - `Poker_Tournament_Import`
 - `Poker_Tournament_Admin`
 - `Poker_Tournament_Parser`
 - `Poker_Tournament_Shortcodes`
 
+**Note:** While "Poker" is in class names, this is acceptable as classes are namespaced.
+Class names don't need to change to TDWP_* (would be breaking change).
 **Action Required:** NONE - Keep as is
 
 ---
@@ -34,26 +37,26 @@ WordPress.org requires 4+ character unique prefixes for all global scope items t
 
 **Options:**
 1. **Keep as is** - Risk of collision but distinctive in context
-2. **Migrate to prefixed** - `poker_tournament`, `poker_player`, `poker_series`
+2. **Migrate to prefixed** - `tdwp_tournament`, `tdwp_player`, `tdwp_series`
 
 **Recommendation:** Check with WordPress.org if current names acceptable. If not:
 ```php
 // Migration script needed
-function poker_migrate_post_types() {
+function tdwp_migrate_post_types() {
     global $wpdb;
 
     // Only run once
-    if (get_option('poker_post_type_migration_done')) return;
+    if (get_option('tdwp_post_type_migration_done')) return;
 
     // Update post types
-    $wpdb->query("UPDATE {$wpdb->posts} SET post_type = 'poker_tournament' WHERE post_type = 'tournament'");
-    $wpdb->query("UPDATE {$wpdb->posts} SET post_type = 'poker_player' WHERE post_type = 'player'");
-    $wpdb->query("UPDATE {$wpdb->posts} SET post_type = 'poker_series' WHERE post_type = 'tournament_series'");
+    $wpdb->query("UPDATE {$wpdb->posts} SET post_type = 'tdwp_tournament' WHERE post_type = 'tournament'");
+    $wpdb->query("UPDATE {$wpdb->posts} SET post_type = 'tdwp_player' WHERE post_type = 'player'");
+    $wpdb->query("UPDATE {$wpdb->posts} SET post_type = 'tdwp_series' WHERE post_type = 'tournament_series'");
 
     // Update post meta
-    $wpdb->query("UPDATE {$wpdb->postmeta} SET meta_value = 'poker_tournament' WHERE meta_key = 'related_post_type' AND meta_value = 'tournament'");
+    $wpdb->query("UPDATE {$wpdb->postmeta} SET meta_value = 'tdwp_tournament' WHERE meta_key = 'related_post_type' AND meta_value = 'tournament'");
 
-    update_option('poker_post_type_migration_done', true);
+    update_option('tdwp_post_type_migration_done', true);
 }
 ```
 
@@ -72,7 +75,7 @@ function poker_migrate_post_types() {
 **Recommendation:** Check with reviewer if acceptable. If not:
 ```php
 // Migration for taxonomies
-register_taxonomy('poker_tournament_season', ...);
+register_taxonomy('tdwp_tournament_season', ...);
 // Update term taxonomy table
 ```
 
@@ -83,16 +86,16 @@ register_taxonomy('poker_tournament_season', ...);
 
 **Audit Command:**
 ```bash
-grep -rn "^function " wordpress-plugin/poker-tournament-import/ --include="*.php" | grep -v "class\|public\|private\|protected"
+grep -rn "^function " wordpress-plugin/tdwp-tournament-import/ --include="*.php" | grep -v "class\|public\|private\|protected"
 ```
 
 **Expected Patterns:**
 - ✅ Class methods: Don't need prefix (inside namespace)
-- ⚠️ Global functions: MUST have `poker_` prefix
+- ⚠️ Global functions: MUST have `tdwp_` prefix
 
 **Action Items:**
 1. Search for global functions
-2. Verify all have `poker_` prefix
+2. Verify all have `tdwp_` prefix
 3. If any missing, add prefix and update all calls
 
 ---
@@ -102,7 +105,7 @@ grep -rn "^function " wordpress-plugin/poker-tournament-import/ --include="*.php
 
 **Audit Command:**
 ```bash
-grep -rn "global \$" wordpress-plugin/poker-tournament-import/ --include="*.php"
+grep -rn "global \$" wordpress-plugin/tdwp-tournament-import/ --include="*.php"
 ```
 
 **Pattern Required:**
@@ -111,12 +114,12 @@ grep -rn "global \$" wordpress-plugin/poker-tournament-import/ --include="*.php"
 global $plugin_settings;
 
 // Good
-global $poker_plugin_settings;
+global $tdwp_plugin_settings;
 ```
 
 **Action Items:**
 1. Find all global variable declarations
-2. Verify `poker_` or `$poker_` prefix
+2. Verify `tdwp_` or `$tdwp_` prefix
 3. Update if needed
 
 ---
@@ -127,10 +130,10 @@ global $poker_plugin_settings;
 **Audit Commands:**
 ```bash
 # Options
-grep -rn "update_option\|get_option\|add_option\|delete_option" wordpress-plugin/poker-tournament-import/ --include="*.php"
+grep -rn "update_option\|get_option\|add_option\|delete_option" wordpress-plugin/tdwp-tournament-import/ --include="*.php"
 
 # Transients
-grep -rn "set_transient\|get_transient\|delete_transient" wordpress-plugin/poker-tournament-import/ --include="*.php"
+grep -rn "set_transient\|get_transient\|delete_transient" wordpress-plugin/tdwp-tournament-import/ --include="*.php"
 ```
 
 **Pattern Required:**
@@ -139,18 +142,18 @@ grep -rn "set_transient\|get_transient\|delete_transient" wordpress-plugin/poker
 update_option('plugin_settings', $data);
 
 // Good
-update_option('poker_plugin_settings', $data);
+update_option('tdwp_plugin_settings', $data);
 ```
 
 **Known Options to Check:**
-- `poker_import_debug_mode` ✅
-- `poker_plugin_version` ✅
-- `poker_formulas_*` ✅
-- `poker_statistics_*` ✅
+- `tdwp_import_debug_mode` ✅
+- `tdwp_plugin_version` ✅
+- `tdwp_formulas_*` ✅
+- `tdwp_statistics_*` ✅
 
 **Action Items:**
 1. List all option names
-2. Verify all start with `poker_`
+2. Verify all start with `tdwp_`
 3. Create migration for any that don't
 
 ---
@@ -160,7 +163,7 @@ update_option('poker_plugin_settings', $data);
 
 **Audit Command:**
 ```bash
-grep -rn "update_post_meta\|add_post_meta\|get_post_meta" wordpress-plugin/poker-tournament-import/ --include="*.php"
+grep -rn "update_post_meta\|add_post_meta\|get_post_meta" wordpress-plugin/tdwp-tournament-import/ --include="*.php"
 ```
 
 **Pattern Required:**
@@ -169,14 +172,14 @@ grep -rn "update_post_meta\|add_post_meta\|get_post_meta" wordpress-plugin/poker
 update_post_meta($post_id, 'tournament_date', $date);
 
 // Good
-update_post_meta($post_id, 'poker_tournament_date', $date);
+update_post_meta($post_id, 'tdwp_tournament_date', $date);
 // OR
-update_post_meta($post_id, '_poker_tournament_date', $date); // Leading underscore = hidden
+update_post_meta($post_id, '_tdwp_tournament_date', $date); // Leading underscore = hidden
 ```
 
 **Action Items:**
 1. Extract all meta key strings
-2. Verify all have `poker_` or `_poker_` prefix
+2. Verify all have `tdwp_` or `_tdwp_` prefix
 3. Migration script if needed
 
 ---
@@ -186,7 +189,7 @@ update_post_meta($post_id, '_poker_tournament_date', $date); // Leading undersco
 
 **Audit Command:**
 ```bash
-grep -rn "add_action.*wp_ajax" wordpress-plugin/poker-tournament-import/ --include="*.php"
+grep -rn "add_action.*wp_ajax" wordpress-plugin/tdwp-tournament-import/ --include="*.php"
 ```
 
 **Pattern Required:**
@@ -195,12 +198,12 @@ grep -rn "add_action.*wp_ajax" wordpress-plugin/poker-tournament-import/ --inclu
 add_action('wp_ajax_save_tournament', 'handler');
 
 // Good
-add_action('wp_ajax_poker_save_tournament', 'handler');
+add_action('wp_ajax_tdwp_save_tournament', 'handler');
 ```
 
 **Action Items:**
 1. List all AJAX actions
-2. Verify all start with `poker_`
+2. Verify all start with `tdwp_`
 3. Update frontend JS to match
 
 ---
@@ -210,7 +213,7 @@ add_action('wp_ajax_poker_save_tournament', 'handler');
 
 **Audit Command:**
 ```bash
-grep -rn "add_shortcode" wordpress-plugin/poker-tournament-import/ --include="*.php"
+grep -rn "add_shortcode" wordpress-plugin/tdwp-tournament-import/ --include="*.php"
 ```
 
 **Current Known Shortcodes:**
@@ -224,27 +227,27 @@ grep -rn "add_shortcode" wordpress-plugin/poker-tournament-import/ --include="*.
 add_shortcode('tournament_list', 'callback');
 
 // Good
-add_shortcode('poker_tournament_list', 'callback');
+add_shortcode('tdwp_tournament_list', 'callback');
 ```
 
 **Risk:** MEDIUM - Changes user's shortcodes in posts/pages
 **Solution:** Support both old and new during transition
 ```php
 // Register both for backward compatibility
-add_shortcode('poker_tournament_list', 'poker_tournament_list_handler');
-add_shortcode('tournament_list', 'poker_tournament_list_handler'); // Deprecated but supported
+add_shortcode('tdwp_tournament_list', 'tdwp_tournament_list_handler');
+add_shortcode('tournament_list', 'tdwp_tournament_list_handler'); // Deprecated but supported
 ```
 
 ---
 
 ### Category 10: Database Tables (Currently Prefixed)
 **Status:** ✅ Already properly prefixed
-**Pattern:** All use `wp_poker_*` or `{$wpdb->prefix}poker_*`
+**Pattern:** All use `wp_tdwp_*` or `{$wpdb->prefix}tdwp_*`
 
 **Examples:**
-- `wp_poker_tournament_players` ✅
-- `wp_poker_statistics` ✅
-- `wp_poker_financial_summary` ✅
+- `wp_tdwp_tournament_players` ✅
+- `wp_tdwp_statistics` ✅
+- `wp_tdwp_financial_summary` ✅
 
 **Action Required:** NONE
 
@@ -255,8 +258,8 @@ add_shortcode('tournament_list', 'poker_tournament_list_handler'); // Deprecated
 
 **Audit Commands:**
 ```bash
-grep -rn "wp_register_script\|wp_enqueue_script" wordpress-plugin/poker-tournament-import/ --include="*.php"
-grep -rn "wp_register_style\|wp_enqueue_style" wordpress-plugin/poker-tournament-import/ --include="*.php"
+grep -rn "wp_register_script\|wp_enqueue_script" wordpress-plugin/tdwp-tournament-import/ --include="*.php"
+grep -rn "wp_register_style\|wp_enqueue_style" wordpress-plugin/tdwp-tournament-import/ --include="*.php"
 ```
 
 **Pattern Required:**
@@ -265,12 +268,12 @@ grep -rn "wp_register_style\|wp_enqueue_style" wordpress-plugin/poker-tournament
 wp_enqueue_script('admin-script', ...);
 
 // Good
-wp_enqueue_script('poker-admin-script', ...);
+wp_enqueue_script('tdwp-admin-script', ...);
 ```
 
 **Action Items:**
 1. List all script/style handles
-2. Verify all start with `poker-`
+2. Verify all start with `tdwp-`
 3. Update registrations
 
 ---
@@ -280,7 +283,7 @@ wp_enqueue_script('poker-admin-script', ...);
 
 **Audit Command:**
 ```bash
-grep -rn "wp_localize_script" wordpress-plugin/poker-tournament-import/ --include="*.php"
+grep -rn "wp_localize_script" wordpress-plugin/tdwp-tournament-import/ --include="*.php"
 ```
 
 **Pattern Required:**
@@ -300,7 +303,7 @@ wp_localize_script('handle', 'pokerAjaxData', $data);
 Run all audit commands and collect results:
 ```bash
 # Create audit report
-bash wordpress-plugin/poker-tournament-import/audit-prefixes.sh > PREFIX_AUDIT_REPORT.txt
+bash wordpress-plugin/tdwp-tournament-import/audit-prefixes.sh > PREFIX_AUDIT_REPORT.txt
 ```
 
 ### Step 2: Categorize Issues (30 min)
@@ -339,15 +342,15 @@ Review audit report and classify:
  * Migrate unprefixed data to prefixed versions
  * Run once on plugin update
  */
-function poker_prefix_migration() {
-    $version = get_option('poker_prefix_migration_version', '0');
+function tdwp_prefix_migration() {
+    $version = get_option('tdwp_prefix_migration_version', '0');
 
     if (version_compare($version, '2.9.15', '<')) {
         global $wpdb;
 
         // Migrate options
         $old_options = array(
-            'old_name' => 'poker_new_name',
+            'old_name' => 'tdwp_new_name',
         );
         foreach ($old_options as $old => $new) {
             $value = get_option($old);
@@ -360,15 +363,15 @@ function poker_prefix_migration() {
         // Migrate post meta
         $wpdb->query("
             UPDATE {$wpdb->postmeta}
-            SET meta_key = CONCAT('poker_', meta_key)
-            WHERE meta_key NOT LIKE 'poker_%'
+            SET meta_key = CONCAT('tdwp_', meta_key)
+            WHERE meta_key NOT LIKE 'tdwp_%'
             AND meta_key IN ('tournament_date', 'player_stats')
         ");
 
-        update_option('poker_prefix_migration_version', '2.9.15');
+        update_option('tdwp_prefix_migration_version', '2.9.15');
     }
 }
-add_action('admin_init', 'poker_prefix_migration');
+add_action('admin_init', 'tdwp_prefix_migration');
 ```
 
 ---
@@ -398,7 +401,7 @@ Before implementing high-risk changes:
 
 **Q2:** "Our taxonomies 'tournament_season' and 'tournament_series' - acceptable or need prefixing?"
 
-**Q3:** "We have existing shortcodes like [tournament_list] used in customer sites. Can we maintain backward compatibility by supporting both [tournament_list] and [poker_tournament_list], or must we force the change?"
+**Q3:** "We have existing shortcodes like [tournament_list] used in customer sites. Can we maintain backward compatibility by supporting both [tournament_list] and [tdwp_tournament_list], or must we force the change?"
 
 ---
 
@@ -416,13 +419,13 @@ Before implementing high-risk changes:
 
 ## Success Criteria
 
-✅ All global functions have `poker_` prefix
-✅ All global variables have `poker_` prefix
-✅ All options have `poker_` prefix
-✅ All post meta keys have `poker_` prefix
-✅ All AJAX actions have `poker_` prefix
-✅ All script/style handles have `poker-` prefix
-✅ Shortcodes have `poker_` prefix (with backward compat)
+✅ All global functions have `tdwp_` prefix
+✅ All global variables have `tdwp_` prefix
+✅ All options have `tdwp_` prefix
+✅ All post meta keys have `tdwp_` prefix
+✅ All AJAX actions have `tdwp_` prefix
+✅ All script/style handles have `tdwp-` prefix
+✅ Shortcodes have `tdwp_` prefix (with backward compat)
 ✅ Post types/taxonomies resolution with reviewer
 ✅ Migration scripts tested
 ✅ No broken functionality

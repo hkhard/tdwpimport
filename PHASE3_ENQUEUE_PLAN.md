@@ -19,7 +19,7 @@ WordPress.org compliance requires all inline `<script>` and `<style>` tags to us
 ```php
 add_action('admin_enqueue_scripts', function($hook) {
     if ('post.php' !== $hook && 'post-new.php' !== $hook) return;
-    wp_add_inline_script('poker-admin-script', '
+    wp_add_inline_script('tdwp-admin-script', '
         // Formula editor init code
     ');
 });
@@ -57,13 +57,13 @@ add_action('admin_enqueue_scripts', function($hook) {
 ```php
 public function enqueue_validator_scripts() {
     if (is_admin()) {
-        wp_enqueue_script('poker-formula-validator',
+        wp_enqueue_script('tdwp-formula-validator',
             plugins_url('assets/js/formula-validator.js', dirname(__FILE__)),
             array('jquery'),
             POKER_TOURNAMENT_IMPORT_VERSION,
             true
         );
-        wp_add_inline_script('poker-formula-validator', $this->get_validator_inline_code());
+        wp_add_inline_script('tdwp-formula-validator', $this->get_validator_inline_code());
     }
 }
 ```
@@ -98,7 +98,7 @@ All template inline styles should use:
 ```php
 add_action('wp_enqueue_scripts', function() {
     if (is_singular('tournament') || is_post_type_archive('tournament')) {
-        wp_add_inline_style('poker-frontend-style', '
+        wp_add_inline_style('tdwp-frontend-style', '
             /* Tournament-specific styles */
         ');
     }
@@ -155,7 +155,7 @@ wordpress-plugin/poker-tournament-import/assets/css/
 add_action('admin_enqueue_scripts', 'poker_admin_scripts');
 function poker_admin_scripts($hook) {
     // Base admin scripts
-    wp_enqueue_script('poker-admin-script',
+    wp_enqueue_script('tdwp-admin-script',
         plugins_url('assets/js/admin.js', __FILE__),
         array('jquery'),
         POKER_TOURNAMENT_IMPORT_VERSION,
@@ -164,7 +164,7 @@ function poker_admin_scripts($hook) {
 
     // Page-specific inline code
     if ('toplevel_page_poker-tournament-import' === $hook) {
-        wp_add_inline_script('poker-admin-script', '
+        wp_add_inline_script('tdwp-admin-script', '
             // Page-specific JS
         ');
     }
@@ -176,13 +176,13 @@ function poker_admin_scripts($hook) {
 add_action('wp_enqueue_scripts', 'poker_frontend_scripts');
 function poker_frontend_scripts() {
     if (is_singular('tournament') || is_post_type_archive('tournament')) {
-        wp_enqueue_style('poker-frontend-style',
+        wp_enqueue_style('tdwp-frontend-style',
             plugins_url('assets/css/frontend.css', __FILE__),
             array(),
             POKER_TOURNAMENT_IMPORT_VERSION
         );
 
-        wp_add_inline_style('poker-frontend-style', '
+        wp_add_inline_style('tdwp-frontend-style', '
             /* Template-specific styles */
         ');
     }
