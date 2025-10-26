@@ -882,7 +882,7 @@ class Poker_Tournament_Import_Shortcodes {
                  LIMIT 1",
                 ...$tournament_uuids
             );
-            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared -- Query prepared above
             $top_player_data = $wpdb->get_row($query);
 
             if ($top_player_data) {
@@ -1547,7 +1547,7 @@ class Poker_Tournament_Import_Shortcodes {
                  LIMIT 1",
                 ...$tournament_uuids
             );
-            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared -- Query prepared above
             $top_player_data = $wpdb->get_row($query);
 
             if ($top_player_data) {
@@ -5047,6 +5047,7 @@ class Poker_Tournament_Import_Shortcodes {
             // Cache miss - query database
             if ($args !== null) {
                 $prepared_sql = $wpdb->prepare($sql, $args);
+                // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- SQL prepared on line above
                 $results = $wpdb->$query_type($prepared_sql);
             } else {
                 $results = $wpdb->$query_type($sql);
