@@ -315,14 +315,21 @@ class Poker_Tournament_Import_Admin {
             );
 
             // Localize formula editor script
+            $formulas = get_option('poker_formulas', array());
             wp_localize_script(
                 'poker-formula-editor',
                 'pokerFormulaEditor',
                 array(
                     'nonce' => wp_create_nonce('poker_formula_editor'),
-                    'ajaxUrl' => admin_url('admin-ajax.php')
+                    'ajaxUrl' => admin_url('admin-ajax.php'),
+                    'formulas' => $formulas
                 )
             );
+
+            // Add inline script for formula preview on import page
+            if ($hook === 'toplevel_page_poker-tournament-import') {
+                wp_add_inline_script('jquery', 'jQuery(document).ready(function($){var formulaData=pokerFormulaEditor.formulas;$("input[name=\'formula_mode\']").change(function(){if($(this).val()===\'override\'){$("#formula-selector").slideDown();updateFormulaPreview()}else{$("#formula-selector").slideUp();$("#formula-preview-box").slideUp()}});$("#override_formula").change(function(){updateFormulaPreview()});function updateFormulaPreview(){var selectedKey=$("#override_formula").val();var formula=formulaData[selectedKey];if(formula){$("#formula-description").text(formula.description||"No description available");var codeDisplay=formula.formula;if(formula.dependencies&&formula.dependencies.length>0){codeDisplay="// Dependencies:\\n"+formula.dependencies.join(";\\n")+";\\n\\n// Main formula:\\n"+formula.formula}$("#formula-code").text(codeDisplay);$("#formula-preview-box").slideDown()}}});');
+            }
         }
     }
 
@@ -693,44 +700,6 @@ class Poker_Tournament_Import_Admin {
                             <p id="formula-description" style="margin: 5px 0; font-style: italic;"></p>
                             <details>
                                 <summary style="cursor: pointer; color: #2271b1;">
-                                    <?php esc_html_e('View formula code', 'poker-tournament-import'); ?>
-                                </summary>
-                                <pre id="formula-code" style="margin: 10px 0; padding: 10px; background: #f5f5f5; overflow-x: auto; font-size: 11px;"></pre>
-                            </details>
-                        </div>
-                    </div>
-
-                    <script>
-                    jQuery(document).ready(function($) {
-                        var formulaData = <?php echo json_encode($all_formulas); ?>;
-
-                        // Show/hide formula selector based on radio selection
-                        $('input[name="formula_mode"]').change(function() {
-                            if ($(this).val() === 'override') {
-                                $('#formula-selector').slideDown();
-                                updateFormulaPreview();
-                            } else {
-                                $('#formula-selector').slideUp();
-                                $('#formula-preview-box').slideUp();
-                            }
-                        });
-
-                        // Update preview when formula changes
-                        $('#override_formula').change(function() {
-                            updateFormulaPreview();
-                        });
-
-                        function updateFormulaPreview() {
-                            var selectedKey = $('#override_formula').val();
-                            var formula = formulaData[selectedKey];
-
-                            if (formula) {
-                                $('#formula-description').text(formula.description || 'No description available');
-
-                                var codeDisplay = formula.formula;
-                                if (formula.dependencies && formula.dependencies.length > 0) {
-                                    codeDisplay = '// Dependencies:\n' + formula.dependencies.join(';\n') + ';\n\n// Main formula:\n' + formula.formula;
-                                }
                                 $('#formula-code').text(codeDisplay);
 
                                 $('#formula-preview-box').slideDown();
