@@ -17,6 +17,55 @@ class Poker_Shortcode_Helper {
      */
     public function __construct() {
         add_action('add_meta_boxes', array($this, 'add_shortcode_meta_boxes'));
+        add_action('admin_enqueue_scripts', array($this, 'enqueue_shortcode_helper_styles'));
+    }
+
+    /**
+     * Enqueue shortcode helper styles for admin screens
+     */
+    public function enqueue_shortcode_helper_styles($hook) {
+        // Only load on post edit screens
+        if ('post.php' !== $hook && 'post-new.php' !== $hook) {
+            return;
+        }
+
+        // Check if we're editing one of the relevant post types
+        global $post;
+        if (!$post || !in_array($post->post_type, array('tournament', 'tournament_series', 'tournament_season', 'player'))) {
+            return;
+        }
+
+        // Add inline styles for shortcode helper meta box
+        $styles = '
+        .poker-shortcode-helper-content {
+            padding: 10px;
+        }
+        .shortcode-example {
+            margin-bottom: 10px;
+        }
+        .shortcode-example label {
+            display: block;
+            margin-bottom: 3px;
+            font-weight: 600;
+            font-size: 12px;
+        }
+        .shortcode-example input {
+            font-family: monospace;
+            font-size: 11px;
+        }
+        .shortcode-info {
+            margin: 10px 0;
+            padding: 8px;
+            background: #f9f9f9;
+            border-left: 3px solid #0073aa;
+            border-radius: 3px;
+        }
+        .shortcode-links {
+            margin-top: 10px;
+        }
+        ';
+
+        wp_add_inline_style('wp-admin', $styles);
     }
 
     /**
@@ -92,36 +141,6 @@ class Poker_Shortcode_Helper {
         echo '</div>';
 
         echo '</div>';
-
-        // Add some styling
-        echo '<style>
-        .poker-shortcode-helper-content {
-            padding: 10px;
-        }
-        .shortcode-example {
-            margin-bottom: 10px;
-        }
-        .shortcode-example label {
-            display: block;
-            margin-bottom: 3px;
-            font-weight: 600;
-            font-size: 12px;
-        }
-        .shortcode-example input {
-            font-family: monospace;
-            font-size: 11px;
-        }
-        .shortcode-info {
-            margin: 10px 0;
-            padding: 8px;
-            background: #f9f9f9;
-            border-left: 3px solid #0073aa;
-            border-radius: 3px;
-        }
-        .shortcode-links {
-            margin-top: 10px;
-        }
-        </style>';
     }
 
     /**
@@ -161,36 +180,6 @@ class Poker_Shortcode_Helper {
         echo '</div>';
 
         echo '</div>';
-
-        // Reuse the same styling
-        echo '<style>
-        .poker-shortcode-helper-content {
-            padding: 10px;
-        }
-        .shortcode-example {
-            margin-bottom: 10px;
-        }
-        .shortcode-example label {
-            display: block;
-            margin-bottom: 3px;
-            font-weight: 600;
-            font-size: 12px;
-        }
-        .shortcode-example input {
-            font-family: monospace;
-            font-size: 11px;
-        }
-        .shortcode-info {
-            margin: 10px 0;
-            padding: 8px;
-            background: #f9f9f9;
-            border-left: 3px solid #0073aa;
-            border-radius: 3px;
-        }
-        .shortcode-links {
-            margin-top: 10px;
-        }
-        </style>';
     }
 
     /**
@@ -225,36 +214,6 @@ class Poker_Shortcode_Helper {
         echo '</div>';
 
         echo '</div>';
-
-        // Reuse the same styling
-        echo '<style>
-        .poker-shortcode-helper-content {
-            padding: 10px;
-        }
-        .shortcode-example {
-            margin-bottom: 10px;
-        }
-        .shortcode-example label {
-            display: block;
-            margin-bottom: 3px;
-            font-weight: 600;
-            font-size: 12px;
-        }
-        .shortcode-example input {
-            font-family: monospace;
-            font-size: 11px;
-        }
-        .shortcode-info {
-            margin: 10px 0;
-            padding: 8px;
-            background: #f9f9f9;
-            border-left: 3px solid #0073aa;
-            border-radius: 3px;
-        }
-        .shortcode-links {
-            margin-top: 10px;
-        }
-        </style>';
     }
 
     /**
@@ -289,35 +248,5 @@ class Poker_Shortcode_Helper {
         echo '</div>';
 
         echo '</div>';
-
-        // Reuse the same styling
-        echo '<style>
-        .poker-shortcode-helper-content {
-            padding: 10px;
-        }
-        .shortcode-example {
-            margin-bottom: 10px;
-        }
-        .shortcode-example label {
-            display: block;
-            margin-bottom: 3px;
-            font-weight: 600;
-            font-size: 12px;
-        }
-        .shortcode-example input {
-            font-family: monospace;
-            font-size: 11px;
-        }
-        .shortcode-info {
-            margin: 10px 0;
-            padding: 8px;
-            background: #f9f9f9;
-            border-left: 3px solid #0073aa;
-            border-radius: 3px;
-        }
-        .shortcode-links {
-            margin-top: 10px;
-        }
-        </style>';
     }
 }

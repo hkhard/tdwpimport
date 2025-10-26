@@ -48,6 +48,7 @@ class Poker_Data_Mart_Cleaner {
     public function __construct() {
         add_action('admin_menu', array($this, 'add_admin_menu'));
         add_action('admin_init', array($this, 'handle_data_cleaning_actions'));
+        add_action('admin_enqueue_scripts', array($this, 'enqueue_cleaner_assets'));
         add_action('wp_ajax_poker_clean_data_mart', array($this, 'handle_ajax_cleaning'));
         add_action('wp_ajax_poker_migrate_tournaments', array($this, 'handle_ajax_migration'));
         add_action('wp_ajax_poker_get_cleaning_status', array($this, 'handle_ajax_status'));
@@ -65,6 +66,333 @@ class Poker_Data_Mart_Cleaner {
             'poker-data-mart-cleaner',
             array($this, 'render_admin_page')
         );
+    }
+
+    /**
+     * Enqueue scripts and styles for data mart cleaner page
+     */
+    public function enqueue_cleaner_assets($hook) {
+        // Only load on our specific admin page
+        if ('tournament_page_poker-data-mart-cleaner' !== $hook) {
+            return;
+        }
+
+        // Enqueue jQuery (usually already loaded in admin)
+        wp_enqueue_script('jquery');
+
+        // Add inline styles for cleaner page
+        $styles = '
+        .cleaning-options {
+            margin: 20px 0;
+        }
+
+        .option-group {
+            background: #fff;
+            border: 1px solid #ccd0d4;
+            border-left: 4px solid #2271b1;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            padding: 20px;
+        }
+
+        .option-group.danger-zone {
+            border-left-color: #d63638;
+            background: #fef7f7;
+        }
+
+        .option-group h3 {
+            margin: 0 0 10px 0;
+            color: #1d2327;
+        }
+
+        .option-group.danger-zone h3 {
+            color: #d63638;
+        }
+
+        .status-active {
+            color: #00a32a;
+            font-weight: bold;
+        }
+
+        .status-inactive {
+            color: #787c82;
+        }
+
+        .status-success {
+            color: #00a32a;
+            font-weight: bold;
+        }
+
+        .status-warning {
+            color: #d63638;
+            font-weight: bold;
+        }
+
+        .status-info {
+            color: #2271b1;
+            font-weight: bold;
+        }
+
+        .card {
+            background: #fff;
+            border: 1px solid #c3c4c7;
+            border-radius: 4px;
+            margin: 20px 0;
+            padding: 20px;
+        }
+
+        .card h2 {
+            margin: 0 0 20px 0;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        dl {
+            margin: 0;
+        }
+
+        dt {
+            margin-top: 15px;
+            font-weight: bold;
+        }
+
+        dd {
+            margin: 5px 0 0 20px;
+            color: #50575e;
+        }
+
+        /* AJAX Loading Styles */
+        .poker-ajax-loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        .poker-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #2271b1;
+            border-radius: 50%;
+            animation: poker-spin 1s linear infinite;
+            margin-right: 10px;
+            vertical-align: middle;
+        }
+
+        @keyframes poker-spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .poker-ajax-message {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+        }
+
+        .poker-ajax-success {
+            background: #f0f6fc;
+            border: 1px solid #00a32a;
+            color: #00a32a;
+        }
+
+        .poker-ajax-error {
+            background: #fef7f7;
+            border: 1px solid #d63638;
+            color: #d63638;
+        }
+
+        .poker-ajax-warning {
+            background: #fcf9e6;
+            border: 1px solid #f0ad4e;
+            color: #0073aa;
+        }
+
+        .button.poker-ajax-disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .poker-progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #f0f0f1;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+
+        .poker-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #2271b1, #135e96);
+            border-radius: 10px;
+            transition: width 0.3s ease;
+        }
+        ';
+
+        wp_add_inline_style('wp-admin', $styles);
+
+        // Localize script data for AJAX
+        wp_localize_script('jquery', 'tdwpCleanerData', array(
+            'ajaxurl' => admin_url('admin-ajax.php'),
+            'nonce' => wp_create_nonce('poker_data_mart_cleaner'),
+            'i18n' => array(
+                'processing' => __('Processing...', 'poker-tournament-import'),
+                'ajaxFailed' => __('AJAX request failed. Please try again.', 'poker-tournament-import'),
+                'hasData' => __('Has Data', 'poker-tournament-import'),
+                'empty' => __('Empty', 'poker-tournament-import'),
+            )
+        ));
+
+        // Add inline script for AJAX functionality
+        $script = "
+        jQuery(document).ready(function($) {
+            var nonce = tdwpCleanerData.nonce;
+
+            // Initialize AJAX functionality
+            $('.poker-ajax-button').on('click', function(e) {
+                e.preventDefault();
+
+                var \$button = $(this);
+                var action = \$button.data('action');
+                var confirmMessage = \$button.data('confirm');
+
+                if (confirmMessage && !confirm(confirmMessage)) {
+                    return;
+                }
+
+                performAjaxAction(\$button, action);
+            });
+
+            // Perform AJAX action
+            function performAjaxAction(\$button, action) {
+                var \$container = \$button.closest('.option-group');
+                var originalText = \$button.html();
+
+                // Show loading state
+                \$button.addClass('poker-ajax-disabled');
+                \$button.html('<span class=\"poker-spinner\"></span>' + tdwpCleanerData.i18n.processing);
+
+                // Remove previous messages
+                $('.poker-ajax-message').remove();
+
+                var ajaxData = {
+                    action: 'poker_clean_data_mart',
+                    cleaning_action: action,
+                    nonce: nonce
+                };
+
+                // Special handling for migration
+                if (action === 'migrate_tournaments') {
+                    ajaxData.action = 'poker_migrate_tournaments';
+                }
+
+                $.ajax({
+                    url: tdwpCleanerData.ajaxurl,
+                    type: 'POST',
+                    data: ajaxData,
+                    success: function(response) {
+                        // Restore button
+                        \$button.removeClass('poker-ajax-disabled');
+                        \$button.html(originalText);
+
+                        // Show result message
+                        var messageClass = response.success ? 'poker-ajax-success' : 'poker-ajax-error';
+                        var messageHtml = '<div class=\"poker-ajax-message ' + messageClass + '\">' +
+                                       response.message + '</div>';
+                        \$container.prepend(messageHtml);
+
+                        // Update data if successful
+                        if (response.success && response.data) {
+                            updateDataDisplays(response.data);
+                        }
+
+                        // Auto-hide success messages
+                        if (response.success) {
+                            setTimeout(function() {
+                                $('.poker-ajax-message').fadeOut();
+                            }, 5000);
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        // Restore button
+                        \$button.removeClass('poker-ajax-disabled');
+                        \$button.html(originalText);
+
+                        // Show error message
+                        var errorMessage = tdwpCleanerData.i18n.ajaxFailed;
+                        if (xhr.responseJSON && xhr.responseJSON.message) {
+                            errorMessage = xhr.responseJSON.message;
+                        }
+
+                        var messageHtml = '<div class=\"poker-ajax-message poker-ajax-error\">' +
+                                       errorMessage + '</div>';
+                        \$container.prepend(messageHtml);
+                    }
+                });
+            }
+
+            // Update data displays after AJAX operation
+            function updateDataDisplays(data) {
+                // Update stats table
+                if (data.stats) {
+                    updateStatsTable(data.stats);
+                }
+
+                // Update migration status
+                if (data.migration_status) {
+                    updateMigrationStatus(data.migration_status);
+                }
+            }
+
+            // Update statistics table
+            function updateStatsTable(stats) {
+                $('tbody tr').each(function() {
+                    var \$row = $(this);
+                    var tableCode = \$row.find('td:first-child code').text();
+
+                    if (stats[tableCode]) {
+                        var info = stats[tableCode];
+                        \$row.find('td:nth-child(3)').text(info.count.toLocaleString());
+
+                        var \$statusCell = \$row.find('td:nth-child(4) span');
+                        \$statusCell.removeClass('status-active status-inactive');
+
+                        if (info.count > 0) {
+                            \$statusCell.addClass('status-active').text(tdwpCleanerData.i18n.hasData);
+                        } else {
+                            \$statusCell.addClass('status-inactive').text(tdwpCleanerData.i18n.empty);
+                        }
+                    }
+                });
+            }
+
+            // Update migration status
+            function updateMigrationStatus(migrationStatus) {
+                // Update counts
+                $('.migration-status-migrated').text(migrationStatus.migrated_count.toLocaleString());
+                $('.migration-status-needs-reimport').text(migrationStatus.needs_reimport_count.toLocaleString());
+                $('.migration-status-total').text(migrationStatus.total_tournaments.toLocaleString());
+
+                // Update migration button state
+                var \$migrateButton = $('button[data-action=\"migrate_tournaments\"]');
+                if (migrationStatus.needs_reimport_count > 0) {
+                    \$migrateButton.prop('disabled', false);
+                } else {
+                    \$migrateButton.prop('disabled', true);
+                }
+
+                // Update migration notice
+                if (migrationStatus.needs_reimport_count > 0) {
+                    $('.migration-notice').show();
+                } else {
+                    $('.migration-notice').hide();
+                }
+            }
+        });
+        ";
+
+        wp_add_inline_script('jquery', $script);
     }
 
     /**
@@ -835,325 +1163,6 @@ class Poker_Data_Mart_Cleaner {
             </div>
         </div>
 
-        <style>
-        .cleaning-options {
-            margin: 20px 0;
-        }
-
-        .option-group {
-            background: #fff;
-            border: 1px solid #ccd0d4;
-            border-left: 4px solid #2271b1;
-            border-radius: 4px;
-            margin-bottom: 20px;
-            padding: 20px;
-        }
-
-        .option-group.danger-zone {
-            border-left-color: #d63638;
-            background: #fef7f7;
-        }
-
-        .option-group h3 {
-            margin: 0 0 10px 0;
-            color: #1d2327;
-        }
-
-        .option-group.danger-zone h3 {
-            color: #d63638;
-        }
-
-        .status-active {
-            color: #00a32a;
-            font-weight: bold;
-        }
-
-        .status-inactive {
-            color: #787c82;
-        }
-
-        .status-success {
-            color: #00a32a;
-            font-weight: bold;
-        }
-
-        .status-warning {
-            color: #d63638;
-            font-weight: bold;
-        }
-
-        .status-info {
-            color: #2271b1;
-            font-weight: bold;
-        }
-
-        .card {
-            background: #fff;
-            border: 1px solid #c3c4c7;
-            border-radius: 4px;
-            margin: 20px 0;
-            padding: 20px;
-        }
-
-        .card h2 {
-            margin: 0 0 20px 0;
-            padding-bottom: 10px;
-            border-bottom: 1px solid #ddd;
-        }
-
-        dl {
-            margin: 0;
-        }
-
-        dt {
-            margin-top: 15px;
-            font-weight: bold;
-        }
-
-        dd {
-            margin: 5px 0 0 20px;
-            color: #50575e;
-        }
-
-        /* AJAX Loading Styles */
-        .poker-ajax-loading {
-            opacity: 0.6;
-            pointer-events: none;
-        }
-
-        .poker-spinner {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 2px solid #f3f3f3;
-            border-top: 2px solid #2271b1;
-            border-radius: 50%;
-            animation: poker-spin 1s linear infinite;
-            margin-right: 10px;
-            vertical-align: middle;
-        }
-
-        @keyframes poker-spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .poker-ajax-message {
-            margin: 10px 0;
-            padding: 10px;
-            border-radius: 4px;
-        }
-
-        .poker-ajax-success {
-            background: #f0f6fc;
-            border: 1px solid #00a32a;
-            color: #00a32a;
-        }
-
-        .poker-ajax-error {
-            background: #fef7f7;
-            border: 1px solid #d63638;
-            color: #d63638;
-        }
-
-        .poker-ajax-warning {
-            background: #fcf9e6;
-            border: 1px solid #f0ad4e;
-            color: #0073aa;
-        }
-
-        .button.poker-ajax-disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-        }
-
-        .poker-progress-bar {
-            width: 100%;
-            height: 20px;
-            background: #f0f0f1;
-            border-radius: 10px;
-            overflow: hidden;
-            margin: 10px 0;
-        }
-
-        .poker-progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #2271b1, #135e96);
-            border-radius: 10px;
-            transition: width 0.3s ease;
-        }
-        </style>
-
-        <script>
-        jQuery(document).ready(function($) {
-            var nonce = '<?php echo esc_attr(wp_create_nonce("poker_data_mart_cleaner")); ?>';
-
-            // Initialize AJAX functionality
-            $('.poker-ajax-button').on('click', function(e) {
-                e.preventDefault();
-
-                var $button = $(this);
-                var action = $button.data('action');
-                var confirmMessage = $button.data('confirm');
-
-                if (confirmMessage && !confirm(confirmMessage)) {
-                    return;
-                }
-
-                performAjaxAction($button, action);
-            });
-
-            // Perform AJAX action
-            function performAjaxAction($button, action) {
-                var $container = $button.closest('.option-group');
-                var originalText = $button.html();
-
-                // Show loading state
-                $button.addClass('poker-ajax-disabled');
-                $button.html('<span class="poker-spinner"></span>' + '<?php esc_html_e('Processing...', 'poker-tournament-import'); ?>');
-
-                // Remove previous messages
-                $('.poker-ajax-message').remove();
-
-                var ajaxData = {
-                    action: 'poker_clean_data_mart',
-                    cleaning_action: action,
-                    nonce: nonce
-                };
-
-                // Special handling for migration
-                if (action === 'migrate_tournaments') {
-                    ajaxData.action = 'poker_migrate_tournaments';
-                }
-
-                $.ajax({
-                    url: ajaxurl,
-                    type: 'POST',
-                    data: ajaxData,
-                    success: function(response) {
-                        // Restore button
-                        $button.removeClass('poker-ajax-disabled');
-                        $button.html(originalText);
-
-                        // Show result message
-                        var messageClass = response.success ? 'poker-ajax-success' : 'poker-ajax-error';
-                        var messageHtml = '<div class="poker-ajax-message ' + messageClass + '">' +
-                                       response.message + '</div>';
-                        $container.prepend(messageHtml);
-
-                        // Update data if successful
-                        if (response.success && response.data) {
-                            updateDataDisplays(response.data);
-                        }
-
-                        // Auto-hide success messages
-                        if (response.success) {
-                            setTimeout(function() {
-                                $('.poker-ajax-message').fadeOut();
-                            }, 5000);
-                        }
-                    },
-                    error: function(xhr, status, error) {
-                        // Restore button
-                        $button.removeClass('poker-ajax-disabled');
-                        $button.html(originalText);
-
-                        // Show error message
-                        var errorMessage = '<?php esc_html_e('AJAX request failed. Please try again.', 'poker-tournament-import'); ?>';
-                        if (xhr.responseJSON && xhr.responseJSON.message) {
-                            errorMessage = xhr.responseJSON.message;
-                        }
-
-                        var messageHtml = '<div class="poker-ajax-message poker-ajax-error">' +
-                                       errorMessage + '</div>';
-                        $container.prepend(messageHtml);
-                    }
-                });
-            }
-
-            // Update data displays after AJAX operation
-            function updateDataDisplays(data) {
-                // Update stats table
-                if (data.stats) {
-                    updateStatsTable(data.stats);
-                }
-
-                // Update migration status
-                if (data.migration_status) {
-                    updateMigrationStatus(data.migration_status);
-                }
-            }
-
-            // Update statistics table
-            function updateStatsTable(stats) {
-                $('tbody tr').each(function() {
-                    var $row = $(this);
-                    var tableCode = $row.find('td:first-child code').text();
-
-                    if (stats[tableCode]) {
-                        var info = stats[tableCode];
-                        $row.find('td:nth-child(3)').text(info.count.toLocaleString());
-
-                        var $statusCell = $row.find('td:nth-child(4) span');
-                        $statusCell.removeClass('status-active status-inactive');
-
-                        if (info.count > 0) {
-                            $statusCell.addClass('status-active').text('<?php esc_html_e('Has Data', 'poker-tournament-import'); ?>');
-                        } else {
-                            $statusCell.addClass('status-inactive').text('<?php esc_html_e('Empty', 'poker-tournament-import'); ?>');
-                        }
-                    }
-                });
-            }
-
-            // Update migration status
-            function updateMigrationStatus(migrationStatus) {
-                // Update counts
-                $('.migration-status-migrated').text(migrationStatus.migrated_count.toLocaleString());
-                $('.migration-status-needs-reimport').text(migrationStatus.needs_reimport_count.toLocaleString());
-                $('.migration-status-total').text(migrationStatus.total_tournaments.toLocaleString());
-
-                // Update migration button state
-                var $migrateButton = $('button[data-action="migrate_tournaments"]');
-                if (migrationStatus.needs_reimport_count > 0) {
-                    $migrateButton.prop('disabled', false);
-                } else {
-                    $migrateButton.prop('disabled', true);
-                }
-
-                // Update migration notice
-                var $migrationNotice = $('.migration-notice');
-                if (migrationStatus.needs_reimport_count > 0) {
-                    if ($migrationNotice.length === 0) {
-                        var noticeHtml = '<div class="migration-notice" style="background: #fcf9e6; border: 1px solid #f0ad4e; border-radius: 4px; padding: 10px; margin-top: 15px;">' +
-                                       '<p><strong><?php esc_html_e('Migration Needed:', 'poker-tournament-import'); ?></strong> ' +
-                                       '<?php /* translators: %d: number of tournaments needing re-import */ echo esc_html(sprintf(__('%d tournaments were imported before version 2.1.3 and lack raw TDT content needed for chronological processing. Re-import these tournaments with their original .tdt files to enable accurate results.', 'poker-tournament-import'), '{COUNT}')); ?></p></div>';
-                        noticeHtml = noticeHtml.replace('{COUNT}', migrationStatus.needs_reimport_count);
-                        $('.migration-status-table').closest('.card').append(noticeHtml);
-                    }
-                } else {
-                    $migrationNotice.remove();
-                }
-            }
-
-            // Auto-refresh status every 30 seconds
-            setInterval(function() {
-                $.ajax({
-                    url: ajaxurl,
-                    type: 'GET',
-                    data: {
-                        action: 'poker_get_cleaning_status',
-                        nonce: nonce
-                    },
-                    success: function(response) {
-                        if (response.success && response.data) {
-                            updateDataDisplays(response.data);
-                        }
-                    }
-                });
-            }, 30000);
-        });
-        </script>
         <?php
     }
 
