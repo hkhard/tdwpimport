@@ -3,7 +3,7 @@ Contributors: hanshard
 Tags: poker, tournament, import, results, bulk-import
 Requires at least: 6.0
 Tested up to: 6.8
-Stable tag: 2.9.14
+Stable tag: 2.9.15
 Requires PHP: 8.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -77,6 +77,17 @@ Use the following shortcodes:
 6. **NEW: Interactive leaderboard with sorting**
 
 == Changelog ==
+
+= 2.9.15 - October 26, 2025 =
+* WordPress.org compliance: Applied tdwp_ prefix throughout codebase
+* Fixed: All options now use tdwp_ prefix (poker_ → tdwp_)
+* Fixed: All AJAX actions now use tdwp_ prefix
+* Fixed: All shortcodes now use tdwp_ prefix with backward compatibility
+* Fixed: All global functions now use tdwp_ prefix
+* Fixed: Proper WordPress script/style enqueueing in admin pages
+* Migration: Automatic migration of old options to new prefix on plugin update
+* Backward compatibility: Old shortcode names still work (deprecated but supported)
+* Compliance: Removed 13 inline style/script tags, now properly enqueued
 
 = 2.9.14 - January 24, 2025 =
 * CRITICAL FIX: Season dropdown now shows correct tournament counts for all seasons
