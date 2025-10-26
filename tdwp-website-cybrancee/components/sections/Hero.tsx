@@ -80,7 +80,7 @@ export default function Hero() {
               <div className="bg-white p-4">
                 <div className="bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg overflow-hidden relative flex items-center justify-center">
                   <Image
-                    src="/assets/images/banner.png"
+                    src="/assets/images/dashboard.png"
                     alt="Tournament Dashboard Preview"
                     width={800}
                     height={600}
