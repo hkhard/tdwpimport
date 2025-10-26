@@ -23,6 +23,13 @@ class Poker_Migration_Admin_Page {
     public function __construct() {
         $this->migration_tools = new Poker_Tournament_Migration_Tools();
         add_action('admin_notices', array($this, 'show_migration_notices'));
+        add_action('admin_enqueue_scripts', array($this, 'enqueue_migration_assets'));
+    }
+
+    public function enqueue_migration_assets($hook) {
+        if ('poker-tournament-import_page_poker-migration-tools' !== $hook) return;
+        wp_add_inline_style('wp-admin', '.status-good{color:#00a32a;font-weight:bold}.status-bad{color:#d63638;font-weight:bold}.diagnostics-table{margin-top:15px}.diagnostics-table table{font-size:12px}');
+        wp_add_inline_script('wp-admin', 'setTimeout(function(){const url=new URL(window.location);url.searchParams.delete("migration_status");url.searchParams.delete("action");window.history.replaceState({},document.title,url.href)},3000);');
     }
 
     /**
@@ -366,12 +373,6 @@ class Poker_Migration_Admin_Page {
                                     </table>
                                 </div>
 
-                                <style>
-                                .status-good { color: #00a32a; font-weight: bold; }
-                                .status-bad { color: #d63638; font-weight: bold; }
-                                .diagnostics-table { margin-top: 15px; }
-                                .diagnostics-table table { font-size: 12px; }
-                                </style>
                             <?php endif; ?>
                         </div>
                     <?php endif; ?>
@@ -422,12 +423,6 @@ class Poker_Migration_Admin_Page {
             }
 
             // Clean up the URL parameters
-            echo '<script type="text/javascript">setTimeout(function() {
-                const url = new URL(window.location);
-                url.searchParams.delete("migration_status");
-                url.searchParams.delete("action");
-                window.history.replaceState({}, document.title, url.href);
-            }, 3000);</script>';
         }
     }
 
