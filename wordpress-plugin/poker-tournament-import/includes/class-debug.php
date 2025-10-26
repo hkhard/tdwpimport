@@ -33,7 +33,7 @@ class Poker_Tournament_Import_Debug {
         self::log('PHP Version: ' . PHP_VERSION);
         self::log('WordPress Version: ' . get_bloginfo('version'));
         self::log('Plugin Version: 1.0.1');
-        self::log('Server Info: ' . (isset($_SERVER['SERVER_SOFTWARE']) ? $_SERVER['SERVER_SOFTWARE'] : 'Unknown'));
+        self::log('Server Info: ' . (isset($_SERVER['SERVER_SOFTWARE']) ? sanitize_text_field($_SERVER['SERVER_SOFTWARE']) : 'Unknown'));
     }
 
     /**

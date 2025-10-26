@@ -1573,6 +1573,12 @@ class Poker_Tournament_Import_Admin {
     public function handle_overwrite_confirmation() {
         if (isset($_POST['confirm_overwrite']) && check_admin_referer('poker_import_overwrite', 'poker_import_overwrite_nonce')) {
             $tournament_data = json_decode(stripslashes($_POST['tournament_data']), true);
+
+            // Sanitize decoded JSON data recursively
+            if (is_array($tournament_data)) {
+                $tournament_data = $this->sanitize_tournament_data_recursive($tournament_data);
+            }
+
             $overwrite_id = intval($_POST['overwrite_tournament_id']);
 
             if ($tournament_data && $overwrite_id > 0) {
@@ -4591,7 +4597,7 @@ class Poker_Tournament_Import_Admin {
     public function save_formula_meta_box($post_id, $post) {
         // Check nonce
         if (!isset($_POST['poker_formula_meta_box_nonce']) ||
-            !wp_verify_nonce($_POST['poker_formula_meta_box_nonce'], 'poker_save_formula_meta_box')) {
+            !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['poker_formula_meta_box_nonce'])), 'poker_save_formula_meta_box')) {
             return;
         }
 
@@ -4698,5 +4704,31 @@ class Poker_Tournament_Import_Admin {
         }
 
         return $results;
+    }
+
+    /**
+     * Recursively sanitize tournament data from JSON
+     *
+     * @param mixed $data Data to sanitize
+     * @return mixed Sanitized data
+     */
+    private function sanitize_tournament_data_recursive($data) {
+        if (is_array($data)) {
+            $sanitized = array();
+            foreach ($data as $key => $value) {
+                $sanitized_key = sanitize_key($key);
+                $sanitized[$sanitized_key] = $this->sanitize_tournament_data_recursive($value);
+            }
+            return $sanitized;
+        } elseif (is_string($data)) {
+            // For tournament data, use text_field sanitization to preserve structure
+            return sanitize_text_field($data);
+        } elseif (is_numeric($data)) {
+            return $data; // Numbers are safe
+        } elseif (is_bool($data)) {
+            return $data; // Booleans are safe
+        } else {
+            return null; // Unsupported type
+        }
     }
 }

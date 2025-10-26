@@ -75,7 +75,7 @@ class Poker_Data_Mart_Cleaner {
             return;
         }
 
-        if (!wp_verify_nonce($_POST['_wpnonce'], 'poker_data_mart_cleaner')) {
+        if (!wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['_wpnonce'])), 'poker_data_mart_cleaner')) {
             wp_die(esc_html__('Security check failed.', 'poker-tournament-import'));
         }
 
@@ -1258,7 +1258,7 @@ class Poker_Data_Mart_Cleaner {
      */
     public function handle_ajax_cleaning() {
         // Verify nonce
-        if (!wp_verify_nonce($_POST['nonce'], 'poker_data_mart_cleaner')) {
+        if (!wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'poker_data_mart_cleaner')) {
             wp_die(esc_html__('Security check failed.', 'poker-tournament-import'));
         }
 
@@ -1360,7 +1360,7 @@ class Poker_Data_Mart_Cleaner {
      */
     public function handle_ajax_migration() {
         // Verify nonce
-        if (!wp_verify_nonce($_POST['nonce'], 'poker_data_mart_cleaner')) {
+        if (!wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'poker_data_mart_cleaner')) {
             wp_die(esc_html__('Security check failed.', 'poker-tournament-import'));
         }
 
@@ -1401,7 +1401,7 @@ class Poker_Data_Mart_Cleaner {
      */
     public function handle_ajax_status() {
         // Verify nonce
-        if (!wp_verify_nonce($_GET['nonce'], 'poker_data_mart_cleaner')) {
+        if (!wp_verify_nonce(sanitize_text_field(wp_unslash($_GET['nonce'])), 'poker_data_mart_cleaner')) {
             wp_die(esc_html__('Security check failed.', 'poker-tournament-import'));
         }
 
