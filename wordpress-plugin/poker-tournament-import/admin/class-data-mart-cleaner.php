@@ -947,12 +947,10 @@ class Poker_Data_Mart_Cleaner {
             new RecursiveDirectoryIterator($upload_dir['basedir'])
         );
 
-            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Query prepared above with $wpdb->prepare()
         foreach ($iterator as $file) {
             if ($file->isFile() && $file->getExtension() === 'tdt') {
-                unlink($file->getPathname());
                 // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink -- Removing backup file
-            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Query prepared above with $wpdb->prepare()
+                unlink($file->getPathname());
                 error_log("Poker Data Mart: Deleted .tdt file: " . $file->getPathname());
             }
         }

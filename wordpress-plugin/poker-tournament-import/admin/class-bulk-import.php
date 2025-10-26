@@ -703,21 +703,18 @@ class Poker_Tournament_Bulk_Import {
             if ($ext !== 'tdt') {
                 return new WP_Error('invalid_mime', __('Invalid file type detected.', 'poker-tournament-import'));
             }
-                // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen -- Reading uploaded file
         }
 
-                // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_fread -- Reading file content
         // Check for suspicious content (PHP code injection)
         if (file_exists($file['tmp_name'])) {
+            // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen -- Reading uploaded file
             $handle = fopen($file['tmp_name'], 'r');
-                // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen -- Reading uploaded file
-                // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- Closing file handle
+            // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fread -- Reading file content
             $sample = fread($handle, 1000);
-                // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fread -- Reading file content
+            // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- Closing file handle
             fclose($handle);
 
             if (preg_match('/<\?php|<\?=/i', $sample)) {
-            // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- Closing file handle
                 return new WP_Error('suspicious_content', __('Suspicious content detected in file.', 'poker-tournament-import'));
             }
         }

@@ -2149,8 +2149,8 @@ class Poker_Tournament_Import_Admin {
         // Generate CSV report
         $filename = 'poker-tournament-report-' . gmgmdate('Y-m-d') . '.csv';
         $filepath = get_temp_dir() . $filename;
-            // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen -- Required for backup creation
 
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen -- Required for backup creation
         $handle = fopen($filepath, 'w');
 
         // CSV headers
@@ -4673,8 +4673,8 @@ class Poker_Tournament_Import_Admin {
 
         if (false === $results) {
             // Cache miss - query database
-                // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $sql parameter is being prepared here
             if ($args !== null) {
+                // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $sql parameter is being prepared here
                 $prepared_sql = $wpdb->prepare($sql, $args);
                 $results = $wpdb->$query_type($prepared_sql);
             } else {
