@@ -111,52 +111,52 @@ class Poker_Tournament_Import {
         Poker_Tournament_Bulk_Import::get_instance();
 
         // AJAX handlers for tabbed interface
-        add_action('wp_ajax_poker_series_tab_content', array($this, 'ajax_series_tab_content'));
-        add_action('wp_ajax_nopriv_poker_series_tab_content', array($this, 'ajax_series_tab_content'));
-        add_action('wp_ajax_poker_series_load_more', array($this, 'ajax_series_load_more'));
-        add_action('wp_ajax_nopriv_poker_series_load_more', array($this, 'ajax_series_load_more'));
+        add_action('wp_ajax_tdwp_series_tab_content', array($this, 'ajax_series_tab_content'));
+        add_action('wp_ajax_nopriv_tdwp_series_tab_content', array($this, 'ajax_series_tab_content'));
+        add_action('wp_ajax_tdwp_series_load_more', array($this, 'ajax_series_load_more'));
+        add_action('wp_ajax_nopriv_tdwp_series_load_more', array($this, 'ajax_series_load_more'));
 
         // AJAX handlers for formula validator
-        add_action('wp_ajax_poker_validate_formula', array($this, 'ajax_validate_formula'));
-        add_action('wp_ajax_poker_save_formula', array($this, 'ajax_save_formula'));
-        add_action('wp_ajax_poker_delete_formula', array($this, 'ajax_delete_formula'));
-        add_action('wp_ajax_poker_get_formula', array($this, 'ajax_get_formula'));
+        add_action('wp_ajax_tdwp_validate_formula', array($this, 'ajax_validate_formula'));
+        add_action('wp_ajax_tdwp_save_formula', array($this, 'ajax_save_formula'));
+        add_action('wp_ajax_tdwp_delete_formula', array($this, 'ajax_delete_formula'));
+        add_action('wp_ajax_tdwp_get_formula', array($this, 'ajax_get_formula'));
 
         // AJAX handlers for series standings
-        add_action('wp_ajax_poker_export_standings', array($this, 'ajax_export_standings'));
+        add_action('wp_ajax_tdwp_export_standings', array($this, 'ajax_export_standings'));
 
         // Dashboard AJAX handlers are now registered in admin/class-admin.php to avoid conflicts
 
         // **PHASE 1: AJAX handlers for player drill-through**
-        add_action('wp_ajax_poker_get_player_details', array($this, 'ajax_get_player_details'));
-        add_action('wp_ajax_nopriv_poker_get_player_details', array($this, 'ajax_get_player_details'));
+        add_action('wp_ajax_tdwp_get_player_details', array($this, 'ajax_get_player_details'));
+        add_action('wp_ajax_nopriv_tdwp_get_player_details', array($this, 'ajax_get_player_details'));
 
         // AJAX handlers for statistics refresh
-        add_action('wp_ajax_poker_refresh_statistics', array($this, 'ajax_refresh_statistics'));
+        add_action('wp_ajax_tdwp_refresh_statistics', array($this, 'ajax_refresh_statistics'));
 
         // AJAX handlers for data mart cleaner
-        add_action('wp_ajax_poker_clean_data_mart', array($this, 'ajax_clean_data_mart'));
+        add_action('wp_ajax_tdwp_clean_data_mart', array($this, 'ajax_clean_data_mart'));
 
         // AJAX handlers for tournament chronology reconstruction
-        add_action('wp_ajax_poker_reconstruct_chronology', array($this, 'ajax_reconstruct_chronology'));
-        add_action('wp_ajax_poker_upload_tdt_for_tournament', array($this, 'ajax_upload_tdt_for_tournament'));
+        add_action('wp_ajax_tdwp_reconstruct_chronology', array($this, 'ajax_reconstruct_chronology'));
+        add_action('wp_ajax_tdwp_upload_tdt_for_tournament', array($this, 'ajax_upload_tdt_for_tournament'));
 
         // AJAX handlers for enhanced data mart cleaning
-        add_action('wp_ajax_poker_clean_statistics_enhanced', array($this, 'ajax_clean_statistics_enhanced'));
-        add_action('wp_ajax_poker_clean_financial_enhanced', array($this, 'ajax_clean_financial_enhanced'));
-        add_action('wp_ajax_poker_clean_player_data_enhanced', array($this, 'ajax_clean_player_data_enhanced'));
-        add_action('wp_ajax_poker_clean_analytics_enhanced', array($this, 'ajax_clean_analytics_enhanced'));
-        add_action('wp_ajax_poker_clean_options_enhanced', array($this, 'ajax_clean_options_enhanced'));
-        add_action('wp_ajax_poker_clean_all_enhanced', array($this, 'ajax_clean_all_enhanced'));
-        add_action('wp_ajax_poker_get_cleaning_status', array($this, 'ajax_get_cleaning_status'));
+        add_action('wp_ajax_tdwp_clean_statistics_enhanced', array($this, 'ajax_clean_statistics_enhanced'));
+        add_action('wp_ajax_tdwp_clean_financial_enhanced', array($this, 'ajax_clean_financial_enhanced'));
+        add_action('wp_ajax_tdwp_clean_player_data_enhanced', array($this, 'ajax_clean_player_data_enhanced'));
+        add_action('wp_ajax_tdwp_clean_analytics_enhanced', array($this, 'ajax_clean_analytics_enhanced'));
+        add_action('wp_ajax_tdwp_clean_options_enhanced', array($this, 'ajax_clean_options_enhanced'));
+        add_action('wp_ajax_tdwp_clean_all_enhanced', array($this, 'ajax_clean_all_enhanced'));
+        add_action('wp_ajax_tdwp_get_cleaning_status', array($this, 'ajax_get_cleaning_status'));
 
         // AJAX handlers for frontend dashboard (logged-in users)
-        add_action('wp_ajax_poker_frontend_import_tournament', array($this, 'ajax_frontend_import_tournament'));
-        add_action('wp_ajax_poker_frontend_refresh_statistics', array($this, 'ajax_frontend_refresh_statistics'));
-        add_action('wp_ajax_poker_dashboard_tournaments_filtered', array($this, 'ajax_dashboard_tournaments_filtered'));
-        add_action('wp_ajax_nopriv_poker_dashboard_tournaments_filtered', array($this, 'ajax_dashboard_tournaments_filtered'));
-        add_action('wp_ajax_poker_load_tournaments_data', array($this, 'ajax_load_tournaments_data'));
-        add_action('wp_ajax_nopriv_poker_load_tournaments_data', array($this, 'ajax_load_tournaments_data'));
+        add_action('wp_ajax_tdwp_frontend_import_tournament', array($this, 'ajax_frontend_import_tournament'));
+        add_action('wp_ajax_tdwp_frontend_refresh_statistics', array($this, 'ajax_frontend_refresh_statistics'));
+        add_action('wp_ajax_tdwp_dashboard_tournaments_filtered', array($this, 'ajax_dashboard_tournaments_filtered'));
+        add_action('wp_ajax_nopriv_tdwp_dashboard_tournaments_filtered', array($this, 'ajax_dashboard_tournaments_filtered'));
+        add_action('wp_ajax_tdwp_load_tournaments_data', array($this, 'ajax_load_tournaments_data'));
+        add_action('wp_ajax_nopriv_tdwp_load_tournaments_data', array($this, 'ajax_load_tournaments_data'));
 
         // Hook into tournament creation and updates
         add_action('save_post_tournament', array($this, 'on_tournament_save'), 10, 3);
@@ -171,7 +171,7 @@ class Poker_Tournament_Import {
      * Check for plugin update and refresh statistics if needed
      */
     private function check_plugin_update() {
-        $last_version = get_option('poker_import_last_version', '0');
+        $last_version = get_option('tdwp_import_last_version', '0');
 
         if ($last_version !== POKER_TOURNAMENT_IMPORT_VERSION) {
             // Plugin was updated, force refresh statistics
@@ -183,7 +183,7 @@ class Poker_Tournament_Import {
 
                 if ($result) {
                     error_log("Poker Import: Statistics refreshed successfully after plugin update");
-                    update_option('poker_statistics_last_refresh', current_time('mysql'));
+                    update_option('tdwp_statistics_last_refresh', current_time('mysql'));
                 } else {
                     error_log("Poker Import: Failed to refresh statistics after plugin update");
                 }
@@ -200,7 +200,7 @@ class Poker_Tournament_Import {
 
                     if ($migration_result['success']) {
                         error_log("ROI Migration: SUCCESS - {$migration_result['records_created']} records created from {$migration_result['tournaments_processed']} tournaments");
-                        update_option('poker_roi_migration_complete', POKER_TOURNAMENT_IMPORT_VERSION);
+                        update_option('tdwp_roi_migration_complete', POKER_TOURNAMENT_IMPORT_VERSION);
                     } else {
                         error_log("ROI Migration: FAILED - See previous log entries for details");
                     }
@@ -210,11 +210,60 @@ class Poker_Tournament_Import {
             }
 
             // Update the stored version
-            update_option('poker_import_last_version', POKER_TOURNAMENT_IMPORT_VERSION);
+            update_option('tdwp_import_last_version', POKER_TOURNAMENT_IMPORT_VERSION);
 
             // Flush rewrite rules after version update (v2.8.6: auto-refresh permalinks)
             flush_rewrite_rules();
         }
+
+        // Run prefix migration (v2.9.15: WordPress.org compliance)
+        $this->migrate_poker_to_tdwp_prefixes();
+    }
+
+    /**
+     * Migrate poker_ prefixes to tdwp_ prefixes
+     * Version 2.9.15 - WordPress.org compliance
+     */
+    private function migrate_poker_to_tdwp_prefixes() {
+        $migrated = get_option('tdwp_prefix_migration_v1', false);
+        if ($migrated) {
+            return;
+        }
+
+        error_log('TDWP Migration: Starting poker_ to tdwp_ prefix migration');
+
+        // Map of old option names to new ones
+        $options_map = array(
+            'poker_active_season_formula' => 'tdwp_active_season_formula',
+            'poker_active_tournament_formula' => 'tdwp_active_tournament_formula',
+            'poker_currency_position' => 'tdwp_currency_position',
+            'poker_currency_symbol' => 'tdwp_currency_symbol',
+            'poker_formula_debug_mode' => 'tdwp_formula_debug_mode',
+            'poker_formulas' => 'tdwp_formulas',
+            'poker_hit_counting_method' => 'tdwp_hit_counting_method',
+            'poker_import_auto_publish' => 'tdwp_import_auto_publish',
+            'poker_import_debug_logging' => 'tdwp_import_debug_logging',
+            'poker_import_debug_mode' => 'tdwp_import_debug_mode',
+            'poker_import_default_buyin' => 'tdwp_import_default_buyin',
+            'poker_import_last_version' => 'tdwp_import_last_version',
+            'poker_import_show_debug_stats' => 'tdwp_import_show_debug_stats',
+            'poker_roi_migration_complete' => 'tdwp_roi_migration_complete',
+            'poker_statistics_last_refresh' => 'tdwp_statistics_last_refresh',
+            'poker_tournament_formulas' => 'tdwp_tournament_formulas',
+        );
+
+        $migrated_count = 0;
+        foreach ($options_map as $old => $new) {
+            $value = get_option($old);
+            if ($value !== false) {
+                update_option($new, $value);
+                $migrated_count++;
+                error_log("TDWP Migration: Migrated {$old} to {$new}");
+            }
+        }
+
+        update_option('tdwp_prefix_migration_v1', true);
+        error_log("TDWP Migration: Complete - {$migrated_count} options migrated");
     }
 
     /**
@@ -334,7 +383,7 @@ class Poker_Tournament_Import {
         }
 
         // Set version to force refresh on first load
-        update_option('poker_import_last_version', POKER_TOURNAMENT_IMPORT_VERSION);
+        update_option('tdwp_import_last_version', POKER_TOURNAMENT_IMPORT_VERSION);
     }
 
     /**
@@ -1241,7 +1290,7 @@ class Poker_Tournament_Import {
         $table_name = $wpdb->prefix . 'poker_tournament_players';
 
         // Get configured season formula
-        $formula_key = get_option('poker_active_season_formula', 'season_total');
+        $formula_key = get_option('tdwp_active_season_formula', 'season_total');
 
         // Get all tournament points for player
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
@@ -1714,7 +1763,7 @@ class Poker_Tournament_Import {
 
                 if ($result) {
                     error_log("Poker Statistics: Async refresh completed for tournament {$tournament_id}");
-                    update_option('poker_statistics_last_refresh', current_time('mysql'));
+                    update_option('tdwp_statistics_last_refresh', current_time('mysql'));
                 } else {
                     error_log("Poker Statistics: Async refresh failed for tournament {$tournament_id}");
                 }
@@ -2569,8 +2618,8 @@ class Poker_Tournament_Import {
  */
 if (!function_exists('poker_format_currency')) {
     function poker_format_currency($amount) {
-        $symbol = get_option('poker_currency_symbol', '$');
-        $position = get_option('poker_currency_position', 'prefix');
+        $symbol = get_option('tdwp_currency_symbol', '$');
+        $position = get_option('tdwp_currency_position', 'prefix');
 
         // Format the amount with 2 decimal places
         $formatted_amount = number_format((float)$amount, 2, '.', ',');

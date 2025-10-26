@@ -23,18 +23,18 @@ class Poker_Tournament_Import_Admin {
         add_action('admin_init', array($this, 'handle_statistics_refresh'));
 
         // Dashboard AJAX handlers
-        add_action('wp_ajax_poker_dashboard_load_content', array($this, 'handle_dashboard_load_content'));
-        add_action('wp_ajax_poker_dashboard_detailed_view', array($this, 'handle_dashboard_detailed_view'));
-        add_action('wp_ajax_poker_dashboard_generate_report', array($this, 'handle_dashboard_generate_report'));
+        add_action('wp_ajax_tdwp_dashboard_load_content', array($this, 'handle_dashboard_load_content'));
+        add_action('wp_ajax_tdwp_dashboard_detailed_view', array($this, 'handle_dashboard_detailed_view'));
+        add_action('wp_ajax_tdwp_dashboard_generate_report', array($this, 'handle_dashboard_generate_report'));
 
         // Dashboard Tabbed Interface AJAX handlers
-        add_action('wp_ajax_poker_load_overview_stats', array($this, 'ajax_load_overview_stats'));
-        add_action('wp_ajax_poker_load_tournaments_data', array($this, 'ajax_load_tournaments_data'));
-        add_action('wp_ajax_poker_load_players_data', array($this, 'ajax_load_players_data'));
-        add_action('wp_ajax_poker_load_series_data', array($this, 'ajax_load_series_data'));
-        add_action('wp_ajax_poker_load_seasons_data', array($this, 'ajax_load_seasons_data'));
-        add_action('wp_ajax_poker_load_analytics_data', array($this, 'ajax_load_analytics_data'));
-        add_action('wp_ajax_poker_get_leaderboard_data', array($this, 'ajax_get_leaderboard_data'));
+        add_action('wp_ajax_tdwp_load_overview_stats', array($this, 'ajax_load_overview_stats'));
+        add_action('wp_ajax_tdwp_load_tournaments_data', array($this, 'ajax_load_tournaments_data'));
+        add_action('wp_ajax_tdwp_load_players_data', array($this, 'ajax_load_players_data'));
+        add_action('wp_ajax_tdwp_load_series_data', array($this, 'ajax_load_series_data'));
+        add_action('wp_ajax_tdwp_load_seasons_data', array($this, 'ajax_load_seasons_data'));
+        add_action('wp_ajax_tdwp_load_analytics_data', array($this, 'ajax_load_analytics_data'));
+        add_action('wp_ajax_tdwp_get_leaderboard_data', array($this, 'ajax_get_leaderboard_data'));
 
         // Add formula editor meta box for tournaments
         add_action('add_meta_boxes', array($this, 'add_formula_meta_box'));
@@ -315,7 +315,7 @@ class Poker_Tournament_Import_Admin {
             );
 
             // Localize formula editor script
-            $formulas = get_option('poker_formulas', array());
+            $formulas = get_option('tdwp_formulas', array());
             wp_localize_script(
                 'poker-formula-editor',
                 'pokerFormulaEditor',
@@ -359,7 +359,7 @@ class Poker_Tournament_Import_Admin {
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         $datamart_exists = ($wpdb->get_var("SHOW TABLES LIKE '{$table_name}'") === $table_name);
         $datamart_row_count = 0;
-        $datamart_last_refresh = get_option('poker_statistics_last_refresh', null);
+        $datamart_last_refresh = get_option('tdwp_statistics_last_refresh', null);
 
         if ($datamart_exists) {
             // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
@@ -645,7 +645,7 @@ class Poker_Tournament_Import_Admin {
                             <input type="checkbox" name="enable_debug_this_import" value="1">
                             <?php esc_html_e('Enable debug for this import only', 'poker-tournament-import'); ?>
                         </label>
-                        <?php if (get_option('poker_import_debug_mode', 0)) { ?>
+                        <?php if (get_option('tdwp_import_debug_mode', 0)) { ?>
                             <p class="description"><?php esc_html_e('Note: Global debug mode is already enabled.', 'poker-tournament-import'); ?></p>
                         <?php } ?>
                     </div>
@@ -674,7 +674,7 @@ class Poker_Tournament_Import_Admin {
                                 <?php
                                 $formula_validator = new Poker_Tournament_Formula_Validator();
                                 $all_formulas = $formula_validator->get_all_formulas();
-                                $active_formula = get_option('poker_active_tournament_formula', 'tournament_points');
+                                $active_formula = get_option('tdwp_active_tournament_formula', 'tournament_points');
 
                                 foreach ($all_formulas as $key => $formula) {
                                     if (isset($formula['category']) && $formula['category'] === 'points') {
@@ -1591,7 +1591,7 @@ class Poker_Tournament_Import_Admin {
                     <tr>
                         <th scope="row"><?php esc_html_e('Default Buy-in Amount', 'poker-tournament-import'); ?></th>
                         <td>
-                            <input type="number" name="poker_import_default_buyin" value="<?php echo esc_attr(get_option('poker_import_default_buyin', 200)); ?>" class="small-text">
+                            <input type="number" name="poker_import_default_buyin" value="<?php echo esc_attr(get_option('tdwp_import_default_buyin', 200)); ?>" class="small-text">
                             <p class="description"><?php esc_html_e('Default buy-in amount for new tournaments.', 'poker-tournament-import'); ?></p>
                         </td>
                     </tr>
@@ -1600,7 +1600,7 @@ class Poker_Tournament_Import_Admin {
                         <th scope="row"><?php esc_html_e('Auto-publish Tournaments', 'poker-tournament-import'); ?></th>
                         <td>
                             <label>
-                                <input type="checkbox" name="poker_import_auto_publish" value="1" <?php checked(get_option('poker_import_auto_publish', 0)); ?>>
+                                <input type="checkbox" name="poker_import_auto_publish" value="1" <?php checked(get_option('tdwp_import_auto_publish', 0)); ?>>
                                 <?php esc_html_e('Automatically publish tournaments after import', 'poker-tournament-import'); ?>
                             </label>
                         </td>
@@ -1610,7 +1610,7 @@ class Poker_Tournament_Import_Admin {
                         <th scope="row"><?php esc_html_e('Debug Mode', 'poker-tournament-import'); ?></th>
                         <td>
                             <label>
-                                <input type="checkbox" name="poker_import_debug_mode" value="1" <?php checked(get_option('poker_import_debug_mode', 0)); ?>>
+                                <input type="checkbox" name="poker_import_debug_mode" value="1" <?php checked(get_option('tdwp_import_debug_mode', 0)); ?>>
                                 <?php esc_html_e('Enable debug mode for troubleshooting', 'poker-tournament-import'); ?>
                             </label>
                             <p class="description"><?php esc_html_e('Show detailed debug information during import process. Useful for troubleshooting import issues.', 'poker-tournament-import'); ?></p>
@@ -1621,7 +1621,7 @@ class Poker_Tournament_Import_Admin {
                         <th scope="row"><?php esc_html_e('Debug Logging', 'poker-tournament-import'); ?></th>
                         <td>
                             <label>
-                                <input type="checkbox" name="poker_import_debug_logging" value="1" <?php checked(get_option('poker_import_debug_logging', 0)); ?>>
+                                <input type="checkbox" name="poker_import_debug_logging" value="1" <?php checked(get_option('tdwp_import_debug_logging', 0)); ?>>
                                 <?php esc_html_e('Enable debug logging to error log', 'poker-tournament-import'); ?>
                             </label>
                             <p class="description"><?php esc_html_e('Write debug information to PHP error log. Check your server error logs.', 'poker-tournament-import'); ?></p>
@@ -1632,7 +1632,7 @@ class Poker_Tournament_Import_Admin {
                         <th scope="row"><?php esc_html_e('Show Statistics Debug Info', 'poker-tournament-import'); ?></th>
                         <td>
                             <label>
-                                <input type="checkbox" name="poker_import_show_debug_stats" value="1" <?php checked(get_option('poker_import_show_debug_stats', 0)); ?>>
+                                <input type="checkbox" name="poker_import_show_debug_stats" value="1" <?php checked(get_option('tdwp_import_show_debug_stats', 0)); ?>>
                                 <?php esc_html_e('Display technical debug information in dashboard', 'poker-tournament-import'); ?>
                             </label>
                             <p class="description"><?php esc_html_e('Show database tables, field analysis, and other technical debug info in the dashboard. Hidden by default.', 'poker-tournament-import'); ?></p>
@@ -1642,7 +1642,7 @@ class Poker_Tournament_Import_Admin {
                     <tr>
                         <th scope="row"><?php esc_html_e('Currency Symbol', 'poker-tournament-import'); ?></th>
                         <td>
-                            <input type="text" name="poker_currency_symbol" value="<?php echo esc_attr(get_option('poker_currency_symbol', '$')); ?>" class="regular-text">
+                            <input type="text" name="poker_currency_symbol" value="<?php echo esc_attr(get_option('tdwp_currency_symbol', '$')); ?>" class="regular-text">
                             <p class="description"><?php esc_html_e('Currency symbol or code to display with monetary values. Leading/trailing spaces are preserved.', 'poker-tournament-import'); ?></p>
                         </td>
                     </tr>
@@ -1651,12 +1651,12 @@ class Poker_Tournament_Import_Admin {
                         <th scope="row"><?php esc_html_e('Currency Position', 'poker-tournament-import'); ?></th>
                         <td>
                             <label>
-                                <input type="radio" name="poker_currency_position" value="prefix" <?php checked(get_option('poker_currency_position', 'prefix'), 'prefix'); ?>>
+                                <input type="radio" name="poker_currency_position" value="prefix" <?php checked(get_option('tdwp_currency_position', 'prefix'), 'prefix'); ?>>
                                 <?php esc_html_e('Prefix (before amount)', 'poker-tournament-import'); ?>
                             </label>
                             <br>
                             <label>
-                                <input type="radio" name="poker_currency_position" value="postfix" <?php checked(get_option('poker_currency_position', 'prefix'), 'postfix'); ?>>
+                                <input type="radio" name="poker_currency_position" value="postfix" <?php checked(get_option('tdwp_currency_position', 'prefix'), 'postfix'); ?>>
                                 <?php esc_html_e('Postfix (after amount)', 'poker-tournament-import'); ?>
                             </label>
                             <p class="description"><?php esc_html_e('Position of the currency symbol relative to the amount.', 'poker-tournament-import'); ?></p>
@@ -1667,19 +1667,19 @@ class Poker_Tournament_Import_Admin {
                         <th scope="row"><?php esc_html_e('Hit Counting Method', 'poker-tournament-import'); ?></th>
                         <td>
                             <label>
-                                <input type="radio" name="poker_hit_counting_method" value="auto" <?php checked(get_option('poker_hit_counting_method', 'auto'), 'auto'); ?>>
+                                <input type="radio" name="poker_hit_counting_method" value="auto" <?php checked(get_option('tdwp_hit_counting_method', 'auto'), 'auto'); ?>>
                                 <?php esc_html_e('Automatic (use .tdt file setting)', 'poker-tournament-import'); ?>
                             </label>
                             <p class="description" style="margin-left: 25px; margin-top: 5px;"><?php esc_html_e('Uses the FullCreditHit configuration from each .tdt file. Recommended for most setups.', 'poker-tournament-import'); ?></p>
                             <br>
                             <label>
-                                <input type="radio" name="poker_hit_counting_method" value="full_credit" <?php checked(get_option('poker_hit_counting_method', 'auto'), 'full_credit'); ?>>
+                                <input type="radio" name="poker_hit_counting_method" value="full_credit" <?php checked(get_option('tdwp_hit_counting_method', 'auto'), 'full_credit'); ?>>
                                 <?php esc_html_e('Full Credit (count all eliminations)', 'poker-tournament-import'); ?>
                             </label>
                             <p class="description" style="margin-left: 25px; margin-top: 5px;"><?php esc_html_e('If you eliminate the same player multiple times (due to rebuys), each elimination counts as a separate hit. Override all .tdt file settings.', 'poker-tournament-import'); ?></p>
                             <br>
                             <label>
-                                <input type="radio" name="poker_hit_counting_method" value="unique_victims" <?php checked(get_option('poker_hit_counting_method', 'auto'), 'unique_victims'); ?>>
+                                <input type="radio" name="poker_hit_counting_method" value="unique_victims" <?php checked(get_option('tdwp_hit_counting_method', 'auto'), 'unique_victims'); ?>>
                                 <?php esc_html_e('Unique Victims (count each player once)', 'poker-tournament-import'); ?>
                             </label>
                             <p class="description" style="margin-left: 25px; margin-top: 5px;"><?php esc_html_e('If you eliminate the same player multiple times (due to rebuys), only the first elimination counts. Override all .tdt file settings.', 'poker-tournament-import'); ?></p>
@@ -1696,7 +1696,7 @@ class Poker_Tournament_Import_Admin {
                 <p><?php esc_html_e('The statistics data mart provides fast dashboard performance by pre-calculating tournament statistics. Refresh statistics after importing tournaments or when dashboard data appears outdated.', 'poker-tournament-import'); ?></p>
 
                 <?php
-                $last_refresh = get_option('poker_statistics_last_refresh', '');
+                $last_refresh = get_option('tdwp_statistics_last_refresh', '');
                 if ($last_refresh) {
                     echo '<p><strong>' . esc_html__('Last Refresh:', 'poker-tournament-import') . '</strong> ' . esc_html(date_i18n('F j, Y g:i a', strtotime($last_refresh))) . '</p>';
                 } else {
@@ -1752,7 +1752,7 @@ class Poker_Tournament_Import_Admin {
             </div>
 
             <!-- Debug Information Section -->
-            <?php if (get_option('poker_import_show_debug_stats', 0)): ?>
+            <?php if (get_option('tdwp_import_show_debug_stats', 0)): ?>
             <div class="statistics-debug-section" style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #ccc;">
                 <h2><?php esc_html_e('Debug Information', 'poker-tournament-import'); ?></h2>
                 <p><?php esc_html_e('Technical information to help diagnose statistics calculation issues.', 'poker-tournament-import'); ?></p>
@@ -1907,7 +1907,7 @@ class Poker_Tournament_Import_Admin {
 
                     if ($result) {
                         // Update last refresh timestamp
-                        update_option('poker_statistics_last_refresh', current_time('mysql'));
+                        update_option('tdwp_statistics_last_refresh', current_time('mysql'));
 
                         $dashboard_stats = $stats_engine->get_dashboard_statistics();
 
@@ -2017,7 +2017,7 @@ class Poker_Tournament_Import_Admin {
                 $result = $stats_engine->calculate_all_statistics();
 
                 if ($result) {
-                    update_option('poker_statistics_last_refresh', current_time('mysql'));
+                    update_option('tdwp_statistics_last_refresh', current_time('mysql'));
 
                     $dashboard_stats = $stats_engine->get_dashboard_statistics();
 
@@ -2956,7 +2956,7 @@ class Poker_Tournament_Import_Admin {
                 $result = $stats_engine->calculate_all_statistics();
 
                 if ($result) {
-                    update_option('poker_statistics_last_refresh', current_time('mysql'));
+                    update_option('tdwp_statistics_last_refresh', current_time('mysql'));
 
                     $dashboard_stats = $stats_engine->get_dashboard_statistics();
 
@@ -3063,7 +3063,7 @@ class Poker_Tournament_Import_Admin {
         }
 
         // Fallback to default if nothing found
-        return floatval(get_option('poker_import_default_buyin', 200));
+        return floatval(get_option('tdwp_import_default_buyin', 200));
     }
 
     /**
@@ -3800,7 +3800,7 @@ class Poker_Tournament_Import_Admin {
      * AJAX: Load Overview statistics
      */
     public function ajax_load_overview_stats() {
-        if (get_option('poker_import_debug_logging', 0)) {
+        if (get_option('tdwp_import_debug_logging', 0)) {
             error_log('========== POKER DASHBOARD DEBUG: ajax_load_overview_stats called ==========');
             error_log('POST data: ' . print_r($_POST, true));
         }
@@ -3808,7 +3808,7 @@ class Poker_Tournament_Import_Admin {
         check_ajax_referer('poker_dashboard_nonce', 'nonce');
 
         if (!current_user_can('manage_options')) {
-            if (get_option('poker_import_debug_logging', 0)) {
+            if (get_option('tdwp_import_debug_logging', 0)) {
                 error_log('POKER DASHBOARD ERROR: Insufficient permissions for user ' . get_current_user_id());
             }
             wp_send_json_error('Insufficient permissions');
@@ -3845,7 +3845,7 @@ class Poker_Tournament_Import_Admin {
             wp_send_json_success($stats);
 
         } catch (Exception $e) {
-            if (get_option('poker_import_debug_logging', 0)) {
+            if (get_option('tdwp_import_debug_logging', 0)) {
                 error_log('Poker Dashboard - Overview Stats Error: ' . $e->getMessage());
             }
             wp_send_json_error('Unable to load overview statistics');
@@ -3856,7 +3856,7 @@ class Poker_Tournament_Import_Admin {
      * AJAX: Load Tournaments data
      */
     public function ajax_load_tournaments_data() {
-        if (get_option('poker_import_debug_logging', 0)) {
+        if (get_option('tdwp_import_debug_logging', 0)) {
             error_log('========== POKER DASHBOARD DEBUG: ajax_load_tournaments_data called ==========');
             error_log('POST data: ' . print_r($_POST, true));
         }
@@ -3865,7 +3865,7 @@ class Poker_Tournament_Import_Admin {
 
         // Allow any logged-in user (v2.5.9 requirement - non-admin dashboard access)
         if (!is_user_logged_in()) {
-            if (get_option('poker_import_debug_logging', 0)) {
+            if (get_option('tdwp_import_debug_logging', 0)) {
                 error_log('POKER DASHBOARD ERROR: User not logged in');
             }
             wp_send_json_error('You must be logged in to view tournaments');
@@ -3876,7 +3876,7 @@ class Poker_Tournament_Import_Admin {
         $search = isset($_POST['search']) ? sanitize_text_field($_POST['search']) : '';
         $status = isset($_POST['status']) ? sanitize_text_field($_POST['status']) : '';
 
-        if (get_option('poker_import_debug_logging', 0)) {
+        if (get_option('tdwp_import_debug_logging', 0)) {
             error_log('POKER DASHBOARD: Tournaments request - Page: ' . $page . ', Per Page: ' . $per_page);
         }
 
@@ -3938,7 +3938,7 @@ class Poker_Tournament_Import_Admin {
             wp_send_json_success($response);
 
         } catch (Exception $e) {
-            if (get_option('poker_import_debug_logging', 0)) {
+            if (get_option('tdwp_import_debug_logging', 0)) {
                 error_log('Poker Dashboard - Tournaments Data Error: ' . $e->getMessage());
             }
             wp_send_json_error('Unable to load tournaments data');
@@ -3949,7 +3949,7 @@ class Poker_Tournament_Import_Admin {
      * AJAX: Load Players data
      */
     public function ajax_load_players_data() {
-        if (get_option('poker_import_debug_logging', 0)) {
+        if (get_option('tdwp_import_debug_logging', 0)) {
             error_log('========== POKER DASHBOARD DEBUG: ajax_load_players_data called ==========');
             error_log('POST data: ' . print_r($_POST, true));
         }
@@ -3957,7 +3957,7 @@ class Poker_Tournament_Import_Admin {
         check_ajax_referer('poker_dashboard_nonce', 'nonce');
 
         if (!current_user_can('manage_options')) {
-            if (get_option('poker_import_debug_logging', 0)) {
+            if (get_option('tdwp_import_debug_logging', 0)) {
                 error_log('POKER DASHBOARD ERROR: Insufficient permissions for user ' . get_current_user_id());
             }
             wp_send_json_error('Insufficient permissions');
@@ -4009,7 +4009,7 @@ class Poker_Tournament_Import_Admin {
             wp_send_json_success($response);
 
         } catch (Exception $e) {
-            if (get_option('poker_import_debug_logging', 0)) {
+            if (get_option('tdwp_import_debug_logging', 0)) {
                 error_log('Poker Dashboard - Players Data Error: ' . $e->getMessage());
             }
             wp_send_json_error('Unable to load players data');
@@ -4020,7 +4020,7 @@ class Poker_Tournament_Import_Admin {
      * AJAX: Load Series data
      */
     public function ajax_load_series_data() {
-        if (get_option('poker_import_debug_logging', 0)) {
+        if (get_option('tdwp_import_debug_logging', 0)) {
             error_log('========== POKER DASHBOARD DEBUG: ajax_load_series_data called ==========');
             error_log('POST data: ' . print_r($_POST, true));
         }
@@ -4028,7 +4028,7 @@ class Poker_Tournament_Import_Admin {
         check_ajax_referer('poker_dashboard_nonce', 'nonce');
 
         if (!current_user_can('manage_options')) {
-            if (get_option('poker_import_debug_logging', 0)) {
+            if (get_option('tdwp_import_debug_logging', 0)) {
                 error_log('POKER DASHBOARD ERROR: Insufficient permissions for user ' . get_current_user_id());
             }
             wp_send_json_error('Insufficient permissions');
@@ -4072,7 +4072,7 @@ class Poker_Tournament_Import_Admin {
             wp_send_json_success(array('series' => $series_data));
 
         } catch (Exception $e) {
-            if (get_option('poker_import_debug_logging', 0)) {
+            if (get_option('tdwp_import_debug_logging', 0)) {
                 error_log('Poker Dashboard - Series Data Error: ' . $e->getMessage());
             }
             wp_send_json_error('Unable to load series data');
@@ -4083,7 +4083,7 @@ class Poker_Tournament_Import_Admin {
      * AJAX: Load Seasons data
      */
     public function ajax_load_seasons_data() {
-        if (get_option('poker_import_debug_logging', 0)) {
+        if (get_option('tdwp_import_debug_logging', 0)) {
             error_log('========== POKER DASHBOARD DEBUG: ajax_load_seasons_data called ==========');
             error_log('POST data: ' . print_r($_POST, true));
         }
@@ -4091,7 +4091,7 @@ class Poker_Tournament_Import_Admin {
         check_ajax_referer('poker_dashboard_nonce', 'nonce');
 
         if (!current_user_can('manage_options')) {
-            if (get_option('poker_import_debug_logging', 0)) {
+            if (get_option('tdwp_import_debug_logging', 0)) {
                 error_log('POKER DASHBOARD ERROR: Insufficient permissions for user ' . get_current_user_id());
             }
             wp_send_json_error('Insufficient permissions');
@@ -4134,7 +4134,7 @@ class Poker_Tournament_Import_Admin {
             wp_send_json_success(array('seasons' => $seasons_data));
 
         } catch (Exception $e) {
-            if (get_option('poker_import_debug_logging', 0)) {
+            if (get_option('tdwp_import_debug_logging', 0)) {
                 error_log('Poker Dashboard - Seasons Data Error: ' . $e->getMessage());
             }
             wp_send_json_error('Unable to load seasons data');
@@ -4145,7 +4145,7 @@ class Poker_Tournament_Import_Admin {
      * AJAX: Load Analytics data
      */
     public function ajax_load_analytics_data() {
-        if (get_option('poker_import_debug_logging', 0)) {
+        if (get_option('tdwp_import_debug_logging', 0)) {
             error_log('========== POKER DASHBOARD DEBUG: ajax_load_analytics_data called ==========');
             error_log('POST data: ' . print_r($_POST, true));
         }
@@ -4153,7 +4153,7 @@ class Poker_Tournament_Import_Admin {
         check_ajax_referer('poker_dashboard_nonce', 'nonce');
 
         if (!current_user_can('manage_options')) {
-            if (get_option('poker_import_debug_logging', 0)) {
+            if (get_option('tdwp_import_debug_logging', 0)) {
                 error_log('POKER DASHBOARD ERROR: Insufficient permissions for user ' . get_current_user_id());
             }
             wp_send_json_error('Insufficient permissions');
@@ -4191,7 +4191,7 @@ class Poker_Tournament_Import_Admin {
             wp_send_json_success($analytics_data);
 
         } catch (Exception $e) {
-            if (get_option('poker_import_debug_logging', 0)) {
+            if (get_option('tdwp_import_debug_logging', 0)) {
                 error_log('Poker Dashboard - Analytics Data Error: ' . $e->getMessage());
             }
             wp_send_json_error('Unable to load analytics data');
@@ -4234,7 +4234,7 @@ class Poker_Tournament_Import_Admin {
             wp_send_json_success(array('leaderboard' => $mapped_leaderboard));
 
         } catch (Exception $e) {
-            if (get_option('poker_import_debug_logging', 0)) {
+            if (get_option('tdwp_import_debug_logging', 0)) {
                 error_log('Poker Dashboard - Leaderboard Data Error: ' . $e->getMessage());
             }
             wp_send_json_error('Unable to load leaderboard data');

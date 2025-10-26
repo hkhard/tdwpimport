@@ -984,7 +984,7 @@ class Poker_Tournament_Batch_Processor {
         }
 
         // Fallback to default if nothing found
-        return floatval(get_option('poker_import_default_buyin', 200));
+        return floatval(get_option('tdwp_import_default_buyin', 200));
     }
 
     /**

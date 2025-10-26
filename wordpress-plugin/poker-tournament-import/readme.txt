@@ -1,5 +1,5 @@
 === Poker Tournament Import ===
-Contributors: hkHard
+Contributors: hanshard
 Tags: poker, tournament, import, results, bulk-import
 Requires at least: 6.0
 Tested up to: 6.8

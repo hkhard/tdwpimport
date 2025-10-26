@@ -40,14 +40,14 @@ class Poker_Tournament_Import_Debug {
      * Check if debug mode is enabled
      */
     public static function is_debug_enabled() {
-        return get_option('poker_import_debug_mode', 0) === '1';
+        return get_option('tdwp_import_debug_mode', 0) === '1';
     }
 
     /**
      * Check if debug logging is enabled
      */
     public static function is_logging_enabled() {
-        return get_option('poker_import_debug_logging', 0) === '1';
+        return get_option('tdwp_import_debug_logging', 0) === '1';
     }
 
     /**

@@ -1210,7 +1210,7 @@ class Poker_Statistics_Engine {
         global $wpdb;
 
         // Get configured season formula
-        $formula_key = get_option('poker_active_season_formula', 'season_total');
+        $formula_key = get_option('tdwp_active_season_formula', 'season_total');
 
         // Build query with optional season filter
         $query = "SELECT tp.points, tp.winnings, tp.hits, tp.finish_position

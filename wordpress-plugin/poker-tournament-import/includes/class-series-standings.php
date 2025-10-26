@@ -20,7 +20,7 @@ class Poker_Series_Standings_Calculator {
         global $wpdb;
 
         if (!$formula_key) {
-            $formula_key = get_option('poker_active_season_formula', 'season_total');
+            $formula_key = get_option('tdwp_active_season_formula', 'season_total');
         }
 
         // Try transient cache first

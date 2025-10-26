@@ -403,8 +403,8 @@ assign(&quot;avgBC&quot;, monies/buyins)"></textarea>
     private function render_formulas_tab() {
         $formula_validator = new Poker_Tournament_Formula_Validator();
         $formulas = $formula_validator->get_all_formulas();
-        $active_tournament = get_option('poker_active_tournament_formula', 'tournament_points');
-        $active_season = get_option('poker_active_season_formula', 'season_total');
+        $active_tournament = get_option('tdwp_active_tournament_formula', 'tournament_points');
+        $active_season = get_option('tdwp_active_season_formula', 'season_total');
         ?>
         <div class="formula-editor">
             <h2><?php esc_html_e('Manage Formulas', 'poker-tournament-import'); ?></h2>
@@ -507,8 +507,8 @@ assign(&quot;avgBC&quot;, monies/buyins)"></textarea>
     private function render_settings_tab() {
         $formula_validator = new Poker_Tournament_Formula_Validator();
         $formulas = $formula_validator->get_all_formulas();
-        $active_tournament = get_option('poker_active_tournament_formula', 'tournament_points');
-        $active_season = get_option('poker_active_season_formula', 'season_total');
+        $active_tournament = get_option('tdwp_active_tournament_formula', 'tournament_points');
+        $active_season = get_option('tdwp_active_season_formula', 'season_total');
         ?>
         <div class="formula-settings">
             <h2><?php esc_html_e('Formula Settings', 'poker-tournament-import'); ?></h2>
@@ -559,7 +559,7 @@ assign(&quot;avgBC&quot;, monies/buyins)"></textarea>
                         </th>
                         <td>
                             <input type="checkbox" name="poker_formula_debug_mode" id="poker_formula_debug_mode"
-                                   value="1" <?php checked(get_option('poker_formula_debug_mode', 0)); ?>>
+                                   value="1" <?php checked(get_option('tdwp_formula_debug_mode', 0)); ?>>
                             <label for="poker_formula_debug_mode"><?php esc_html_e('Enable formula debugging and logging', 'poker-tournament-import'); ?></label>
                             <p class="description"><?php esc_html_e('When enabled, formula calculations will be logged for troubleshooting.', 'poker-tournament-import'); ?></p>
                         </td>

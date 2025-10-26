@@ -16,30 +16,42 @@ class Poker_Tournament_Import_Shortcodes {
      * Constructor
      */
     public function __construct() {
+        // Register new tdwp_ prefixed shortcodes
+        add_shortcode('tdwp_tournament_results', array($this, 'tournament_results_shortcode'));
+        add_shortcode('tdwp_tournament_series', array($this, 'tournament_series_shortcode'));
+        add_shortcode('tdwp_player_profile', array($this, 'player_profile_shortcode'));
+        add_shortcode('tdwp_series_overview', array($this, 'series_overview_shortcode'));
+        add_shortcode('tdwp_series_results', array($this, 'series_results_shortcode'));
+        add_shortcode('tdwp_series_statistics', array($this, 'series_statistics_shortcode'));
+        add_shortcode('tdwp_series_players', array($this, 'series_players_shortcode'));
+        add_shortcode('tdwp_series_leaderboard', array($this, 'series_leaderboard_shortcode'));
+        add_shortcode('tdwp_series_standings', array($this, 'series_standings_shortcode'));
+        add_shortcode('tdwp_series_tabs', array($this, 'series_tabs_shortcode'));
+        add_shortcode('tdwp_season_tabs', array($this, 'season_tabs_shortcode'));
+        add_shortcode('tdwp_season_overview', array($this, 'season_overview_shortcode'));
+        add_shortcode('tdwp_season_results', array($this, 'season_results_shortcode'));
+        add_shortcode('tdwp_season_statistics', array($this, 'season_statistics_shortcode'));
+        add_shortcode('tdwp_season_players', array($this, 'season_players_shortcode'));
+        add_shortcode('tdwp_season_standings', array($this, 'season_standings_shortcode'));
+        add_shortcode('tdwp_dashboard', array($this, 'poker_dashboard_shortcode'));
+
+        // Backward compatibility - old shortcode names (deprecated but supported)
         add_shortcode('tournament_results', array($this, 'tournament_results_shortcode'));
         add_shortcode('tournament_series', array($this, 'tournament_series_shortcode'));
         add_shortcode('player_profile', array($this, 'player_profile_shortcode'));
-
-        // New tabbed interface shortcodes
         add_shortcode('series_overview', array($this, 'series_overview_shortcode'));
         add_shortcode('series_results', array($this, 'series_results_shortcode'));
         add_shortcode('series_statistics', array($this, 'series_statistics_shortcode'));
         add_shortcode('series_players', array($this, 'series_players_shortcode'));
         add_shortcode('series_leaderboard', array($this, 'series_leaderboard_shortcode'));
         add_shortcode('series_standings', array($this, 'series_standings_shortcode'));
-
-        // Tab navigation shortcode
         add_shortcode('series_tabs', array($this, 'series_tabs_shortcode'));
-
-        // Season shortcodes
         add_shortcode('season_tabs', array($this, 'season_tabs_shortcode'));
         add_shortcode('season_overview', array($this, 'season_overview_shortcode'));
         add_shortcode('season_results', array($this, 'season_results_shortcode'));
         add_shortcode('season_statistics', array($this, 'season_statistics_shortcode'));
         add_shortcode('season_players', array($this, 'season_players_shortcode'));
         add_shortcode('season_standings', array($this, 'season_standings_shortcode'));
-
-        // Dashboard shortcode
         add_shortcode('poker_dashboard', array($this, 'poker_dashboard_shortcode'));
     }
 
@@ -3923,7 +3935,7 @@ class Poker_Tournament_Import_Shortcodes {
         <!-- Dashboard JavaScript -->
         <script>
         // Currency symbol for JavaScript usage
-        const pokerCurrencySymbol = '<?php echo esc_js(get_option('poker_currency_symbol', '$')); ?>';
+        const pokerCurrencySymbol = '<?php echo esc_js(get_option('tdwp_currency_symbol', '$')); ?>';
 
         jQuery(document).ready(function($) {
             // Season selector handler
@@ -4615,7 +4627,7 @@ class Poker_Tournament_Import_Shortcodes {
         global $wpdb;
 
         // Get configured season formula
-        $formula_key = get_option('poker_active_season_formula', 'season_total');
+        $formula_key = get_option('tdwp_active_season_formula', 'season_total');
 
         // Get individual tournament points for formula calculation
         $tournament_points = array();

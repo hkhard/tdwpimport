@@ -1356,7 +1356,7 @@ class Poker_Tournament_Parser {
      */
     private function calculate_hits_from_eliminations($players) {
         // Determine hit counting mode using hybrid approach
-        $wp_setting = get_option('poker_hit_counting_method', 'auto');
+        $wp_setting = get_option('tdwp_hit_counting_method', 'auto');
         $tdt_fullcredithit = $this->extract_fullcredithit_config($this->raw_content);
         
         // Apply hybrid logic
@@ -1575,7 +1575,7 @@ class Poker_Tournament_Parser {
 
         // Priority 2: Get active tournament points formula from settings
         if (!$formula_data) {
-            $active_formula = get_option('poker_active_tournament_formula', 'tournament_points');
+            $active_formula = get_option('tdwp_active_tournament_formula', 'tournament_points');
             $formula_data = $formula_validator->get_formula($active_formula);
             if ($formula_data) {
                 $formula_source = 'settings_' . $active_formula;

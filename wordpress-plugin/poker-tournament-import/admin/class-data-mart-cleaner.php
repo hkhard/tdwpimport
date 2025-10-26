@@ -49,9 +49,9 @@ class Poker_Data_Mart_Cleaner {
         add_action('admin_menu', array($this, 'add_admin_menu'));
         add_action('admin_init', array($this, 'handle_data_cleaning_actions'));
         add_action('admin_enqueue_scripts', array($this, 'enqueue_cleaner_assets'));
-        add_action('wp_ajax_poker_clean_data_mart', array($this, 'handle_ajax_cleaning'));
-        add_action('wp_ajax_poker_migrate_tournaments', array($this, 'handle_ajax_migration'));
-        add_action('wp_ajax_poker_get_cleaning_status', array($this, 'handle_ajax_status'));
+        add_action('wp_ajax_tdwp_clean_data_mart', array($this, 'handle_ajax_cleaning'));
+        add_action('wp_ajax_tdwp_migrate_tournaments', array($this, 'handle_ajax_migration'));
+        add_action('wp_ajax_tdwp_get_cleaning_status', array($this, 'handle_ajax_status'));
     }
 
     /**
@@ -508,9 +508,9 @@ class Poker_Data_Mart_Cleaner {
             error_log("Poker Data Mart: Statistics table cleaning verified - removed {$record_count_before} records");
 
             // Step 6: Clean related options
-            delete_option('poker_statistics_last_refresh');
-            delete_option('poker_import_debug_mode');
-            delete_option('poker_import_debug_logging');
+            delete_option('tdwp_statistics_last_refresh');
+            delete_option('tdwp_import_debug_mode');
+            delete_option('tdwp_import_debug_logging');
 
             return true;
         } else {

@@ -1779,9 +1779,9 @@ class Poker_Tournament_Formula_Validator {
      * Save custom formula to database
      */
     public function save_formula($name, $formula_data) {
-        $formulas = get_option('poker_tournament_formulas', array());
+        $formulas = get_option('tdwp_tournament_formulas', array());
         $formulas[$name] = $formula_data;
-        update_option('poker_tournament_formulas', $formulas);
+        update_option('tdwp_tournament_formulas', $formulas);
     }
 
     /**
@@ -1789,7 +1789,7 @@ class Poker_Tournament_Formula_Validator {
      */
     public function get_formula($name) {
         // Check saved custom formulas first (allows overriding defaults)
-        $formulas = get_option('poker_tournament_formulas', array());
+        $formulas = get_option('tdwp_tournament_formulas', array());
         if (isset($formulas[$name])) {
             // NORMALIZE: Ensure dependencies is an array
             return $this->normalize_formula_data($formulas[$name]);
@@ -1840,7 +1840,7 @@ class Poker_Tournament_Formula_Validator {
      * Get all saved formulas
      */
     public function get_all_formulas() {
-        $saved_formulas = get_option('poker_tournament_formulas', array());
+        $saved_formulas = get_option('tdwp_tournament_formulas', array());
         return array_merge($this->default_formulas, $saved_formulas);
     }
 
@@ -1848,10 +1848,10 @@ class Poker_Tournament_Formula_Validator {
      * Delete formula
      */
     public function delete_formula($name) {
-        $formulas = get_option('poker_tournament_formulas', array());
+        $formulas = get_option('tdwp_tournament_formulas', array());
         if (isset($formulas[$name])) {
             unset($formulas[$name]);
-            update_option('poker_tournament_formulas', $formulas);
+            update_option('tdwp_tournament_formulas', $formulas);
             return true;
         }
         return false;

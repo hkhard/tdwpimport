@@ -556,7 +556,7 @@ jQuery(document).ready(function($) {
             type: 'POST',
             timeout: 30000, // 30 second timeout for stats refresh
             data: {
-                action: 'poker_refresh_statistics',
+                action: 'tdwp_refresh_statistics',
                 nonce: pokerImport.refreshNonce || ''
             },
             success: function(response) {
@@ -758,7 +758,7 @@ jQuery(document).ready(function($) {
             url: ajaxurl,
             type: 'POST',
             data: {
-                action: 'poker_get_player_details',
+                action: 'tdwp_get_player_details',
                 player_id: playerId,
                 nonce: pokerImport.dashboardNonce || ''
             },
@@ -963,7 +963,7 @@ jQuery(document).ready(function($) {
             url: ajaxurl,
             type: 'POST',
             data: {
-                action: 'poker_get_leaderboard_data',
+                action: 'tdwp_get_leaderboard_data',
                 nonce: pokerImport.dashboardNonce || ''
             },
             success: function(response) {
