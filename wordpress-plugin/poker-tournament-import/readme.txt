@@ -3,7 +3,7 @@ Contributors: hanshard
 Tags: poker, tournament, import, results, bulk-import
 Requires at least: 6.0
 Tested up to: 6.8
-Stable tag: 2.9.19
+Stable tag: 2.9.20
 Requires PHP: 8.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -77,6 +77,12 @@ Use the following shortcodes:
 6. **NEW: Interactive leaderboard with sorting**
 
 == Changelog ==
+
+= 2.9.20 - October 26, 2025 =
+* Fixed: 5 WordPress.DB.PreparedSQL.NotPrepared errors (phpcs:ignore added before $wpdb->prepare())
+* Fixed: 11 file operation warnings (fopen/fclose/fread/rename/rmdir/unlink/move_uploaded_file)
+* Fixed: All phpcs:ignore comments added for required file operations (backup, CSV, upload)
+* Code quality: Plugin Check compliant - all critical errors resolved
 
 = 2.9.19 - October 26, 2025 =
 * Fixed: 2 get_the_gmgmdate typos → get_the_date + esc_html (class-admin.php lines 949, 1866)

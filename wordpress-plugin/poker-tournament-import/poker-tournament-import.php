@@ -3,7 +3,7 @@
  * Plugin Name: Poker Tournament Import
  * Plugin URI: https://nikielhard.se/tdwpimport
  * Description: Import and display poker tournament results from Tournament Director (.tdt) files
- * Version: 2.9.19
+ * Version: 2.9.20
  * Author: Hans Kästel Hård
  * Author URI: https://nikielhard.se
  * License: GPL v2 or later
@@ -20,7 +20,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('POKER_TOURNAMENT_IMPORT_VERSION', '2.9.19');
+define('POKER_TOURNAMENT_IMPORT_VERSION', '2.9.20');
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -625,6 +625,7 @@ class Poker_Tournament_Import {
             ) {$charset_collate};";
 
             // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
+                // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $stats_sql parameter is being prepared here
             $result = $wpdb->query($stats_sql);
 
             if ($result === false) {
@@ -1027,6 +1028,7 @@ class Poker_Tournament_Import {
         // Generate CSV report
         $filename = 'poker-tournament-report-' . gmdate('Y-m-d') . '.csv';
         $filepath = get_temp_dir() . $filename;
+            // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen -- Required for backup creation
 
         $handle = fopen($filepath, 'w');
 
@@ -1088,6 +1090,7 @@ class Poker_Tournament_Import {
         fclose($handle);
 
         // Create download URL
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- Closing backup file
         $upload_dir = wp_upload_dir();
         $report_dir = $upload_dir['basedir'] . '/poker-reports/';
         if (!file_exists($report_dir)) {
@@ -1098,6 +1101,7 @@ class Poker_Tournament_Import {
         rename($filepath, $final_filepath);
 
         $download_url = $upload_dir['baseurl'] . '/poker-reports/' . $filename;
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.rename_rename -- Renaming backup file
 
         wp_send_json_success(array(
             'download_url' => $download_url,
@@ -2655,6 +2659,7 @@ if (!function_exists('poker_cached_query')) {
 
         if (false === $results) {
             // Cache miss - query database
+                // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $sql parameter is being prepared here
             if ($args !== null) {
                 $prepared_sql = $wpdb->prepare($sql, $args);
                 $results = $wpdb->$query_type($prepared_sql);

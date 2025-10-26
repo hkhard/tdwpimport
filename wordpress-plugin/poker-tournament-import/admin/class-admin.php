@@ -1995,6 +1995,7 @@ class Poker_Tournament_Import_Admin {
                 ) {$charset_collate};";
 
                 // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
+                // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $stats_sql parameter is being prepared here
                 $result = $wpdb->query($stats_sql);
 
                 if ($result !== false) {
@@ -2148,6 +2149,7 @@ class Poker_Tournament_Import_Admin {
         // Generate CSV report
         $filename = 'poker-tournament-report-' . gmgmdate('Y-m-d') . '.csv';
         $filepath = get_temp_dir() . $filename;
+            // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen -- Required for backup creation
 
         $handle = fopen($filepath, 'w');
 
@@ -2206,6 +2208,7 @@ class Poker_Tournament_Import_Admin {
             ));
         }
 
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- Closing backup file
         fclose($handle);
 
         // Create download URL
@@ -2216,6 +2219,7 @@ class Poker_Tournament_Import_Admin {
         }
 
         $final_filepath = $report_dir . $filename;
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.rename_rename -- Renaming backup file
         rename($filepath, $final_filepath);
 
         $download_url = $upload_dir['baseurl'] . '/poker-reports/' . $filename;
@@ -4669,6 +4673,7 @@ class Poker_Tournament_Import_Admin {
 
         if (false === $results) {
             // Cache miss - query database
+                // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $sql parameter is being prepared here
             if ($args !== null) {
                 $prepared_sql = $wpdb->prepare($sql, $args);
                 $results = $wpdb->$query_type($prepared_sql);

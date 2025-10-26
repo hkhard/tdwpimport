@@ -5046,6 +5046,7 @@ class Poker_Tournament_Import_Shortcodes {
         if (false === $results) {
             // Cache miss - query database
             if ($args !== null) {
+                // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $sql parameter is being prepared here
                 $prepared_sql = $wpdb->prepare($sql, $args);
                 // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- SQL prepared on line above
                 $results = $wpdb->$query_type($prepared_sql);

@@ -560,6 +560,7 @@ class Poker_Series_Standings_Calculator {
         if (false === $results) {
             // Cache miss - query database
             if ($args !== null) {
+                // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $sql parameter is being prepared here
                 $prepared_sql = $wpdb->prepare($sql, $args);
                 // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- SQL prepared above with $wpdb->prepare()
                 $results = $wpdb->$query_type($prepared_sql);

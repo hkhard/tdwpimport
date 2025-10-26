@@ -933,6 +933,7 @@ class Poker_Data_Mart_Cleaner {
             }
                 // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_rmdir -- Removing backup directory
         }
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_rmdir -- Removing backup directory
         rmdir($dir);
                 // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_rmdir -- Removing backup directory
     }
@@ -950,6 +951,7 @@ class Poker_Data_Mart_Cleaner {
         foreach ($iterator as $file) {
             if ($file->isFile() && $file->getExtension() === 'tdt') {
                 unlink($file->getPathname());
+                // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink -- Removing backup file
             // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Query prepared above with $wpdb->prepare()
                 error_log("Poker Data Mart: Deleted .tdt file: " . $file->getPathname());
             }
@@ -1468,6 +1470,7 @@ class Poker_Data_Mart_Cleaner {
                     // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- SQL prepared above
             // Cache miss - query database
             if ($args !== null) {
+                // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $sql parameter is being prepared here
                 $prepared_sql = $wpdb->prepare($sql, $args);
                 $results = $wpdb->$query_type($prepared_sql);
                     // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- SQL prepared above

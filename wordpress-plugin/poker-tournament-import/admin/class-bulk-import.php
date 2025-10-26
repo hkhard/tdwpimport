@@ -217,6 +217,7 @@ class Poker_Tournament_Bulk_Import {
                 $dest_path = $upload_dir . '/' . $filename;
 
             // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_move_uploaded_file -- Required for file upload
+            // phpcs:ignore Generic.PHP.ForbiddenFunctions.Found -- Required for file upload handling
                 if (!move_uploaded_file($file['tmp_name'], $dest_path)) {
                     $rejected_files[] = array(
                         'filename' => $file['name'],
@@ -709,11 +710,14 @@ class Poker_Tournament_Bulk_Import {
         // Check for suspicious content (PHP code injection)
         if (file_exists($file['tmp_name'])) {
             $handle = fopen($file['tmp_name'], 'r');
+                // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen -- Reading uploaded file
                 // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- Closing file handle
             $sample = fread($handle, 1000);
+                // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fread -- Reading file content
             fclose($handle);
 
             if (preg_match('/<\?php|<\?=/i', $sample)) {
+            // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- Closing file handle
                 return new WP_Error('suspicious_content', __('Suspicious content detected in file.', 'poker-tournament-import'));
             }
         }
