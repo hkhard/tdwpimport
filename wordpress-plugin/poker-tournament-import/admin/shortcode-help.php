@@ -18,6 +18,14 @@ class Poker_Shortcode_Help_Page {
      */
     public function __construct() {
         add_action('admin_init', array($this, 'register_help_settings'));
+        add_action('admin_enqueue_scripts', array($this, 'enqueue_help_assets'));
+    }
+
+    public function enqueue_help_assets($hook) {
+        if ('tournament_page_poker-shortcode-help' !== $hook) return;
+        wp_enqueue_script('jquery');
+        wp_add_inline_style('wp-admin', '.poker-shortcode-help{max-width:1200px}.help-navigation{margin:20px 0;padding:15px;background:#f9f9f9;border-radius:8px}.help-nav{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:10px}.help-nav li{margin:0}.help-nav a{display:block;padding:8px 16px;background:#fff;border:1px solid #ddd;border-radius:4px;text-decoration:none;color:#333;transition:all .2s ease}.help-nav a:hover,.help-nav a.nav-active{background:#0073aa;color:white;border-color:#0073aa}.help-section{margin-bottom:40px;padding:25px;background:#fff;border:1px solid #e1e1e1;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,0.1)}.help-section h2{margin-top:0;color:#23282d;font-size:24px;font-weight:600}.help-section h3{color:#3c434a;font-size:18px;font-weight:600;margin-top:30px;margin-bottom:15px}.shortcode-block{background:#f8f9f9;border:1px solid #ddd;border-left:4px solid #0073aa;padding:15px;margin:15px 0;border-radius:4px;font-family:"Courier New",monospace;font-size:14px;cursor:pointer;position:relative}.shortcode-block:hover{background:#f0f5f8}.shortcode-block code{display:block;color:#0073aa;word-wrap:break-word}.copy-button{position:absolute;top:10px;right:10px;padding:5px 10px;background:#0073aa;color:white;border:none;border-radius:3px;cursor:pointer;font-size:12px;transition:background .2s ease}.copy-button:hover{background:#005a87}.parameter-table{width:100%;border-collapse:collapse;margin:15px 0}.parameter-table th,.parameter-table td{padding:10px;text-align:left;border-bottom:1px solid #e1e1e1}.parameter-table th{background:#f8f9f9;font-weight:600;color:#23282d}.parameter-table code{background:#f0f0f1;padding:2px 6px;border-radius:3px;font-size:13px}');
+        wp_add_inline_script('jquery', 'jQuery(document).ready(function($){$(".help-nav a").click(function(e){e.preventDefault();var t=$(this).attr("href");$(".help-nav a").removeClass("nav-active");$(this).addClass("nav-active");$("html, body").animate({scrollTop:$(t).offset().top-100},500)});$(window).scroll(function(){var t=$(window).scrollTop()+150;$(".help-section").each(function(){var e=$(this).offset().top,a=e+$(this).outerHeight();if(t>=e&&t<a){var n="#"+$(this).attr("id");$(".help-nav a").removeClass("nav-active");$(".help-nav a[href=\""+n+"\"]").addClass("nav-active")}})})});');
     }
 
     /**
@@ -65,193 +73,7 @@ class Poker_Shortcode_Help_Page {
             </div>
         </div>
 
-        <style>
-        .poker-shortcode-help {
-            max-width: 1200px;
-        }
-        .help-navigation {
-            margin: 20px 0;
-            padding: 15px;
-            background: #f9f9f9;
-            border-radius: 8px;
-        }
-        .help-nav {
-            list-style: none;
-            margin: 0;
-            padding: 0;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-        }
-        .help-nav li {
-            margin: 0;
-        }
-        .help-nav a {
-            display: block;
-            padding: 8px 16px;
-            background: #fff;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            text-decoration: none;
-            color: #333;
-            transition: all 0.2s ease;
-        }
-        .help-nav a:hover,
-        .help-nav a.nav-active {
-            background: #0073aa;
-            color: white;
-            border-color: #0073aa;
-        }
-        .help-section {
-            margin-bottom: 40px;
-            padding: 25px;
-            background: #fff;
-            border: 1px solid #e1e1e1;
-            border-radius: 8px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-        .help-section h2 {
-            margin-top: 0;
-            color: #23282d;
-            font-size: 24px;
-            font-weight: 600;
-        }
-        .help-section h3 {
-            color: #3c434a;
-            font-size: 18px;
-            font-weight: 600;
-            margin-top: 30px;
-            margin-bottom: 15px;
-        }
-        .shortcode-block {
-            background: #f8f9f9;
-            border: 1px solid #ddd;
-            border-left: 4px solid #0073aa;
-            padding: 15px;
-            margin: 15px 0;
-            border-radius: 4px;
-            font-family: 'Courier New', monospace;
-            font-size: 14px;
-            overflow-x: auto;
-        }
-        .shortcode-block strong {
-            color: #0073aa;
-        }
-        .example-box {
-            background: #fff;
-            border: 1px solid #e1e1e1;
-            border-radius: 8px;
-            padding: 20px;
-            margin: 15px 0;
-        }
-        .example-box h4 {
-            margin-top: 0;
-            color: #0073aa;
-        }
-        .attribute-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 15px 0;
-        }
-        .attribute-table th,
-        .attribute-table td {
-            border: 1px solid #ddd;
-            padding: 10px;
-            text-align: left;
-        }
-        .attribute-table th {
-            background: #f8f9f9;
-            font-weight: 600;
-        }
-        .attribute-table tr:nth-child(even) {
-            background: #f8f9f9;
-        }
-        .required-attr {
-            color: #d63638;
-            font-weight: 600;
-        }
-        .optional-attr {
-            color: #3c434a;
-        }
-        .tip-box {
-            background: #e7f3ff;
-            border-left: 4px solid #0073aa;
-            padding: 15px;
-            margin: 15px 0;
-            border-radius: 4px;
-        }
-        .warning-box {
-            background: #fef7ed;
-            border-left: 4px solid #d63638;
-            padding: 15px;
-            margin: 15px 0;
-            border-radius: 4px;
-        }
-        .video-embed {
-            background: #000;
-            border-radius: 8px;
-            overflow: hidden;
-            margin: 20px 0;
-        }
-        .tabbed-interface {
-            display: flex;
-            margin: 20px 0;
-        }
-        .tab-buttons {
-            display: flex;
-            background: #f8f9f9;
-        }
-        .tab-button {
-            padding: 10px 20px;
-            border: none;
-            background: #f8f9f9;
-            cursor: pointer;
-            border-right: 1px solid #ddd;
-        }
-        .tab-button.active {
-            background: #fff;
-            border-bottom: 2px solid #0073aa;
-        }
-        .tab-content {
-            flex: 1;
-            padding: 20px;
-            border: 1px solid #ddd;
-            background: #fff;
-        }
-        </style>
 
-        <script>
-        jQuery(document).ready(function($) {
-            $('.help-nav a').click(function(e) {
-                e.preventDefault();
-                var target = $(this).attr('href');
-
-                $('.help-nav a').removeClass('nav-active');
-                $(this).addClass('nav-active');
-
-                // Smooth scroll to section
-                $('html, body').animate({
-                    scrollTop: $(target).offset().top - 100
-                }, 500);
-            });
-
-            // Highlight current section on scroll
-            $(window).scroll(function() {
-                var scrollPosition = $(window).scrollTop() + 150;
-
-                $('.help-section').each(function() {
-                    var sectionTop = $(this).offset().top;
-                    var sectionBottom = sectionTop + $(this).outerHeight();
-
-                    if (scrollPosition >= sectionTop && scrollPosition < sectionBottom) {
-                        var sectionId = '#' + $(this).attr('id');
-                        $('.help-nav a').removeClass('nav-active');
-                        $('.help-nav a[href="' + sectionId + '"]').addClass('nav-active');
-                    }
-                });
-            });
-        });
-        </script>
         <?php
     }
 
