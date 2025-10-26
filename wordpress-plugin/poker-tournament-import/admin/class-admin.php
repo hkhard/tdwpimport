@@ -946,7 +946,7 @@ class Poker_Tournament_Import_Admin {
                     /* translators: 1: tournament link and title, 2: import date */
                     esc_html__('A tournament with the same UUID already exists: <strong>%1$s</strong>. This tournament was imported on %2$s.', 'poker-tournament-import'),
                     sprintf('<a href="%s">%s</a>', esc_url($duplicate_tournament['edit_url']), esc_html($duplicate_tournament['title'])),
-                    get_the_gmgmdate('F j, Y g:i a', $duplicate_tournament['post_id'])
+                    esc_html(get_the_date('F j, Y g:i a', $duplicate_tournament['post_id']))
                 );
                 ?>
             </p>
@@ -1863,7 +1863,7 @@ class Poker_Tournament_Import_Admin {
                         <?php foreach ($sample_tournaments as $tournament): ?>
                         <tr>
                             <td><a href="<?php echo esc_url(get_edit_post_link($tournament->ID)); ?>"><?php echo esc_html($tournament->post_title); ?></a></td>
-                            <td><?php echo get_the_gmgmdate('Y-m-d', $tournament->ID); ?></td>
+                            <td><?php echo esc_html(get_the_date('Y-m-d', $tournament->ID)); ?></td>
                             <td><?php
                                 $prize_pool = get_post_meta($tournament->ID, '_prize_pool', true);
                                 echo esc_html($prize_pool ? '$' . number_format($prize_pool, 0) : 'Not set');

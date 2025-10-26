@@ -5050,6 +5050,7 @@ class Poker_Tournament_Import_Shortcodes {
                 // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- SQL prepared on line above
                 $results = $wpdb->$query_type($prepared_sql);
             } else {
+                // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- SQL passed directly without placeholders
                 $results = $wpdb->$query_type($sql);
             }
 

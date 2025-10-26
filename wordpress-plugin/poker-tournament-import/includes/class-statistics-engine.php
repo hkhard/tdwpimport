@@ -782,13 +782,11 @@ class Poker_Statistics_Engine {
                  ) as tournament_counts";
 
         if (!empty($params)) {
-            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared -- Query prepared with $wpdb->prepare()
             $avg = $wpdb->get_var($wpdb->prepare($query, $params));
-            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Query prepared above with $wpdb->prepare()
         } else {
-            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared -- Query used without placeholders
             $avg = $wpdb->get_var($query);
-            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Query prepared above with $wpdb->prepare()
         }
 
         return floatval($avg ?: 0);
@@ -859,8 +857,8 @@ class Poker_Statistics_Engine {
         $params[] = $offset;
 
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
+        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Query prepared with $wpdb->prepare()
         return $wpdb->get_results($wpdb->prepare($query, $params));
-            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Query prepared above with $wpdb->prepare()
     }
 
     /**
@@ -935,8 +933,8 @@ class Poker_Statistics_Engine {
         $params[] = $limit;
 
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
+        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Query prepared with $wpdb->prepare()
         $results = $wpdb->get_results($wpdb->prepare($query, $params));
-            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Query prepared above with $wpdb->prepare()
 
         // DEBUG: Log results count
         if (current_user_can('manage_options')) {
@@ -1166,8 +1164,8 @@ class Poker_Statistics_Engine {
         $params[] = $limit;
 
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
+        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Query prepared with $wpdb->prepare()
         $leaderboard = $wpdb->get_results($wpdb->prepare($query, $params));
-            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Query prepared above with $wpdb->prepare()
 
         // DEBUG: Log results count
         if (current_user_can('manage_options')) {
@@ -1247,8 +1245,8 @@ class Poker_Statistics_Engine {
 
         // Get tournament points for player (filtered by season if specified)
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
+        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Query prepared with $wpdb->prepare()
         $results = $wpdb->get_results($wpdb->prepare($query, $params));
-            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Query prepared above with $wpdb->prepare()
 
         if (empty($results)) {
             return 0;

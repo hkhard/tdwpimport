@@ -440,8 +440,8 @@ class Poker_Series_Standings_Calculator {
             ));
         }
 
-        fclose($handle);
         // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- Closing CSV output buffer
+        fclose($handle);
 
         return $filepath;
     }
@@ -561,9 +561,10 @@ class Poker_Series_Standings_Calculator {
             // Cache miss - query database
             if ($args !== null) {
                 $prepared_sql = $wpdb->prepare($sql, $args);
-            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- SQL prepared above with $wpdb->prepare()
+                // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- SQL prepared above with $wpdb->prepare()
                 $results = $wpdb->$query_type($prepared_sql);
             } else {
+                // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- SQL passed directly without placeholders
                 $results = $wpdb->$query_type($sql);
             }
 
