@@ -18,9 +18,9 @@ if (!defined('ABSPATH')) {
  * This function tries to get real-time winner data using the new GameHistory processing
  * before falling back to stored data (which may be incorrect)
  */
-function get_tournament_winner_info($tournament_id) {
+function tdwp_get_tournament_winner_info($tournament_id) {
     // Try to get real-time tournament results first
-    $realtime_results = get_realtime_tournament_results($tournament_id);
+    $realtime_results = tdwp_get_realtime_tournament_results($tournament_id);
     if ($realtime_results && !empty($realtime_results['players'])) {
         // Find the winner (position 1) from real-time data
         foreach ($realtime_results['players'] as $uuid => $player) {
@@ -86,7 +86,7 @@ function get_tournament_winner_info($tournament_id) {
  * Get real-time tournament results using chronological processing
  * This function replicates the logic from the shortcode class
  */
-function get_realtime_tournament_results($tournament_id) {
+function tdwp_get_realtime_tournament_results($tournament_id) {
     // CRITICAL FIX: Get raw TDT content for real-time chronological processing
     $raw_content = get_post_meta($tournament_id, '_tournament_raw_content', true);
 
@@ -105,7 +105,7 @@ function get_realtime_tournament_results($tournament_id) {
             return array(
                 'players' => $parsed_data['players'],
                 'game_history' => $parsed_data['game_history'] ?? null,
-                'metadata' => $parsed_data['metadata'] ?? extract_basic_metadata($raw_content)
+                'metadata' => $parsed_data['metadata'] ?? tdwp_extract_basic_metadata($raw_content)
             );
         }
     } catch (Exception $e) {
@@ -119,7 +119,7 @@ function get_realtime_tournament_results($tournament_id) {
 /**
  * Extract basic metadata from tournament data
  */
-function extract_basic_metadata($tournament_data) {
+function tdwp_extract_basic_metadata($tournament_data) {
     $metadata = array();
 
     if (preg_match('/UUID:\s*"([^"]+)"/', $tournament_data, $matches)) {
