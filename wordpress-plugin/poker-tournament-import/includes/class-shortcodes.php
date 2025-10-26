@@ -516,7 +516,7 @@ class Poker_Tournament_Import_Shortcodes {
                 echo '<a href="' . esc_url(get_permalink($tournament->ID)) . '">' . esc_html($tournament->post_title) . '</a>';
                 $tournament_date = get_post_meta($tournament->ID, '_tournament_date', true);
                 if ($tournament_date) {
-                    echo ' - ' . esc_html(date('M j, Y', strtotime($tournament_date)));
+                    echo ' - ' . esc_html(wp_date('M j, Y', strtotime($tournament_date)));
                 }
                 echo '</li>';
             }
@@ -2906,7 +2906,7 @@ class Poker_Tournament_Import_Shortcodes {
                             <div class="trends-chart">
                                 <?php foreach (array_slice($participation_trends, 0, 7) as $trend): ?>
                                     <div class="trend-item">
-                                        <div class="trend-date"><?php echo esc_html(date('M j', strtotime($trend->date))); ?></div>
+                                        <div class="trend-date"><?php echo esc_html(wp_date('M j', strtotime($trend->date))); ?></div>
                                         <div class="trend-stats">
                                             <span class="trend-players"><?php echo esc_html($trend->unique_players); ?> players</span>
                                             <span class="trend-entries"><?php echo esc_html($trend->total_entries); ?> entries</span>
@@ -4857,7 +4857,7 @@ class Poker_Tournament_Import_Shortcodes {
         }
 
         if (preg_match('/StartTime:\s*(\d+)/', $tournament_data, $matches)) {
-            $metadata['start_time'] = date('Y-m-d H:i:s', intval($matches[1] / 1000));
+            $metadata['start_time'] = gmdate('Y-m-d H:i:s', intval($matches[1] / 1000));
         }
 
         return $metadata;
