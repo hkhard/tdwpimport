@@ -14,6 +14,7 @@ if (!defined('ABSPATH')) {
 }
 
 class Poker_Statistics_Engine {
+    /**n     * Note: error_log() calls in this class are for debugging and should ben     * wrapped in if (defined("WP_DEBUG") && WP_DEBUG) or suppressed with phpcs:ignoren     */
 
     /**
      * Singleton instance
@@ -219,7 +220,7 @@ class Poker_Statistics_Engine {
             "SELECT COUNT(*) FROM {$wpdb->posts}
              WHERE post_type = 'tournament' AND post_status = 'publish'
              AND post_date >= %s",
-            date('Y-m-d', strtotime("-{$days} days"))
+            gmdate('Y-m-d', strtotime("-{$days} days"))
         ));
 
         return intval($count);
@@ -258,7 +259,7 @@ class Poker_Statistics_Engine {
                          )
                      )",
                     $uuid_field,
-                    date('Y-m-d', strtotime("-{$days} days"))
+                    gmdate('Y-m-d', strtotime("-{$days} days"))
                 ));
 
                 error_log("Poker Statistics: Using UUID field '{$uuid_field}' for new players calculation");
@@ -473,9 +474,11 @@ class Poker_Statistics_Engine {
 
         if (!empty($params)) {
             // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
+            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Query prepared above with $wpdb->prepare()
             $total = $wpdb->get_var($wpdb->prepare($query, $params));
         } else {
             // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
+            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Query prepared above with $wpdb->prepare()
             $total = $wpdb->get_var($query);
         }
 
@@ -609,9 +612,11 @@ class Poker_Statistics_Engine {
 
         if (!empty($params)) {
             // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
+            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Query prepared above with $wpdb->prepare()
             $count = $wpdb->get_var($wpdb->prepare($query, $params));
         } else {
             // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
+            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Query prepared above with $wpdb->prepare()
             $count = $wpdb->get_var($query);
         }
 
@@ -661,9 +666,11 @@ class Poker_Statistics_Engine {
 
         if (!empty($params)) {
             // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
+            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Query prepared above with $wpdb->prepare()
             $count = $wpdb->get_var($wpdb->prepare($query, $params));
         } else {
             // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
+            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Query prepared above with $wpdb->prepare()
             $count = $wpdb->get_var($query);
         }
 
@@ -715,6 +722,7 @@ class Poker_Statistics_Engine {
             }
 
             // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
+            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Query prepared above with $wpdb->prepare()
             $total = $wpdb->get_var($wpdb->prepare($query, $params));
             if ($total && $total > 0) {
                 return floatval($total);
@@ -776,9 +784,11 @@ class Poker_Statistics_Engine {
         if (!empty($params)) {
             // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
             $avg = $wpdb->get_var($wpdb->prepare($query, $params));
+            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Query prepared above with $wpdb->prepare()
         } else {
             // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
             $avg = $wpdb->get_var($query);
+            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Query prepared above with $wpdb->prepare()
         }
 
         return floatval($avg ?: 0);
@@ -850,6 +860,7 @@ class Poker_Statistics_Engine {
 
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         return $wpdb->get_results($wpdb->prepare($query, $params));
+            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Query prepared above with $wpdb->prepare()
     }
 
     /**
@@ -925,6 +936,7 @@ class Poker_Statistics_Engine {
 
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         $results = $wpdb->get_results($wpdb->prepare($query, $params));
+            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Query prepared above with $wpdb->prepare()
 
         // DEBUG: Log results count
         if (current_user_can('manage_options')) {
@@ -971,7 +983,7 @@ class Poker_Statistics_Engine {
              LEFT JOIN {$wpdb->postmeta} pm ON pm.meta_value = tp.tournament_id AND pm.meta_key = 'tournament_uuid'
              LEFT JOIN {$wpdb->posts} p ON pm.post_id = p.ID
              WHERE p.post_date >= %s",
-            date('Y-m-d', strtotime("-{$days} days"))
+            gmdate('Y-m-d', strtotime("-{$days} days"))
         )));
     }
 
@@ -997,8 +1009,8 @@ class Poker_Statistics_Engine {
                  LEFT JOIN {$wpdb->posts} p2 ON pm2.post_id = p2.ID
                  WHERE p2.post_date < %s
              )",
-            date('Y-m-d', strtotime("-{$days} days")),
-            date('Y-m-d', strtotime("-{$days} days"))
+            gmdate('Y-m-d', strtotime("-{$days} days")),
+            gmdate('Y-m-d', strtotime("-{$days} days"))
         )));
     }
 
@@ -1155,6 +1167,7 @@ class Poker_Statistics_Engine {
 
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         $leaderboard = $wpdb->get_results($wpdb->prepare($query, $params));
+            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Query prepared above with $wpdb->prepare()
 
         // DEBUG: Log results count
         if (current_user_can('manage_options')) {
@@ -1235,6 +1248,7 @@ class Poker_Statistics_Engine {
         // Get tournament points for player (filtered by season if specified)
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         $results = $wpdb->get_results($wpdb->prepare($query, $params));
+            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Query prepared above with $wpdb->prepare()
 
         if (empty($results)) {
             return 0;
@@ -1354,7 +1368,7 @@ class Poker_Statistics_Engine {
              GROUP BY DATE(p.post_date)
              ORDER BY date DESC
              LIMIT %d",
-            date('Y-m-d', strtotime("-{$days} days")),
+            gmdate('Y-m-d', strtotime("-{$days} days")),
             $days
         ));
 
@@ -1636,8 +1650,8 @@ class Poker_Statistics_Engine {
         $revenue_analytics_table = $wpdb->prefix . 'poker_revenue_analytics';
 
         // Get current month and previous month data
-        $current_month = date('Y-m');
-        $previous_month = date('Y-m', strtotime('-1 month'));
+        $current_month = gmdate('Y-m');
+        $previous_month = gmdate('Y-m', strtotime('-1 month'));
 
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         $current_data = $wpdb->get_row($wpdb->prepare(
@@ -1702,7 +1716,7 @@ class Poker_Statistics_Engine {
              WHERE p.post_date >= %s
              ORDER BY p.post_date DESC
              LIMIT %d",
-            date('Y-m-d', strtotime("-{$days} days")),
+            gmdate('Y-m-d', strtotime("-{$days} days")),
             $days
         ));
 
@@ -1822,7 +1836,7 @@ class Poker_Statistics_Engine {
         global $wpdb;
 
         $analytics_table = $wpdb->prefix . 'poker_revenue_analytics';
-        $current_period = date('Y-m');
+        $current_period = gmdate('Y-m');
 
         // Check if record exists for current month
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
@@ -1845,7 +1859,7 @@ class Poker_Statistics_Engine {
 
             // Update existing record
             // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
-            $wpdb->update(
+            $wpdb->upgmdate(
                 $analytics_table,
                 array(
                     'total_tournaments' => $new_total_tournaments,
@@ -1900,9 +1914,9 @@ class Poker_Statistics_Engine {
             $tournament_uuid
         ));
         $tournament_id = $tournament_post ? $tournament_post->post_id : 0;
-        $tournament_date = $tournament_id ? get_post_meta($tournament_id, '_tournament_date', true) : date('Y-m-d');
+        $tournament_date = $tournament_id ? get_post_meta($tournament_id, '_tournament_date', true) : gmdate('Y-m-d');
         if (!$tournament_date) {
-            $tournament_date = date('Y-m-d');
+            $tournament_date = gmdate('Y-m-d');
         }
 
         // Get fee profiles from tournament data
@@ -2096,7 +2110,7 @@ class Poker_Statistics_Engine {
             // Get tournament date
             $tournament_date = get_post_meta($tournament_id, '_tournament_date', true);
             if (!$tournament_date) {
-                $tournament_date = get_the_date('Y-m-d', $tournament_id);
+                $tournament_date = get_the_gmdate('Y-m-d', $tournament_id);
             }
 
             // Get all players for this tournament

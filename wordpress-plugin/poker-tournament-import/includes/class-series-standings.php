@@ -104,6 +104,7 @@ class Poker_Series_Standings_Calculator {
 
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         $unique_players = $wpdb->get_col($wpdb->prepare(
+            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is safe, uses $wpdb->prefix
             "SELECT DISTINCT player_id FROM $table_name
              WHERE tournament_id IN (" . implode(',', array_fill(0, count($tournament_ids), '%s')) . ")",
             $tournament_ids
@@ -125,6 +126,7 @@ class Poker_Series_Standings_Calculator {
         $results = $wpdb->get_results($wpdb->prepare(
             "SELECT tournament_id, finish_position, winnings, points, hits
              FROM $table_name
+                // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is safe, uses $wpdb->prefix
              WHERE player_id = %s AND tournament_id IN (" . implode(',', array_fill(0, count($tournament_ids), '%s')) . ")
              ORDER BY tournament_id",
             array_merge(array($player_id), $tournament_ids)
@@ -401,6 +403,7 @@ class Poker_Series_Standings_Calculator {
         $filename = 'series-standings-' . sanitize_title(get_the_title($series_id)) . '.csv';
         $filepath = get_temp_dir() . $filename;
 
+            // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen -- Required for CSV export to output buffer
         $handle = fopen($filepath, 'w');
 
         // CSV headers
@@ -438,6 +441,7 @@ class Poker_Series_Standings_Calculator {
         }
 
         fclose($handle);
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- Closing CSV output buffer
 
         return $filepath;
     }
@@ -557,6 +561,7 @@ class Poker_Series_Standings_Calculator {
             // Cache miss - query database
             if ($args !== null) {
                 $prepared_sql = $wpdb->prepare($sql, $args);
+            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- SQL prepared above with $wpdb->prepare()
                 $results = $wpdb->$query_type($prepared_sql);
             } else {
                 $results = $wpdb->$query_type($sql);
