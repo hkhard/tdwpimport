@@ -14,6 +14,7 @@ if (!defined('ABSPATH')) {
 }
 
 class Poker_Data_Mart_Cleaner {
+    // phpcs:disable WordPress.DB.DirectDatabaseQuery -- Custom table operations required
 
     /**
      * Data mart table definitions
@@ -925,11 +926,15 @@ class Poker_Data_Mart_Cleaner {
             $path = $dir . '/' . $file;
             if (is_dir($path)) {
                 $this->delete_directory_recursively($path);
+                // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink -- Removing old backup file
             } else {
+                // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink -- Removing old backup file
                 unlink($path);
             }
+                // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_rmdir -- Removing backup directory
         }
         rmdir($dir);
+                // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_rmdir -- Removing backup directory
     }
 
     /**
@@ -941,9 +946,11 @@ class Poker_Data_Mart_Cleaner {
             new RecursiveDirectoryIterator($upload_dir['basedir'])
         );
 
+            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Query prepared above with $wpdb->prepare()
         foreach ($iterator as $file) {
             if ($file->isFile() && $file->getExtension() === 'tdt') {
                 unlink($file->getPathname());
+            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Query prepared above with $wpdb->prepare()
                 error_log("Poker Data Mart: Deleted .tdt file: " . $file->getPathname());
             }
         }
@@ -1458,10 +1465,12 @@ class Poker_Data_Mart_Cleaner {
         $results = wp_cache_get($cache_key, $cache_group);
 
         if (false === $results) {
+                    // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- SQL prepared above
             // Cache miss - query database
             if ($args !== null) {
                 $prepared_sql = $wpdb->prepare($sql, $args);
                 $results = $wpdb->$query_type($prepared_sql);
+                    // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- SQL prepared above
             } else {
                 $results = $wpdb->$query_type($sql);
             }

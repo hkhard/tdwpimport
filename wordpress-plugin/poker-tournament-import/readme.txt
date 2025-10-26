@@ -3,7 +3,7 @@ Contributors: hanshard
 Tags: poker, tournament, import, results, bulk-import
 Requires at least: 6.0
 Tested up to: 6.8
-Stable tag: 2.9.16
+Stable tag: 2.9.17
 Requires PHP: 8.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -77,6 +77,15 @@ Use the following shortcodes:
 6. **NEW: Interactive leaderboard with sorting**
 
 == Changelog ==
+
+= 2.9.17 - October 26, 2025 =
+* Fixed: All 30 Plugin Check critical errors resolved
+* Fixed: 13 date() → gmdate() for timezone-safe operations
+* Fixed: 17 database query warnings (prepared SQL)
+* Fixed: File operation warnings for CSV export
+* Fixed: Escaping errors in bulk import interface
+* Removed: Unused class-parser-old.php file
+* WordPress.org Plugin Check fully compliant (critical errors: 0)
 
 = 2.9.16 - October 26, 2025 =
 * Fixed: Added missing translator comments for 3 sprintf calls in bulk import

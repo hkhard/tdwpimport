@@ -131,7 +131,7 @@ function tdwp_extract_basic_metadata($tournament_data) {
     }
 
     if (preg_match('/StartTime:\s*(\d+)/', $tournament_data, $matches)) {
-        $metadata['start_time'] = date('Y-m-d H:i:s', intval($matches[1] / 1000));
+        $metadata['start_time'] = wp_date('Y-m-d H:i:s', intval($matches[1] / 1000));
     }
 
     return $metadata;

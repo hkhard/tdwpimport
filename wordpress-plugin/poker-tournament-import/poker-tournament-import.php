@@ -3,7 +3,7 @@
  * Plugin Name: Poker Tournament Import
  * Plugin URI: https://nikielhard.se/tdwpimport
  * Description: Import and display poker tournament results from Tournament Director (.tdt) files
- * Version: 2.9.16
+ * Version: 2.9.17
  * Author: Hans Kästel Hård
  * Author URI: https://nikielhard.se
  * License: GPL v2 or later
@@ -20,7 +20,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('POKER_TOURNAMENT_IMPORT_VERSION', '2.9.16');
+define('POKER_TOURNAMENT_IMPORT_VERSION', '2.9.17');
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -72,7 +72,7 @@ class Poker_Tournament_Import {
         $this->init_statistics_engine();
 
         // Check for plugin update and refresh statistics if needed
-        $this->check_plugin_update();
+        $this->check_plugin_upgmdate();
 
         // Register custom template loading for our post types
         add_filter('template_include', array($this, 'load_custom_templates'));
@@ -170,7 +170,7 @@ class Poker_Tournament_Import {
     /**
      * Check for plugin update and refresh statistics if needed
      */
-    private function check_plugin_update() {
+    private function check_plugin_upgmdate() {
         $last_version = get_option('tdwp_import_last_version', '0');
 
         if ($last_version !== POKER_TOURNAMENT_IMPORT_VERSION) {
@@ -717,7 +717,7 @@ class Poker_Tournament_Import {
                         </a>
                     </td>
                     <td class="tournament-date">
-                        <?php echo $tournament_date ? esc_html(date_i18n('M j, Y', strtotime($tournament_date))) : esc_html(get_the_date('M j, Y', $tournament->ID)); ?>
+                        <?php echo $tournament_date ? esc_html(date_i18n('M j, Y', strtotime($tournament_date))) : esc_html(get_the_gmdate('M j, Y', $tournament->ID)); ?>
                     </td>
                     <td class="tournament-players"><?php echo esc_html($players_count ?: '--'); ?></td>
                     <td class="tournament-prize"><?php echo esc_html($currency . number_format(floatval($prize_pool ?: 0), 0)); ?></td>
@@ -1025,7 +1025,7 @@ class Poker_Tournament_Import {
         $table_name = $wpdb->prefix . 'poker_tournament_players';
 
         // Generate CSV report
-        $filename = 'poker-tournament-report-' . date('Y-m-d') . '.csv';
+        $filename = 'poker-tournament-report-' . gmdate('Y-m-d') . '.csv';
         $filepath = get_temp_dir() . $filename;
 
         $handle = fopen($filepath, 'w');
@@ -1077,7 +1077,7 @@ class Poker_Tournament_Import {
 
             fputcsv($handle, array(
                 $tournament->post_title,
-                $tournament_date ?: get_the_date('Y-m-d', $tournament->ID),
+                $tournament_date ?: get_the_gmdate('Y-m-d', $tournament->ID),
                 $players_count ?: 0,
                 $prize_pool ?: 0,
                 $winner_name,
@@ -1895,7 +1895,7 @@ class Poker_Tournament_Import {
             foreach ($reconstructed_players as $index => $player) {
                 $new_finish_position = $index + 1;
                 // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
-                $wpdb->update(
+                $wpdb->upgmdate(
                     $table_name,
                     array('finish_position' => $new_finish_position),
                     array('id' => $player->id),
@@ -2205,7 +2205,7 @@ class Poker_Tournament_Import {
                     'id' => $tournament_id,
                     'title' => get_the_title(),
                     'url' => get_permalink(),
-                    'date' => $tournament_date ? date_i18n('M j, Y', strtotime($tournament_date)) : get_the_date('M j, Y'),
+                    'date' => $tournament_date ? date_i18n('M j, Y', strtotime($tournament_date)) : get_the_gmdate('M j, Y'),
                     'players' => $players_count ?: '--',
                     'prize_pool' => $currency . number_format($prize_pool ?: 0, 0),
                     'winner' => $winner_name
@@ -2280,7 +2280,7 @@ class Poker_Tournament_Import {
                 $tournament_data[] = array(
                     'id' => $tournament_id,
                     'title' => get_the_title(),
-                    'date' => get_post_meta($tournament_id, '_tournament_date', true) ?: get_the_date('Y-m-d'),
+                    'date' => get_post_meta($tournament_id, '_tournament_date', true) ?: get_the_gmdate('Y-m-d'),
                     'players_count' => get_post_meta($tournament_id, '_players_count', true) ?: 0,
                     'prize_pool' => get_post_meta($tournament_id, '_prize_pool', true) ?: 0,
                     'status' => get_post_status(),

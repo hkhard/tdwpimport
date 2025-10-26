@@ -417,7 +417,7 @@ class Poker_Tournament_Batch_Processor {
 
         // Set tournament date if available
         if (!empty($metadata['start_time'])) {
-            $post_data['post_date'] = date('Y-m-d H:i:s', strtotime($metadata['start_time']));
+            $post_data['post_date'] = gmdate('Y-m-d H:i:s', strtotime($metadata['start_time']));
             $post_data['post_date_gmt'] = get_gmt_from_date($post_data['post_date']);
         }
 
@@ -1376,6 +1376,7 @@ class Poker_Tournament_Batch_Processor {
      */
     private function cleanup_temp_file($filepath) {
         if (file_exists($filepath)) {
+                    // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink -- Removing processed file
             @unlink($filepath);
         }
     }

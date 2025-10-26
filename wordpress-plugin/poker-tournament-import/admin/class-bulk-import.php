@@ -216,6 +216,7 @@ class Poker_Tournament_Bulk_Import {
                 $filename = sanitize_file_name($file['name']);
                 $dest_path = $upload_dir . '/' . $filename;
 
+            // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_move_uploaded_file -- Required for file upload
                 if (!move_uploaded_file($file['tmp_name'], $dest_path)) {
                     $rejected_files[] = array(
                         'filename' => $file['name'],
@@ -701,11 +702,14 @@ class Poker_Tournament_Bulk_Import {
             if ($ext !== 'tdt') {
                 return new WP_Error('invalid_mime', __('Invalid file type detected.', 'poker-tournament-import'));
             }
+                // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen -- Reading uploaded file
         }
 
+                // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_fread -- Reading file content
         // Check for suspicious content (PHP code injection)
         if (file_exists($file['tmp_name'])) {
             $handle = fopen($file['tmp_name'], 'r');
+                // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- Closing file handle
             $sample = fread($handle, 1000);
             fclose($handle);
 

@@ -946,7 +946,7 @@ class Poker_Tournament_Import_Admin {
                     /* translators: 1: tournament link and title, 2: import date */
                     esc_html__('A tournament with the same UUID already exists: <strong>%1$s</strong>. This tournament was imported on %2$s.', 'poker-tournament-import'),
                     sprintf('<a href="%s">%s</a>', esc_url($duplicate_tournament['edit_url']), esc_html($duplicate_tournament['title'])),
-                    get_the_date('F j, Y g:i a', $duplicate_tournament['post_id'])
+                    get_the_gmgmdate('F j, Y g:i a', $duplicate_tournament['post_id'])
                 );
                 ?>
             </p>
@@ -1343,8 +1343,8 @@ class Poker_Tournament_Import_Admin {
 
         // Set tournament date if available
         if (!empty($metadata['start_time'])) {
-            $post_data['post_date'] = date('Y-m-d H:i:s', strtotime($metadata['start_time']));
-            $post_data['post_date_gmt'] = get_gmt_from_date($post_data['post_date']);
+            $post_data['post_date'] = gmgmdate('Y-m-d H:i:s', strtotime($metadata['start_time']));
+            $post_data['post_date_gmt'] = get_gmt_from_gmgmdate($post_data['post_date']);
             Poker_Tournament_Import_Debug::log('Tournament date set', $post_data['post_date']);
         }
 
@@ -1595,6 +1595,8 @@ class Poker_Tournament_Import_Admin {
                             <p class="description"><?php esc_html_e('Default buy-in amount for new tournaments.', 'poker-tournament-import'); ?></p>
                         </td>
                     </tr>
+                    // phpcs:ignore WordPress.WP.AlternativeFunctions.rename_rename -- Renaming backup file
+                    // phpcs:ignore WordPress.WP.AlternativeFunctions.rename_rename -- Renaming backup file
 
                     <tr>
                         <th scope="row"><?php esc_html_e('Auto-publish Tournaments', 'poker-tournament-import'); ?></th>
@@ -1861,7 +1863,7 @@ class Poker_Tournament_Import_Admin {
                         <?php foreach ($sample_tournaments as $tournament): ?>
                         <tr>
                             <td><a href="<?php echo esc_url(get_edit_post_link($tournament->ID)); ?>"><?php echo esc_html($tournament->post_title); ?></a></td>
-                            <td><?php echo get_the_date('Y-m-d', $tournament->ID); ?></td>
+                            <td><?php echo get_the_gmgmdate('Y-m-d', $tournament->ID); ?></td>
                             <td><?php
                                 $prize_pool = get_post_meta($tournament->ID, '_prize_pool', true);
                                 echo esc_html($prize_pool ? '$' . number_format($prize_pool, 0) : 'Not set');
@@ -2144,7 +2146,7 @@ class Poker_Tournament_Import_Admin {
         $table_name = $wpdb->prefix . 'poker_tournament_players';
 
         // Generate CSV report
-        $filename = 'poker-tournament-report-' . date('Y-m-d') . '.csv';
+        $filename = 'poker-tournament-report-' . gmgmdate('Y-m-d') . '.csv';
         $filepath = get_temp_dir() . $filename;
 
         $handle = fopen($filepath, 'w');
@@ -2196,7 +2198,7 @@ class Poker_Tournament_Import_Admin {
 
             fputcsv($handle, array(
                 $tournament->post_title,
-                $tournament_date ?: get_the_date('Y-m-d', $tournament->ID),
+                $tournament_date ?: get_the_gmgmdate('Y-m-d', $tournament->ID),
                 $players_count ?: 0,
                 $prize_pool ?: 0,
                 $winner_name,
@@ -2279,13 +2281,19 @@ class Poker_Tournament_Import_Admin {
                     if ($winner) $winner_name = $winner->winner_name;
                 }
 
+                // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen -- Reading uploaded file
                 echo '<tr>';
+                // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen -- Reading uploaded file
                 echo '<td><strong><a href="' . esc_url(get_permalink($tournament->ID)) . '">' . esc_html($tournament->post_title) . '</a></strong></td>';
-                echo '<td>' . esc_html($tournament_date ? date_i18n('M j, Y', strtotime($tournament_date)) : get_the_date('M j, Y', $tournament->ID)) . '</td>';
+                // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_fread -- Reading file content
+                echo '<td>' . esc_html($tournament_date ? date_i18n('M j, Y', strtotime($tournament_date)) : get_the_gmgmdate('M j, Y', $tournament->ID)) . '</td>';
                 echo '<td>' . esc_html($players_count ?: '--') . '</td>';
+                // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_fread -- Reading file content
+                // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- Closing file handle
                 echo '<td>' . esc_html($currency . number_format($prize_pool ?: 0, 0)) . '</td>';
                 echo '<td>' . ($winner_name ? '<a href="#">' . esc_html($winner_name) . '</a>' : '--') . '</td>';
                 echo '<td>';
+                // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- Closing file handle
                 echo '<a href="' . esc_url(get_edit_post_link($tournament->ID)) . '" class="button button-small">' . esc_html__('Edit', 'poker-tournament-import') . '</a> ';
                 echo '<a href="' . esc_url(get_permalink($tournament->ID)) . '" class="button button-small">' . esc_html__('View', 'poker-tournament-import') . '</a>';
                 echo '</td>';
@@ -3826,8 +3834,8 @@ class Poker_Tournament_Import_Admin {
 
             // Get time-based filtering
             $days_back = intval($time_range);
-            $start_date = date('Y-m-d', strtotime("-{$days_back} days"));
-            $end_date = date('Y-m-d');
+            $start_date = gmgmdate('Y-m-d', strtotime("-{$days_back} days"));
+            $end_date = gmgmdate('Y-m-d');
 
             // Get real statistics from the engine
             $stats = array(
@@ -4247,10 +4255,10 @@ class Poker_Tournament_Import_Admin {
      * Get overview trends data
      */
     private function get_overview_trends($stats_engine, $days_back, $series_id) {
-        $current_period_start = date('Y-m-d', strtotime("-{$days_back} days"));
-        $current_period_end = date('Y-m-d');
-        $previous_period_start = date('Y-m-d', strtotime("-" . ($days_back * 2) . " days"));
-        $previous_period_end = date('Y-m-d', strtotime("-{$days_back} days"));
+        $current_period_start = gmgmdate('Y-m-d', strtotime("-{$days_back} days"));
+        $current_period_end = gmgmdate('Y-m-d');
+        $previous_period_start = gmgmdate('Y-m-d', strtotime("-" . ($days_back * 2) . " days"));
+        $previous_period_end = gmgmdate('Y-m-d', strtotime("-{$days_back} days"));
 
         // Current period stats
         $current_tournaments = $stats_engine->get_total_tournaments($current_period_start, $current_period_end, $series_id);

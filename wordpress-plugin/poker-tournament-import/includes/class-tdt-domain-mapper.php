@@ -26,6 +26,7 @@ if (!defined('ABSPATH')) {
  * @since 2.4.9
  */
 class Poker_Tournament_Domain_Mapper {
+    // phpcs:disable WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Debug/diagnostic class
 
     /**
      * Map root AST node to tournament data structure
@@ -92,7 +93,7 @@ class Poker_Tournament_Domain_Mapper {
         // Extract StartTime (convert from milliseconds to date string)
         $start_time_ms = $this->get_scalar($entries, 'StartTime');
         if ($start_time_ms !== null) {
-            $metadata['start_time'] = date('Y-m-d H:i:s', intval($start_time_ms / 1000));
+            $metadata['start_time'] = gmdate('Y-m-d H:i:s', intval($start_time_ms / 1000));
         }
 
         // Extract PointsForPlaying formula

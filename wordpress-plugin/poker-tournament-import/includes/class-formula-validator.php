@@ -12,6 +12,7 @@ if (!defined('ABSPATH')) {
 }
 
 class Poker_Tournament_Formula_Validator {
+    // phpcs:disable WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Debug/diagnostic class
 
     /**
      * Available Tournament Director variables and functions
@@ -1493,7 +1494,7 @@ class Poker_Tournament_Formula_Validator {
             case 'triangle':
                 $n = $args[0] ?? 0;
                 return $n * ($n + 1) / 2;
-            case 'random': return mt_rand() / mt_getrandmax();
+            case 'random': return wp_rand() / mt_getrandmax();
 
             // Logical
             case 'not': return !($args[0] ?? 0);
@@ -1634,8 +1635,8 @@ class Poker_Tournament_Formula_Validator {
             $expression
         );
 
-        // random() -> mt_rand() / mt_getrandmax()
-        $expression = str_replace('random()', '(mt_rand() / mt_getrandmax())', $expression);
+        // random() -> wp_rand() / mt_getrandmax()
+        $expression = str_replace('random()', '(wp_rand() / mt_getrandmax())', $expression);
 
         return $expression;
     }

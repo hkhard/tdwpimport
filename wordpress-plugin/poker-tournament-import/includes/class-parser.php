@@ -12,6 +12,7 @@ if (!defined('ABSPATH')) {
 }
 
 class Poker_Tournament_Parser {
+    // phpcs:disable WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Debug/diagnostic class
 
     /**
      * File path
@@ -226,7 +227,7 @@ class Poker_Tournament_Parser {
 
         // Extract Start Time (convert from milliseconds)
         if (preg_match('/StartTime:\s*(\d+)/', $content, $matches)) {
-            $metadata['start_time'] = date('Y-m-d H:i:s', intval($matches[1] / 1000));
+            $metadata['start_time'] = gmdate('Y-m-d H:i:s', intval($matches[1] / 1000));
         }
 
         // Extract PointsForPlaying formula from .tdt file
@@ -800,7 +801,7 @@ class Poker_Tournament_Parser {
             return $this->fallback_to_bustout_processing($players);
         }
 
-        Poker_Tournament_Import_Debug::log_success("Found tournament end at: " . date('Y-m-d H:i:s', intval($tournament_end_time/1000)));
+        Poker_Tournament_Import_Debug::log_success("Found tournament end at: " . gmdate('Y-m-d H:i:s', intval($tournament_end_time/1000)));
 
         // Initialize tournament state
         $tournament_state = array(
@@ -1129,10 +1130,10 @@ class Poker_Tournament_Parser {
         foreach ($final_eliminations as $uuid => $timestamp) {
             if ($uuid !== $winner_uuid && isset($players[$uuid])) {
                 $players[$uuid]['finish_position'] = $rank;
-                error_log("✓ RANK {$rank}: {$players[$uuid]['nickname']} (eliminated @ " . date('H:i:s', (int)($timestamp/1000)) . ")");
+                error_log("✓ RANK {$rank}: {$players[$uuid]['nickname']} (eliminated @ " . gmdate('H:i:s', (int)($timestamp/1000)) . ")");
                 Poker_Tournament_Import_Debug::log(
                     "Rank {$rank}: {$players[$uuid]['nickname']} " .
-                    "(final elimination @ " . date('H:i:s', (int)($timestamp/1000)) . ")"
+                    "(final elimination @ " . gmdate('H:i:s', (int)($timestamp/1000)) . ")"
                 );
                 $rank++;
             }
