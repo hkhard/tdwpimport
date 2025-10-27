@@ -114,3 +114,4 @@ Claude Code guidance for the Poker Tournament Import WordPress plugin.
 - the wp shell is  at /Users/hkh/Library/Application\ Support/Local/ssh-entry/hNPsf2SE_.sh
 - remember to update version number in the log file output so we know we are logging for the right patch level
 - use php to verify syntax on all changes
+- we need to zip the contents of the wordpress-plugin directory into ../ and zip name
