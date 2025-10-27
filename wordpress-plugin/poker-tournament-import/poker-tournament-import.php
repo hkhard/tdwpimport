@@ -2,8 +2,8 @@
 /**
  * Plugin Name: Poker Tournament Import
  * Plugin URI: https://nikielhard.se/tdwpimport
- * Description: Import and display poker tournament results from Tournament Director (.tdt) files
- * Version: 2.9.22
+ * Description: Import and display poker tournament results from Tournament Director (.tdt) files. Now with Tournament Manager for creating tournaments without TD software!
+ * Version: 3.0.0-alpha.1
  * Author: Hans Kästel Hård
  * Author URI: https://nikielhard.se
  * License: GPL v2 or later
@@ -20,7 +20,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('POKER_TOURNAMENT_IMPORT_VERSION', '2.9.22');
+define('POKER_TOURNAMENT_IMPORT_VERSION', '3.0.0-alpha.1');
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -323,6 +323,9 @@ class Poker_Tournament_Import {
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/class-formula-validator.php';
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/class-series-standings.php';
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/class-statistics-engine.php';
+
+        // **PHASE 1: Tournament Manager**
+        require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-database-schema.php';
     }
 
     /**
@@ -372,6 +375,12 @@ class Poker_Tournament_Import {
 
         // Create database tables if needed
         $this->create_database_tables();
+
+        // **PHASE 1: Create Tournament Manager tables**
+        if (class_exists('TDWP_Database_Schema')) {
+            TDWP_Database_Schema::create_tables();
+            TDWP_Database_Schema::insert_default_templates();
+        }
 
         // Force statistics table creation and initial calculation
         $this->ensure_statistics_table_exists();
