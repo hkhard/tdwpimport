@@ -326,9 +326,15 @@ class Poker_Tournament_Import_Admin {
                 )
             );
 
-            // Add inline script for formula preview on import page
+            // Add formula preview script for import page
             if ($hook === 'toplevel_page_poker-tournament-import') {
-                wp_add_inline_script('jquery', 'jQuery(document).ready(function($){var formulaData=pokerFormulaEditor.formulas;$("input[name=\'formula_mode\']").change(function(){if($(this).val()===\'override\'){$("#formula-selector").slideDown();updateFormulaPreview()}else{$("#formula-selector").slideUp();$("#formula-preview-box").slideUp()}});$("#override_formula").change(function(){updateFormulaPreview()});function updateFormulaPreview(){var selectedKey=$("#override_formula").val();var formula=formulaData[selectedKey];if(formula){$("#formula-description").text(formula.description||"No description available");var codeDisplay=formula.formula;if(formula.dependencies&&formula.dependencies.length>0){codeDisplay="// Dependencies:\\n"+formula.dependencies.join(";\\n")+";\\n\\n// Main formula:\\n"+formula.formula}$("#formula-code").text(codeDisplay);$("#formula-preview-box").slideDown()}}});');
+                wp_enqueue_script(
+                    'poker-formula-preview',
+                    POKER_TOURNAMENT_IMPORT_PLUGIN_URL . 'assets/js/formula-preview.js',
+                    array('jquery', 'poker-tournament-import-admin'),
+                    POKER_TOURNAMENT_IMPORT_VERSION,
+                    true
+                );
             }
         }
     }

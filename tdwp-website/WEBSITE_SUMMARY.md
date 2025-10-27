@@ -7,7 +7,7 @@ A professional, conversion-optimized marketing website for the Tournament Direct
 ## 📦 What's Included
 
 ### ✅ Complete Next.js 14 Website
-- **8 Section Components**: Hero, Features, How It Works, Benefits, Testimonials, Pricing, FAQ, CTA
+- **8 Section Components**: Hero, Features, How It Works, Benefits, Testimonials, Download, FAQ, CTA
 - **Responsive Layout**: Header with mobile menu, Footer with links
 - **SEO Optimized**: Metadata API, Open Graph, Twitter Cards
 - **Performance**: Static generation, optimized images, minimal bundle
@@ -25,7 +25,7 @@ A professional, conversion-optimized marketing website for the Tournament Direct
 - **How It Works**: 3-step process showing simplicity
 - **Benefits**: 6 benefits with stats and social proof
 - **Testimonials**: 3 user testimonials with 4.8/5 rating
-- **Pricing**: Free forever with optional support services
+- **Download**: Free forever with community support
 - **FAQ**: 10 common questions answered
 - **CTAs**: Multiple download buttons throughout
 

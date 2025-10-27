@@ -28,8 +28,23 @@ class Poker_Migration_Admin_Page {
 
     public function enqueue_migration_assets($hook) {
         if ('poker-tournament-import_page_poker-migration-tools' !== $hook) return;
-        wp_add_inline_style('wp-admin', '.status-good{color:#00a32a;font-weight:bold}.status-bad{color:#d63638;font-weight:bold}.diagnostics-table{margin-top:15px}.diagnostics-table table{font-size:12px}');
-        wp_add_inline_script('wp-admin', 'setTimeout(function(){const url=new URL(window.location);url.searchParams.delete("migration_status");url.searchParams.delete("action");window.history.replaceState({},document.title,url.href)},3000);');
+
+        // Enqueue styles
+        wp_enqueue_style(
+            'poker-migration-tools',
+            POKER_TOURNAMENT_IMPORT_PLUGIN_URL . 'assets/css/migration-tools.css',
+            array(),
+            POKER_TOURNAMENT_IMPORT_VERSION
+        );
+
+        // Enqueue scripts
+        wp_enqueue_script(
+            'poker-migration-tools',
+            POKER_TOURNAMENT_IMPORT_PLUGIN_URL . 'assets/js/migration-tools.js',
+            array(),
+            POKER_TOURNAMENT_IMPORT_VERSION,
+            true
+        );
     }
 
     /**

@@ -13,7 +13,7 @@ export default function FAQ() {
     },
     {
       question: 'Is the plugin really free?',
-      answer: 'Yes! The plugin is completely free and open source under GPL v2 license. You can use it on unlimited websites with unlimited tournaments. Optional paid support services are available if you need them.',
+      answer: 'Yes! The plugin is completely free and open source under GPL v2 license. You can use it on unlimited websites with unlimited tournaments. No hidden costs or premium versions.',
     },
     {
       question: 'Will this work with my WordPress theme?',
@@ -41,7 +41,7 @@ export default function FAQ() {
     },
     {
       question: 'How do I get support?',
-      answer: 'Free community support is available through the WordPress.org support forums and GitHub issues. Priority email support is available for $49/month.',
+      answer: 'Community support is available through the WordPress.org support forums and GitHub issues. The plugin is free and open source with active community involvement.',
     },
     {
       question: 'Can I import multiple tournaments at once?',

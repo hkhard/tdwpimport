@@ -64,7 +64,7 @@ export default function CTA() {
         <div className="mt-12 pt-8 border-t border-white/20">
           <div className="flex flex-wrap justify-center items-center gap-8 text-sm text-gray-300">
             <div>
-              <span className="font-semibold text-white">Current Version:</span> 2.9.14
+              <span className="font-semibold text-white">Current Version:</span> 2.9.22
             </div>
             <div>
               <span className="font-semibold text-white">500+</span> Active Installations

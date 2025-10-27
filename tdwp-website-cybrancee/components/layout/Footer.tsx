@@ -25,9 +25,8 @@ export default function Footer() {
           <div>
             <h4 className="font-semibold mb-4">Product</h4>
             <ul className="space-y-2 text-sm">
-              <li><a href="#features" className="text-gray-300 hover:text-white transition-colors">Features</a></li>
-              <li><a href="#pricing" className="text-gray-300 hover:text-white transition-colors">Pricing</a></li>
-              <li><a href="#download" className="text-gray-300 hover:text-white transition-colors">Download</a></li>
+              <li><a href="/tdwpimport/#features" className="text-gray-300 hover:text-white transition-colors">Features</a></li>
+              <li><a href="/tdwpimport/#download" className="text-gray-300 hover:text-white transition-colors">Download</a></li>
               <li><Link href="/changelog" className="text-gray-300 hover:text-white transition-colors">Changelog</Link></li>
             </ul>
           </div>
@@ -38,7 +37,7 @@ export default function Footer() {
             <ul className="space-y-2 text-sm">
               <li><Link href="/docs" className="text-gray-300 hover:text-white transition-colors">Documentation</Link></li>
               <li><Link href="/user-manual" className="text-gray-300 hover:text-white transition-colors">User Manual</Link></li>
-              <li><a href="#faq" className="text-gray-300 hover:text-white transition-colors">FAQ</a></li>
+              <li><a href="/tdwpimport/#faq" className="text-gray-300 hover:text-white transition-colors">FAQ</a></li>
               <li><a href="https://github.com/hkhard/tdwpimport" className="text-gray-300 hover:text-white transition-colors">GitHub</a></li>
             </ul>
           </div>
@@ -49,7 +48,7 @@ export default function Footer() {
             <ul className="space-y-2 text-sm">
               <li><a href="https://wordpress.org/support/plugin/poker-tournament-import" className="text-gray-300 hover:text-white transition-colors">Support Forum</a></li>
               <li><a href="https://github.com/hkhard/tdwpimport/issues" className="text-gray-300 hover:text-white transition-colors">Report Issue</a></li>
-              <li><Link href="/contact" className="text-gray-300 hover:text-white transition-colors">Contact</Link></li>
+              <li><a href="mailto:info@nikielhard.se" className="text-gray-300 hover:text-white transition-colors">Contact</a></li>
             </ul>
           </div>
         </div>

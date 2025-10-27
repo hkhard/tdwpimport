@@ -1,0 +1,106 @@
+/* Formula Manager Admin Styles */
+
+.formula-manager {
+    max-width: 1200px;
+}
+
+.formula-card {
+    background: #fff;
+    border: 1px solid #ccd0d4;
+    border-radius: 4px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.formula-card.default {
+    border-left: 4px solid #0073aa;
+}
+
+.formula-card h3 {
+    margin-top: 0;
+    color: #23282d;
+}
+
+.formula-code {
+    background: #f6f7f7;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    padding: 15px;
+    font-family: monospace;
+    font-size: 13px;
+    overflow-x: auto;
+    white-space: pre;
+    margin: 10px 0;
+}
+
+.formula-code.readonly {
+    background: #fafafa;
+    color: #666;
+}
+
+.dependencies-list {
+    margin: 10px 0;
+    padding-left: 20px;
+}
+
+.formula-actions {
+    margin-top: 15px;
+}
+
+.formula-actions .button {
+    margin-right: 5px;
+}
+
+.formula-description {
+    color: #50575e;
+    font-style: italic;
+    margin: 5px 0;
+}
+
+.new-formula-form {
+    background: #f9f9f9;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.form-row {
+    margin-bottom: 15px;
+}
+
+.form-row label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 5px;
+}
+
+.form-row input[type="text"],
+.form-row textarea {
+    width: 100%;
+    max-width: 600px;
+}
+
+.form-row textarea {
+    min-height: 100px;
+    font-family: monospace;
+}
+
+.dependencies-input {
+    background: #fff;
+    border: 1px solid #ddd;
+    padding: 10px;
+    border-radius: 3px;
+    margin-top: 5px;
+}
+
+.dependency-item {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 5px;
+    align-items: center;
+}
+
+.dependency-item input {
+    flex: 1;
+}

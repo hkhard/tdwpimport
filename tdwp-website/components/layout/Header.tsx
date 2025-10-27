@@ -8,10 +8,9 @@ export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
 
   const navLinks = [
-    { href: '#features', label: 'Features' },
-    { href: '#how-it-works', label: 'How It Works' },
-    { href: '#pricing', label: 'Pricing' },
-    { href: '#faq', label: 'FAQ' },
+    { href: '/tdwpimport/#features', label: 'Features' },
+    { href: '/tdwpimport/#how-it-works', label: 'How It Works' },
+    { href: '/tdwpimport/#faq', label: 'FAQ' },
     { href: '/docs', label: 'Docs' },
   ]
 
@@ -30,16 +29,26 @@ export default function Header() {
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-8">
             {navLinks.map((link) => (
-              <a
-                key={link.href}
-                href={link.href}
-                className="text-gray-700 hover:text-primary transition-colors font-medium"
-              >
-                {link.label}
-              </a>
+              link.href.includes('#') ? (
+                <a
+                  key={link.href}
+                  href={link.href}
+                  className="text-gray-700 hover:text-primary transition-colors font-medium"
+                >
+                  {link.label}
+                </a>
+              ) : (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className="text-gray-700 hover:text-primary transition-colors font-medium"
+                >
+                  {link.label}
+                </Link>
+              )
             ))}
             <a
-              href="#download"
+              href="/tdwpimport/#download"
               className="btn-primary flex items-center space-x-2"
             >
               <Download size={20} />
@@ -61,17 +70,28 @@ export default function Header() {
         {isMenuOpen && (
           <div className="md:hidden mt-4 pb-4 space-y-4">
             {navLinks.map((link) => (
-              <a
-                key={link.href}
-                href={link.href}
-                className="block text-gray-700 hover:text-primary transition-colors font-medium"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                {link.label}
-              </a>
+              link.href.includes('#') ? (
+                <a
+                  key={link.href}
+                  href={link.href}
+                  className="block text-gray-700 hover:text-primary transition-colors font-medium"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  {link.label}
+                </a>
+              ) : (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className="block text-gray-700 hover:text-primary transition-colors font-medium"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  {link.label}
+                </Link>
+              )
             ))}
             <a
-              href="#download"
+              href="/tdwpimport/#download"
               className="btn-primary flex items-center justify-center space-x-2 w-full"
               onClick={() => setIsMenuOpen(false)}
             >

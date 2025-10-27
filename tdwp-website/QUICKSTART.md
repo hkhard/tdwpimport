@@ -134,7 +134,7 @@ npx vercel --prod
 - `HowItWorks` - 3-step process
 - `Benefits` - 6 benefits with stats
 - `Testimonials` - User reviews
-- `Pricing` - Free plan + support options
+- `Pricing` - Free & open source download section
 - `FAQ` - 10 questions answered
 - `CTA` - Download buttons
 
