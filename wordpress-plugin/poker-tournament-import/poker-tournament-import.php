@@ -224,6 +224,9 @@ class Poker_Tournament_Import {
 
         // Run prefix migration (v2.9.15: WordPress.org compliance)
         $this->migrate_poker_to_tdwp_prefixes();
+
+        // **v3.0.0: Ensure Phase 1 tables exist**
+        $this->ensure_phase1_tables_exist();
     }
 
     /**
@@ -270,6 +273,60 @@ class Poker_Tournament_Import {
 
         update_option('tdwp_prefix_migration_v1', true);
         error_log("TDWP Migration: Complete - {$migrated_count} options migrated");
+    }
+
+    /**
+     * Ensure Phase 1 Tournament Manager tables exist
+     *
+     * Checks if tables exist and forces creation if missing.
+     * Uses transient to avoid checking on every page load.
+     *
+     * @since 3.0.0
+     */
+    private function ensure_phase1_tables_exist() {
+        // Check once per hour using transient
+        if (get_transient('tdwp_phase1_tables_checked')) {
+            return;
+        }
+
+        global $wpdb;
+
+        // Check if all Phase 1 tables exist
+        $tables_to_check = array(
+            $wpdb->prefix . 'tdwp_tournament_templates',
+            $wpdb->prefix . 'tdwp_blind_schedules',
+            $wpdb->prefix . 'tdwp_blind_levels',
+            $wpdb->prefix . 'tdwp_prize_structures',
+        );
+
+        $missing_tables = array();
+        foreach ($tables_to_check as $table) {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table existence check
+            if ($wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table)) !== $table) {
+                $missing_tables[] = $table;
+            }
+        }
+
+        if (!empty($missing_tables)) {
+            error_log('Phase 1 Tables: Missing tables detected - ' . implode(', ', $missing_tables));
+
+            // Force table creation by resetting db version option
+            delete_option('tdwp_db_version');
+
+            if (class_exists('TDWP_Database_Schema')) {
+                $result = TDWP_Database_Schema::create_tables();
+                if ($result) {
+                    error_log('Phase 1 Tables: Successfully created missing tables');
+                    TDWP_Database_Schema::insert_default_templates();
+                    error_log('Phase 1 Tables: Default templates inserted');
+                } else {
+                    error_log('Phase 1 Tables: ERROR - Failed to create tables');
+                }
+            }
+        }
+
+        // Set transient to check again in 1 hour
+        set_transient('tdwp_phase1_tables_checked', true, HOUR_IN_SECONDS);
     }
 
     /**
