@@ -325,6 +325,11 @@ class Poker_Tournament_Import {
             }
         }
 
+        // Run schema migration for existing installations (adds missing columns)
+        if (class_exists('TDWP_Database_Schema') && empty($missing_tables)) {
+            TDWP_Database_Schema::migrate_schema();
+        }
+
         // Set transient to check again in 1 hour
         set_transient('tdwp_phase1_tables_checked', true, HOUR_IN_SECONDS);
     }

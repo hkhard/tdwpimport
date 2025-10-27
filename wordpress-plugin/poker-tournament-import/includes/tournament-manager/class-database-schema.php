@@ -143,6 +143,12 @@ class TDWP_Database_Schema {
 			id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
 			name varchar(255) NOT NULL,
 			description text,
+			level_duration int DEFAULT 15,
+			break_frequency int DEFAULT 0,
+			break_duration int DEFAULT 10,
+			is_default_turbo tinyint(1) DEFAULT 0,
+			is_default_regular tinyint(1) DEFAULT 0,
+			is_default_deep tinyint(1) DEFAULT 0,
 			is_template tinyint(1) DEFAULT 0,
 			created_by bigint(20) UNSIGNED,
 			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -174,7 +180,7 @@ class TDWP_Database_Schema {
 		$sql = "CREATE TABLE {$table_name} (
 			id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
 			schedule_id bigint(20) UNSIGNED NOT NULL,
-			level_number int NOT NULL,
+			level_order int NOT NULL,
 			small_blind int NOT NULL,
 			big_blind int NOT NULL,
 			ante int DEFAULT 0,
@@ -183,8 +189,8 @@ class TDWP_Database_Schema {
 			break_duration_minutes int DEFAULT 0,
 			PRIMARY KEY  (id),
 			KEY schedule_id (schedule_id),
-			KEY level_number (level_number),
-			UNIQUE KEY schedule_level (schedule_id, level_number)
+			KEY level_order (level_order),
+			UNIQUE KEY schedule_level (schedule_id, level_order)
 		) {$charset_collate};";
 
 		dbDelta( $sql );
@@ -275,26 +281,30 @@ class TDWP_Database_Schema {
 		$wpdb->insert(
 			$schedules_table,
 			array(
-				'name'        => __( 'Turbo', 'poker-tournament-import' ),
-				'description' => __( 'Fast-paced structure with 10-minute levels', 'poker-tournament-import' ),
-				'is_template' => 1,
+				'name'              => __( 'Turbo', 'poker-tournament-import' ),
+				'description'       => __( 'Fast-paced structure with 10-minute levels', 'poker-tournament-import' ),
+				'level_duration'    => 10,
+				'break_frequency'   => 4,
+				'break_duration'    => 5,
+				'is_default_turbo'  => 1,
+				'is_template'       => 1,
 			),
-			array( '%s', '%s', '%d' )
+			array( '%s', '%s', '%d', '%d', '%d', '%d', '%d' )
 		);
 
 		$turbo_id = $wpdb->insert_id;
 
 		$turbo_levels = array(
-			array( 'level_number' => 1, 'small_blind' => 25, 'big_blind' => 50, 'ante' => 0, 'duration_minutes' => 10 ),
-			array( 'level_number' => 2, 'small_blind' => 50, 'big_blind' => 100, 'ante' => 0, 'duration_minutes' => 10 ),
-			array( 'level_number' => 3, 'small_blind' => 75, 'big_blind' => 150, 'ante' => 0, 'duration_minutes' => 10 ),
-			array( 'level_number' => 4, 'small_blind' => 100, 'big_blind' => 200, 'ante' => 25, 'duration_minutes' => 10 ),
-			array( 'level_number' => 5, 'small_blind' => 0, 'big_blind' => 0, 'ante' => 0, 'duration_minutes' => 5, 'is_break' => 1, 'break_duration_minutes' => 5 ),
-			array( 'level_number' => 6, 'small_blind' => 150, 'big_blind' => 300, 'ante' => 50, 'duration_minutes' => 10 ),
-			array( 'level_number' => 7, 'small_blind' => 200, 'big_blind' => 400, 'ante' => 50, 'duration_minutes' => 10 ),
-			array( 'level_number' => 8, 'small_blind' => 300, 'big_blind' => 600, 'ante' => 75, 'duration_minutes' => 10 ),
-			array( 'level_number' => 9, 'small_blind' => 400, 'big_blind' => 800, 'ante' => 100, 'duration_minutes' => 10 ),
-			array( 'level_number' => 10, 'small_blind' => 500, 'big_blind' => 1000, 'ante' => 100, 'duration_minutes' => 10 ),
+			array( 'level_order' => 1, 'small_blind' => 25, 'big_blind' => 50, 'ante' => 0, 'duration_minutes' => 10 ),
+			array( 'level_order' => 2, 'small_blind' => 50, 'big_blind' => 100, 'ante' => 0, 'duration_minutes' => 10 ),
+			array( 'level_order' => 3, 'small_blind' => 75, 'big_blind' => 150, 'ante' => 0, 'duration_minutes' => 10 ),
+			array( 'level_order' => 4, 'small_blind' => 100, 'big_blind' => 200, 'ante' => 25, 'duration_minutes' => 10 ),
+			array( 'level_order' => 5, 'small_blind' => 0, 'big_blind' => 0, 'ante' => 0, 'duration_minutes' => 5, 'is_break' => 1, 'break_duration_minutes' => 5 ),
+			array( 'level_order' => 6, 'small_blind' => 150, 'big_blind' => 300, 'ante' => 50, 'duration_minutes' => 10 ),
+			array( 'level_order' => 7, 'small_blind' => 200, 'big_blind' => 400, 'ante' => 50, 'duration_minutes' => 10 ),
+			array( 'level_order' => 8, 'small_blind' => 300, 'big_blind' => 600, 'ante' => 75, 'duration_minutes' => 10 ),
+			array( 'level_order' => 9, 'small_blind' => 400, 'big_blind' => 800, 'ante' => 100, 'duration_minutes' => 10 ),
+			array( 'level_order' => 10, 'small_blind' => 500, 'big_blind' => 1000, 'ante' => 100, 'duration_minutes' => 10 ),
 		);
 
 		foreach ( $turbo_levels as $level ) {
@@ -306,26 +316,30 @@ class TDWP_Database_Schema {
 		$wpdb->insert(
 			$schedules_table,
 			array(
-				'name'        => __( 'Standard', 'poker-tournament-import' ),
-				'description' => __( 'Balanced structure with 15-minute levels', 'poker-tournament-import' ),
-				'is_template' => 1,
+				'name'                => __( 'Standard', 'poker-tournament-import' ),
+				'description'         => __( 'Balanced structure with 15-minute levels', 'poker-tournament-import' ),
+				'level_duration'      => 15,
+				'break_frequency'     => 4,
+				'break_duration'      => 10,
+				'is_default_regular'  => 1,
+				'is_template'         => 1,
 			),
-			array( '%s', '%s', '%d' )
+			array( '%s', '%s', '%d', '%d', '%d', '%d', '%d' )
 		);
 
 		$standard_id = $wpdb->insert_id;
 
 		$standard_levels = array(
-			array( 'level_number' => 1, 'small_blind' => 25, 'big_blind' => 50, 'ante' => 0, 'duration_minutes' => 15 ),
-			array( 'level_number' => 2, 'small_blind' => 50, 'big_blind' => 100, 'ante' => 0, 'duration_minutes' => 15 ),
-			array( 'level_number' => 3, 'small_blind' => 75, 'big_blind' => 150, 'ante' => 0, 'duration_minutes' => 15 ),
-			array( 'level_number' => 4, 'small_blind' => 100, 'big_blind' => 200, 'ante' => 0, 'duration_minutes' => 15 ),
-			array( 'level_number' => 5, 'small_blind' => 0, 'big_blind' => 0, 'ante' => 0, 'duration_minutes' => 10, 'is_break' => 1, 'break_duration_minutes' => 10 ),
-			array( 'level_number' => 6, 'small_blind' => 150, 'big_blind' => 300, 'ante' => 25, 'duration_minutes' => 15 ),
-			array( 'level_number' => 7, 'small_blind' => 200, 'big_blind' => 400, 'ante' => 50, 'duration_minutes' => 15 ),
-			array( 'level_number' => 8, 'small_blind' => 300, 'big_blind' => 600, 'ante' => 75, 'duration_minutes' => 15 ),
-			array( 'level_number' => 9, 'small_blind' => 400, 'big_blind' => 800, 'ante' => 100, 'duration_minutes' => 15 ),
-			array( 'level_number' => 10, 'small_blind' => 500, 'big_blind' => 1000, 'ante' => 100, 'duration_minutes' => 15 ),
+			array( 'level_order' => 1, 'small_blind' => 25, 'big_blind' => 50, 'ante' => 0, 'duration_minutes' => 15 ),
+			array( 'level_order' => 2, 'small_blind' => 50, 'big_blind' => 100, 'ante' => 0, 'duration_minutes' => 15 ),
+			array( 'level_order' => 3, 'small_blind' => 75, 'big_blind' => 150, 'ante' => 0, 'duration_minutes' => 15 ),
+			array( 'level_order' => 4, 'small_blind' => 100, 'big_blind' => 200, 'ante' => 0, 'duration_minutes' => 15 ),
+			array( 'level_order' => 5, 'small_blind' => 0, 'big_blind' => 0, 'ante' => 0, 'duration_minutes' => 10, 'is_break' => 1, 'break_duration_minutes' => 10 ),
+			array( 'level_order' => 6, 'small_blind' => 150, 'big_blind' => 300, 'ante' => 25, 'duration_minutes' => 15 ),
+			array( 'level_order' => 7, 'small_blind' => 200, 'big_blind' => 400, 'ante' => 50, 'duration_minutes' => 15 ),
+			array( 'level_order' => 8, 'small_blind' => 300, 'big_blind' => 600, 'ante' => 75, 'duration_minutes' => 15 ),
+			array( 'level_order' => 9, 'small_blind' => 400, 'big_blind' => 800, 'ante' => 100, 'duration_minutes' => 15 ),
+			array( 'level_order' => 10, 'small_blind' => 500, 'big_blind' => 1000, 'ante' => 100, 'duration_minutes' => 15 ),
 		);
 
 		foreach ( $standard_levels as $level ) {
@@ -337,26 +351,30 @@ class TDWP_Database_Schema {
 		$wpdb->insert(
 			$schedules_table,
 			array(
-				'name'        => __( 'Deep Stack', 'poker-tournament-import' ),
-				'description' => __( 'Deep structure with 20-minute levels for longer play', 'poker-tournament-import' ),
-				'is_template' => 1,
+				'name'             => __( 'Deep Stack', 'poker-tournament-import' ),
+				'description'      => __( 'Deep structure with 20-minute levels for longer play', 'poker-tournament-import' ),
+				'level_duration'   => 20,
+				'break_frequency'  => 4,
+				'break_duration'   => 15,
+				'is_default_deep'  => 1,
+				'is_template'      => 1,
 			),
-			array( '%s', '%s', '%d' )
+			array( '%s', '%s', '%d', '%d', '%d', '%d', '%d' )
 		);
 
 		$deep_id = $wpdb->insert_id;
 
 		$deep_levels = array(
-			array( 'level_number' => 1, 'small_blind' => 25, 'big_blind' => 50, 'ante' => 0, 'duration_minutes' => 20 ),
-			array( 'level_number' => 2, 'small_blind' => 50, 'big_blind' => 100, 'ante' => 0, 'duration_minutes' => 20 ),
-			array( 'level_number' => 3, 'small_blind' => 75, 'big_blind' => 150, 'ante' => 0, 'duration_minutes' => 20 ),
-			array( 'level_number' => 4, 'small_blind' => 100, 'big_blind' => 200, 'ante' => 0, 'duration_minutes' => 20 ),
-			array( 'level_number' => 5, 'small_blind' => 0, 'big_blind' => 0, 'ante' => 0, 'duration_minutes' => 15, 'is_break' => 1, 'break_duration_minutes' => 15 ),
-			array( 'level_number' => 6, 'small_blind' => 150, 'big_blind' => 300, 'ante' => 0, 'duration_minutes' => 20 ),
-			array( 'level_number' => 7, 'small_blind' => 200, 'big_blind' => 400, 'ante' => 25, 'duration_minutes' => 20 ),
-			array( 'level_number' => 8, 'small_blind' => 300, 'big_blind' => 600, 'ante' => 50, 'duration_minutes' => 20 ),
-			array( 'level_number' => 9, 'small_blind' => 400, 'big_blind' => 800, 'ante' => 75, 'duration_minutes' => 20 ),
-			array( 'level_number' => 10, 'small_blind' => 500, 'big_blind' => 1000, 'ante' => 100, 'duration_minutes' => 20 ),
+			array( 'level_order' => 1, 'small_blind' => 25, 'big_blind' => 50, 'ante' => 0, 'duration_minutes' => 20 ),
+			array( 'level_order' => 2, 'small_blind' => 50, 'big_blind' => 100, 'ante' => 0, 'duration_minutes' => 20 ),
+			array( 'level_order' => 3, 'small_blind' => 75, 'big_blind' => 150, 'ante' => 0, 'duration_minutes' => 20 ),
+			array( 'level_order' => 4, 'small_blind' => 100, 'big_blind' => 200, 'ante' => 0, 'duration_minutes' => 20 ),
+			array( 'level_order' => 5, 'small_blind' => 0, 'big_blind' => 0, 'ante' => 0, 'duration_minutes' => 15, 'is_break' => 1, 'break_duration_minutes' => 15 ),
+			array( 'level_order' => 6, 'small_blind' => 150, 'big_blind' => 300, 'ante' => 0, 'duration_minutes' => 20 ),
+			array( 'level_order' => 7, 'small_blind' => 200, 'big_blind' => 400, 'ante' => 25, 'duration_minutes' => 20 ),
+			array( 'level_order' => 8, 'small_blind' => 300, 'big_blind' => 600, 'ante' => 50, 'duration_minutes' => 20 ),
+			array( 'level_order' => 9, 'small_blind' => 400, 'big_blind' => 800, 'ante' => 75, 'duration_minutes' => 20 ),
+			array( 'level_order' => 10, 'small_blind' => 500, 'big_blind' => 1000, 'ante' => 100, 'duration_minutes' => 20 ),
 		);
 
 		foreach ( $deep_levels as $level ) {
@@ -430,6 +448,81 @@ class TDWP_Database_Schema {
 			),
 			array( '%s', '%s', '%d', '%d', '%d', '%s' )
 		);
+	}
+
+	/**
+	 * Migrate existing Phase 1 tables to match schema updates
+	 *
+	 * Adds missing columns to existing installations and renames columns.
+	 * Safe to run multiple times - checks if columns exist before altering.
+	 *
+	 * @since 3.0.0
+	 * @return bool True on success
+	 */
+	public static function migrate_schema() {
+		global $wpdb;
+
+		$schedules_table = $wpdb->prefix . 'tdwp_blind_schedules';
+		$levels_table    = $wpdb->prefix . 'tdwp_blind_levels';
+
+		// Check if migration already done
+		$migration_done = get_option( 'tdwp_phase1_schema_migration_v1', false );
+		if ( $migration_done ) {
+			return true;
+		}
+
+		// Migrate blind_schedules table - add missing columns
+		$columns_to_add = array(
+			'level_duration'     => 'ADD COLUMN level_duration int DEFAULT 15 AFTER description',
+			'break_frequency'    => 'ADD COLUMN break_frequency int DEFAULT 0 AFTER level_duration',
+			'break_duration'     => 'ADD COLUMN break_duration int DEFAULT 10 AFTER break_frequency',
+			'is_default_turbo'   => 'ADD COLUMN is_default_turbo tinyint(1) DEFAULT 0 AFTER break_duration',
+			'is_default_regular' => 'ADD COLUMN is_default_regular tinyint(1) DEFAULT 0 AFTER is_default_turbo',
+			'is_default_deep'    => 'ADD COLUMN is_default_deep tinyint(1) DEFAULT 0 AFTER is_default_regular',
+		);
+
+		foreach ( $columns_to_add as $column => $sql ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Column existence check
+			$column_exists = $wpdb->get_results( $wpdb->prepare( 'SHOW COLUMNS FROM `' . $schedules_table . '` LIKE %s', $column ) );
+
+			if ( empty( $column_exists ) ) {
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Schema migration
+				$wpdb->query( "ALTER TABLE `{$schedules_table}` {$sql}" );
+				error_log( "Phase 1 Migration: Added column {$column} to {$schedules_table}" );
+			}
+		}
+
+		// Migrate blind_levels table - rename level_number to level_order
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Column existence check
+		$has_level_number = $wpdb->get_results( "SHOW COLUMNS FROM `{$levels_table}` LIKE 'level_number'" );
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Column existence check
+		$has_level_order = $wpdb->get_results( "SHOW COLUMNS FROM `{$levels_table}` LIKE 'level_order'" );
+
+		if ( ! empty( $has_level_number ) && empty( $has_level_order ) ) {
+			// Rename column
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Schema migration
+			$wpdb->query( "ALTER TABLE `{$levels_table}` CHANGE `level_number` `level_order` int NOT NULL" );
+
+			// Update index names
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Schema migration
+			$wpdb->query( "ALTER TABLE `{$levels_table}` DROP INDEX level_number" );
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Schema migration
+			$wpdb->query( "ALTER TABLE `{$levels_table}` ADD INDEX level_order (level_order)" );
+
+			// Update unique key
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Schema migration
+			$wpdb->query( "ALTER TABLE `{$levels_table}` DROP INDEX schedule_level" );
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Schema migration
+			$wpdb->query( "ALTER TABLE `{$levels_table}` ADD UNIQUE KEY schedule_level (schedule_id, level_order)" );
+
+			error_log( "Phase 1 Migration: Renamed level_number to level_order in {$levels_table}" );
+		}
+
+		// Mark migration as complete
+		update_option( 'tdwp_phase1_schema_migration_v1', true );
+		error_log( 'Phase 1 Migration: Schema migration completed successfully' );
+
+		return true;
 	}
 
 	/**
