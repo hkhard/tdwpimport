@@ -186,6 +186,12 @@ class Poker_Tournament_Import {
             // Plugin was updated, force refresh statistics
             error_log("Poker Import: Plugin updated from {$last_version} to " . POKER_TOURNAMENT_IMPORT_VERSION . ", refreshing statistics");
 
+            // Run database migrations if schema version changed
+            if (class_exists('TDWP_Database_Schema')) {
+                error_log("Poker Import: Checking database schema for version " . POKER_TOURNAMENT_IMPORT_VERSION);
+                TDWP_Database_Schema::maybe_create_tables();
+            }
+
             if (class_exists('Poker_Statistics_Engine')) {
                 $stats_engine = Poker_Statistics_Engine::get_instance();
                 $result = $stats_engine->calculate_all_statistics();
