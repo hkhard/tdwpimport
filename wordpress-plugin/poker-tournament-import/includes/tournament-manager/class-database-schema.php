@@ -2,10 +2,12 @@
 /**
  * Tournament Manager Database Schema
  *
- * Handles database table creation and management for Phase 1 features:
- * - Tournament templates
- * - Blind schedules and levels
- * - Prize structures
+ * Handles database table creation and management for Phase 1 & 2 features:
+ * - Tournament templates (Phase 1)
+ * - Blind schedules and levels (Phase 1)
+ * - Prize structures (Phase 1)
+ * - Live tournament state (Phase 2)
+ * - Tournament events (Phase 2)
  *
  * @package Poker_Tournament_Import
  * @subpackage Tournament_Manager
@@ -29,7 +31,7 @@ class TDWP_Database_Schema {
 	 *
 	 * @var string
 	 */
-	const DB_VERSION = '3.0.0';
+	const DB_VERSION = '3.1.0';
 
 	/**
 	 * Option name for storing database version
@@ -72,6 +74,13 @@ class TDWP_Database_Schema {
 
 		// Create Prize Structures table
 		$tables_created[] = self::create_prize_structures_table( $wpdb, $charset_collate );
+
+		// Phase 2 Tables
+		// Create Tournament Live State table
+		$tables_created[] = self::create_tournament_live_state_table( $wpdb, $charset_collate );
+
+		// Create Tournament Events table
+		$tables_created[] = self::create_tournament_events_table( $wpdb, $charset_collate );
 
 		// Check if all tables created successfully
 		$success = ! in_array( false, $tables_created, true );
@@ -228,6 +237,84 @@ class TDWP_Database_Schema {
 			KEY min_players (min_players),
 			KEY max_players (max_players),
 			KEY created_by (created_by)
+		) {$charset_collate};";
+
+		dbDelta( $sql );
+
+		return $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name;
+	}
+
+	/**
+	 * Create tournament live state table (Phase 2)
+	 *
+	 * Stores real-time tournament state for active tournaments
+	 *
+	 * @since 3.1.0
+	 * @param wpdb   $wpdb             WordPress database object.
+	 * @param string $charset_collate  Database charset collation.
+	 * @return bool True on success
+	 */
+	private static function create_tournament_live_state_table( $wpdb, $charset_collate ) {
+		$table_name = $wpdb->prefix . 'tdwp_tournament_live_state';
+
+		$sql = "CREATE TABLE {$table_name} (
+			id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+			tournament_id bigint(20) UNSIGNED NOT NULL,
+			template_id bigint(20) UNSIGNED,
+			status varchar(20) NOT NULL DEFAULT 'pending',
+			current_level int DEFAULT 1,
+			time_remaining int DEFAULT 0,
+			started_at datetime,
+			paused_at datetime,
+			break_until datetime,
+			completed_at datetime,
+			total_players int DEFAULT 0,
+			remaining_players int DEFAULT 0,
+			total_rebuys int DEFAULT 0,
+			total_addons int DEFAULT 0,
+			prize_pool decimal(10,2) DEFAULT 0,
+			next_payout_position int,
+			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+			PRIMARY KEY  (id),
+			UNIQUE KEY tournament_id (tournament_id),
+			KEY template_id (template_id),
+			KEY status (status),
+			KEY started_at (started_at)
+		) {$charset_collate};";
+
+		dbDelta( $sql );
+
+		return $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name;
+	}
+
+	/**
+	 * Create tournament events table (Phase 2)
+	 *
+	 * Stores event log for tournament actions and audit trail
+	 *
+	 * @since 3.1.0
+	 * @param wpdb   $wpdb             WordPress database object.
+	 * @param string $charset_collate  Database charset collation.
+	 * @return bool True on success
+	 */
+	private static function create_tournament_events_table( $wpdb, $charset_collate ) {
+		$table_name = $wpdb->prefix . 'tdwp_tournament_events';
+
+		$sql = "CREATE TABLE {$table_name} (
+			id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+			tournament_id bigint(20) UNSIGNED NOT NULL,
+			event_type varchar(50) NOT NULL,
+			user_id bigint(20) UNSIGNED,
+			event_data longtext,
+			is_automated tinyint(1) DEFAULT 0,
+			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY  (id),
+			KEY tournament_id (tournament_id),
+			KEY event_type (event_type),
+			KEY user_id (user_id),
+			KEY created_at (created_at),
+			KEY is_automated (is_automated)
 		) {$charset_collate};";
 
 		dbDelta( $sql );
@@ -538,6 +625,10 @@ class TDWP_Database_Schema {
 		global $wpdb;
 
 		$tables = array(
+			// Phase 2 tables (drop first due to foreign keys)
+			$wpdb->prefix . 'tdwp_tournament_events',
+			$wpdb->prefix . 'tdwp_tournament_live_state',
+			// Phase 1 tables
 			$wpdb->prefix . 'tdwp_blind_levels',
 			$wpdb->prefix . 'tdwp_blind_schedules',
 			$wpdb->prefix . 'tdwp_prize_structures',
