@@ -134,9 +134,10 @@ class TDWP_Tournament_Clock {
 	 * @since 3.1.0
 	 *
 	 * @param int $tournament_id Tournament ID.
+	 * @param int $time_remaining Optional. Current time remaining in seconds from client.
 	 * @return bool|WP_Error True on success, WP_Error on failure.
 	 */
-	public function pause( $tournament_id ) {
+	public function pause( $tournament_id, $time_remaining = null ) {
 		$tournament_id = absint( $tournament_id );
 
 		$state = $this->live_manager->get_by_tournament_id( $tournament_id );
@@ -154,13 +155,21 @@ class TDWP_Tournament_Clock {
 			);
 		}
 
+		// Prepare update data
+		$update_data = array(
+			'status'    => 'paused',
+			'paused_at' => current_time( 'mysql' ),
+		);
+
+		// Use client time if provided, otherwise keep current database time
+		if ( null !== $time_remaining ) {
+			$update_data['time_remaining'] = absint( $time_remaining );
+		}
+
 		// Update status to paused.
 		$result = $this->live_manager->update(
 			$state->id,
-			array(
-				'status'    => 'paused',
-				'paused_at' => current_time( 'mysql' ),
-			)
+			$update_data
 		);
 
 		if ( is_wp_error( $result ) ) {

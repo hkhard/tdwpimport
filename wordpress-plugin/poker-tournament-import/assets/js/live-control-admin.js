@@ -145,11 +145,18 @@
 		handlePause: function (e) {
 			e.preventDefault();
 
+			// Capture current time BEFORE confirm dialog
+			var $timeValue = $('.tdwp-time-value');
+			var currentTime = parseInt($timeValue.attr('data-seconds'), 10) || 0;
+
 			if (!confirm(tdwpLiveControl.i18n.confirmPause)) {
 				return;
 			}
 
-			this.sendControlAction('tdwp_pause_tournament', $(e.target), null, 'paused');
+			// Send captured time to server
+			this.sendControlAction('tdwp_pause_tournament', $(e.target), null, 'paused', {
+				time_remaining: currentTime
+			});
 		},
 
 		/**
@@ -205,19 +212,27 @@
 		 *
 		 * @since 3.1.0
 		 */
-		sendControlAction: function (action, $button, callback, newStatus) {
+		sendControlAction: function (action, $button, callback, newStatus, extraData) {
 			var self = this;
 
 			$button.prop('disabled', true).addClass('is-busy');
 
+			// Build data object
+			var data = {
+				action: action,
+				nonce: tdwpLiveControl.nonce,
+				tournament_id: self.tournamentId
+			};
+
+			// Merge extra data if provided
+			if (extraData) {
+				$.extend(data, extraData);
+			}
+
 			$.ajax({
 				url: tdwpLiveControl.ajaxurl,
 				type: 'POST',
-				data: {
-					action: action,
-					nonce: tdwpLiveControl.nonce,
-					tournament_id: self.tournamentId
-				},
+				data: data,
 				success: function (response) {
 					$button.prop('disabled', false).removeClass('is-busy');
 

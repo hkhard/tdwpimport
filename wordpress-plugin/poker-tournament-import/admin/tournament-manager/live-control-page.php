@@ -365,9 +365,10 @@ class TDWP_Live_Control_Page {
 			wp_send_json_error( array( 'message' => __( 'Permission denied', 'poker-tournament-import' ) ) );
 		}
 
-		$tournament_id = isset( $_POST['tournament_id'] ) ? absint( $_POST['tournament_id'] ) : 0;
+		$tournament_id  = isset( $_POST['tournament_id'] ) ? absint( $_POST['tournament_id'] ) : 0;
+		$time_remaining = isset( $_POST['time_remaining'] ) ? absint( $_POST['time_remaining'] ) : null;
 
-		$result = $this->clock_manager->pause( $tournament_id );
+		$result = $this->clock_manager->pause( $tournament_id, $time_remaining );
 
 		if ( is_wp_error( $result ) ) {
 			wp_send_json_error( array( 'message' => $result->get_error_message() ) );
