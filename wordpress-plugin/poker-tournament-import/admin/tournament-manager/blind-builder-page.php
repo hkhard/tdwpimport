@@ -358,13 +358,14 @@ class TDWP_Blind_Builder_Page {
 		$order = 1;
 		foreach ( $levels as $level ) {
 			$level_data = array(
-				'schedule_id'  => $schedule_id,
-				'level_order'  => $order,
-				'small_blind'  => isset( $level['small_blind'] ) ? absint( $level['small_blind'] ) : 0,
-				'big_blind'    => isset( $level['big_blind'] ) ? absint( $level['big_blind'] ) : 0,
-				'ante'         => isset( $level['ante'] ) ? absint( $level['ante'] ) : 0,
-				'is_break'     => isset( $level['is_break'] ) ? absint( $level['is_break'] ) : 0,
-				'break_length' => isset( $level['break_length'] ) ? absint( $level['break_length'] ) : 0,
+				'schedule_id'            => $schedule_id,
+				'level_order'            => $order,
+				'small_blind'            => isset( $level['small_blind'] ) ? absint( $level['small_blind'] ) : 0,
+				'big_blind'              => isset( $level['big_blind'] ) ? absint( $level['big_blind'] ) : 0,
+				'ante'                   => isset( $level['ante'] ) ? absint( $level['ante'] ) : 0,
+				'duration_minutes'       => isset( $level['duration_minutes'] ) ? absint( $level['duration_minutes'] ) : 15,
+				'is_break'               => isset( $level['is_break'] ) ? absint( $level['is_break'] ) : 0,
+				'break_duration_minutes' => isset( $level['break_duration_minutes'] ) ? absint( $level['break_duration_minutes'] ) : 0,
 			);
 
 			$result = $this->level_manager->create( $level_data );

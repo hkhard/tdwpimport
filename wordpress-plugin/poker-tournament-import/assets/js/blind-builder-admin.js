@@ -174,11 +174,12 @@
 
 				var level = {
 					level_order: $row.find('.level-number').text(),
-					is_break: type === 'break' ? 1 : 0
+					is_break: type === 'break' ? 1 : 0,
+					duration_minutes: 15 // Default duration
 				};
 
 				if (type === 'break') {
-					level.break_length = parseInt($row.find('.break-length').val(), 10) || 15;
+					level.break_duration_minutes = parseInt($row.find('.break-length').val(), 10) || 15;
 					level.small_blind = 0;
 					level.big_blind = 0;
 					level.ante = 0;
@@ -186,7 +187,7 @@
 					level.small_blind = parseInt($row.find('.small-blind').val(), 10) || 0;
 					level.big_blind = parseInt($row.find('.big-blind').val(), 10) || 0;
 					level.ante = parseInt($row.find('.ante').val(), 10) || 0;
-					level.break_length = 0;
+					level.break_duration_minutes = 0;
 				}
 
 				levels.push(level);
@@ -287,17 +288,17 @@
 					}
 				} else {
 					// Validate break levels
-					if (level.break_length <= 0) {
+					if (level.break_duration_minutes <= 0) {
 						return {
 							valid: false,
-							message: 'Level ' + (i + 1) + ': Break length must be greater than zero.'
+							message: 'Level ' + (i + 1) + ': Break duration must be greater than zero.'
 						};
 					}
 
-					if (level.break_length > 60) {
+					if (level.break_duration_minutes > 60) {
 						return {
 							valid: false,
-							message: 'Level ' + (i + 1) + ': Break length cannot exceed 60 minutes.'
+							message: 'Level ' + (i + 1) + ': Break duration cannot exceed 60 minutes.'
 						};
 					}
 				}
@@ -328,7 +329,7 @@
 				if (level.is_break === 1) {
 					html += '<div class="preview-level preview-break">';
 					html += '<div class="preview-level-number">' + (i + 1) + '</div>';
-					html += '<div class="preview-level-blinds">BREAK - ' + level.break_length + ' minutes</div>';
+					html += '<div class="preview-level-blinds">BREAK - ' + level.break_duration_minutes + ' minutes</div>';
 					html += '<div class="preview-level-ante">&nbsp;</div>';
 					html += '</div>';
 				} else {

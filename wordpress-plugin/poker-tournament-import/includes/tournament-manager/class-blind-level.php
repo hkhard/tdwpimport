@@ -89,15 +89,16 @@ class TDWP_Blind_Level {
 		$result = $this->wpdb->insert(
 			$this->table_name,
 			array(
-				'schedule_id'  => $sanitized_data['schedule_id'],
-				'level_order'  => $sanitized_data['level_order'],
-				'small_blind'  => $sanitized_data['small_blind'],
-				'big_blind'    => $sanitized_data['big_blind'],
-				'ante'         => $sanitized_data['ante'],
-				'is_break'     => $sanitized_data['is_break'],
-				'break_length' => $sanitized_data['break_length'],
+				'schedule_id'            => $sanitized_data['schedule_id'],
+				'level_order'            => $sanitized_data['level_order'],
+				'small_blind'            => $sanitized_data['small_blind'],
+				'big_blind'              => $sanitized_data['big_blind'],
+				'ante'                   => $sanitized_data['ante'],
+				'duration_minutes'       => $sanitized_data['duration_minutes'],
+				'is_break'               => $sanitized_data['is_break'],
+				'break_duration_minutes' => $sanitized_data['break_duration_minutes'],
 			),
-			array( '%d', '%d', '%d', '%d', '%d', '%d', '%d' )
+			array( '%d', '%d', '%d', '%d', '%d', '%d', '%d', '%d' )
 		);
 
 		if ( false === $result ) {
@@ -184,15 +185,16 @@ class TDWP_Blind_Level {
 		$result = $this->wpdb->update(
 			$this->table_name,
 			array(
-				'level_order'  => $sanitized_data['level_order'],
-				'small_blind'  => $sanitized_data['small_blind'],
-				'big_blind'    => $sanitized_data['big_blind'],
-				'ante'         => $sanitized_data['ante'],
-				'is_break'     => $sanitized_data['is_break'],
-				'break_length' => $sanitized_data['break_length'],
+				'level_order'            => $sanitized_data['level_order'],
+				'small_blind'            => $sanitized_data['small_blind'],
+				'big_blind'              => $sanitized_data['big_blind'],
+				'ante'                   => $sanitized_data['ante'],
+				'duration_minutes'       => $sanitized_data['duration_minutes'],
+				'is_break'               => $sanitized_data['is_break'],
+				'break_duration_minutes' => $sanitized_data['break_duration_minutes'],
 			),
 			array( 'id' => $level_id ),
-			array( '%d', '%d', '%d', '%d', '%d', '%d' ),
+			array( '%d', '%d', '%d', '%d', '%d', '%d', '%d' ),
 			array( '%d' )
 		);
 
@@ -413,13 +415,14 @@ class TDWP_Blind_Level {
 	 */
 	private function sanitize_level_data( $data ) {
 		return array(
-			'schedule_id'  => isset( $data['schedule_id'] ) ? absint( $data['schedule_id'] ) : 0,
-			'level_order'  => isset( $data['level_order'] ) ? absint( $data['level_order'] ) : 1,
-			'small_blind'  => isset( $data['small_blind'] ) ? absint( $data['small_blind'] ) : 0,
-			'big_blind'    => isset( $data['big_blind'] ) ? absint( $data['big_blind'] ) : 0,
-			'ante'         => isset( $data['ante'] ) ? absint( $data['ante'] ) : 0,
-			'is_break'     => isset( $data['is_break'] ) ? absint( $data['is_break'] ) : 0,
-			'break_length' => isset( $data['break_length'] ) ? absint( $data['break_length'] ) : 0,
+			'schedule_id'            => isset( $data['schedule_id'] ) ? absint( $data['schedule_id'] ) : 0,
+			'level_order'            => isset( $data['level_order'] ) ? absint( $data['level_order'] ) : 1,
+			'small_blind'            => isset( $data['small_blind'] ) ? absint( $data['small_blind'] ) : 0,
+			'big_blind'              => isset( $data['big_blind'] ) ? absint( $data['big_blind'] ) : 0,
+			'ante'                   => isset( $data['ante'] ) ? absint( $data['ante'] ) : 0,
+			'duration_minutes'       => isset( $data['duration_minutes'] ) ? absint( $data['duration_minutes'] ) : 15,
+			'is_break'               => isset( $data['is_break'] ) ? absint( $data['is_break'] ) : 0,
+			'break_duration_minutes' => isset( $data['break_duration_minutes'] ) ? absint( $data['break_duration_minutes'] ) : 0,
 		);
 	}
 
@@ -462,13 +465,13 @@ class TDWP_Blind_Level {
 				$errors[] = __( 'Ante cannot be negative.', 'poker-tournament-import' );
 			}
 		} else {
-			// For breaks, validate break length.
-			if ( $data['break_length'] <= 0 ) {
-				$errors[] = __( 'Break length is required for break levels.', 'poker-tournament-import' );
+			// For breaks, validate break duration.
+			if ( $data['break_duration_minutes'] <= 0 ) {
+				$errors[] = __( 'Break duration is required for break levels.', 'poker-tournament-import' );
 			}
 
-			if ( $data['break_length'] > 60 ) {
-				$errors[] = __( 'Break length cannot exceed 60 minutes.', 'poker-tournament-import' );
+			if ( $data['break_duration_minutes'] > 60 ) {
+				$errors[] = __( 'Break duration cannot exceed 60 minutes.', 'poker-tournament-import' );
 			}
 		}
 
