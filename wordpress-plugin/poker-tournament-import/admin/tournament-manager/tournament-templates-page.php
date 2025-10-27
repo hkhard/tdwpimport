@@ -635,7 +635,7 @@ class TDWP_Tournament_Templates_Page {
 									<?php foreach ( $blind_schedules as $schedule ) : ?>
 										<option
 											value="<?php echo absint( $schedule->id ); ?>"
-											<?php selected( $is_edit && $template->blind_schedule_id === absint( $schedule->id ) ); ?>
+											<?php selected( $is_edit && absint( $template->blind_schedule_id ) === absint( $schedule->id ) ); ?>
 										>
 											<?php echo esc_html( $schedule->name ); ?>
 										</option>
@@ -660,7 +660,7 @@ class TDWP_Tournament_Templates_Page {
 									<?php foreach ( $prize_structures as $structure ) : ?>
 										<option
 											value="<?php echo absint( $structure->id ); ?>"
-											<?php selected( $is_edit && $template->prize_structure_id === absint( $structure->id ) ); ?>
+											<?php selected( $is_edit && absint( $template->prize_structure_id ) === absint( $structure->id ) ); ?>
 										>
 											<?php echo esc_html( $structure->name ); ?>
 										</option>
