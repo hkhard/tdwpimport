@@ -75,6 +75,7 @@ class Poker_Tournament_Import {
         $this->init_taxonomies();
         $this->init_formula_validator();
         $this->init_shortcodes();
+        $this->init_tournament_clock_shortcode();
         $this->init_statistics_engine();
 
         // Check for plugin update and refresh statistics if needed
@@ -455,6 +456,13 @@ class Poker_Tournament_Import {
      */
     private function init_statistics_engine() {
         $this->statistics_engine = Poker_Statistics_Engine::get_instance();
+    }
+
+    /**
+     * Initialize tournament clock shortcode
+     */
+    private function init_tournament_clock_shortcode() {
+        new TDWP_Tournament_Clock_Shortcode();
     }
 
     /**

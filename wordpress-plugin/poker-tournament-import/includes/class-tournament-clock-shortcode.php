@@ -328,6 +328,3 @@ class TDWP_Tournament_Clock_Shortcode {
 		return $symbol . number_format_i18n( $amount, 2 );
 	}
 }
-
-// Initialize
-new TDWP_Tournament_Clock_Shortcode();
