@@ -486,11 +486,20 @@ class TDWP_Live_Control_Page {
 
 		$tournament_id = absint( $data['tdwp_tournament_id'] );
 
-		// Tick the clock
-		$this->clock_manager->tick( $tournament_id, 15 );
-
-		// Get updated state
+		// Get current state first
 		$state = $this->live_manager->get_by_tournament_id( $tournament_id );
+
+		if ( $state ) {
+			// Calculate actual elapsed time since last update
+			$elapsed = time() - strtotime( $state->updated_at );
+			$elapsed = min( max( 0, $elapsed ), 30 ); // Cap between 0-30 seconds
+
+			// Tick by actual elapsed time
+			$this->clock_manager->tick( $tournament_id, $elapsed );
+
+			// Refresh state after tick
+			$state = $this->live_manager->get_by_tournament_id( $tournament_id );
+		}
 
 		if ( $state ) {
 			$response['tdwp_live_state'] = array(
