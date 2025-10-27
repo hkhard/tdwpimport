@@ -38,6 +38,7 @@
 
 			if (this.tournamentId) {
 				this.initHeartbeat();
+			this.startLocalCountdown();
 			}
 		},
 
@@ -288,6 +289,30 @@
 				$buttons.find('.tdwp-resume-btn').show();
 			}
 		},
+
+	/**
+	 * Start local countdown timer
+	 *
+	 * Updates display every second between Heartbeat syncs
+	 *
+	 * @since 3.1.0
+	 */
+	startLocalCountdown: function () {
+		var self = this;
+
+		setInterval(function () {
+			var $timeValue = $('.tdwp-time-value');
+			var currentSeconds = parseInt($timeValue.attr('data-seconds'), 10);
+
+			// Only countdown if running status
+			var $status = $('.tdwp-clock-status');
+			if ($status.hasClass('status-running') && currentSeconds > 0) {
+				currentSeconds--;
+				$timeValue.attr('data-seconds', currentSeconds);
+				$timeValue.text(self.formatTime(currentSeconds));
+			}
+		}, 1000); // Every 1 second
+	},
 
 		/**
 		 * Update event log
