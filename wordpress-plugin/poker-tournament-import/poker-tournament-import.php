@@ -107,6 +107,7 @@ class Poker_Tournament_Import {
             // **PHASE 1: Tournament Manager admin pages**
             require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/tournament-manager/tournament-templates-page.php';
             require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/tournament-manager/blind-builder-page.php';
+            require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/tournament-manager/prize-calculator-page.php';
         }
 
         // Initialize bulk import (OUTSIDE is_admin() for REST API access)
@@ -333,6 +334,8 @@ class Poker_Tournament_Import {
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-tournament-template.php';
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-blind-schedule.php';
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-blind-level.php';
+        require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-prize-structure.php';
+        require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-prize-calculator.php';
     }
 
     /**
