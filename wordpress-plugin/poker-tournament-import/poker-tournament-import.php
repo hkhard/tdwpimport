@@ -103,6 +103,9 @@ class Poker_Tournament_Import {
             // Initialize data mart cleaner
             require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/class-data-mart-cleaner.php';
             new Poker_Data_Mart_Cleaner();
+
+            // **PHASE 1: Tournament Manager admin pages**
+            require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/tournament-manager/tournament-templates-page.php';
         }
 
         // Initialize bulk import (OUTSIDE is_admin() for REST API access)
@@ -326,6 +329,7 @@ class Poker_Tournament_Import {
 
         // **PHASE 1: Tournament Manager**
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-database-schema.php';
+        require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-tournament-template.php';
     }
 
     /**
