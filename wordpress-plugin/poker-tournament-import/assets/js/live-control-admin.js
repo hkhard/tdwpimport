@@ -149,7 +149,7 @@
 				return;
 			}
 
-			this.sendControlAction('tdwp_pause_tournament', $(e.target));
+			this.sendControlAction('tdwp_pause_tournament', $(e.target), null, 'paused');
 		},
 
 		/**
@@ -164,7 +164,7 @@
 				return;
 			}
 
-			this.sendControlAction('tdwp_resume_tournament', $(e.target));
+			this.sendControlAction('tdwp_resume_tournament', $(e.target), null, 'running');
 		},
 
 		/**
@@ -205,7 +205,7 @@
 		 *
 		 * @since 3.1.0
 		 */
-		sendControlAction: function (action, $button, callback) {
+		sendControlAction: function (action, $button, callback, newStatus) {
 			var self = this;
 
 			$button.prop('disabled', true).addClass('is-busy');
@@ -222,10 +222,15 @@
 					$button.prop('disabled', false).removeClass('is-busy');
 
 					if (response.success) {
+						// Update buttons immediately if we know the new status
+						if (newStatus) {
+							self.updateButtons(newStatus);
+						}
+
 						if (callback) {
 							callback();
 						}
-						// Trigger immediate heartbeat update
+						// Trigger immediate heartbeat update for full state sync
 						wp.heartbeat.connectNow();
 					} else {
 						alert(response.data.message || tdwpLiveControl.i18n.error);
