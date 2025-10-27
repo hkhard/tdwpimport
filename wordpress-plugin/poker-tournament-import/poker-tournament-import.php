@@ -189,7 +189,7 @@ class Poker_Tournament_Import {
             // Run database migrations if schema version changed
             if (class_exists('TDWP_Database_Schema')) {
                 error_log("Poker Import: Checking database schema for version " . POKER_TOURNAMENT_IMPORT_VERSION);
-                TDWP_Database_Schema::maybe_create_tables();
+                TDWP_Database_Schema::create_tables();
             }
 
             if (class_exists('Poker_Statistics_Engine')) {
