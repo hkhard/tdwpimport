@@ -49,6 +49,10 @@ class TDWP_Tournament_Clock_Shortcode {
 		add_action( 'wp_ajax_tdwp_get_clock_state', array( $this, 'ajax_get_clock_state' ) );
 		add_action( 'wp_ajax_nopriv_tdwp_get_clock_state', array( $this, 'ajax_get_clock_state' ) );
 
+		// Lightweight status check endpoint
+		add_action( 'wp_ajax_tdwp_check_clock_status', array( $this, 'ajax_check_status' ) );
+		add_action( 'wp_ajax_nopriv_tdwp_check_clock_status', array( $this, 'ajax_check_status' ) );
+
 		// Heartbeat integration for public
 		add_filter( 'heartbeat_received', array( $this, 'heartbeat_received' ), 10, 2 );
 		add_filter( 'heartbeat_nopriv_received', array( $this, 'heartbeat_received' ), 10, 2 );
@@ -258,6 +262,42 @@ class TDWP_Tournament_Clock_Shortcode {
 				'total_rebuys'      => $state->total_rebuys,
 				'total_addons'      => $state->total_addons,
 				'prize_pool'        => $state->prize_pool,
+			)
+		);
+	}
+
+	/**
+	 * AJAX: Lightweight status check
+	 *
+	 * Returns only status for fast polling
+	 *
+	 * @since 3.1.0
+	 */
+	public function ajax_check_status() {
+		check_ajax_referer( 'tdwp_clock_frontend', 'nonce' );
+
+		$tournament_id = isset( $_POST['tournament_id'] ) ? absint( $_POST['tournament_id'] ) : 0;
+
+		if ( 0 === $tournament_id ) {
+			// Get first active tournament
+			$active = $this->live_manager->get_active( array( 'limit' => 1 ) );
+			if ( empty( $active ) ) {
+				wp_send_json_success( array( 'status' => 'none' ) );
+				return;
+			}
+			$state = $active[0];
+		} else {
+			$state = $this->live_manager->get_by_tournament_id( $tournament_id );
+			if ( ! $state ) {
+				wp_send_json_success( array( 'status' => 'none' ) );
+				return;
+			}
+		}
+
+		// Return only status - minimal payload
+		wp_send_json_success(
+			array(
+				'status' => $state->status,
 			)
 		);
 	}

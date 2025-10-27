@@ -38,6 +38,11 @@
 		countdownInterval: null,
 
 		/**
+		 * Status check interval
+		 */
+		statusCheckInterval: null,
+
+		/**
 		 * Local time remaining (for countdown between heartbeats)
 		 */
 		localTimeRemaining: 0,
@@ -70,6 +75,9 @@
 
 			// Start local countdown
 			this.startCountdown();
+
+			// Start lightweight status polling (every 3s)
+			this.checkStatus();
 
 			// Initialize Heartbeat for real-time updates
 			this.initHeartbeat();
@@ -127,6 +135,49 @@
 					self.updateTimeDisplay(self.localTimeRemaining);
 				}
 			}, 1000);
+		},
+
+		/**
+		 * Check status via lightweight polling
+		 *
+		 * Polls every 3 seconds to detect status changes quickly
+		 *
+		 * @since 3.1.0
+		 */
+		checkStatus: function () {
+			var self = this;
+
+			// Clear any existing interval
+			if (this.statusCheckInterval) {
+				clearInterval(this.statusCheckInterval);
+			}
+
+			// Poll every 3 seconds
+			this.statusCheckInterval = setInterval(function () {
+				$.ajax({
+					url: tdwpClock.ajaxurl,
+					type: 'POST',
+					data: {
+						action: 'tdwp_check_clock_status',
+						nonce: tdwpClock.nonce,
+						tournament_id: self.tournamentId || 0
+					},
+					success: function (response) {
+						if (response.success && response.data.status) {
+							// Check if status changed
+							var currentStatus = self.$widget.attr('class').match(/tdwp-clock-status-(\w+)/);
+							var newStatus = response.data.status;
+
+							if (!currentStatus || currentStatus[1] !== newStatus) {
+								// Status changed - trigger immediate full state update
+								if (typeof wp !== 'undefined' && wp.heartbeat) {
+									wp.heartbeat.connectNow();
+								}
+							}
+						}
+				}
+				});
+			}, 3000); // Every 3 seconds
 		},
 
 		/**
