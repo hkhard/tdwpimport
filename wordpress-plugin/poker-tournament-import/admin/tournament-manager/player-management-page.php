@@ -63,7 +63,7 @@ class TDWP_Player_Management_Page {
 	 */
 	public function add_menu_page() {
 		add_submenu_page(
-			'edit.php?post_type=tournament',
+			'tdwp-tournament-manager',
 			__( 'Player Management', 'poker-tournament-import' ),
 			__( 'Player Management', 'poker-tournament-import' ),
 			'manage_options',
