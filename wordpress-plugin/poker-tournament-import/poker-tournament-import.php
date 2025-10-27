@@ -284,7 +284,12 @@ class Poker_Tournament_Import {
      * @since 3.0.0
      */
     private function ensure_phase1_tables_exist() {
-        // Check once per hour using transient
+        // Run schema migration FIRST (has its own completion check, runs until done)
+        if (class_exists('TDWP_Database_Schema')) {
+            TDWP_Database_Schema::migrate_schema();
+        }
+
+        // Check once per hour using transient for table existence verification
         if (get_transient('tdwp_phase1_tables_checked')) {
             return;
         }
@@ -323,11 +328,6 @@ class Poker_Tournament_Import {
                     error_log('Phase 1 Tables: ERROR - Failed to create tables');
                 }
             }
-        }
-
-        // Run schema migration for existing installations (adds missing columns)
-        if (class_exists('TDWP_Database_Schema') && empty($missing_tables)) {
-            TDWP_Database_Schema::migrate_schema();
         }
 
         // Set transient to check again in 1 hour
