@@ -234,15 +234,12 @@ class TDWP_Live_Control_Page {
 
 									<!-- Control Buttons -->
 									<div class="tdwp-control-buttons">
-										<?php if ( 'running' === $tournament->status ) : ?>
-											<button class="button button-large tdwp-pause-btn">
-												<?php esc_html_e( 'Pause', 'poker-tournament-import' ); ?>
-											</button>
-										<?php elseif ( 'paused' === $tournament->status ) : ?>
-											<button class="button button-large tdwp-resume-btn">
-												<?php esc_html_e( 'Resume', 'poker-tournament-import' ); ?>
-											</button>
-										<?php endif; ?>
+										<button class="button button-large tdwp-pause-btn" style="display: <?php echo 'running' === $tournament->status ? 'inline-block' : 'none'; ?>">
+											<?php esc_html_e( 'Pause', 'poker-tournament-import' ); ?>
+										</button>
+										<button class="button button-large tdwp-resume-btn" style="display: <?php echo 'paused' === $tournament->status ? 'inline-block' : 'none'; ?>">
+											<?php esc_html_e( 'Resume', 'poker-tournament-import' ); ?>
+										</button>
 
 										<button class="button button-large tdwp-advance-btn">
 											<?php esc_html_e( 'Next Level', 'poker-tournament-import' ); ?>
