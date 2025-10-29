@@ -3,7 +3,7 @@
  * Plugin Name: Poker Tournament Import
  * Plugin URI: https://nikielhard.se/tdwpimport
  * Description: Import and display poker tournament results from Tournament Director (.tdt) files. Now with Tournament Manager for creating tournaments without TD software!
- * Version: 3.1.0-beta1
+ * Version: 3.1.0-beta19
  * Author: Hans Kästel Hård
  * Author URI: https://nikielhard.se
  * License: GPL v2 or later
@@ -20,7 +20,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('POKER_TOURNAMENT_IMPORT_VERSION', '3.1.0-beta1');
+define('POKER_TOURNAMENT_IMPORT_VERSION', '3.1.0-beta19');
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -77,6 +77,11 @@ class Poker_Tournament_Import {
         $this->init_shortcodes();
         $this->init_tournament_clock_shortcode();
         $this->init_statistics_engine();
+        $this->init_admin_bar_widget();
+
+        // Global heartbeat for continuous tournament clock updates
+        add_action('admin_enqueue_scripts', array($this, 'enqueue_global_heartbeat'));
+        add_filter('heartbeat_received', array($this, 'global_heartbeat_handler'), 10, 2);
 
         // Check for plugin update and refresh statistics if needed
         $this->check_plugin_upgmdate();
@@ -119,6 +124,14 @@ class Poker_Tournament_Import {
 
             // **PHASE 2: Live Operations admin**
             require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/tournament-manager/live-control-page.php';
+
+            // **PHASE 3: Live Tournament Wizard & Converter**
+            require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/tournament-manager/live-tournament-wizard.php';
+            require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/tournament-manager/live-tournament-converter.php';
+            new TDWP_Live_Tournament_Wizard();
+
+            // **PHASE 2 Week 2-3: Tournament Manager AJAX & Control Page**
+            require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/class-tournament-manager-ajax.php';
         }
 
         // Initialize bulk import (OUTSIDE is_admin() for REST API access)
@@ -235,8 +248,8 @@ class Poker_Tournament_Import {
         // Run prefix migration (v2.9.15: WordPress.org compliance)
         $this->migrate_poker_to_tdwp_prefixes();
 
-        // **v3.0.0: Ensure Phase 1 tables exist**
-        $this->ensure_phase1_tables_exist();
+        // **v3.0.0+: Ensure Tournament Manager tables exist (Phase 1 & 2)**
+        $this->ensure_all_tables_exist();
     }
 
     /**
@@ -286,32 +299,40 @@ class Poker_Tournament_Import {
     }
 
     /**
-     * Ensure Phase 1 Tournament Manager tables exist
+     * Ensure Tournament Manager tables exist (Phase 1 & 2)
      *
      * Checks if tables exist and forces creation if missing.
      * Uses transient to avoid checking on every page load.
      *
      * @since 3.0.0
+     * @since 3.1.0 Updated to check Phase 2 tables
      */
-    private function ensure_phase1_tables_exist() {
+    private function ensure_all_tables_exist() {
         // Run schema migration FIRST (has its own completion check, runs until done)
         if (class_exists('TDWP_Database_Schema')) {
             TDWP_Database_Schema::migrate_schema();
         }
 
         // Check once per hour using transient for table existence verification
-        if (get_transient('tdwp_phase1_tables_checked')) {
+        if (get_transient('tdwp_all_tables_checked')) {
             return;
         }
 
         global $wpdb;
 
-        // Check if all Phase 1 tables exist
+        // Check if all Tournament Manager tables exist (Phase 1 & 2)
         $tables_to_check = array(
+            // Phase 1: Tournament Setup
             $wpdb->prefix . 'tdwp_tournament_templates',
             $wpdb->prefix . 'tdwp_blind_schedules',
             $wpdb->prefix . 'tdwp_blind_levels',
             $wpdb->prefix . 'tdwp_prize_structures',
+            // Phase 2: Live Operations
+            $wpdb->prefix . 'tdwp_tournament_live_state',
+            $wpdb->prefix . 'tdwp_tournament_events',
+            // Phase 2 Week 2-3: Table Management
+            $wpdb->prefix . 'tdwp_tournament_tables',
+            $wpdb->prefix . 'tdwp_tournament_seats',
         );
 
         $missing_tables = array();
@@ -323,7 +344,7 @@ class Poker_Tournament_Import {
         }
 
         if (!empty($missing_tables)) {
-            error_log('Phase 1 Tables: Missing tables detected - ' . implode(', ', $missing_tables));
+            error_log('Tournament Manager Tables: Missing tables detected - ' . implode(', ', $missing_tables));
 
             // Force table creation by resetting db version option
             delete_option('tdwp_db_version');
@@ -331,17 +352,17 @@ class Poker_Tournament_Import {
             if (class_exists('TDWP_Database_Schema')) {
                 $result = TDWP_Database_Schema::create_tables();
                 if ($result) {
-                    error_log('Phase 1 Tables: Successfully created missing tables');
+                    error_log('Tournament Manager Tables: Successfully created missing tables');
                     TDWP_Database_Schema::insert_default_templates();
-                    error_log('Phase 1 Tables: Default templates inserted');
+                    error_log('Tournament Manager Tables: Default templates inserted');
                 } else {
-                    error_log('Phase 1 Tables: ERROR - Failed to create tables');
+                    error_log('Tournament Manager Tables: ERROR - Failed to create tables');
                 }
             }
         }
 
         // Set transient to check again in 1 hour
-        set_transient('tdwp_phase1_tables_checked', true, HOUR_IN_SECONDS);
+        set_transient('tdwp_all_tables_checked', true, HOUR_IN_SECONDS);
     }
 
     /**
@@ -404,6 +425,7 @@ class Poker_Tournament_Import {
 
         // **PHASE 1: Tournament Manager**
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-database-schema.php';
+        require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-debug-logger.php';
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-tournament-template.php';
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-blind-schedule.php';
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-blind-level.php';
@@ -418,6 +440,19 @@ class Poker_Tournament_Import {
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-tournament-clock.php';
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-tournament-events.php';
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/class-tournament-clock-shortcode.php';
+
+        // **PHASE 2 Week 2-3: Table Management**
+        require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-live-state-manager.php';
+        require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-table-manager.php';
+        require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-seat-manager.php';
+        require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-table-balancer.php';
+
+        // **PHASE 1 Beta16: Tournament Player Manager**
+        require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-tournament-player-manager.php';
+
+        // **PHASE 3: Active Tournament Persistence & Admin Bar**
+        require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-active-tournament-manager.php';
+        require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-admin-bar-widget.php';
     }
 
     /**
@@ -463,6 +498,181 @@ class Poker_Tournament_Import {
      */
     private function init_tournament_clock_shortcode() {
         new TDWP_Tournament_Clock_Shortcode();
+    }
+
+    /**
+     * Initialize admin bar widget
+     *
+     * Shows active tournament in WordPress admin bar.
+     *
+     * @since 3.1.0
+     */
+    private function init_admin_bar_widget() {
+        if (is_admin_bar_showing()) {
+            new TDWP_Admin_Bar_Widget();
+        }
+    }
+
+    /**
+     * Enqueue global tournament heartbeat
+     *
+     * Runs on ALL admin pages to keep tournament clock ticking continuously.
+     * Only enqueues if user has an active tournament.
+     *
+     * Uses WordPress Heartbeat API to send tournament updates every 60 seconds
+     * regardless of which admin page user is viewing.
+     *
+     * @since 3.1.0
+     */
+    public function enqueue_global_heartbeat() {
+        // Only for users who can manage tournaments
+        if (!current_user_can('manage_options')) {
+            return;
+        }
+
+        // Get active tournament ID
+        $active_tournament_id = TDWP_Active_Tournament_Manager::get_active_tournament(get_current_user_id());
+
+        // Only enqueue if user has active tournament
+        if (!$active_tournament_id) {
+            return;
+        }
+
+        // Ensure WordPress Heartbeat is loaded
+        wp_enqueue_script('heartbeat');
+
+        // Enqueue our global heartbeat handler
+        wp_enqueue_script(
+            'tdwp-global-tournament-heartbeat',
+            POKER_TOURNAMENT_IMPORT_PLUGIN_URL . 'assets/js/tdwp-global-tournament-heartbeat.js',
+            array('jquery', 'heartbeat'),
+            POKER_TOURNAMENT_IMPORT_VERSION,
+            true
+        );
+
+        // Localize with active tournament ID and i18n strings
+        wp_localize_script(
+            'tdwp-global-tournament-heartbeat',
+            'tdwpGlobalHeartbeat',
+            array(
+                'activeTournamentId' => $active_tournament_id,
+                'i18n' => array(
+                    'level' => __('Level %d', 'poker-tournament-import'),
+                    'paused' => __('Paused (L%d)', 'poker-tournament-import'),
+                    'break' => __('On Break', 'poker-tournament-import'),
+                    'setup' => __('Setup', 'poker-tournament-import'),
+                ),
+            )
+        );
+    }
+
+    /**
+     * Global heartbeat handler for tournament clock
+     *
+     * Processes heartbeat from ALL admin pages to keep tournament ticking continuously.
+     *
+     * @since 3.1.0
+     * @param array $response Heartbeat response.
+     * @param array $data     Heartbeat data.
+     * @return array Modified response.
+     */
+    public function global_heartbeat_handler($response, $data) {
+        // Check if this is tournament heartbeat from global script
+        if (empty($data['tdwp_tournament_id'])) {
+            return $response;
+        }
+
+        $tournament_id = absint($data['tdwp_tournament_id']);
+
+        TDWP_Debug_Logger::log('HEARTBEAT', 'Global heartbeat received', array(
+            'tournament_id' => $tournament_id,
+            'page' => isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : 'unknown'
+        ));
+
+        // Get current state
+        $live_manager = new TDWP_Tournament_Live();
+        $state = $live_manager->get_by_tournament_id($tournament_id);
+
+        if (!$state) {
+            TDWP_Debug_Logger::log('HEARTBEAT', 'No state found for tournament', array('tournament_id' => $tournament_id));
+            return $response;
+        }
+
+        // Tick for elapsed time if running
+        if ('running' === $state->status) {
+            // Prevent double-ticking from multiple heartbeat handlers
+            $last_tick_time = get_transient('tdwp_last_tick_' . $tournament_id);
+            if ($last_tick_time && (time() - $last_tick_time) < 2) {
+                TDWP_Debug_Logger::log('HEARTBEAT', 'Skipping duplicate tick', array(
+                    'last_tick' => $last_tick_time,
+                    'now' => time(),
+                    'diff' => time() - $last_tick_time
+                ));
+                // Return current state without ticking
+                $response['tdwp_live_state'] = array(
+                    'tournament_id'     => $state->tournament_id,
+                    'status'            => $state->status,
+                    'current_level'     => $state->current_level,
+                    'time_remaining'    => $state->time_remaining,
+                    'total_players'     => $state->total_players,
+                    'remaining_players' => $state->remaining_players,
+                    'total_rebuys'      => $state->total_rebuys,
+                    'total_addons'      => $state->total_addons,
+                    'prize_pool'        => $state->prize_pool,
+                );
+                return $response;
+            }
+
+            $elapsed = time() - strtotime($state->updated_at);
+            $elapsed = min(max(0, $elapsed), 30); // Cap between 0-30 seconds
+
+            TDWP_Debug_Logger::log('HEARTBEAT', 'Preparing to tick', array(
+                'tournament_id' => $tournament_id,
+                'elapsed' => $elapsed,
+                'time_before_tick' => $state->time_remaining,
+                'updated_at' => $state->updated_at
+            ));
+
+            if ($elapsed > 0) {
+                // Mark that we're ticking now
+                set_transient('tdwp_last_tick_' . $tournament_id, time(), 5);
+
+                $clock_manager = new TDWP_Tournament_Clock();
+                $clock_manager->tick($tournament_id, $elapsed);
+                // Refresh state after tick
+                $state = $live_manager->get_by_tournament_id($tournament_id);
+
+                TDWP_Debug_Logger::log('HEARTBEAT', 'State after tick', array(
+                    'time_remaining' => $state->time_remaining,
+                    'updated_at' => $state->updated_at,
+                    'should_be_fresh' => 'YES - updated_at should equal current time'
+                ));
+            }
+        }
+
+        // Return fresh state for JavaScript
+        if ($state) {
+            TDWP_Debug_Logger::log('HEARTBEAT', 'Returning state to client', array(
+                'tournament_id' => $state->tournament_id,
+                'status' => $state->status,
+                'time_remaining' => $state->time_remaining,
+                'current_level' => $state->current_level
+            ));
+
+            $response['tdwp_live_state'] = array(
+                'tournament_id'     => $state->tournament_id,
+                'status'            => $state->status,
+                'current_level'     => $state->current_level,
+                'time_remaining'    => $state->time_remaining,
+                'total_players'     => $state->total_players,
+                'remaining_players' => $state->remaining_players,
+                'total_rebuys'      => $state->total_rebuys,
+                'total_addons'      => $state->total_addons,
+                'prize_pool'        => $state->prize_pool,
+            );
+        }
+
+        return $response;
     }
 
     /**

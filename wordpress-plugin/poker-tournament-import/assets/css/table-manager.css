@@ -1,0 +1,410 @@
+/**
+ * Table Manager Styles
+ * Table grid, seats, drag-drop, balance
+ */
+
+.tables-tab-content {
+    max-width: 100%;
+}
+
+/* Toolbar */
+.tables-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+    padding: 15px;
+    background: #f6f7f7;
+    border-radius: 5px;
+}
+
+.toolbar-left {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.toolbar-right {
+    display: flex;
+    gap: 10px;
+}
+
+/* Main Content Layout */
+.tables-main-content {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 20px;
+}
+
+/* Tables Grid */
+.tables-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 20px;
+}
+
+.no-tables-message {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 60px 20px;
+    background: #f6f7f7;
+    border-radius: 5px;
+}
+
+/* Table Card */
+.table-card {
+    background: #fff;
+    border: 2px solid #c3c4c7;
+    border-radius: 8px;
+    padding: 15px;
+    transition: border-color 0.3s;
+}
+
+.table-card:hover {
+    border-color: #2271b1;
+}
+
+.table-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #dcdcde;
+}
+
+.table-header h3 {
+    margin: 0;
+    font-size: 18px;
+}
+
+.table-header .player-count {
+    font-weight: 600;
+    color: #2271b1;
+}
+
+.table-header .remove-table {
+    font-size: 24px;
+    color: #d63638;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0 5px;
+}
+
+.table-header .remove-table:hover {
+    color: #a00;
+}
+
+/* Seats Container - Racecourse Layout */
+.seats-container {
+    position: relative;
+    min-height: 350px;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Table felt center */
+.seats-container::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 160px;
+    height: 160px;
+    background: radial-gradient(circle, #2d5f2e 0%, #1a3d1b 100%);
+    border-radius: 50%;
+    border: 3px solid #8b7355;
+    z-index: 0;
+}
+
+.seat-item {
+    position: absolute;
+    background: #f0f0f1;
+    border: 2px solid #c3c4c7;
+    border-radius: 5px;
+    padding: 8px 10px;
+    text-align: center;
+    max-width: 110px;
+    min-width: 70px;
+    min-height: 60px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    transition: all 0.2s;
+    z-index: 1;
+    transform: translate(-50%, -50%);
+    word-break: break-word;
+    overflow-wrap: break-word;
+}
+
+/* Dynamic sizing based on table size */
+.seats-container[data-max-seats="2"] .seat-item,
+.seats-container[data-max-seats="3"] .seat-item,
+.seats-container[data-max-seats="4"] .seat-item {
+    max-width: 110px;
+    padding: 10px 12px;
+}
+
+.seats-container[data-max-seats="5"] .seat-item,
+.seats-container[data-max-seats="6"] .seat-item,
+.seats-container[data-max-seats="7"] .seat-item {
+    max-width: 95px;
+    padding: 8px 10px;
+}
+
+.seats-container[data-max-seats="8"] .seat-item,
+.seats-container[data-max-seats="9"] .seat-item,
+.seats-container[data-max-seats="10"] .seat-item {
+    max-width: 80px;
+    padding: 6px 8px;
+    font-size: 12px;
+}
+
+.seat-item.empty {
+    border-style: dashed;
+}
+
+.seat-item.occupied {
+    background: #e0f0ff;
+    border-color: #2271b1;
+}
+
+.seat-item .seat-num {
+    font-weight: 700;
+    color: #787c82;
+    font-size: 12px;
+    margin-bottom: 5px;
+}
+
+.seat-item .empty-label {
+    color: #a7aaad;
+    font-size: 11px;
+}
+
+/* Racecourse Positioning - 2-seat (Heads-up) */
+.seats-container[data-max-seats="2"] .seat-position-1 { top: 15%; left: 50%; }
+.seats-container[data-max-seats="2"] .seat-position-2 { top: 85%; left: 50%; }
+
+/* Racecourse Positioning - 3-seat */
+.seats-container[data-max-seats="3"] .seat-position-1 { top: 15%; left: 50%; }
+.seats-container[data-max-seats="3"] .seat-position-2 { top: 75%; left: 80%; }
+.seats-container[data-max-seats="3"] .seat-position-3 { top: 75%; left: 20%; }
+
+/* Racecourse Positioning - 4-seat */
+.seats-container[data-max-seats="4"] .seat-position-1 { top: 15%; left: 50%; }
+.seats-container[data-max-seats="4"] .seat-position-2 { top: 50%; left: 85%; }
+.seats-container[data-max-seats="4"] .seat-position-3 { top: 85%; left: 50%; }
+.seats-container[data-max-seats="4"] .seat-position-4 { top: 50%; left: 15%; }
+
+/* Racecourse Positioning - 5-seat */
+.seats-container[data-max-seats="5"] .seat-position-1 { top: 15%; left: 50%; }
+.seats-container[data-max-seats="5"] .seat-position-2 { top: 35%; left: 82%; }
+.seats-container[data-max-seats="5"] .seat-position-3 { top: 70%; left: 75%; }
+.seats-container[data-max-seats="5"] .seat-position-4 { top: 70%; left: 25%; }
+.seats-container[data-max-seats="5"] .seat-position-5 { top: 35%; left: 18%; }
+
+/* Racecourse Positioning - 6-seat */
+.seats-container[data-max-seats="6"] .seat-position-1 { top: 15%; left: 50%; }
+.seats-container[data-max-seats="6"] .seat-position-2 { top: 30%; left: 80%; }
+.seats-container[data-max-seats="6"] .seat-position-3 { top: 70%; left: 80%; }
+.seats-container[data-max-seats="6"] .seat-position-4 { top: 85%; left: 50%; }
+.seats-container[data-max-seats="6"] .seat-position-5 { top: 70%; left: 20%; }
+.seats-container[data-max-seats="6"] .seat-position-6 { top: 30%; left: 20%; }
+
+/* Racecourse Positioning - 7-seat */
+.seats-container[data-max-seats="7"] .seat-position-1 { top: 15%; left: 50%; }
+.seats-container[data-max-seats="7"] .seat-position-2 { top: 28%; left: 78%; }
+.seats-container[data-max-seats="7"] .seat-position-3 { top: 50%; left: 85%; }
+.seats-container[data-max-seats="7"] .seat-position-4 { top: 72%; left: 78%; }
+.seats-container[data-max-seats="7"] .seat-position-5 { top: 85%; left: 50%; }
+.seats-container[data-max-seats="7"] .seat-position-6 { top: 72%; left: 22%; }
+.seats-container[data-max-seats="7"] .seat-position-7 { top: 28%; left: 22%; }
+
+/* Racecourse Positioning - 8-seat */
+.seats-container[data-max-seats="8"] .seat-position-1 { top: 15%; left: 50%; }
+.seats-container[data-max-seats="8"] .seat-position-2 { top: 25%; left: 75%; }
+.seats-container[data-max-seats="8"] .seat-position-3 { top: 50%; left: 85%; }
+.seats-container[data-max-seats="8"] .seat-position-4 { top: 75%; left: 75%; }
+.seats-container[data-max-seats="8"] .seat-position-5 { top: 85%; left: 50%; }
+.seats-container[data-max-seats="8"] .seat-position-6 { top: 75%; left: 25%; }
+.seats-container[data-max-seats="8"] .seat-position-7 { top: 50%; left: 15%; }
+.seats-container[data-max-seats="8"] .seat-position-8 { top: 25%; left: 25%; }
+
+/* Racecourse Positioning - 9-seat */
+.seats-container[data-max-seats="9"] .seat-position-1 { top: 15%; left: 50%; }
+.seats-container[data-max-seats="9"] .seat-position-2 { top: 25%; left: 75%; }
+.seats-container[data-max-seats="9"] .seat-position-3 { top: 45%; left: 85%; }
+.seats-container[data-max-seats="9"] .seat-position-4 { top: 65%; left: 85%; }
+.seats-container[data-max-seats="9"] .seat-position-5 { top: 80%; left: 70%; }
+.seats-container[data-max-seats="9"] .seat-position-6 { top: 85%; left: 50%; }
+.seats-container[data-max-seats="9"] .seat-position-7 { top: 80%; left: 30%; }
+.seats-container[data-max-seats="9"] .seat-position-8 { top: 65%; left: 15%; }
+.seats-container[data-max-seats="9"] .seat-position-9 { top: 45%; left: 15%; }
+
+/* Racecourse Positioning - 10-seat */
+.seats-container[data-max-seats="10"] .seat-position-1 { top: 15%; left: 50%; }
+.seats-container[data-max-seats="10"] .seat-position-2 { top: 20%; left: 70%; }
+.seats-container[data-max-seats="10"] .seat-position-3 { top: 35%; left: 83%; }
+.seats-container[data-max-seats="10"] .seat-position-4 { top: 55%; left: 87%; }
+.seats-container[data-max-seats="10"] .seat-position-5 { top: 73%; left: 77%; }
+.seats-container[data-max-seats="10"] .seat-position-6 { top: 85%; left: 58%; }
+.seats-container[data-max-seats="10"] .seat-position-7 { top: 85%; left: 42%; }
+.seats-container[data-max-seats="10"] .seat-position-8 { top: 73%; left: 23%; }
+.seats-container[data-max-seats="10"] .seat-position-9 { top: 55%; left: 13%; }
+.seats-container[data-max-seats="10"] .seat-position-10 { top: 35%; left: 17%; }
+.seats-container[data-max-seats="10"] .seat-position-11 { top: 20%; left: 30%; }
+
+/* Player Chip */
+.player-chip {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    position: relative;
+    width: 100%;
+}
+
+.player-chip.draggable-player {
+    cursor: move;
+}
+
+.player-chip .player-name {
+    font-weight: 600;
+    font-size: 13px;
+    color: #1d2327;
+    text-align: center;
+    word-break: break-word;
+}
+
+.player-chip .unseat-btn {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #d63638;
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    display: none;
+}
+
+.player-chip:hover .unseat-btn {
+    display: block;
+}
+
+.player-chip.unseated {
+    background: #fff7e5;
+    border: 1px solid #f0b849;
+    border-radius: 5px;
+    padding: 10px;
+    margin-bottom: 8px;
+}
+
+/* Drag-Drop States */
+.seat-item.ui-droppable-hover {
+    background: #d0e8ff;
+    border-color: #2271b1;
+    border-width: 3px;
+}
+
+.ui-draggable-dragging {
+    opacity: 0.7;
+    transform: rotate(3deg);
+    z-index: 1000;
+}
+
+/* Unseated Players Panel */
+.unseated-players-panel {
+    background: #f6f7f7;
+    border: 1px solid #c3c4c7;
+    border-radius: 5px;
+    padding: 20px;
+    position: sticky;
+    top: 120px;
+    max-height: calc(100vh - 200px);
+    overflow-y: auto;
+}
+
+.unseated-players-panel h3 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    font-size: 16px;
+}
+
+#unseated-players-list .no-players {
+    color: #787c82;
+    font-style: italic;
+    text-align: center;
+}
+
+/* Balance Preview */
+#balance-moves-list {
+    max-height: 400px;
+    overflow-y: auto;
+    margin: 20px 0;
+}
+
+.balance-move-item {
+    padding: 12px;
+    background: #f6f7f7;
+    border-left: 3px solid #2271b1;
+    margin-bottom: 10px;
+    border-radius: 3px;
+}
+
+.balance-move-item .player-name {
+    font-weight: 600;
+    color: #1d2327;
+}
+
+.balance-move-item .move-arrow {
+    margin: 5px 0;
+    color: #787c82;
+    font-size: 12px;
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+    .tables-main-content {
+        grid-template-columns: 1fr;
+    }
+
+    .unseated-players-panel {
+        position: static;
+        max-height: 300px;
+    }
+
+    .tables-grid {
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    }
+}
+
+@media (max-width: 768px) {
+    .tables-toolbar {
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    .toolbar-left,
+    .toolbar-right {
+        width: 100%;
+        flex-wrap: wrap;
+    }
+
+    .tables-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .seats-container {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}

@@ -80,7 +80,7 @@ class TDWP_Player_Management_Page {
 	 * @param string $hook Current admin page hook.
 	 */
 	public function enqueue_assets( $hook ) {
-		if ( 'tournament_page_tdwp-player-management' !== $hook ) {
+		if ( 'tournament-manager_page_tdwp-player-management' !== $hook ) {
 			return;
 		}
 

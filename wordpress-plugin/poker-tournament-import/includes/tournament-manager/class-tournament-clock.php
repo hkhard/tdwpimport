@@ -54,15 +54,17 @@ class TDWP_Tournament_Clock {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param int $tournament_id Tournament ID.
-	 * @param int $template_id   Template ID.
-	 * @param int $total_players Total starting players.
+	 * @param int  $tournament_id Tournament ID.
+	 * @param int  $template_id   Template ID.
+	 * @param int  $total_players Total starting players.
+	 * @param bool $is_practice   Whether this is a practice tournament.
 	 * @return bool|WP_Error True on success, WP_Error on failure.
 	 */
-	public function start( $tournament_id, $template_id, $total_players = 0 ) {
+	public function start( $tournament_id, $template_id, $total_players = 0, $is_practice = false ) {
 		$tournament_id = absint( $tournament_id );
 		$template_id   = absint( $template_id );
 		$total_players = absint( $total_players );
+		$is_practice   = rest_sanitize_boolean( $is_practice );
 
 		// Check if already started.
 		$existing = $this->live_manager->get_by_tournament_id( $tournament_id );
@@ -77,6 +79,18 @@ class TDWP_Tournament_Clock {
 		$template     = $this->get_tournament_template( $template_id );
 		$time_seconds = $this->get_level_duration_seconds( $template );
 
+		// Log start operation.
+		TDWP_Debug_Logger::log(
+			'CLOCK',
+			'START Tournament #' . $tournament_id,
+			array(
+				'template_id'   => $template_id,
+				'total_players' => $total_players,
+				'time_seconds'  => $time_seconds,
+				'is_practice'   => $is_practice,
+			)
+		);
+
 		// Create live state.
 		$state_id = $this->live_manager->create(
 			array(
@@ -90,6 +104,7 @@ class TDWP_Tournament_Clock {
 				'total_rebuys'      => 0,
 				'total_addons'      => 0,
 				'prize_pool'        => 0,
+				'is_practice'       => $is_practice,
 			)
 		);
 
@@ -154,6 +169,17 @@ class TDWP_Tournament_Clock {
 				__( 'Tournament is not currently running.', 'poker-tournament-import' )
 			);
 		}
+
+		// Log pause operation.
+		TDWP_Debug_Logger::log(
+			'CLOCK',
+			'PAUSE Tournament #' . $tournament_id,
+			array(
+				'client_time_remaining' => $time_remaining,
+				'db_time_remaining'     => $state->time_remaining,
+				'status_before'         => $state->status,
+			)
+		);
 
 		// Prepare update data
 		$update_data = array(
@@ -223,6 +249,17 @@ class TDWP_Tournament_Clock {
 				__( 'Tournament is not paused.', 'poker-tournament-import' )
 			);
 		}
+
+		// Log resume operation.
+		TDWP_Debug_Logger::log(
+			'CLOCK',
+			'RESUME Tournament #' . $tournament_id,
+			array(
+				'time_remaining' => $state->time_remaining,
+				'current_level'  => $state->current_level,
+				'status_before'  => 'paused',
+			)
+		);
 
 		// Update status to running.
 		$result = $this->live_manager->update(
@@ -406,7 +443,11 @@ class TDWP_Tournament_Clock {
 		}
 
 		// Calculate new time remaining.
-		$new_time = max( 0, absint( $state->time_remaining ) - $elapsed );
+		$old_time = absint( $state->time_remaining );
+		$new_time = max( 0, $old_time - $elapsed );
+
+		// Log tick operation.
+		TDWP_Debug_Logger::log_tick( $tournament_id, $elapsed, $old_time, $new_time );
 
 		// Update time.
 		$result = $this->live_manager->update(

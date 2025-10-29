@@ -151,18 +151,181 @@ class TDWP_Live_Control_Page {
 			wp_die( esc_html__( 'You do not have sufficient permissions to access this page.', 'poker-tournament-import' ) );
 		}
 
-		// Get active tournaments
-		$active_tournaments = $this->live_manager->get_active();
+		// Check if tournament ID is provided in GET parameter
+		$tournament_id = isset( $_GET['tournament_id'] ) ? intval( $_GET['tournament_id'] ) : 0;
 
-		// Get templates for new tournament
-		global $wpdb;
-		$templates = $wpdb->get_results(
-			"SELECT id, name FROM {$wpdb->prefix}tdwp_tournament_templates ORDER BY name ASC"
-		);
+		// If tournament_id provided, save as active tournament for this user
+		if ( $tournament_id ) {
+			TDWP_Active_Tournament_Manager::set_active_tournament( get_current_user_id(), $tournament_id );
+		} else {
+			// No tournament_id in GET, try to load user's active tournament
+			$tournament_id = TDWP_Active_Tournament_Manager::get_active_tournament( get_current_user_id() );
+
+			// Set GET parameter so tournament-manager-control.php can read it
+			if ( $tournament_id ) {
+				$_GET['tournament_id'] = $tournament_id;
+			}
+		}
+
+		if ( ! $tournament_id ) {
+			// Show tournament selector
+			$this->render_tournament_selector();
+			return;
+		}
+
+		// Include the unified tournament control page
+		require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/tournament-manager-control.php';
+	}
+
+	/**
+	 * Render tournament selector
+	 *
+	 * Shows all running live tournaments with status information.
+	 *
+	 * @since 3.1.0
+	 */
+	private function render_tournament_selector() {
+		// Get all running live tournaments.
+		$tournaments = TDWP_Active_Tournament_Manager::get_running_tournaments();
+
+		// Get user's current active tournament.
+		$active_tournament_id = TDWP_Active_Tournament_Manager::get_active_tournament( get_current_user_id() );
 
 		?>
-		<div class="wrap tdwp-live-control">
+		<div class="wrap">
 			<h1><?php esc_html_e( 'Live Tournament Control', 'poker-tournament-import' ); ?></h1>
+
+			<p class="description">
+				<?php esc_html_e( 'Select a running tournament to manage, or create a new one.', 'poker-tournament-import' ); ?>
+			</p>
+
+			<p>
+				<a href="<?php echo esc_url( admin_url( 'admin.php?page=tdwp-live-tournament-wizard' ) ); ?>" class="button button-primary">
+					<?php esc_html_e( 'Create New Live Tournament', 'poker-tournament-import' ); ?>
+				</a>
+			</p>
+
+			<?php if ( empty( $tournaments ) ) : ?>
+				<div class="notice notice-info">
+					<p>
+						<?php
+						printf(
+							/* translators: %s: Link to create new tournament */
+							esc_html__( 'No running tournaments found. %s to get started.', 'poker-tournament-import' ),
+							'<a href="' . esc_url( admin_url( 'admin.php?page=tdwp-live-tournament-wizard' ) ) . '">' . esc_html__( 'Create a new live tournament', 'poker-tournament-import' ) . '</a>'
+						);
+						?>
+					</p>
+				</div>
+			<?php else : ?>
+				<div class="card" style="max-width: 800px;">
+					<h2><?php esc_html_e( 'Running Tournaments', 'poker-tournament-import' ); ?></h2>
+
+					<table class="wp-list-table widefat fixed striped">
+						<thead>
+							<tr>
+								<th><?php esc_html_e( 'Tournament', 'poker-tournament-import' ); ?></th>
+								<th><?php esc_html_e( 'Status', 'poker-tournament-import' ); ?></th>
+								<th><?php esc_html_e( 'Level', 'poker-tournament-import' ); ?></th>
+								<th><?php esc_html_e( 'Players', 'poker-tournament-import' ); ?></th>
+								<th><?php esc_html_e( 'Actions', 'poker-tournament-import' ); ?></th>
+							</tr>
+						</thead>
+						<tbody>
+							<?php foreach ( $tournaments as $tournament ) : ?>
+								<?php
+								$state          = TDWP_Live_State_Manager::get_state( $tournament->ID );
+								$is_active      = ( $active_tournament_id === $tournament->ID );
+								$is_practice    = $state && isset( $state->is_practice ) ? (int) $state->is_practice : 0;
+								$status_class   = $state ? 'status-' . esc_attr( $state->status ) : 'status-unknown';
+								$status_label   = $state ? ucfirst( $state->status ) : __( 'Unknown', 'poker-tournament-import' );
+								$current_level  = $state ? $state->current_level : 0;
+								$players_remain = $state && isset( $state->players_remaining ) ? $state->players_remaining : '-';
+								?>
+								<tr class="<?php echo $is_active ? 'active-tournament' : ''; ?>">
+									<td>
+										<strong><?php echo esc_html( $tournament->post_title ); ?></strong>
+										<?php if ( $is_active ) : ?>
+											<span class="dashicons dashicons-star-filled" style="color: #f0b849;" title="<?php esc_attr_e( 'Your Active Tournament', 'poker-tournament-import' ); ?>"></span>
+										<?php endif; ?>
+										<?php if ( $is_practice ) : ?>
+											<span class="practice-badge" title="<?php esc_attr_e( 'Practice Mode - Excluded from Statistics', 'poker-tournament-import' ); ?>"><?php esc_html_e( 'PRACTICE', 'poker-tournament-import' ); ?></span>
+										<?php endif; ?>
+									</td>
+									<td>
+										<span class="tournament-status <?php echo esc_attr( $status_class ); ?>">
+											<?php echo esc_html( $status_label ); ?>
+										</span>
+									</td>
+									<td><?php echo esc_html( $current_level ); ?></td>
+									<td><?php echo esc_html( $players_remain ); ?></td>
+									<td>
+										<a href="<?php echo esc_url( admin_url( 'admin.php?page=tdwp-live-control&tournament_id=' . $tournament->ID ) ); ?>" class="button button-primary button-small">
+											<?php
+											echo $is_active ?
+												esc_html__( 'Continue', 'poker-tournament-import' ) :
+												esc_html__( 'Manage', 'poker-tournament-import' );
+											?>
+										</a>
+									</td>
+								</tr>
+							<?php endforeach; ?>
+						</tbody>
+					</table>
+				</div>
+
+				<style>
+					.active-tournament {
+						background-color: #f0f6fc !important;
+					}
+					.tournament-status {
+						display: inline-block;
+						padding: 3px 8px;
+						border-radius: 3px;
+						font-size: 12px;
+						font-weight: 600;
+					}
+					.status-running {
+						background: #d1f4d1;
+						color: #0a5e0a;
+					}
+					.status-paused {
+						background: #fff3cd;
+						color: #856404;
+					}
+					.status-break {
+						background: #cfe2ff;
+						color: #084298;
+					}
+					.status-setup {
+						background: #e2e3e5;
+						color: #41464b;
+					}
+					.practice-badge {
+						display: inline-block;
+						margin-left: 8px;
+						padding: 2px 6px;
+						background: #f0ad4e;
+						color: #fff;
+						font-size: 10px;
+						font-weight: 700;
+						border-radius: 3px;
+						text-transform: uppercase;
+					}
+				</style>
+			<?php endif; ?>
+		</div>
+		<?php
+	}
+
+	/**
+	 * OLD RENDER METHOD - Replaced by unified control page above
+	 * Keeping as reference for now
+	 */
+	private function render_page_old() {
+		?>
+		<div class="wrap tdwp-live-control-old">
+			<h1><?php esc_html_e( 'Live Tournament Control (OLD)', 'poker-tournament-import' ); ?></h1>
 
 			<div class="tdwp-live-grid">
 				<!-- Left Column: Control Panel -->

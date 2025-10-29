@@ -84,6 +84,15 @@ class Poker_Tournament_Import_Admin {
             'poker-migration-tools',
             array($this, 'render_migration_page')
         );
+
+        add_submenu_page(
+            'poker-tournament-import',
+            __('Debug Log', 'poker-tournament-import'),
+            __('Debug Log', 'poker-tournament-import'),
+            'manage_options',
+            'poker-tournament-debug-log',
+            array($this, 'render_debug_log_page')
+        );
     }
 
     /**
@@ -2066,6 +2075,15 @@ class Poker_Tournament_Import_Admin {
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/migration-tools.php';
         $migration_page = new Poker_Migration_Admin_Page();
         $migration_page->render_migration_page();
+    }
+
+    /**
+     * Render debug log page
+     *
+     * @since 3.1.0
+     */
+    public function render_debug_log_page() {
+        require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/tournament-manager/debug-log-page.php';
     }
 
     /**

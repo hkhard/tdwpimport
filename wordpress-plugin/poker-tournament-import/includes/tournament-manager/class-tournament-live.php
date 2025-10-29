@@ -106,8 +106,9 @@ class TDWP_Tournament_Live {
 				'total_rebuys'       => $sanitized_data['total_rebuys'],
 				'total_addons'       => $sanitized_data['total_addons'],
 				'prize_pool'         => $sanitized_data['prize_pool'],
+				'is_practice'        => isset( $sanitized_data['is_practice'] ) ? $sanitized_data['is_practice'] : 0,
 			),
-			array( '%d', '%d', '%s', '%d', '%d', '%d', '%d', '%d', '%d', '%f' )
+			array( '%d', '%d', '%s', '%d', '%d', '%d', '%d', '%d', '%d', '%f', '%d' )
 		);
 
 		if ( false === $result ) {
@@ -118,6 +119,12 @@ class TDWP_Tournament_Live {
 		}
 
 		$state_id = $this->wpdb->insert_id;
+
+		// Get created state for logging.
+		$created_state = $this->get( $state_id );
+		if ( $created_state ) {
+			TDWP_Debug_Logger::log_state_change( 'DB_CREATE', null, $created_state );
+		}
 
 		/**
 		 * Fires after tournament live state is created
@@ -203,6 +210,9 @@ class TDWP_Tournament_Live {
 			);
 		}
 
+		// Store before state for logging.
+		$before_state = clone $existing;
+
 		// Sanitize input data.
 		$sanitized_data = $this->sanitize_state_data( $data );
 
@@ -275,6 +285,15 @@ class TDWP_Tournament_Live {
 			$formats[]                           = '%d';
 		}
 
+		if ( isset( $sanitized_data['is_practice'] ) ) {
+			$update_data['is_practice'] = $sanitized_data['is_practice'];
+			$formats[]                  = '%d';
+		}
+
+		// Force updated_at to change on every update (fixes elapsed calculation bug).
+		$update_data['updated_at'] = current_time( 'mysql' );
+		$formats[]                 = '%s';
+
 		// Update state.
 		$result = $this->wpdb->update(
 			$this->table_name,
@@ -289,6 +308,12 @@ class TDWP_Tournament_Live {
 				'db_update_error',
 				__( 'Failed to update tournament live state.', 'poker-tournament-import' )
 			);
+		}
+
+		// Get updated state for logging.
+		$after_state = $this->get( $state_id );
+		if ( $after_state ) {
+			TDWP_Debug_Logger::log_state_change( 'DB_UPDATE', $before_state, $after_state );
 		}
 
 		/**
@@ -478,6 +503,10 @@ class TDWP_Tournament_Live {
 
 		if ( isset( $data['next_payout_position'] ) ) {
 			$sanitized['next_payout_position'] = absint( $data['next_payout_position'] );
+		}
+
+		if ( isset( $data['is_practice'] ) ) {
+			$sanitized['is_practice'] = rest_sanitize_boolean( $data['is_practice'] );
 		}
 
 		return $sanitized;
