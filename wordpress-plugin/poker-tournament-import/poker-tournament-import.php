@@ -3,7 +3,7 @@
  * Plugin Name: Poker Tournament Import
  * Plugin URI: https://nikielhard.se/tdwpimport
  * Description: Import and display poker tournament results from Tournament Director (.tdt) files. Now with Tournament Manager for creating tournaments without TD software!
- * Version: 3.1.0-beta19
+ * Version: 3.3.0-beta4
  * Author: Hans Kästel Hård
  * Author URI: https://nikielhard.se
  * License: GPL v2 or later
@@ -20,7 +20,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('POKER_TOURNAMENT_IMPORT_VERSION', '3.1.0-beta19');
+define('POKER_TOURNAMENT_IMPORT_VERSION', '3.3.0-beta4');
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -66,6 +66,7 @@ class Poker_Tournament_Import {
     public function init() {
         $this->includes();
 
+        
         // Ensure database schema is up to date (has built-in version checking)
         if (class_exists('TDWP_Database_Schema')) {
             TDWP_Database_Schema::create_tables();
@@ -94,11 +95,13 @@ class Poker_Tournament_Import {
             add_action('wp_enqueue_scripts', array($this, 'enqueue_frontend_assets'));
         }
 
+        
         // Admin hooks
         if (is_admin()) {
             require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/class-admin.php';
             new Poker_Tournament_Import_Admin();
 
+            
             // Initialize migration tools
             require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/class-migration-tools.php';
             new Poker_Tournament_Migration_Tools();
@@ -187,6 +190,8 @@ class Poker_Tournament_Import {
         add_action('wp_ajax_tdwp_load_tournaments_data', array($this, 'ajax_load_tournaments_data'));
         add_action('wp_ajax_nopriv_tdwp_load_tournaments_data', array($this, 'ajax_load_tournaments_data'));
 
+        // AJAX handlers for dependency manager
+        
         // Hook into tournament creation and updates
         add_action('save_post_tournament', array($this, 'on_tournament_save'), 10, 3);
         add_action('wp_trash_post', array($this, 'on_tournament_delete'));
@@ -253,6 +258,12 @@ class Poker_Tournament_Import {
     }
 
     /**
+     * Handle background PDF library download
+     *
+     * @since 3.3.0
+     */
+    
+    /**
      * Migrate poker_ prefixes to tdwp_ prefixes
      * Version 2.9.15 - WordPress.org compliance
      */
@@ -311,6 +322,8 @@ class Poker_Tournament_Import {
         // Run schema migration FIRST (has its own completion check, runs until done)
         if (class_exists('TDWP_Database_Schema')) {
             TDWP_Database_Schema::migrate_schema();
+            TDWP_Database_Schema::migrate_beta20_financial_policy();
+            TDWP_Database_Schema::migrate_beta_seating_registration_id();
         }
 
         // Check once per hour using transient for table existence verification
@@ -450,10 +463,14 @@ class Poker_Tournament_Import {
         // **PHASE 1 Beta16: Tournament Player Manager**
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-tournament-player-manager.php';
 
+        // **PHASE 2 Completion: Player Operations & Transactions**
+        require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-transaction-logger.php';
+        require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-player-operations.php';
+
         // **PHASE 3: Active Tournament Persistence & Admin Bar**
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-active-tournament-manager.php';
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-admin-bar-widget.php';
-    }
+      }
 
     /**
      * Initialize custom post types
@@ -675,6 +692,7 @@ class Poker_Tournament_Import {
         return $response;
     }
 
+  
     /**
      * Plugin activation
      */
@@ -702,7 +720,8 @@ class Poker_Tournament_Import {
 
         // Set version to force refresh on first load
         update_option('tdwp_import_last_version', POKER_TOURNAMENT_IMPORT_VERSION);
-    }
+
+            }
 
     /**
      * Plugin deactivation
@@ -2034,7 +2053,7 @@ class Poker_Tournament_Import {
         }
     }
 
-    /**
+/**
      * Handle tournament save/update - refresh statistics
      */
     public function on_tournament_save($post_id, $post, $update) {
