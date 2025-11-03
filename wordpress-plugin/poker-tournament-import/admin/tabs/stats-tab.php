@@ -21,7 +21,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 			<ul class="feature-list">
 				<li><?php esc_html_e( 'Live Tournament Statistics (prize pool, average stack, etc.)', 'poker-tournament-import' ); ?></li>
 				<li><?php esc_html_e( 'Real-time Player Rankings', 'poker-tournament-import' ); ?></li>
-				<li><?php esc_html_e( 'Export to PDF/CSV/Excel', 'poker-tournament-import' ); ?></li>
+				<li><?php esc_html_e( 'Export to CSV/Excel', 'poker-tournament-import' ); ?></li>
 				<li><?php esc_html_e( 'Export to .TDT Format', 'poker-tournament-import' ); ?></li>
 				<li><?php esc_html_e( 'Email Results to Players', 'poker-tournament-import' ); ?></li>
 				<li><?php esc_html_e( 'Tournament Archive', 'poker-tournament-import' ); ?></li>

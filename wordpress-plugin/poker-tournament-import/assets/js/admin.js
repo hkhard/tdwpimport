@@ -118,8 +118,10 @@ jQuery(document).ready(function($) {
 
     // Add drag and drop functionality
     const uploadArea = $('.upload-area');
+    console.log('[TDWP Debug] Upload area found:', uploadArea.length);
 
     if (uploadArea.length > 0) {
+        console.log('[TDWP Debug] Initializing drag and drop functionality');
         uploadArea.on('dragover', function(e) {
             e.preventDefault();
             e.stopPropagation();
@@ -137,11 +139,57 @@ jQuery(document).ready(function($) {
             e.stopPropagation();
             $(this).removeClass('drag-over');
 
-            const files = e.originalEvent.dataTransfer.files;
-            if (files.length > 0) {
-                const fileInput = $('#tdt_file')[0];
-                fileInput.files = files;
-                $(fileInput).trigger('change');
+            try {
+                const files = e.originalEvent.dataTransfer.files;
+                console.log('[TDWP Debug] Files dropped:', files.length);
+
+                if (files.length > 0) {
+                    const fileInput = $('#tdt_file')[0];
+
+                    // Check if file input exists
+                    if (!fileInput) {
+                        console.error('[TDWP Debug] File input #tdt_file not found');
+                        alert('Error: File input not found. Please refresh the page and try again.');
+                        return;
+                    }
+
+                    console.log('[TDWP Debug] File input found, attempting to set files');
+
+                    // Use DataTransfer API to properly assign files (cross-browser compatible)
+                    try {
+                        if (fileInput.files && typeof fileInput.files.length !== 'undefined') {
+                            // Create a new DataTransfer object
+                            const dataTransfer = new DataTransfer();
+
+                            // Add each file to the DataTransfer object
+                            for (let i = 0; i < files.length; i++) {
+                                dataTransfer.items.add(files[i]);
+                            }
+
+                            // Assign the files to the input
+                            fileInput.files = dataTransfer.files;
+                            console.log('[TDWP Debug] Files assigned successfully using DataTransfer API');
+                        } else {
+                            console.warn('[TDWP Debug] Files property not supported, triggering manual file selection');
+                            // Fallback: inform user to use file selection dialog
+                            alert('Please select the file using the file selection dialog instead of drag and drop.');
+                            return;
+                        }
+                    } catch (dataTransferError) {
+                        console.error('[TDWP Debug] DataTransfer API error:', dataTransferError);
+                        // Fallback: trigger click on file input
+                        alert('Drag and drop is not fully supported in your browser. Please use the file selection dialog.');
+                        fileInput.click();
+                        return;
+                    }
+
+                    // Trigger change event
+                    $(fileInput).trigger('change');
+                    console.log('[TDWP Debug] Change event triggered');
+                }
+            } catch (error) {
+                console.error('[TDWP Debug] Error in drop handler:', error);
+                alert('An error occurred while processing the dropped files. Please try selecting the file manually.');
             }
         });
     }

@@ -58,13 +58,13 @@
                     const $dragged = ui.draggable;
                     const $dropzone = $(this);
 
-                    // Get player and seat info
-                    const playerId = $dragged.data('player-id');
+                    // Get registration and seat info
+                    const registrationId = $dragged.data('registration-id');
                     const toTableId = $dropzone.data('table-id');
                     const toSeatNumber = $dropzone.data('seat-number');
 
                     // Move player to seat
-                    self.movePlayer(playerId, toTableId, toSeatNumber);
+                    self.movePlayer(registrationId, toTableId, toSeatNumber);
                 }
             });
 
@@ -110,9 +110,9 @@
             }
         },
 
-        movePlayer: function(playerId, toTableId, toSeatNumber) {
+        movePlayer: function(registrationId, toTableId, toSeatNumber) {
             this.ajaxCall('tdwp_tm_move_player', {
-                player_id: playerId,
+                registration_id: registrationId,
                 to_table_id: toTableId,
                 to_seat_number: toSeatNumber
             }, (response) => {

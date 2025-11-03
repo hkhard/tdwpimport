@@ -2,6 +2,8 @@
 
 Claude Code guidance for the Poker Tournament Import WordPress plugin.
 
+**Constitution**: See `.specify/memory/constitution.md` for core principles on code quality, testing, UX consistency, performance, and security requirements that govern all development.
+
 ## Project Status
 
 **Current Version**: 2.4.2 (Production)
@@ -114,3 +116,10 @@ Claude Code guidance for the Poker Tournament Import WordPress plugin.
 - the wp shell is  at /Users/hkh/Library/Application\ Support/Local/ssh-entry/hNPsf2SE_.sh
 - remember to update version number in the log file output so we know we are logging for the right patch level
 - use php to verify syntax on all changes
+
+## Active Technologies
+- PHP 8.0+ (8.2+ compatible) + WordPress 6.0+, MySQL 5.7+, jQuery, modern JavaScript (ES6+) (001-td3-integration)
+- MySQL with WordPress custom tables (12 existing tables), WordPress media library, transient caching (001-td3-integration)
+
+## Recent Changes
+- 001-td3-integration: Added PHP 8.0+ (8.2+ compatible) + WordPress 6.0+, MySQL 5.7+, jQuery, modern JavaScript (ES6+)

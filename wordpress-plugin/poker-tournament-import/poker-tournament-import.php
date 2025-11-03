@@ -3,7 +3,7 @@
  * Plugin Name: Poker Tournament Import
  * Plugin URI: https://nikielhard.se/tdwpimport
  * Description: Import and display poker tournament results from Tournament Director (.tdt) files. Now with Tournament Manager for creating tournaments without TD software!
- * Version: 3.3.0-beta4
+ * Version: 3.4.0-beta2
  * Author: Hans Kästel Hård
  * Author URI: https://nikielhard.se
  * License: GPL v2 or later
@@ -20,7 +20,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('POKER_TOURNAMENT_IMPORT_VERSION', '3.3.0-beta4');
+define('POKER_TOURNAMENT_IMPORT_VERSION', '3.4.0-beta2');
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -66,11 +66,43 @@ class Poker_Tournament_Import {
     public function init() {
         $this->includes();
 
-        
+        // Initialize TD3 dependency manager for graceful degradation
+        if (class_exists('TDWP_Dependency_Manager')) {
+            TDWP_Dependency_Manager::init();
+        }
+
+
         // Ensure database schema is up to date (has built-in version checking)
         if (class_exists('TDWP_Database_Schema')) {
             TDWP_Database_Schema::create_tables();
+
+            // Force create display tables if they don't exist (for debugging)
+            if (isset($_GET['tdwp_force_display_tables']) && current_user_can('manage_options')) {
+                TDWP_Database_Schema::force_create_display_tables();
+                add_action('admin_notices', function() {
+                    echo '<div class="notice notice-success is-dismissible"><p>TDWP Display System: Forced table creation completed. Check debug.log for details.</p></div>';
+                });
+            }
+
+            // Reset database version if requested (for debugging)
+            if (isset($_GET['tdwp_reset_db_version']) && current_user_can('manage_options')) {
+                TDWP_Database_Schema::reset_database_version();
+                add_action('admin_notices', function() {
+                    echo '<div class="notice notice-warning is-dismissible"><p>TDWP Display System: Database version reset. Tables will be re-created on next page load.</p></div>';
+                });
+            }
         }
+
+        // Initialize TD3 display system options if not set
+        $this->init_td3_display_options();
+
+        // Initialize TD3 Display Manager for screen management and URL rewriting
+        // Use earlier priority to prevent hook timing race conditions
+        add_action('init', function() {
+            if (class_exists('TDWP_Display_Manager')) {
+                TDWP_Display_Manager::get_instance();
+            }
+        }, 8); // Run before rewrite rule registration (priority 11)
 
         $this->init_post_types();
         $this->init_taxonomies();
@@ -133,6 +165,11 @@ class Poker_Tournament_Import {
             require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/tournament-manager/live-tournament-converter.php';
             new TDWP_Live_Tournament_Wizard();
 
+            // **PHASE 4: TD3 Display System - Screen Management**
+            if (file_exists(POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/tournament-manager/screen-management-page.php')) {
+                require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/tournament-manager/screen-management-page.php';
+            }
+
             // **PHASE 2 Week 2-3: Tournament Manager AJAX & Control Page**
             require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/class-tournament-manager-ajax.php';
         }
@@ -185,10 +222,23 @@ class Poker_Tournament_Import {
         // AJAX handlers for frontend dashboard (logged-in users)
         add_action('wp_ajax_tdwp_frontend_import_tournament', array($this, 'ajax_frontend_import_tournament'));
         add_action('wp_ajax_tdwp_frontend_refresh_statistics', array($this, 'ajax_frontend_refresh_statistics'));
+
+        // **PHASE 4: TD3 Display System AJAX handlers**
+        add_action('wp_ajax_tdwp_get_tournament_data', array($this, 'ajax_get_tournament_data'));
+        add_action('wp_ajax_nopriv_tdwp_get_tournament_data', array($this, 'ajax_get_tournament_data'));
+        add_action('wp_ajax_tdwp_unregister_screen', array($this, 'ajax_unregister_screen'));
+        add_action('wp_ajax_nopriv_tdwp_unregister_screen', array($this, 'ajax_unregister_screen'));
         add_action('wp_ajax_tdwp_dashboard_tournaments_filtered', array($this, 'ajax_dashboard_tournaments_filtered'));
         add_action('wp_ajax_nopriv_tdwp_dashboard_tournaments_filtered', array($this, 'ajax_dashboard_tournaments_filtered'));
         add_action('wp_ajax_tdwp_load_tournaments_data', array($this, 'ajax_load_tournaments_data'));
         add_action('wp_ajax_nopriv_tdwp_load_tournaments_data', array($this, 'ajax_load_tournaments_data'));
+
+        // **PHASE 4.1: Display System - Live Tournament Integration AJAX handlers**
+        if (class_exists('TDWP_Display_Manager')) {
+            $display_manager = TDWP_Display_Manager::get_instance();
+            add_action('wp_ajax_tdwp_get_tournament_options', array($display_manager, 'ajax_get_tournament_options'));
+            add_action('wp_ajax_tdwp_auto_assign_screen', array($display_manager, 'ajax_auto_assign_screen'));
+        }
 
         // AJAX handlers for dependency manager
         
@@ -470,7 +520,61 @@ class Poker_Tournament_Import {
         // **PHASE 3: Active Tournament Persistence & Admin Bar**
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-active-tournament-manager.php';
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-admin-bar-widget.php';
+
+        // **TD3 INTEGRATION: Display System Classes**
+        if (file_exists(POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-td3-database-schema.php')) {
+            require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-td3-database-schema.php';
+        }
+        if (file_exists(POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-td3-migration.php')) {
+            require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-td3-migration.php';
+        }
+
+        // Include TD3 Display System classes
+        if (file_exists(POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-template-engine.php')) {
+            require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-template-engine.php';
+        }
+        if (file_exists(POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-layout-builder.php')) {
+            require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-layout-builder.php';
+        }
+        // Initialize TD3 Dependency Manager first
+        if (file_exists(POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-dependency-manager.php')) {
+            require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-dependency-manager.php';
+        }
+
+        if (file_exists(POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-display-manager.php')) {
+            require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-display-manager.php';
+        }
+        if (file_exists(POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-display-shortcode.php')) {
+            require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-display-shortcode.php';
+            TDWP_Display_Shortcode::get_instance();
+        }
       }
+
+/**
+     * Initialize TD3 Display System options
+     *
+     * @since 3.4.0
+     */
+    private function init_td3_display_options() {
+        $display_options = array(
+            'tdwp_display_system_enabled' => true,
+            'tdwp_display_default_refresh_rate' => 5, // seconds
+            'tdwp_display_cache_duration' => 300, // 5 minutes
+            'tdwp_display_max_screens' => 10,
+            'tdwp_display_token_validation' => true,
+            'tdwp_display_responsive_breakpoints' => array(
+                'small' => 768,
+                'medium' => 1024,
+                'large' => 1440,
+            ),
+        );
+
+        foreach ( $display_options as $option => $default_value ) {
+            if ( get_option( $option ) === false ) {
+                add_option( $option, $default_value );
+            }
+        }
+    }
 
     /**
      * Initialize custom post types
@@ -2948,6 +3052,132 @@ class Poker_Tournament_Import {
         // Return original template if none of our conditions match
         return $template;
     }
+
+    /**
+     * AJAX handler for getting tournament data for shortcodes
+     *
+     * @since 3.4.0
+     */
+    public function ajax_get_tournament_data() {
+        check_ajax_referer('tdwp_shortcode_nonce', 'nonce');
+
+        $tournament_ids = isset($_POST['tournament_ids']) ? array_map('intval', $_POST['tournament_ids']) : array();
+
+        if (empty($tournament_ids)) {
+            wp_send_json_error(array(
+                'message' => __('Tournament IDs are required.', 'poker-tournament-import')
+            ));
+        }
+
+        $data = array();
+
+        foreach ($tournament_ids as $tournament_id) {
+            $tournament_data = $this->get_tournament_live_data($tournament_id);
+            if ($tournament_data) {
+                $data[$tournament_id] = $tournament_data;
+            }
+        }
+
+        wp_send_json_success($data);
+    }
+
+    /**
+     * AJAX handler for unregistering screen
+     *
+     * @since 3.4.0
+     */
+    public function ajax_unregister_screen() {
+        check_ajax_referer('tdwp_display_nonce', 'nonce');
+
+        $screen_id = isset($_POST['screen_id']) ? intval($_POST['screen_id']) : 0;
+
+        if (!$screen_id) {
+            wp_send_json_error(array(
+                'message' => __('Screen ID is required.', 'poker-tournament-import')
+            ));
+        }
+
+        // Update screen status to offline
+        global $wpdb;
+        $wpdb->update(
+            $wpdb->prefix . 'poker_display_screens',
+            array('is_online' => 0, 'last_ping' => current_time('mysql')),
+            array('screen_id' => $screen_id),
+            array('%d', '%s'),
+            array('%d')
+        );
+
+        wp_send_json_success(array(
+            'message' => __('Screen unregistered successfully.', 'poker-tournament-import')
+        ));
+    }
+
+    /**
+     * Get tournament live data for shortcodes
+     *
+     * @since 3.4.0
+     * @param int $tournament_id Tournament ID.
+     * @return array Tournament data.
+     */
+    private function get_tournament_live_data($tournament_id) {
+        global $wpdb;
+
+        $tournament = get_post($tournament_id);
+        if (!$tournament || $tournament->post_type !== 'tournament') {
+            return null;
+        }
+
+        // Try to get live state from live tournament manager
+        if (class_exists('TDWP_Tournament_Live')) {
+            $live_manager = TDWP_Tournament_Live::get_instance();
+            $live_state = $live_manager->get_by_tournament_id($tournament_id);
+
+            if ($live_state) {
+                // Check tournament status - only show active clock for 'running' tournaments
+                $is_running = ($live_state->status === 'running');
+
+                return array_merge(array(
+                    'tournament_name' => $tournament->post_title,
+                    'tournament_id' => $tournament_id,
+                    'tournament_status' => $live_state->status,
+                    'clock_running' => $is_running,
+                ), (array) $live_state);
+            }
+        }
+
+        // Get basic tournament data for tournaments without live state
+        $data = array(
+            'tournament_name' => $tournament->post_title,
+            'tournament_id' => $tournament_id,
+            'tournament_status' => 'pending',
+            'current_level' => 1,
+            'current_blinds' => '10/20',
+            'next_blinds' => '15/30',
+            'time_remaining' => '--:--',
+            'players_remaining' => 0,
+            'prize_pool' => '$0',
+            'clock_running' => false,
+        );
+
+        // Get player count from database
+        $table_name = $wpdb->prefix . 'poker_tournament_players';
+        $player_count = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM {$table_name} WHERE tournament_id = %d AND eliminated = 0",
+            $tournament_id
+        ));
+
+        if ($player_count) {
+            $data['players_remaining'] = intval($player_count);
+        }
+
+        // Get prize pool from tournament meta
+        $prize_pool = get_post_meta($tournament_id, '_prize_pool', true);
+        if ($prize_pool) {
+            $data['prize_pool'] = '$' . number_format($prize_pool, 2);
+        }
+
+        return $data;
+    }
 }
 
 /**
@@ -3010,7 +3240,8 @@ if (!function_exists('poker_cached_query')) {
 
         return $results;
     }
-}
+
+  }
 
 // Initialize the plugin
 Poker_Tournament_Import::get_instance();

@@ -76,6 +76,18 @@ class Poker_Tournament_Import_Admin {
             array($this, 'render_settings_page')
         );
 
+        // TD3 Layout Builder menu
+        if (class_exists('TDWP_Layout_Builder')) {
+            add_submenu_page(
+                'poker-tournament-import',
+                __('TD3 Layout Builder', 'poker-tournament-import'),
+                __('Layout Builder', 'poker-tournament-import'),
+                'manage_options',
+                'tdwp-layout-builder',
+                array($this, 'render_layout_builder_page')
+            );
+        }
+
         add_submenu_page(
             'poker-tournament-import',
             __('Migration Tools', 'poker-tournament-import'),
@@ -247,8 +259,11 @@ class Poker_Tournament_Import_Admin {
         // Debug: Log the actual hook value to identify why scripts aren't loading
         error_log('Poker Import - Admin Scripts Hook: ' . $hook);
 
-        // Match our admin pages - check for both main plugin pages and migration tools
-        if (strpos($hook, 'poker-tournament-import') !== false || strpos($hook, 'poker-migration-tools') !== false || strpos($hook, 'poker') !== false) {
+        // Load tournament import scripts on main tournament pages and migration tools
+        $is_tournament_page = strpos($hook, 'poker-tournament-import') !== false;
+        $is_migration_page = strpos($hook, 'poker-migration-tools') !== false;
+
+        if ($is_tournament_page || $is_migration_page) {
             wp_enqueue_style(
                 'poker-tournament-import-admin',
                 POKER_TOURNAMENT_IMPORT_PLUGIN_URL . 'assets/css/admin.css',
@@ -4730,5 +4745,147 @@ class Poker_Tournament_Import_Admin {
         } else {
             return null; // Unsupported type
         }
+    }
+
+    /**
+     * Render TD3 Layout Builder page
+     *
+     * @since 3.4.0
+     */
+    public function render_layout_builder_page() {
+        // Check if layout builder class is available
+        if (!class_exists('TDWP_Layout_Builder')) {
+            echo '<div class="wrap">';
+            echo '<h1>' . esc_html__('TD3 Layout Builder', 'poker-tournament-import') . '</h1>';
+            echo '<div class="notice notice-error"><p>' . esc_html__('Layout Builder class not found. Please ensure TD3 Integration components are properly installed.', 'poker-tournament-import') . '</p></div>';
+            echo '</div>';
+            return;
+        }
+
+        // Get layout builder instance
+        $layout_builder = TDWP_Layout_Builder::get_instance();
+        ?>
+        <div class="wrap">
+            <h1><?php esc_html_e('TD3 Layout Builder', 'poker-tournament-import'); ?></h1>
+            <p><?php esc_html_e('Create and manage display templates for tournament screens.', 'poker-tournament-import'); ?></p>
+
+            <div id="tdwp-layout-builder-app">
+                <!-- Layout Builder Interface -->
+                <div class="tdwp-layout-builder-container">
+                    <div class="tdwp-layout-sidebar">
+                        <h3><?php esc_html_e('Components', 'poker-tournament-import'); ?></h3>
+                        <div class="tdwp-component-palette">
+                            <div class="tdwp-component" data-component="tournament-title"><?php esc_html_e('Tournament Title', 'poker-tournament-import'); ?></div>
+                            <div class="tdwp-component" data-component="player-list"><?php esc_html_e('Player List', 'poker-tournament-import'); ?></div>
+                            <div class="tdwp-component" data-component="clock"><?php esc_html_e('Tournament Clock', 'poker-tournament-import'); ?></div>
+                            <div class="tdwp-component" data-component="prize-pool"><?php esc_html_e('Prize Pool', 'poker-tournament-import'); ?></div>
+                            <div class="tdwp-component" data-component="blind-level"><?php esc_html_e('Blind Level', 'poker-tournament-import'); ?></div>
+                        </div>
+                    </div>
+
+                    <div class="tdwp-layout-canvas">
+                        <h3><?php esc_html_e('Layout Canvas', 'poker-tournament-import'); ?></h3>
+                        <div class="tdwp-canvas-area" id="tdwp-canvas">
+                            <div class="tdwp-placeholder"><?php esc_html_e('Drag components here to build your layout', 'poker-tournament-import'); ?></div>
+                        </div>
+                    </div>
+
+                    <div class="tdwp-layout-properties">
+                        <h3><?php esc_html_e('Properties', 'poker-tournament-import'); ?></h3>
+                        <div class="tdwp-property-panel">
+                            <p class="description"><?php esc_html_e('Select a component to edit its properties', 'poker-tournament-import'); ?></p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tdwp-layout-toolbar">
+                    <button type="button" class="button button-primary" id="tdwp-save-layout"><?php esc_html_e('Save Layout', 'poker-tournament-import'); ?></button>
+                    <button type="button" class="button" id="tdwp-preview-layout"><?php esc_html_e('Preview', 'poker-tournament-import'); ?></button>
+                    <button type="button" class="button" id="tdwp-clear-layout"><?php esc_html_e('Clear', 'poker-tournament-import'); ?></button>
+                </div>
+            </div>
+
+            <script>
+            jQuery(document).ready(function($) {
+                // Basic layout builder functionality
+                $('.tdwp-component').draggable({
+                    helper: 'clone',
+                    appendTo: '#tdwp-canvas'
+                });
+
+                $('#tdwp-canvas').droppable({
+                    accept: '.tdwp-component',
+                    drop: function(event, ui) {
+                        var component = ui.draggable.data('component');
+                        var componentEl = $('<div class="tdwp-layout-component" data-component="' + component + '">' +
+                                         ui.draggable.text() + '</div>');
+                        $(this).append(componentEl);
+                    }
+                });
+
+                $('#tdwp-clear-layout').on('click', function() {
+                    $('#tdwp-canvas').empty().append('<div class="tdwp-placeholder"><?php esc_html_e("Drag components here to build your layout", "poker-tournament-import"); ?></div>');
+                });
+            });
+            </script>
+
+            <style>
+            .tdwp-layout-builder-container {
+                display: flex;
+                gap: 20px;
+                margin: 20px 0;
+            }
+            .tdwp-layout-sidebar,
+            .tdwp-layout-canvas,
+            .tdwp-layout-properties {
+                background: #fff;
+                border: 1px solid #ccd0d4;
+                padding: 15px;
+                border-radius: 4px;
+            }
+            .tdwp-layout-sidebar {
+                flex: 0 0 200px;
+            }
+            .tdwp-layout-canvas {
+                flex: 1;
+            }
+            .tdwp-layout-properties {
+                flex: 0 0 250px;
+            }
+            .tdwp-component {
+                background: #f6f7f7;
+                border: 1px solid #ddd;
+                padding: 10px;
+                margin: 5px 0;
+                cursor: move;
+                border-radius: 3px;
+            }
+            .tdwp-component:hover {
+                background: #e9e9e9;
+            }
+            .tdwp-canvas-area {
+                min-height: 400px;
+                background: #f9f9f9;
+                border: 2px dashed #ccc;
+                padding: 20px;
+                position: relative;
+            }
+            .tdwp-layout-component {
+                background: #fff;
+                border: 1px solid #3f7c85;
+                padding: 10px;
+                margin: 5px;
+                border-radius: 3px;
+                cursor: pointer;
+            }
+            .tdwp-placeholder {
+                text-align: center;
+                color: #666;
+                font-style: italic;
+                margin-top: 150px;
+            }
+            </style>
+        </div>
+        <?php
     }
 }
