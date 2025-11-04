@@ -77,10 +77,33 @@ class TDWP_Template_Engine {
 	private function init_token_registry() {
 		global $wpdb;
 
+		// DEBUG: Log detailed information about table creation process
+		error_log( 'TDWP Template Engine: Starting token registry initialization' );
+		error_log( 'TDWP Template Engine: Database prefix = "' . $wpdb->prefix . '"' );
+
+		$table_name = $wpdb->prefix . 'tdwp_display_tokens';
+		error_log( 'TDWP Template Engine: Looking for table = "' . $table_name . '"' );
+
+		// Check if table exists before querying
+		$table_exists = $wpdb->get_var( "SHOW TABLES LIKE '$table_name'" ) === $table_name;
+		error_log( 'TDWP Template Engine: Table exists = ' . ( $table_exists ? 'YES' : 'NO' ) );
+
+		if ( ! $table_exists ) {
+			error_log( 'TDWP Template Engine: ERROR - Table does not exist, attempting to create it' );
+			$this->create_tokens_table_fallback();
+		}
+
 		// Load tokens from database
+		error_log( 'TDWP Template Engine: Executing query: SELECT * FROM ' . $table_name . ' WHERE is_active = 1 ORDER BY token_name' );
 		$db_tokens = $wpdb->get_results(
 			"SELECT * FROM {$wpdb->prefix}tdwp_display_tokens WHERE is_active = 1 ORDER BY token_name"
 		);
+
+		error_log( 'TDWP Template Engine: Query returned ' . ( is_array( $db_tokens ) ? count( $db_tokens ) : 0 ) . ' tokens' );
+
+		if ( $wpdb->last_error ) {
+			error_log( 'TDWP Template Engine: Database error = ' . $wpdb->last_error );
+		}
 
 		foreach ( $db_tokens as $token ) {
 			$this->token_registry[ $token->token_name ] = array(
@@ -1318,5 +1341,133 @@ class TDWP_Template_Engine {
 			'error_count' => $error_count,
 			'results' => $results
 		);
+	}
+
+	/**
+	 * Fallback method to create tokens table if it doesn't exist
+	 *
+	 * @since 3.4.0
+	 * @return bool True on success, false on failure
+	 */
+	private function create_tokens_table_fallback() {
+		global $wpdb;
+
+		error_log( 'TDWP Template Engine: Creating fallback tokens table' );
+
+		$table_name = $wpdb->prefix . 'tdwp_display_tokens';
+		$charset_collate = $wpdb->get_charset_collate();
+
+		$sql = "CREATE TABLE IF NOT EXISTS {$table_name} (
+			token_id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+			token_name VARCHAR(100) NOT NULL,
+			token_description TEXT NULL,
+			token_type ENUM('tournament','player','blind','prize','time','custom') NOT NULL DEFAULT 'custom',
+			data_source VARCHAR(255) NULL,
+			default_format VARCHAR(255) NULL,
+			is_active BOOLEAN NOT NULL DEFAULT TRUE,
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY (token_id),
+			UNIQUE KEY idx_token_name (token_name),
+			KEY idx_type_active (token_type, is_active)
+		) ENGINE=InnoDB {$charset_collate};";
+
+		error_log( 'TDWP Template Engine: Executing fallback SQL: ' . $sql );
+
+		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+		$result = dbDelta( $sql );
+
+		// Check if table was created
+		$table_exists_after = $wpdb->get_var( "SHOW TABLES LIKE '$table_name'" ) === $table_name;
+		error_log( 'TDWP Template Engine: Table exists after fallback creation = ' . ( $table_exists_after ? 'YES' : 'NO' ) );
+
+		if ( $table_exists_after ) {
+			error_log( 'TDWP Template Engine: Fallback table creation SUCCESS' );
+
+			// Insert some basic tokens
+			$this->insert_basic_tokens();
+
+			return true;
+		} else {
+			error_log( 'TDWP Template Engine: Fallback table creation FAILED' );
+			error_log( 'TDWP Template Engine: dbDelta result: ' . print_r( $result, true ) );
+			error_log( 'TDWP Template Engine: Database error: ' . $wpdb->last_error );
+			return false;
+		}
+	}
+
+	/**
+	 * Insert basic built-in tokens for fallback functionality
+	 *
+	 * @since 3.4.0
+	 * @return void
+	 */
+	private function insert_basic_tokens() {
+		global $wpdb;
+
+		error_log( 'TDWP Template Engine: Inserting basic tokens' );
+
+		$basic_tokens = array(
+			'tournament_name' => array(
+				'description' => 'Tournament name',
+				'type' => 'tournament',
+				'data_source' => 'get_tournament_name',
+				'default_format' => '%s'
+			),
+			'current_blind' => array(
+				'description' => 'Current blind level',
+				'type' => 'blind',
+				'data_source' => 'get_current_blind',
+				'default_format' => '%s'
+			),
+			'time_remaining' => array(
+				'description' => 'Time remaining in current level',
+				'type' => 'time',
+				'data_source' => 'get_time_remaining',
+				'default_format' => '%s'
+			),
+			'players_remaining' => array(
+				'description' => 'Number of players remaining',
+				'type' => 'player',
+				'data_source' => 'get_players_remaining',
+				'default_format' => '%d'
+			),
+			'prize_pool' => array(
+				'description' => 'Total prize pool',
+				'type' => 'prize',
+				'data_source' => 'get_prize_pool',
+				'default_format' => '%.2f'
+			)
+		);
+
+		foreach ( $basic_tokens as $token_name => $token_data ) {
+			// Check if token already exists
+			$existing = $wpdb->get_var( $wpdb->prepare(
+				"SELECT token_id FROM {$wpdb->prefix}tdwp_display_tokens WHERE token_name = %s",
+				$token_name
+			) );
+
+			if ( ! $existing ) {
+				$insert_data = array(
+					'token_name' => $token_name,
+					'token_description' => $token_data['description'],
+					'token_type' => $token_data['type'],
+					'data_source' => $token_data['data_source'],
+					'default_format' => $token_data['default_format'],
+					'is_active' => 1,
+				);
+
+				$result = $wpdb->insert(
+					$wpdb->prefix . 'tdwp_display_tokens',
+					$insert_data,
+					array( '%s', '%s', '%s', '%s', '%s', '%d' )
+				);
+
+				if ( $result ) {
+					error_log( "TDWP Template Engine: Created basic token: $token_name" );
+				} else {
+					error_log( "TDWP Template Engine: Failed to create basic token: $token_name" );
+				}
+			}
+		}
 	}
 }

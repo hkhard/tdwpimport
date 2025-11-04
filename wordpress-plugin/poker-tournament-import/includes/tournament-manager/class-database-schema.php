@@ -156,36 +156,70 @@ class TDWP_Database_Schema {
 	public static function force_create_display_tables() {
 		global $wpdb;
 
+		error_log('TDWP Display System: Starting forced table creation process');
+		error_log('TDWP Display System: Database prefix = "' . $wpdb->prefix . '"');
+
 		$charset_collate = $wpdb->get_charset_collate();
 		$tables_created = array();
 
-		error_log('TDWP Display System: Forcing table creation...');
+		try {
+			// Create Display Templates table
+			error_log('TDWP Display System: Creating display templates table...');
+			$tables_created[] = self::create_display_templates_table( $wpdb, $charset_collate );
+			$template_table = $wpdb->prefix . 'tdwp_display_templates';
+			$template_exists = $wpdb->get_var( "SHOW TABLES LIKE '$template_table'" ) === $template_table;
+			error_log('TDWP Display System: Templates table exists = ' . ($template_exists ? 'YES' : 'NO'));
 
-		// Create Display Templates table
-		$tables_created[] = self::create_display_templates_table( $wpdb, $charset_collate );
-		error_log('TDWP Display System: Templates table creation result: ' . ($tables_created[0] ? 'SUCCESS' : 'FAILED'));
+			// Create Display Layouts table
+			error_log('TDWP Display System: Creating display layouts table...');
+			$tables_created[] = self::create_display_layouts_table( $wpdb, $charset_collate );
+			$layout_table = $wpdb->prefix . 'tdwp_display_layouts';
+			$layout_exists = $wpdb->get_var( "SHOW TABLES LIKE '$layout_table'" ) === $layout_table;
+			error_log('TDWP Display System: Layouts table exists = ' . ($layout_exists ? 'YES' : 'NO'));
 
-		// Create Display Layouts table
-		$tables_created[] = self::create_display_layouts_table( $wpdb, $charset_collate );
-		error_log('TDWP Display System: Layouts table creation result: ' . ($tables_created[1] ? 'SUCCESS' : 'FAILED'));
+			// Create Display Screens table
+			error_log('TDWP Display System: Creating display screens table...');
+			$tables_created[] = self::create_display_screens_table( $wpdb, $charset_collate );
+			$screen_table = $wpdb->prefix . 'tdwp_display_screens';
+			$screen_exists = $wpdb->get_var( "SHOW TABLES LIKE '$screen_table'" ) === $screen_table;
+			error_log('TDWP Display System: Screens table exists = ' . ($screen_exists ? 'YES' : 'NO'));
 
-		// Create Display Screens table
-		$tables_created[] = self::create_display_screens_table( $wpdb, $charset_collate );
-		error_log('TDWP Display System: Screens table creation result: ' . ($tables_created[2] ? 'SUCCESS' : 'FAILED'));
+			// Create Display Tokens table
+			error_log('TDWP Display System: Creating display tokens table...');
+			$tables_created[] = self::create_display_tokens_table( $wpdb, $charset_collate );
+			$token_table = $wpdb->prefix . 'tdwp_display_tokens';
+			$token_exists = $wpdb->get_var( "SHOW TABLES LIKE '$token_table'" ) === $token_table;
+			error_log('TDWP Display System: Tokens table exists = ' . ($token_exists ? 'YES' : 'NO'));
 
-		// Create Display Tokens table
-		$tables_created[] = self::create_display_tokens_table( $wpdb, $charset_collate );
-		error_log('TDWP Display System: Tokens table creation result: ' . ($tables_created[3] ? 'SUCCESS' : 'FAILED'));
+			// Summary of results
+			$success = ! in_array( false, $tables_created, true );
+			$table_names = array('templates', 'layouts', 'screens', 'tokens');
+			$table_exists_array = array($template_exists, $layout_exists, $screen_exists, $token_exists);
 
-		$success = ! in_array( false, $tables_created, true );
+			error_log('TDWP Display System: Table creation results:');
+			foreach ($table_names as $index => $name) {
+				$created = $tables_created[$index] ? 'SUCCESS' : 'FAILED';
+				$exists = $table_exists_array[$index] ? 'EXISTS' : 'MISSING';
+				error_log("TDWP Display System: - $name table: $created ($exists)");
+			}
 
-		if ( $success ) {
-			error_log('TDWP Display System: All display tables created successfully');
-		} else {
-			error_log('TDWP Display System: Some display tables failed to create');
+			if ( $success ) {
+				error_log('TDWP Display System: All display tables created successfully');
+			} else {
+				error_log('TDWP Display System: Some display tables failed to create');
+				// Log database errors if any
+				if ( $wpdb->last_error ) {
+					error_log('TDWP Display System: Database error: ' . $wpdb->last_error);
+				}
+			}
+
+			return $success;
+
+		} catch ( Exception $e ) {
+			error_log('TDWP Display System: Exception during table creation: ' . $e->getMessage());
+			error_log('TDWP Display System: Exception trace: ' . $e->getTraceAsString());
+			return false;
 		}
-
-		return $success;
 	}
 
 	/**
