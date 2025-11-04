@@ -1462,7 +1462,7 @@ class TDWP_Database_Schema {
 	 * @return bool True on success, false on failure
 	 */
 	private static function create_display_tokens_table( $wpdb, $charset_collate ) {
-		$table_name = $wpdb->prefix . 'poker_display_tokens';
+		$table_name = $wpdb->prefix . 'tdwp_display_tokens';
 
 		$sql = "CREATE TABLE IF NOT EXISTS {$table_name} (
 			token_id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -1479,6 +1479,21 @@ class TDWP_Database_Schema {
 		) ENGINE=InnoDB {$charset_collate};";
 
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+
+		// Handle migration from old table name if needed
+		$old_table_name = $wpdb->prefix . 'poker_display_tokens';
+		$new_table_name = $wpdb->prefix . 'tdwp_display_tokens';
+
+		// Check if old table exists and new table doesn't
+		$old_table_exists = $wpdb->get_var( "SHOW TABLES LIKE '$old_table_name'" ) === $old_table_name;
+		$new_table_exists = $wpdb->get_var( "SHOW TABLES LIKE '$new_table_name'" ) === $new_table_name;
+
+		if ( $old_table_exists && ! $new_table_exists ) {
+			// Rename old table to new name
+			$wpdb->query( "RENAME TABLE $old_table_name TO $new_table_name" );
+			error_log( "TDWP Database Schema: Renamed $old_table_name to $new_table_name" );
+		}
+
 		$result = dbDelta( $sql );
 
 		return ! empty( $result );

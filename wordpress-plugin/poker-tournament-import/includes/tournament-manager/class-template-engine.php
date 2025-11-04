@@ -79,7 +79,7 @@ class TDWP_Template_Engine {
 
 		// Load tokens from database
 		$db_tokens = $wpdb->get_results(
-			"SELECT * FROM {$wpdb->prefix}poker_display_tokens WHERE is_active = 1 ORDER BY token_name"
+			"SELECT * FROM {$wpdb->prefix}tdwp_display_tokens WHERE is_active = 1 ORDER BY token_name"
 		);
 
 		foreach ( $db_tokens as $token ) {
@@ -1104,7 +1104,7 @@ class TDWP_Template_Engine {
 
 		// Insert into database
 		$result = $wpdb->insert(
-			$wpdb->prefix . 'poker_display_tokens',
+			$wpdb->prefix . 'tdwp_display_tokens',
 			$token_data,
 			array( '%s', '%s', '%s', '%s', '%s', '%d' )
 		);

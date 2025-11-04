@@ -123,3 +123,4 @@ Claude Code guidance for the Poker Tournament Import WordPress plugin.
 
 ## Recent Changes
 - 001-td3-integration: Added PHP 8.0+ (8.2+ compatible) + WordPress 6.0+, MySQL 5.7+, jQuery, modern JavaScript (ES6+)
+- our database prefix is tdwp_ always, nothing else
