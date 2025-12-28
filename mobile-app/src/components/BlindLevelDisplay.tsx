@@ -26,8 +26,12 @@ export interface BlindLevelDisplayProps {
 
 /**
  * Format currency/number with commas
+ * Handles undefined/null values gracefully
  */
-function formatNumber(num: number): string {
+function formatNumber(num: number | undefined): string {
+  if (num === undefined || num === null) {
+    return '0';
+  }
   return num.toLocaleString();
 }
 
