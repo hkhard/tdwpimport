@@ -42,7 +42,7 @@ export class BlindScheduleRepository extends BaseRepository<BlindScheduleRow> {
     if (!schedule) return null;
 
     const levels = this.query<BlindLevel>(
-      `SELECT * FROM blind_levels WHERE blindScheduleId = ? ORDER BY orderIndex`,
+      `SELECT * FROM blind_levels WHERE blind_schedule_id = ? ORDER BY level`,
       [id]
     );
 

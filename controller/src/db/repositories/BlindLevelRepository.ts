@@ -4,34 +4,28 @@
  */
 
 import { getConnection } from '../connection';
-import { BaseRepository } from './BaseRepository';
 import type { BlindLevel } from '@shared/types/timer';
 
 interface BlindLevelRow {
-  id: string;
-  blindScheduleId: string;
-  levelNumber: number;
-  smallBlind: number;
-  bigBlind: number;
+  blind_level_id: string;
+  blind_schedule_id: string;
+  level: number;
+  small_blind: number;
+  big_blind: number;
   ante: number | null;
-  durationMinutes: number;
-  isBreak: number;
-  orderIndex: number;
+  duration: number;
+  is_break: number;
 }
 
-export class BlindLevelRepository extends BaseRepository<BlindLevelRow> {
-  constructor() {
-    super('blind_levels', 'id');
-  }
-
+export class BlindLevelRepository {
   /**
    * Find all levels for a schedule, ordered by level number
    */
   findByScheduleId(scheduleId: string): BlindLevel[] {
-    const rows = this.query<BlindLevelRow>(
-      `SELECT * FROM blind_levels WHERE blindScheduleId = ? ORDER BY orderIndex`,
-      [scheduleId]
-    );
+    const db = getConnection();
+    const rows = db.prepare(
+      `SELECT * FROM blind_levels WHERE blind_schedule_id = ? ORDER BY level`
+    ).all(scheduleId) as BlindLevelRow[];
     return rows.map(this.mapToBlindLevel);
   }
 
@@ -39,10 +33,10 @@ export class BlindLevelRepository extends BaseRepository<BlindLevelRow> {
    * Find specific level by schedule and level number
    */
   findByScheduleAndLevel(scheduleId: string, levelNumber: number): BlindLevel | null {
-    const row = this.queryOne<BlindLevelRow>(
-      `SELECT * FROM blind_levels WHERE blindScheduleId = ? AND levelNumber = ?`,
-      [scheduleId, levelNumber]
-    );
+    const db = getConnection();
+    const row = db.prepare(
+      `SELECT * FROM blind_levels WHERE blind_schedule_id = ? AND level = ?`
+    ).get(scheduleId, levelNumber) as BlindLevelRow | undefined;
     return row ? this.mapToBlindLevel(row) : null;
   }
 
@@ -50,10 +44,10 @@ export class BlindLevelRepository extends BaseRepository<BlindLevelRow> {
    * Find next level after current
    */
   findNextLevel(scheduleId: string, currentLevel: number): BlindLevel | null {
-    const row = this.queryOne<BlindLevelRow>(
-      `SELECT * FROM blind_levels WHERE blindScheduleId = ? AND levelNumber > ? ORDER BY levelNumber ASC LIMIT 1`,
-      [scheduleId, currentLevel]
-    );
+    const db = getConnection();
+    const row = db.prepare(
+      `SELECT * FROM blind_levels WHERE blind_schedule_id = ? AND level > ? ORDER BY level ASC LIMIT 1`
+    ).get(scheduleId, currentLevel) as BlindLevelRow | undefined;
     return row ? this.mapToBlindLevel(row) : null;
   }
 
@@ -61,10 +55,10 @@ export class BlindLevelRepository extends BaseRepository<BlindLevelRow> {
    * Find previous level before current
    */
   findPreviousLevel(scheduleId: string, currentLevel: number): BlindLevel | null {
-    const row = this.queryOne<BlindLevelRow>(
-      `SELECT * FROM blind_levels WHERE blindScheduleId = ? AND levelNumber < ? ORDER BY levelNumber DESC LIMIT 1`,
-      [scheduleId, currentLevel]
-    );
+    const db = getConnection();
+    const row = db.prepare(
+      `SELECT * FROM blind_levels WHERE blind_schedule_id = ? AND level < ? ORDER BY level DESC LIMIT 1`
+    ).get(scheduleId, currentLevel) as BlindLevelRow | undefined;
     return row ? this.mapToBlindLevel(row) : null;
   }
 
@@ -72,10 +66,10 @@ export class BlindLevelRepository extends BaseRepository<BlindLevelRow> {
    * Get level at specific position (0-indexed)
    */
   getLevelAtPosition(scheduleId: string, position: number): BlindLevel | null {
-    const row = this.queryOne<BlindLevelRow>(
-      `SELECT * FROM blind_levels WHERE blindScheduleId = ? ORDER BY orderIndex LIMIT 1 OFFSET ?`,
-      [scheduleId, position]
-    );
+    const db = getConnection();
+    const row = db.prepare(
+      `SELECT * FROM blind_levels WHERE blind_schedule_id = ? ORDER BY level LIMIT 1 OFFSET ?`
+    ).get(scheduleId, position) as BlindLevelRow | undefined;
     return row ? this.mapToBlindLevel(row) : null;
   }
 
@@ -83,21 +77,22 @@ export class BlindLevelRepository extends BaseRepository<BlindLevelRow> {
    * Get levels paginated (for mobile "load more")
    */
   getLevelsPaginated(scheduleId: string, offset: number, limit: number): BlindLevel[] {
-    const rows = this.query<BlindLevelRow>(
-      `SELECT * FROM blind_levels WHERE blindScheduleId = ? ORDER BY orderIndex LIMIT ? OFFSET ?`,
-      [scheduleId, limit, offset]
+    const db = getConnection();
+    const stmt = db.prepare(
+      `SELECT * FROM blind_levels WHERE blind_schedule_id = ? ORDER BY level LIMIT ? OFFSET ?`
     );
-    return rows.map(this.mapToBlindLevel);
+    const rows = stmt.all(scheduleId, limit, offset) as BlindLevelRow[];
+    return rows.map(row => this.mapToBlindLevel(row));
   }
 
   /**
    * Count levels in schedule
    */
   countByScheduleId(scheduleId: string): number {
-    const result = this.queryOne<{ count: number }>(
-      `SELECT COUNT(*) as count FROM blind_levels WHERE blindScheduleId = ?`,
-      [scheduleId]
-    );
+    const db = getConnection();
+    const result = db.prepare(
+      `SELECT COUNT(*) as count FROM blind_levels WHERE blind_schedule_id = ?`
+    ).get(scheduleId) as { count: number };
     return result?.count || 0;
   }
 
@@ -105,10 +100,10 @@ export class BlindLevelRepository extends BaseRepository<BlindLevelRow> {
    * Count non-break levels in schedule
    */
   countPlayLevels(scheduleId: string): number {
-    const result = this.queryOne<{ count: number }>(
-      `SELECT COUNT(*) as count FROM blind_levels WHERE blindScheduleId = ? AND isBreak = 0`,
-      [scheduleId]
-    );
+    const db = getConnection();
+    const result = db.prepare(
+      `SELECT COUNT(*) as count FROM blind_levels WHERE blind_schedule_id = ? AND is_break = 0`
+    ).get(scheduleId) as { count: number };
     return result?.count || 0;
   }
 
@@ -120,8 +115,8 @@ export class BlindLevelRepository extends BaseRepository<BlindLevelRow> {
     const db = getConnection();
 
     db.prepare(`
-      INSERT INTO blind_levels (id, blindScheduleId, levelNumber, smallBlind, bigBlind, ante, durationMinutes, isBreak, orderIndex)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO blind_levels (blind_level_id, blind_schedule_id, level, small_blind, big_blind, ante, duration, is_break)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       levelId,
       scheduleId,
@@ -130,8 +125,7 @@ export class BlindLevelRepository extends BaseRepository<BlindLevelRow> {
       level.bigBlind,
       level.ante || null,
       level.duration,
-      level.isBreak ? 1 : 0,
-      level.level
+      level.isBreak ? 1 : 0
     );
 
     return levelId;
@@ -143,8 +137,8 @@ export class BlindLevelRepository extends BaseRepository<BlindLevelRow> {
   insertLevels(levels: Partial<BlindLevel>[], scheduleId: string): string[] {
     const db = getConnection();
     const insert = db.prepare(`
-      INSERT INTO blind_levels (id, blindScheduleId, levelNumber, smallBlind, bigBlind, ante, durationMinutes, isBreak, orderIndex)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO blind_levels (blind_level_id, blind_schedule_id, level, small_blind, big_blind, ante, duration, is_break)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const ids: string[] = [];
@@ -158,8 +152,7 @@ export class BlindLevelRepository extends BaseRepository<BlindLevelRow> {
         level.bigBlind,
         level.ante || null,
         level.duration,
-        level.isBreak ? 1 : 0,
-        level.level
+        level.isBreak ? 1 : 0
       );
       ids.push(levelId);
     }
@@ -171,13 +164,22 @@ export class BlindLevelRepository extends BaseRepository<BlindLevelRow> {
    * Update level
    */
   updateLevel(levelId: string, updates: Partial<Omit<BlindLevel, 'blindLevelId'>>): void {
-    const allowedKeys = ['levelNumber', 'smallBlind', 'bigBlind', 'ante', 'duration', 'isBreak'];
+    const db = getConnection();
+    const allowedKeys: (keyof Omit<BlindLevel, 'blindLevelId'>)[] = ['level', 'smallBlind', 'bigBlind', 'ante', 'duration', 'isBreak'];
+    const columnMap: Record<string, string> = {
+      level: 'level',
+      smallBlind: 'small_blind',
+      bigBlind: 'big_blind',
+      ante: 'ante',
+      duration: 'duration',
+      isBreak: 'is_break',
+    };
     const setClause: string[] = [];
     const values: unknown[] = [];
 
     for (const key of allowedKeys) {
       if (key in updates) {
-        setClause.push(`${key === 'duration' ? 'durationMinutes' : key === 'isBreak' ? 'isBreak' : key} = ?`);
+        setClause.push(`${columnMap[key]} = ?`);
         values.push((updates as Record<string, unknown>)[key]);
       }
     }
@@ -186,17 +188,17 @@ export class BlindLevelRepository extends BaseRepository<BlindLevelRow> {
 
     values.push(levelId);
 
-    this.execute(
-      `UPDATE blind_levels SET ${setClause.join(', ')} WHERE id = ?`,
-      values
-    );
+    db.prepare(
+      `UPDATE blind_levels SET ${setClause.join(', ')} WHERE blind_level_id = ?`
+    ).run(...values);
   }
 
   /**
    * Delete level
    */
   deleteLevel(levelId: string): void {
-    this.delete(levelId);
+    const db = getConnection();
+    db.prepare(`DELETE FROM blind_levels WHERE blind_level_id = ?`).run(levelId);
   }
 
   /**
@@ -204,22 +206,7 @@ export class BlindLevelRepository extends BaseRepository<BlindLevelRow> {
    */
   deleteByScheduleId(scheduleId: string): void {
     const db = getConnection();
-    db.prepare(`DELETE FROM blind_levels WHERE blindScheduleId = ?`).run(scheduleId);
-  }
-
-  /**
-   * Reorder levels (after insert/delete/update)
-   */
-  reorderLevels(scheduleId: string): void {
-    const db = getConnection();
-    db.prepare(`
-      UPDATE blind_levels SET orderIndex = (
-        SELECT COUNT(*) FROM blind_levels bl2
-        WHERE bl2.blindScheduleId = blind_levels.blindScheduleId
-        AND bl2.levelNumber <= blind_levels.levelNumber
-      )
-      WHERE blindScheduleId = ?
-    `).run(scheduleId);
+    db.prepare(`DELETE FROM blind_levels WHERE blind_schedule_id = ?`).run(scheduleId);
   }
 
   /**
@@ -253,13 +240,13 @@ export class BlindLevelRepository extends BaseRepository<BlindLevelRow> {
    */
   private mapToBlindLevel(row: BlindLevelRow): BlindLevel {
     return {
-      blindLevelId: row.id,
-      level: row.levelNumber,
-      smallBlind: row.smallBlind,
-      bigBlind: row.bigBlind,
+      blindLevelId: row.blind_level_id,
+      level: row.level,
+      smallBlind: row.small_blind,
+      bigBlind: row.big_blind,
       ante: row.ante || undefined,
-      duration: row.durationMinutes,
-      isBreak: row.isBreak === 1,
+      duration: row.duration,
+      isBreak: row.is_break === 1,
     };
   }
 }
