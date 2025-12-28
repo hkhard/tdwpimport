@@ -16,6 +16,7 @@ import { authRoutes } from './routes/auth';
 import { tournamentRoutes } from './api/routes/tournaments';
 import { timerRoutes } from './api/routes/timer';
 import { playerRoutes } from './api/routes/players';
+import { blindScheduleRoutes } from './api/routes/blindSchedules';
 import { setupWebSocket } from './websocket/server';
 import { getConnection, runMigrations } from './db/connection';
 import { createTournamentService } from './services/tournament/TournamentService';
@@ -69,6 +70,7 @@ export async function createServer(): Promise<FastifyInstance> {
   await server.register(tournamentRoutes, { prefix: '/api' });
   await server.register(timerRoutes, { prefix: '/api' });
   await server.register(playerRoutes, { prefix: '/api' });
+  await server.register(blindScheduleRoutes, { prefix: '/api' });
 
   // Setup WebSocket
   setupWebSocket(server);
