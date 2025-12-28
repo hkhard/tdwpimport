@@ -130,13 +130,13 @@ export function BlindLevelsList({ blindScheduleId, currentLevelNumber, onLevelPr
         scrollEventThrottle={400}
       >
         {displayedLevels.map((level) => {
-          const isCurrent = level.levelNumber === currentLevelNumber;
-          const isPast = level.levelNumber < currentLevelNumber;
+          const isCurrent = level.level === currentLevelNumber;
+          const isPast = level.level < currentLevelNumber;
           const isBreak = level.isBreak;
 
           return (
             <TouchableOpacity
-              key={level.id}
+              key={level.blindLevelId}
               style={[
                 styles.levelItem,
                 isCurrent && styles.currentLevel,
@@ -156,10 +156,10 @@ export function BlindLevelsList({ blindScheduleId, currentLevelNumber, onLevelPr
                       isBreak && styles.breakLevelText,
                     ]}
                   >
-                    {isBreak ? 'Break' : `L${level.levelNumber}`}
+                    {isBreak ? 'Break' : `L${level.level}`}
                   </Text>
                 </View>
-                <Text style={styles.duration}>{level.durationMinutes}m</Text>
+                <Text style={styles.duration}>{level.duration}m</Text>
               </View>
 
               <View style={styles.blindsContainer}>
