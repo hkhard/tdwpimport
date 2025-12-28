@@ -32,6 +32,7 @@ import type { BlindLevel } from '@shared/types/timer';
 import { API_BASE_URL, WS_BASE_URL } from '../config/api';
 import { createTimerWebSocketClient, type TimerWebSocketClient } from '../services/websocket/timerWebSocket';
 import { BlindLevelDisplay } from '../components/BlindLevelDisplay';
+import { BlindLevelsList } from '../components/BlindLevelsList';
 import { blindScheduleApi } from '../services/api/blindScheduleApi';
 
 interface Props {
@@ -577,6 +578,16 @@ export default function TournamentDetailScreen({ tournamentId, onBack }: Props) 
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Blind Levels Section */}
+      <BlindLevelsList
+        blindScheduleId={tournament.blindScheduleId || null}
+        currentLevelNumber={timerState?.level || tournament.currentBlindLevel || 1}
+        onLevelPress={(level) => {
+          // Optional: Show level preview modal
+          console.log('[TournamentDetail] Level pressed:', level);
+        }}
+      />
 
       {/* Players Section */}
       <View style={styles.card}>
