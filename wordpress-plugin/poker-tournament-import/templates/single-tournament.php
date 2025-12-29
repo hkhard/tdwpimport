@@ -264,7 +264,7 @@ $archive_url = get_post_type_archive_link($post_type);
                 <section class="tournament-winner-section">
                     <?php
                     // Try to get real-time winner information
-                    $winner_info = get_tournament_winner_info(get_the_ID());
+                    $winner_info = tdwp_get_tournament_winner_info(get_the_ID());
                     if ($winner_info):
                     ?>
                         <div class="winner-highlight <?php echo esc_attr($winner_info['processing_type']); ?>">

@@ -125,6 +125,8 @@ Claude Code guidance for the Poker Tournament Import WordPress plugin.
 - SQLite (controller with tdwp_ prefix), Expo SQLite (mobile), AsyncStorage (offline cache) (001-blind-level-management)
 - TypeScript 5.0+ (strict mode) + Expo SDK 54, React Navigation v6, Zustand 4.4, Fastify (controller) (002-blind-level-crud)
 - AsyncStorage (offline cache), SQLite (controller database with tdwp_ prefix) (002-blind-level-crud)
+- PHP 8.0+ (8.2+ compatible) + WordPress 6.0+, WordPress Coding Standards (003-fix-tournament-import)
+- WordPress MySQL database (wp_ prefix) (003-fix-tournament-import)
 
 ## Recent Changes
 - 001-td3-integration: Added PHP 8.0+ (8.2+ compatible) + WordPress 6.0+, MySQL 5.7+, jQuery, modern JavaScript (ES6+)

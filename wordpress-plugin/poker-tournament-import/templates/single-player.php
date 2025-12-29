@@ -242,9 +242,8 @@ $archive_url = get_post_type_archive_link($post_type);
                                         echo '<tbody>';
 
                                         foreach ($history_tournaments as $tournament) {
-                                            $display_date = $tournament->tournament_date ?
-                                                date_i18n(get_option('date_format'), strtotime($tournament->tournament_date)) :
-                                                date_i18n(get_option('date_format'), strtotime($tournament->post_date));
+                                            $date_source = $tournament->tournament_date ?? $tournament->post_date ?? 'now';
+                                            $display_date = date_i18n(get_option('date_format'), strtotime($date_source));
 
                                             $position_class = '';
                                             if ($tournament->finish_position == 1) $position_class = 'gold';

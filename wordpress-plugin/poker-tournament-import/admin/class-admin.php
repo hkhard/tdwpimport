@@ -726,20 +726,63 @@ class Poker_Tournament_Import_Admin {
                             <strong><?php esc_html_e('Selected Formula:', 'poker-tournament-import'); ?></strong>
                             <p id="formula-description" style="margin: 5px 0; font-style: italic;"></p>
                             <details>
-                                <summary style="cursor: pointer; color: #2271b1;">
-                                $('#formula-code').text(codeDisplay);
+                                <summary style="cursor: pointer; color: #2271b1;"><?php esc_html_e('View Formula Code', 'poker-tournament-import'); ?></summary>
+                                <pre id="formula-code" style="background: #f5f5f5; padding: 10px; overflow-x: auto;"></pre>
+                            </details>
+                        </div>
+                    </div>
 
-                                $('#formula-preview-box').slideDown();
+                    <script>
+                    jQuery(document).ready(function($) {
+                        $('input[name="formula_mode"]').on('change', function() {
+                            if ($(this).val() === 'override') {
+                                $('#formula-selector').slideDown();
+                            } else {
+                                $('#formula-selector').slideUp();
                             }
-                        }
+                        });
+
+                        $('#override_formula').on('change', function() {
+                            var formulaKey = $(this).val();
+                            // Update formula preview when selection changes
+                            $.ajax({
+                                url: ajaxurl,
+                                type: 'POST',
+                                data: {
+                                    action: 'tdwp_get_formula_details',
+                                    nonce: '<?php echo wp_create_nonce('tdwp_formula_nonce'); ?>',
+                                    formula_key: formulaKey
+                                },
+                                success: function(response) {
+                                    if (response.success) {
+                                        $('#formula-description').text(response.data.description);
+                                        $('#formula-code').text(response.data.formula);
+                                        $('#formula-preview-box').slideDown();
+                                    }
+                                }
+                            });
+                        });
                     });
                     </script>
 
+                    <style>
+                    .tdwp-hidden { display: none !important; }
+                    </style>
+
                     <p class="submit">
-                        <input type="submit" name="import_tournament" class="button button-primary" value="<?php esc_html_e('Import Tournament', 'poker-tournament-import'); ?>">
+                        <input type="submit" name="import_tournament" class="button button-primary tdwp-import-submit tdwp-hidden" value="<?php esc_html_e('Import Tournament', 'poker-tournament-import'); ?>">
                         <input type="hidden" name="import_tournament_hidden" value="1">
                     </p>
                 </form>
+
+                <script>
+                // Show submit button when valid file selected
+                jQuery(document).ready(function($) {
+                    $('#tdt_file').on('change', function() {
+                        $('.tdwp-import-submit').removeClass('tdwp-hidden');
+                    });
+                });
+                </script>
             </div>
 
             <?php
@@ -1370,8 +1413,8 @@ class Poker_Tournament_Import_Admin {
 
         // Set tournament date if available
         if (!empty($metadata['start_time'])) {
-            $post_data['post_date'] = gmgmdate('Y-m-d H:i:s', strtotime($metadata['start_time']));
-            $post_data['post_date_gmt'] = get_gmt_from_gmgmdate($post_data['post_date']);
+            $post_data['post_date'] = gmdate('Y-m-d H:i:s', strtotime($metadata['start_time']));
+            $post_data['post_date_gmt'] = get_gmt_from_date($post_data['post_date']);
             Poker_Tournament_Import_Debug::log('Tournament date set', $post_data['post_date']);
         }
 
@@ -2183,7 +2226,7 @@ class Poker_Tournament_Import_Admin {
         $table_name = $wpdb->prefix . 'poker_tournament_players';
 
         // Generate CSV report
-        $filename = 'poker-tournament-report-' . gmgmdate('Y-m-d') . '.csv';
+        $filename = 'poker-tournament-report-' . gmdate('Y-m-d') . '.csv';
         $filepath = get_temp_dir() . $filename;
 
         // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen -- Required for backup creation
@@ -2236,7 +2279,7 @@ class Poker_Tournament_Import_Admin {
 
             fputcsv($handle, array(
                 $tournament->post_title,
-                $tournament_date ?: get_the_gmgmdate('Y-m-d', $tournament->ID),
+                $tournament_date ?: get_the_date('Y-m-d', $tournament->ID),
                 $players_count ?: 0,
                 $prize_pool ?: 0,
                 $winner_name,
@@ -2326,7 +2369,7 @@ class Poker_Tournament_Import_Admin {
                 // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen -- Reading uploaded file
                 echo '<td><strong><a href="' . esc_url(get_permalink($tournament->ID)) . '">' . esc_html($tournament->post_title) . '</a></strong></td>';
                 // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_fread -- Reading file content
-                echo '<td>' . esc_html($tournament_date ? date_i18n('M j, Y', strtotime($tournament_date)) : get_the_gmgmdate('M j, Y', $tournament->ID)) . '</td>';
+                echo '<td>' . esc_html($tournament_date ? date_i18n('M j, Y', strtotime($tournament_date)) : get_the_date('M j, Y', $tournament->ID)) . '</td>';
                 echo '<td>' . esc_html($players_count ?: '--') . '</td>';
                 // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_fread -- Reading file content
                 // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- Closing file handle
@@ -3874,8 +3917,8 @@ class Poker_Tournament_Import_Admin {
 
             // Get time-based filtering
             $days_back = intval($time_range);
-            $start_date = gmgmdate('Y-m-d', strtotime("-{$days_back} days"));
-            $end_date = gmgmdate('Y-m-d');
+            $start_date = gmdate('Y-m-d', strtotime("-{$days_back} days"));
+            $end_date = gmdate('Y-m-d');
 
             // Get real statistics from the engine
             $stats = array(
@@ -4295,10 +4338,10 @@ class Poker_Tournament_Import_Admin {
      * Get overview trends data
      */
     private function get_overview_trends($stats_engine, $days_back, $series_id) {
-        $current_period_start = gmgmdate('Y-m-d', strtotime("-{$days_back} days"));
-        $current_period_end = gmgmdate('Y-m-d');
-        $previous_period_start = gmgmdate('Y-m-d', strtotime("-" . ($days_back * 2) . " days"));
-        $previous_period_end = gmgmdate('Y-m-d', strtotime("-{$days_back} days"));
+        $current_period_start = gmdate('Y-m-d', strtotime("-{$days_back} days"));
+        $current_period_end = gmdate('Y-m-d');
+        $previous_period_start = gmdate('Y-m-d', strtotime("-" . ($days_back * 2) . " days"));
+        $previous_period_end = gmdate('Y-m-d', strtotime("-{$days_back} days"));
 
         // Current period stats
         $current_tournaments = $stats_engine->get_total_tournaments($current_period_start, $current_period_end, $series_id);
