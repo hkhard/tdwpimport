@@ -1,13 +1,10 @@
 -- Fix blind level initialization
 -- Change default from 0 to 1 and update existing tournaments
 
--- Step 1: Update existing tournaments with current_blind_level = 0 to set them to 1
+-- Step 1: Update existing tournaments with level 0
 UPDATE tournaments SET current_blind_level = 1 WHERE current_blind_level = 0;
 
--- Step 2: Recreate the tournaments table with the correct DEFAULT
--- SQLite doesn't support ALTER COLUMN directly, so we need to recreate
-
--- Create new table with correct schema
+-- Step 2: Recreate table with correct DEFAULT (handle NULLs with COALESCE)
 CREATE TABLE IF NOT EXISTS tournaments_new (
   tournament_id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
@@ -25,19 +22,36 @@ CREATE TABLE IF NOT EXISTS tournaments_new (
   prize_pool REAL,
   blind_schedule_id TEXT,
   controller_device_id TEXT,
-  created_by TEXT NOT NULL REFERENCES users(user_id),
+  created_by TEXT NOT NULL DEFAULT 'demo-user',
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
--- Copy data from old table to new table
+-- Copy data with COALESCE defaults for NULL values
 INSERT INTO tournaments_new
-SELECT * FROM tournaments;
+SELECT
+  tournament_id,
+  name,
+  description,
+  start_time,
+  end_time,
+  status,
+  current_blind_level,
+  COALESCE(timer_is_running, 0),
+  COALESCE(timer_is_paused, 1),
+  COALESCE(timer_elapsed_time, 0),
+  COALESCE(timer_tenths, 0),
+  timer_remaining_time,
+  COALESCE(timer_last_update, datetime('now')),
+  prize_pool,
+  blind_schedule_id,
+  controller_device_id,
+  COALESCE(created_by, 'demo-user'),
+  COALESCE(created_at, datetime('now')),
+  COALESCE(updated_at, datetime('now'))
+FROM tournaments;
 
--- Drop old table
 DROP TABLE tournaments;
-
--- Rename new table to original name
 ALTER TABLE tournaments_new RENAME TO tournaments;
 
 -- Recreate indexes
