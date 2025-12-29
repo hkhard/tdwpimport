@@ -31,40 +31,7 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-Reference: `.specify/memory/constitution.md`
-
-### Security Compliance
-- [ ] Data sanitization implemented for all inputs (`sanitize_text_field()`, `wp_kses_post()`)
-- [ ] Nonce verification for AJAX handlers (`check_ajax_referer()`)
-- [ ] Capability checks for admin actions (`current_user_can('manage_options')`)
-- [ ] Prepared statements for database operations (`$wpdb->prepare()`)
-- [ ] File upload validation (if applicable)
-
-### Code Quality Standards
-- [ ] WordPress Coding Standards followed (naming, structure)
-- [ ] No underscore prefixes on custom variables
-- [ ] Internationalization with text domain 'poker-tournament-import'
-- [ ] PHPDoc blocks on all classes/methods with @since, @param, @return
-- [ ] PHP 8.0+ compatible, 8.2+ compatibility considered
-
-### Testing Requirements
-- [ ] PHP syntax validation planned (`php -l`)
-- [ ] Representative test data identified (sample .tdt files)
-- [ ] Memory efficiency considered for large imports (<512MB)
-- [ ] Automated tests for critical paths (if applicable)
-
-### User Experience
-- [ ] WordPress admin UI patterns followed
-- [ ] Clear feedback/loading states planned
-- [ ] Frontend template compatibility considered
-- [ ] Accessibility standards (WCAG 2.1 AA) addressed
-
-### Performance
-- [ ] Transient caching strategy defined
-- [ ] Database indexing planned
-- [ ] Large file handling strategy (streaming/chunking if needed)
-- [ ] Async processing for long operations (if applicable)
-- [ ] Performance targets identified (<30s imports, <500ms display)
+[Gates determined based on constitution file]
 
 ## Project Structure
 

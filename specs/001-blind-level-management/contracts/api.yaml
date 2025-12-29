@@ -1,0 +1,611 @@
+openapi: 3.0.0
+info:
+  title: Blind Schedule Management API
+  description: REST API for managing blind schedules and levels
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:3000/api
+    description: Local development
+  - url: https://api.example.com/api
+    description: Production
+
+paths:
+  /blind-schedules:
+    get:
+      summary: List all blind schedules
+      tags: [Blind Schedules]
+      parameters:
+        - name: includeDefault
+          in: query
+          schema:
+            type: boolean
+            default: true
+          description: Include pre-loaded default schedules
+        - name: createdBy
+          in: query
+          schema:
+            type: string
+          description: Filter by user ID (owner)
+      responses:
+        '200':
+          description: List of blind schedules
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BlindSchedule'
+    post:
+      summary: Create a new blind schedule
+      tags: [Blind Schedules]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBlindScheduleRequest'
+      responses:
+        '201':
+          description: Blind schedule created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/BlindSchedule'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /blind-schedules/{id}:
+    get:
+      summary: Get blind schedule by ID
+      tags: [Blind Schedules]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Blind schedule details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/BlindSchedule'
+        '404':
+          description: Blind schedule not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    put:
+      summary: Update blind schedule
+      tags: [Blind Schedules]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateBlindScheduleRequest'
+      responses:
+        '200':
+          description: Blind schedule updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/BlindSchedule'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Blind schedule not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      summary: Delete blind schedule
+      tags: [Blind Schedules]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Blind schedule deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Blind schedule deleted"
+        '400':
+          description: Cannot delete (in use or is default)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Blind schedule not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /blind-schedules/{id}/levels:
+    get:
+      summary: Get levels for a blind schedule
+      tags: [Blind Levels]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Blind schedule ID
+      responses:
+        '200':
+          description: List of blind levels
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BlindLevel'
+    post:
+      summary: Add level to blind schedule
+      tags: [Blind Levels]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBlindLevelRequest'
+      responses:
+        '201':
+          description: Blind level created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/BlindLevel'
+
+  /blind-schedules/{scheduleId}/levels/{levelId}:
+    put:
+      summary: Update blind level
+      tags: [Blind Levels]
+      parameters:
+        - name: scheduleId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: levelId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateBlindLevelRequest'
+      responses:
+        '200':
+          description: Blind level updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/BlindLevel'
+    delete:
+      summary: Delete blind level
+      tags: [Blind Levels]
+      parameters:
+        - name: scheduleId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: levelId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Blind level deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+
+  /tournaments/{id}/blind-level:
+    get:
+      summary: Get current blind level for tournament
+      tags: [Tournaments]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Tournament ID
+      responses:
+        '200':
+          description: Current blind level info
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/CurrentBlindLevel'
+    put:
+      summary: Manually change blind level
+      tags: [Tournaments]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                action:
+                  type: string
+                  enum: [next, previous, set]
+                  description: Level change action
+                level:
+                  type: integer
+                  description: Target level number (required for "set" action)
+      responses:
+        '200':
+          description: Blind level changed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/CurrentBlindLevel'
+
+components:
+  schemas:
+    BlindSchedule:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+          nullable: true
+        startingStack:
+          type: integer
+          minimum: 0
+        breakInterval:
+          type: integer
+          minimum: 0
+        breakDuration:
+          type: integer
+          minimum: 0
+        isDefault:
+          type: boolean
+        levelCount:
+          type: integer
+          description: Number of levels in schedule
+        totalDurationMinutes:
+          type: integer
+          description: Total duration in minutes (excluding breaks)
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+          format: uuid
+        levels:
+          type: array
+          items:
+            $ref: '#/components/schemas/BlindLevel'
+
+    BlindLevel:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        blindScheduleId:
+          type: string
+          format: uuid
+        levelNumber:
+          type: integer
+          minimum: 1
+        smallBlind:
+          type: number
+          format: decimal
+          minimum: 0
+        bigBlind:
+          type: number
+          format: decimal
+          minimum: 0
+        ante:
+          type: number
+          format: decimal
+          minimum: 0
+          nullable: true
+        durationMinutes:
+          type: integer
+          minimum: 1
+        isBreak:
+          type: boolean
+        order:
+          type: integer
+
+    CreateBlindScheduleRequest:
+      type: object
+      required:
+        - name
+        - levels
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+          nullable: true
+        startingStack:
+          type: integer
+          minimum: 0
+          default: 10000
+        breakInterval:
+          type: integer
+          minimum: 0
+          default: 0
+        breakDuration:
+          type: integer
+          minimum: 0
+          default: 10
+        levels:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items:
+            type: object
+            required:
+              - levelNumber
+              - smallBlind
+              - bigBlind
+              - durationMinutes
+            properties:
+              levelNumber:
+                type: integer
+                minimum: 1
+              smallBlind:
+                type: number
+                format: decimal
+                minimum: 0
+              bigBlind:
+                type: number
+                format: decimal
+                minimum: 0
+              ante:
+                type: number
+                format: decimal
+                minimum: 0
+                nullable: true
+              durationMinutes:
+                type: integer
+                minimum: 1
+              isBreak:
+                type: boolean
+                default: false
+
+    UpdateBlindScheduleRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+          nullable: true
+        startingStack:
+          type: integer
+          minimum: 0
+        breakInterval:
+          type: integer
+          minimum: 0
+        breakDuration:
+          type: integer
+          minimum: 0
+
+    CreateBlindLevelRequest:
+      type: object
+      required:
+        - levelNumber
+        - smallBlind
+        - bigBlind
+        - durationMinutes
+      properties:
+        levelNumber:
+          type: integer
+          minimum: 1
+        smallBlind:
+          type: number
+          format: decimal
+          minimum: 0
+        bigBlind:
+          type: number
+          format: decimal
+          minimum: 0
+        ante:
+          type: number
+          format: decimal
+          minimum: 0
+          nullable: true
+        durationMinutes:
+          type: integer
+          minimum: 1
+        isBreak:
+          type: boolean
+          default: false
+
+    UpdateBlindLevelRequest:
+      type: object
+      properties:
+        smallBlind:
+          type: number
+          format: decimal
+          minimum: 0
+        bigBlind:
+          type: number
+          format: decimal
+          minimum: 0
+        ante:
+          type: number
+          format: decimal
+          minimum: 0
+          nullable: true
+        durationMinutes:
+          type: integer
+          minimum: 1
+        isBreak:
+          type: boolean
+
+    CurrentBlindLevel:
+      type: object
+      properties:
+        tournamentId:
+          type: string
+          format: uuid
+        currentLevel:
+          type: integer
+          minimum: 1
+        blindSchedule:
+          $ref: '#/components/schemas/BlindSchedule'
+        currentLevelInfo:
+          $ref: '#/components/schemas/BlindLevel'
+        nextLevel:
+          $ref: '#/components/schemas/BlindLevel'
+        previousLevel:
+          $ref: '#/components/schemas/BlindLevel'
+
+    Error:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+        message:
+          type: string
+        validationErrors:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              message:
+                type: string
+
+tags:
+  - name: Blind Schedules
+    description: Blind schedule CRUD operations
+  - name: Blind Levels
+    description: Blind level management within schedules
+  - name: Tournaments
+    description: Tournament blind level operations

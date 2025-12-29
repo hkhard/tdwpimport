@@ -1,0 +1,442 @@
+/**
+ * Remote View Styles
+ * Responsive design for tournament viewing (T105)
+ * Graceful degradation for poor networks (T104)
+ */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --primary-color: #2563eb;
+  --success-color: #22c55e;
+  --warning-color: #f59e0b;
+  --danger-color: #ef4444;
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8fafc;
+  --bg-tertiary: #f1f5f9;
+  --text-primary: #0f172a;
+  --text-secondary: #64748b;
+  --border-color: #e2e8f0;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+/* Tournament Header */
+.tournament-header {
+  background: var(--bg-primary);
+  padding: 1.5rem;
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  margin-bottom: 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.tournament-header h1 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.status-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: var(--bg-tertiary);
+  border-radius: 20px;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-secondary);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.status-dot.connected {
+  background: var(--success-color);
+}
+
+.status-dot.disconnected {
+  background: var(--danger-color);
+  animation: none;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* Timer Section (T102) */
+.timer-section {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.timer-display {
+  background: var(--bg-primary);
+  padding: 2rem;
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  text-align: center;
+  position: relative;
+}
+
+.timer-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.level-value {
+  font-size: 3rem;
+  font-weight: 800;
+  color: var(--primary-color);
+}
+
+.time-value {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.pause-indicator {
+  display: none;
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: var(--warning-color);
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.pause-indicator.visible {
+  display: block;
+}
+
+/* Blinds Section */
+.blinds-section {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.blind-box {
+  background: var(--bg-primary);
+  padding: 1.5rem;
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  text-align: center;
+}
+
+.blind-box.small {
+  border-left: 4px solid var(--success-color);
+}
+
+.blind-box.big {
+  border-left: 4px solid var(--primary-color);
+}
+
+.blind-box.ante {
+  border-left: 4px solid var(--warning-color);
+}
+
+.blind-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.blind-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+/* Leaderboard Section (T103) */
+.leaderboard-section {
+  background: var(--bg-primary);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.leaderboard-section h2 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  color: var(--text-primary);
+}
+
+.leaderboard-table-wrapper {
+  overflow-x: auto;
+}
+
+.leaderboard-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.leaderboard-table thead {
+  background: var(--bg-secondary);
+}
+
+.leaderboard-table th {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.leaderboard-table td {
+  padding: 0.75rem 1rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.leaderboard-table .empty-row td {
+  text-align: center;
+  color: var(--text-secondary);
+  padding: 2rem;
+}
+
+.leaderboard-table tr.eliminated {
+  opacity: 0.5;
+  text-decoration: line-through;
+}
+
+/* Connection Status Footer */
+.connection-status {
+  background: var(--bg-primary);
+  padding: 1rem 1.5rem;
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  font-size: 0.875rem;
+}
+
+.status-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.status-label {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.status-value {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.status-value.disconnected {
+  color: var(--danger-color);
+}
+
+.status-value.connected {
+  color: var(--success-color);
+}
+
+/* Error Banner (T104) */
+.error-banner {
+  position: fixed;
+  bottom: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--danger-color);
+  color: white;
+  padding: 1rem 1.5rem;
+  border-radius: 8px;
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  z-index: 1000;
+  max-width: 90%;
+  animation: slideUp 0.3s ease-out;
+}
+
+.error-banner.hidden {
+  display: none;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateX(-50%) translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+  }
+}
+
+.retry-button {
+  background: white;
+  color: var(--danger-color);
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.retry-button:hover {
+  background: var(--bg-secondary);
+}
+
+/* Responsive Design (T105) */
+@media (max-width: 768px) {
+  .container {
+    padding: 0.5rem;
+  }
+
+  .tournament-header {
+    padding: 1rem;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .tournament-header h1 {
+    font-size: 1.25rem;
+  }
+
+  .timer-section {
+    grid-template-columns: 1fr;
+  }
+
+  .timer-display {
+    padding: 1.5rem;
+  }
+
+  .level-value {
+    font-size: 2.5rem;
+  }
+
+  .time-value {
+    font-size: 2rem;
+  }
+
+  .blinds-section {
+    grid-template-columns: 1fr;
+  }
+
+  .blind-box {
+    padding: 1rem;
+  }
+
+  .blind-value {
+    font-size: 1.5rem;
+  }
+
+  .leaderboard-section {
+    padding: 1rem;
+  }
+
+  .connection-status {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 1rem;
+  }
+
+  .status-item.viewer-count {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .level-value {
+    font-size: 2rem;
+  }
+
+  .time-value {
+    font-size: 1.75rem;
+  }
+
+  .blind-value {
+    font-size: 1.25rem;
+  }
+
+  .leaderboard-table th,
+  .leaderboard-table td {
+    padding: 0.5rem;
+    font-size: 0.875rem;
+  }
+
+  .error-banner {
+    flex-direction: column;
+    text-align: center;
+  }
+}
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  .status-dot {
+    animation: none;
+  }
+
+  .error-banner {
+    animation: none;
+  }
+}
+
+/* Print styles */
+@media print {
+  .connection-status,
+  .error-banner {
+    display: none;
+  }
+
+  .container {
+    max-width: 100%;
+  }
+}
