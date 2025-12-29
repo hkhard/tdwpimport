@@ -76,6 +76,18 @@ class Poker_Tournament_Import_Admin {
             array($this, 'render_settings_page')
         );
 
+        // TD3 Layout Builder menu
+        if (class_exists('TDWP_Layout_Builder')) {
+            add_submenu_page(
+                'poker-tournament-import',
+                __('TD3 Layout Builder', 'poker-tournament-import'),
+                __('Layout Builder', 'poker-tournament-import'),
+                'manage_options',
+                'tdwp-layout-builder',
+                array($this, 'render_layout_builder_page')
+            );
+        }
+
         add_submenu_page(
             'poker-tournament-import',
             __('Migration Tools', 'poker-tournament-import'),
