@@ -18,6 +18,8 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { BlindScheduleSelector } from '../components/BlindScheduleSelector';
 import { useBlindScheduleStore } from '../stores/blindScheduleStore';
@@ -94,7 +96,11 @@ export function CreateTournamentScreen({ onComplete, onCancel, onTournamentCreat
   };
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
+    >
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={onCancel} style={styles.cancelButton}>
@@ -113,7 +119,11 @@ export function CreateTournamentScreen({ onComplete, onCancel, onTournamentCreat
       </View>
 
       {/* Form */}
-      <ScrollView style={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+      >
         {/* Tournament Name */}
         <View style={styles.formGroup}>
           <Text style={styles.label}>Tournament Name *</Text>
@@ -187,7 +197,7 @@ export function CreateTournamentScreen({ onComplete, onCancel, onTournamentCreat
           </View>
         )}
       </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -234,6 +244,9 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: 20,
+  },
+  scrollContent: {
+    paddingBottom: 20,
   },
   formGroup: {
     marginBottom: 24,

@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "^2.2.0",
+    "@react-native-community/netinfo": "^11.4.1",
     "@react-navigation/bottom-tabs": "^6.5.0",
     "@react-navigation/native": "^6.1.0",
     "@react-navigation/stack": "^6.3.0",
@@ -22,6 +23,7 @@
     "react-dom": "19.1.0",
     "react-native": "0.81.5",
     "react-native-web": "^0.21.0",
+    "zod": "^4.2.1",
     "zustand": "^4.4.0"
   },
   "devDependencies": {

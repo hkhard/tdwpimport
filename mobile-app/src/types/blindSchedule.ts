@@ -1,20 +1,28 @@
 /**
  * Blind Schedule Types for Mobile App
- * Extends shared types from shared/src/types/timer.ts
+ * Matches the API response from controller
  */
 
-import { BlindSchedule, BlindLevel } from '@shared/types/timer';
+import { BlindLevel } from '@shared/types/timer';
 
 /**
  * Blind schedule with computed properties for UI display
+ * Matches the API response from BlindScheduleService.getScheduleById
  */
-export interface BlindScheduleWithMetadata extends BlindSchedule {
-  /** Number of levels in this schedule */
-  levelCount: number;
-  /** Total duration in minutes (excluding breaks) */
-  totalDurationMinutes: number;
-  /** Whether this is a pre-loaded default schedule */
+export interface BlindScheduleWithMetadata {
+  id: string;
+  name: string;
+  description: string | null;
+  startingStack: number;
+  breakInterval: number | null;
+  breakDuration: number | null;
   isDefault: boolean;
+  levelCount: number;
+  totalDurationMinutes: number;
+  createdAt: Date;
+  updatedAt: Date;
+  createdBy: string | null;
+  levels: BlindLevel[];
 }
 
 /**
