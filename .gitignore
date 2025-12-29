@@ -100,3 +100,5 @@ shared/node_modules/
 
 # EAS Build
 eas-build-metadata.json
+# Continuous Claude cache (local only)
+.claude/cache/
