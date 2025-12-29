@@ -1,0 +1,201 @@
+/**
+ * Live Tournament Wizard Styles
+ *
+ * @package Poker_Tournament_Import
+ * @since 3.1.0
+ */
+
+.tdwp-wizard-wrap {
+	max-width: 1200px;
+}
+
+.tdwp-wizard-container {
+	background: #fff;
+	border: 1px solid #ccd0d4;
+	border-radius: 4px;
+	padding: 30px;
+	margin-top: 20px;
+}
+
+.tdwp-wizard-step {
+	min-height: 400px;
+}
+
+/* Step 1: Method Selection */
+.tdwp-creation-methods {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+	gap: 20px;
+	margin-top: 30px;
+}
+
+.tdwp-method-card {
+	background: #f6f7f7;
+	border: 2px solid #dcdcde;
+	border-radius: 8px;
+	padding: 30px 20px;
+	text-align: center;
+	cursor: pointer;
+	transition: all 0.2s ease;
+}
+
+.tdwp-method-card:hover {
+	border-color: #2271b1;
+	background: #fff;
+	transform: translateY(-2px);
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.tdwp-method-card .dashicons {
+	font-size: 64px;
+	width: 64px;
+	height: 64px;
+	color: #2271b1;
+	margin-bottom: 15px;
+}
+
+.tdwp-method-card h3 {
+	margin: 15px 0 10px;
+	font-size: 18px;
+	font-weight: 600;
+}
+
+.tdwp-method-card p {
+	color: #646970;
+	margin-bottom: 20px;
+	font-size: 14px;
+}
+
+.tdwp-method-card .tdwp-select-method {
+	min-width: 120px;
+}
+
+/* Step 2: Configure */
+.tdwp-form-section {
+	margin-bottom: 30px;
+	padding-bottom: 20px;
+	border-bottom: 1px solid #dcdcde;
+}
+
+.tdwp-form-section:last-of-type {
+	border-bottom: none;
+}
+
+.tdwp-form-section h3 {
+	margin-top: 0;
+	margin-bottom: 15px;
+	font-size: 16px;
+	font-weight: 600;
+}
+
+.tdwp-form-section h4 {
+	margin-top: 20px;
+	margin-bottom: 10px;
+	font-size: 14px;
+	font-weight: 600;
+}
+
+.tdwp-form-section .form-table {
+	margin-top: 0;
+}
+
+.tdwp-form-section fieldset {
+	margin-top: 10px;
+}
+
+.tdwp-form-section fieldset label {
+	display: block;
+	margin-bottom: 8px;
+	font-size: 14px;
+}
+
+.tdwp-form-section fieldset input[type="checkbox"] {
+	margin-right: 8px;
+}
+
+.required {
+	color: #d63638;
+}
+
+/* Step 3: Success */
+.tdwp-success-message {
+	text-align: center;
+	padding: 60px 20px;
+}
+
+.tdwp-success-message .dashicons {
+	font-size: 80px;
+	width: 80px;
+	height: 80px;
+	color: #00a32a;
+	margin-bottom: 20px;
+}
+
+.tdwp-success-message h2 {
+	color: #00a32a;
+	margin-bottom: 15px;
+}
+
+.tdwp-success-message p {
+	font-size: 16px;
+	margin-bottom: 30px;
+}
+
+.tdwp-success-message .button {
+	margin: 0 5px;
+}
+
+/* Form buttons */
+.tdwp-wizard-step .submit {
+	margin-top: 30px;
+	padding-top: 20px;
+	border-top: 1px solid #dcdcde;
+}
+
+.tdwp-wizard-step .submit .button {
+	margin-right: 10px;
+}
+
+/* Loading state */
+.tdwp-wizard-step.loading {
+	position: relative;
+	opacity: 0.6;
+	pointer-events: none;
+}
+
+.tdwp-wizard-step.loading::after {
+	content: "";
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	width: 40px;
+	height: 40px;
+	margin: -20px 0 0 -20px;
+	border: 4px solid #f3f3f3;
+	border-top: 4px solid #2271b1;
+	border-radius: 50%;
+	animation: tdwp-spin 1s linear infinite;
+}
+
+@keyframes tdwp-spin {
+	0% { transform: rotate(0deg); }
+	100% { transform: rotate(360deg); }
+}
+
+/* Notice messages */
+.tdwp-wizard-notice {
+	margin-top: 20px;
+	padding: 12px;
+	border-left: 4px solid #2271b1;
+	background: #f0f6fc;
+}
+
+.tdwp-wizard-notice.error {
+	border-left-color: #d63638;
+	background: #fcf0f1;
+}
+
+.tdwp-wizard-notice.success {
+	border-left-color: #00a32a;
+	background: #f0f6f1;
+}

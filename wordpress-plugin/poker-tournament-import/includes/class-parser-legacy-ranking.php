@@ -45,7 +45,7 @@ trait Poker_Tournament_Parser_Legacy_Ranking {
             return $this->fallback_to_bustout_processing($players);
         }
 
-        Poker_Tournament_Import_Debug::log_success("Found tournament end at: " . date('Y-m-d H:i:s', intval($tournament_end_time/1000)));
+        Poker_Tournament_Import_Debug::log_success("Found tournament end at: " . gmdate('Y-m-d H:i:s', intval($tournament_end_time/1000)));
 
         // Initialize tournament state
         $tournament_state = array(

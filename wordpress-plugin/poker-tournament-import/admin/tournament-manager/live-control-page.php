@@ -1,0 +1,729 @@
+<?php
+/**
+ * Live Tournament Control Admin Page
+ *
+ * Provides real-time tournament control interface
+ *
+ * @package Poker_Tournament_Import
+ * @subpackage Tournament_Manager
+ * @since 3.1.0
+ */
+
+// Prevent direct file access
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
+/**
+ * Live Tournament Control admin page class
+ *
+ * @since 3.1.0
+ */
+class TDWP_Live_Control_Page {
+
+	/**
+	 * Clock manager instance
+	 *
+	 * @var TDWP_Tournament_Clock
+	 */
+	private $clock_manager;
+
+	/**
+	 * Live state manager instance
+	 *
+	 * @var TDWP_Tournament_Live
+	 */
+	private $live_manager;
+
+	/**
+	 * Events manager instance
+	 *
+	 * @var TDWP_Tournament_Events
+	 */
+	private $events_manager;
+
+	/**
+	 * Constructor
+	 *
+	 * @since 3.1.0
+	 */
+	public function __construct() {
+		$this->clock_manager  = new TDWP_Tournament_Clock();
+		$this->live_manager   = new TDWP_Tournament_Live();
+		$this->events_manager = new TDWP_Tournament_Events();
+
+		// Add admin menu
+		add_action( 'admin_menu', array( $this, 'add_admin_menu' ) );
+
+		// Enqueue admin assets
+		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
+
+		// AJAX handlers
+		add_action( 'wp_ajax_tdwp_start_tournament', array( $this, 'ajax_start_tournament' ) );
+		add_action( 'wp_ajax_tdwp_pause_tournament', array( $this, 'ajax_pause_tournament' ) );
+		add_action( 'wp_ajax_tdwp_resume_tournament', array( $this, 'ajax_resume_tournament' ) );
+		add_action( 'wp_ajax_tdwp_advance_level', array( $this, 'ajax_advance_level' ) );
+		add_action( 'wp_ajax_tdwp_complete_tournament', array( $this, 'ajax_complete_tournament' ) );
+		add_action( 'wp_ajax_tdwp_get_live_state', array( $this, 'ajax_get_live_state' ) );
+
+		// Heartbeat integration
+		add_filter( 'heartbeat_received', array( $this, 'heartbeat_received' ), 10, 2 );
+	}
+
+	/**
+	 * Add admin menu item
+	 *
+	 * @since 3.1.0
+	 */
+	public function add_admin_menu() {
+		add_submenu_page(
+			'tdwp-tournament-manager',
+			__( 'Live Control', 'poker-tournament-import' ),
+			__( 'Live Control', 'poker-tournament-import' ),
+			'manage_options',
+			'tdwp-live-control',
+			array( $this, 'render_page' )
+		);
+	}
+
+	/**
+	 * Enqueue admin assets
+	 *
+	 * @since 3.1.0
+	 * @param string $hook Current admin page hook.
+	 */
+	public function enqueue_admin_assets( $hook ) {
+		// Only load on our admin page
+		if ( 'tournament-manager_page_tdwp-live-control' !== $hook ) {
+			return;
+		}
+
+		// Enqueue styles
+		wp_enqueue_style(
+			'tdwp-live-control',
+			POKER_TOURNAMENT_IMPORT_PLUGIN_URL . 'assets/css/live-control-admin.css',
+			array(),
+			POKER_TOURNAMENT_IMPORT_VERSION
+		);
+
+		// Enqueue scripts
+		wp_enqueue_script(
+			'tdwp-live-control',
+			POKER_TOURNAMENT_IMPORT_PLUGIN_URL . 'assets/js/live-control-admin.js',
+			array( 'jquery', 'heartbeat' ),
+			POKER_TOURNAMENT_IMPORT_VERSION,
+			true
+		);
+
+		// Localize script
+		wp_localize_script(
+			'tdwp-live-control',
+			'tdwpLiveControl',
+			array(
+				'ajaxurl'          => admin_url( 'admin-ajax.php' ),
+				'nonce'            => wp_create_nonce( 'tdwp_live_control' ),
+				'heartbeatInterval' => 15, // seconds
+				'i18n'             => array(
+					'confirmStart'    => __( 'Start this tournament?', 'poker-tournament-import' ),
+					'confirmPause'    => __( 'Pause tournament?', 'poker-tournament-import' ),
+					'confirmResume'   => __( 'Resume tournament?', 'poker-tournament-import' ),
+					'confirmAdvance'  => __( 'Advance to next level?', 'poker-tournament-import' ),
+					'confirmComplete' => __( 'Complete tournament? This cannot be undone.', 'poker-tournament-import' ),
+					'starting'        => __( 'Starting...', 'poker-tournament-import' ),
+					'pausing'         => __( 'Pausing...', 'poker-tournament-import' ),
+					'resuming'        => __( 'Resuming...', 'poker-tournament-import' ),
+					'advancing'       => __( 'Advancing...', 'poker-tournament-import' ),
+					'completing'      => __( 'Completing...', 'poker-tournament-import' ),
+					'error'           => __( 'An error occurred. Please try again.', 'poker-tournament-import' ),
+				),
+			)
+		);
+	}
+
+	/**
+	 * Render the main page
+	 *
+	 * @since 3.1.0
+	 */
+	public function render_page() {
+		// Check permissions
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You do not have sufficient permissions to access this page.', 'poker-tournament-import' ) );
+		}
+
+		// Check if tournament ID is provided in GET parameter
+		$tournament_id = isset( $_GET['tournament_id'] ) ? intval( $_GET['tournament_id'] ) : 0;
+
+		// If tournament_id provided, save as active tournament for this user
+		if ( $tournament_id ) {
+			TDWP_Active_Tournament_Manager::set_active_tournament( get_current_user_id(), $tournament_id );
+		} else {
+			// No tournament_id in GET, try to load user's active tournament
+			$tournament_id = TDWP_Active_Tournament_Manager::get_active_tournament( get_current_user_id() );
+
+			// Set GET parameter so tournament-manager-control.php can read it
+			if ( $tournament_id ) {
+				$_GET['tournament_id'] = $tournament_id;
+			}
+		}
+
+		if ( ! $tournament_id ) {
+			// Show tournament selector
+			$this->render_tournament_selector();
+			return;
+		}
+
+		// Include the unified tournament control page
+		require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/tournament-manager-control.php';
+	}
+
+	/**
+	 * Render tournament selector
+	 *
+	 * Shows all running live tournaments with status information.
+	 *
+	 * @since 3.1.0
+	 */
+	private function render_tournament_selector() {
+		// Get all running live tournaments.
+		$tournaments = TDWP_Active_Tournament_Manager::get_running_tournaments();
+
+		// Get user's current active tournament.
+		$active_tournament_id = TDWP_Active_Tournament_Manager::get_active_tournament( get_current_user_id() );
+
+		?>
+		<div class="wrap">
+			<h1><?php esc_html_e( 'Live Tournament Control', 'poker-tournament-import' ); ?></h1>
+
+			<p class="description">
+				<?php esc_html_e( 'Select a running tournament to manage, or create a new one.', 'poker-tournament-import' ); ?>
+			</p>
+
+			<p>
+				<a href="<?php echo esc_url( admin_url( 'admin.php?page=tdwp-live-tournament-wizard' ) ); ?>" class="button button-primary">
+					<?php esc_html_e( 'Create New Live Tournament', 'poker-tournament-import' ); ?>
+				</a>
+			</p>
+
+			<?php if ( empty( $tournaments ) ) : ?>
+				<div class="notice notice-info">
+					<p>
+						<?php
+						printf(
+							/* translators: %s: Link to create new tournament */
+							esc_html__( 'No running tournaments found. %s to get started.', 'poker-tournament-import' ),
+							'<a href="' . esc_url( admin_url( 'admin.php?page=tdwp-live-tournament-wizard' ) ) . '">' . esc_html__( 'Create a new live tournament', 'poker-tournament-import' ) . '</a>'
+						);
+						?>
+					</p>
+				</div>
+			<?php else : ?>
+				<div class="card" style="max-width: 800px;">
+					<h2><?php esc_html_e( 'Running Tournaments', 'poker-tournament-import' ); ?></h2>
+
+					<table class="wp-list-table widefat fixed striped">
+						<thead>
+							<tr>
+								<th><?php esc_html_e( 'Tournament', 'poker-tournament-import' ); ?></th>
+								<th><?php esc_html_e( 'Status', 'poker-tournament-import' ); ?></th>
+								<th><?php esc_html_e( 'Level', 'poker-tournament-import' ); ?></th>
+								<th><?php esc_html_e( 'Players', 'poker-tournament-import' ); ?></th>
+								<th><?php esc_html_e( 'Actions', 'poker-tournament-import' ); ?></th>
+							</tr>
+						</thead>
+						<tbody>
+							<?php foreach ( $tournaments as $tournament ) : ?>
+								<?php
+								$state          = TDWP_Live_State_Manager::get_state( $tournament->ID );
+								$is_active      = ( $active_tournament_id === $tournament->ID );
+								$is_practice    = $state && isset( $state->is_practice ) ? (int) $state->is_practice : 0;
+								$status_class   = $state ? 'status-' . esc_attr( $state->status ) : 'status-unknown';
+								$status_label   = $state ? ucfirst( $state->status ) : __( 'Unknown', 'poker-tournament-import' );
+								$current_level  = $state ? $state->current_level : 0;
+								$players_remain = $state && isset( $state->players_remaining ) ? $state->players_remaining : '-';
+								?>
+								<tr class="<?php echo $is_active ? 'active-tournament' : ''; ?>">
+									<td>
+										<strong><?php echo esc_html( $tournament->post_title ); ?></strong>
+										<?php if ( $is_active ) : ?>
+											<span class="dashicons dashicons-star-filled" style="color: #f0b849;" title="<?php esc_attr_e( 'Your Active Tournament', 'poker-tournament-import' ); ?>"></span>
+										<?php endif; ?>
+										<?php if ( $is_practice ) : ?>
+											<span class="practice-badge" title="<?php esc_attr_e( 'Practice Mode - Excluded from Statistics', 'poker-tournament-import' ); ?>"><?php esc_html_e( 'PRACTICE', 'poker-tournament-import' ); ?></span>
+										<?php endif; ?>
+									</td>
+									<td>
+										<span class="tournament-status <?php echo esc_attr( $status_class ); ?>">
+											<?php echo esc_html( $status_label ); ?>
+										</span>
+									</td>
+									<td><?php echo esc_html( $current_level ); ?></td>
+									<td><?php echo esc_html( $players_remain ); ?></td>
+									<td>
+										<a href="<?php echo esc_url( admin_url( 'admin.php?page=tdwp-live-control&tournament_id=' . $tournament->ID ) ); ?>" class="button button-primary button-small">
+											<?php
+											echo $is_active ?
+												esc_html__( 'Continue', 'poker-tournament-import' ) :
+												esc_html__( 'Manage', 'poker-tournament-import' );
+											?>
+										</a>
+									</td>
+								</tr>
+							<?php endforeach; ?>
+						</tbody>
+					</table>
+				</div>
+
+				<style>
+					.active-tournament {
+						background-color: #f0f6fc !important;
+					}
+					.tournament-status {
+						display: inline-block;
+						padding: 3px 8px;
+						border-radius: 3px;
+						font-size: 12px;
+						font-weight: 600;
+					}
+					.status-running {
+						background: #d1f4d1;
+						color: #0a5e0a;
+					}
+					.status-paused {
+						background: #fff3cd;
+						color: #856404;
+					}
+					.status-break {
+						background: #cfe2ff;
+						color: #084298;
+					}
+					.status-setup {
+						background: #e2e3e5;
+						color: #41464b;
+					}
+					.practice-badge {
+						display: inline-block;
+						margin-left: 8px;
+						padding: 2px 6px;
+						background: #f0ad4e;
+						color: #fff;
+						font-size: 10px;
+						font-weight: 700;
+						border-radius: 3px;
+						text-transform: uppercase;
+					}
+				</style>
+			<?php endif; ?>
+		</div>
+		<?php
+	}
+
+	/**
+	 * OLD RENDER METHOD - Replaced by unified control page above
+	 * Keeping as reference for now
+	 */
+	private function render_page_old() {
+		?>
+		<div class="wrap tdwp-live-control-old">
+			<h1><?php esc_html_e( 'Live Tournament Control (OLD)', 'poker-tournament-import' ); ?></h1>
+
+			<div class="tdwp-live-grid">
+				<!-- Left Column: Control Panel -->
+				<div class="tdwp-control-panel">
+					<div class="tdwp-card">
+						<h2><?php esc_html_e( 'Tournament Selection', 'poker-tournament-import' ); ?></h2>
+
+						<?php if ( empty( $active_tournaments ) ) : ?>
+							<!-- Start New Tournament -->
+							<div class="tdwp-start-new">
+								<p><?php esc_html_e( 'No active tournaments. Start a new one:', 'poker-tournament-import' ); ?></p>
+
+								<form id="tdwp-start-form" class="tdwp-form">
+									<?php wp_nonce_field( 'tdwp_start_tournament', 'start_nonce' ); ?>
+
+									<div class="tdwp-form-row">
+										<label for="template_id">
+											<?php esc_html_e( 'Template', 'poker-tournament-import' ); ?>
+											<span class="required">*</span>
+										</label>
+										<select id="template_id" name="template_id" required>
+											<option value=""><?php esc_html_e( 'Select Template', 'poker-tournament-import' ); ?></option>
+											<?php foreach ( $templates as $template ) : ?>
+												<option value="<?php echo absint( $template->id ); ?>">
+													<?php echo esc_html( $template->name ); ?>
+												</option>
+											<?php endforeach; ?>
+										</select>
+									</div>
+
+									<div class="tdwp-form-row">
+										<label for="total_players">
+											<?php esc_html_e( 'Total Players', 'poker-tournament-import' ); ?>
+										</label>
+										<input type="number" id="total_players" name="total_players" min="2" value="9" class="small-text">
+									</div>
+
+									<button type="submit" class="button button-primary button-hero">
+										<?php esc_html_e( 'Start Tournament', 'poker-tournament-import' ); ?>
+									</button>
+								</form>
+							</div>
+
+						<?php else : ?>
+							<!-- Active Tournament Controls -->
+							<?php foreach ( $active_tournaments as $tournament ) : ?>
+								<div class="tdwp-tournament-active" data-tournament-id="<?php echo absint( $tournament->tournament_id ); ?>">
+
+									<!-- Clock Display -->
+									<div class="tdwp-clock-display">
+										<div class="tdwp-clock-time">
+											<span class="tdwp-time-value" data-seconds="<?php echo absint( $tournament->time_remaining ); ?>">
+												<?php echo esc_html( $this->format_time( $tournament->time_remaining ) ); ?>
+											</span>
+										</div>
+										<div class="tdwp-clock-level">
+											<?php
+											printf(
+												/* translators: %d: level number */
+												esc_html__( 'Level %d', 'poker-tournament-import' ),
+												absint( $tournament->current_level )
+											);
+											?>
+										</div>
+										<div class="tdwp-clock-status status-<?php echo esc_attr( $tournament->status ); ?>">
+											<?php echo esc_html( ucfirst( $tournament->status ) ); ?>
+										</div>
+									</div>
+
+									<!-- Control Buttons -->
+									<div class="tdwp-control-buttons">
+										<button class="button button-large tdwp-pause-btn" style="display: <?php echo 'running' === $tournament->status ? 'inline-block' : 'none'; ?>">
+											<?php esc_html_e( 'Pause', 'poker-tournament-import' ); ?>
+										</button>
+										<button class="button button-large tdwp-resume-btn" style="display: <?php echo 'paused' === $tournament->status ? 'inline-block' : 'none'; ?>">
+											<?php esc_html_e( 'Resume', 'poker-tournament-import' ); ?>
+										</button>
+
+										<button class="button button-large tdwp-advance-btn">
+											<?php esc_html_e( 'Next Level', 'poker-tournament-import' ); ?>
+										</button>
+
+										<button class="button button-large button-primary tdwp-complete-btn">
+											<?php esc_html_e( 'End Tournament', 'poker-tournament-import' ); ?>
+										</button>
+									</div>
+
+									<!-- Statistics Panel -->
+									<div class="tdwp-stats-panel">
+										<h3><?php esc_html_e( 'Tournament Statistics', 'poker-tournament-import' ); ?></h3>
+										<div class="tdwp-stats-grid">
+											<div class="tdwp-stat">
+												<span class="tdwp-stat-label"><?php esc_html_e( 'Total Players', 'poker-tournament-import' ); ?></span>
+												<span class="tdwp-stat-value"><?php echo absint( $tournament->total_players ); ?></span>
+											</div>
+											<div class="tdwp-stat">
+												<span class="tdwp-stat-label"><?php esc_html_e( 'Remaining', 'poker-tournament-import' ); ?></span>
+												<span class="tdwp-stat-value"><?php echo absint( $tournament->remaining_players ); ?></span>
+											</div>
+											<div class="tdwp-stat">
+												<span class="tdwp-stat-label"><?php esc_html_e( 'Rebuys', 'poker-tournament-import' ); ?></span>
+												<span class="tdwp-stat-value"><?php echo absint( $tournament->total_rebuys ); ?></span>
+											</div>
+											<div class="tdwp-stat">
+												<span class="tdwp-stat-label"><?php esc_html_e( 'Add-ons', 'poker-tournament-import' ); ?></span>
+												<span class="tdwp-stat-value"><?php echo absint( $tournament->total_addons ); ?></span>
+											</div>
+											<div class="tdwp-stat tdwp-stat-wide">
+												<span class="tdwp-stat-label"><?php esc_html_e( 'Prize Pool', 'poker-tournament-import' ); ?></span>
+												<span class="tdwp-stat-value"><?php echo esc_html( $this->format_currency( $tournament->prize_pool ) ); ?></span>
+											</div>
+										</div>
+									</div>
+								</div>
+							<?php endforeach; ?>
+						<?php endif; ?>
+					</div>
+				</div>
+
+				<!-- Right Column: Event Log -->
+				<div class="tdwp-event-log">
+					<div class="tdwp-card">
+						<h2><?php esc_html_e( 'Event Log', 'poker-tournament-import' ); ?></h2>
+						<div class="tdwp-events-container">
+							<?php if ( ! empty( $active_tournaments ) ) : ?>
+								<?php
+								$events = $this->events_manager->get_events(
+									$active_tournaments[0]->tournament_id,
+									array( 'limit' => 20 )
+								);
+								?>
+								<?php if ( ! empty( $events ) ) : ?>
+									<ul class="tdwp-events-list">
+										<?php foreach ( $events as $event ) : ?>
+											<li class="tdwp-event-item event-type-<?php echo esc_attr( $event->event_type ); ?>">
+												<?php echo esc_html( TDWP_Tournament_Events::format_event( $event ) ); ?>
+											</li>
+										<?php endforeach; ?>
+									</ul>
+								<?php else : ?>
+									<p class="tdwp-no-events"><?php esc_html_e( 'No events yet.', 'poker-tournament-import' ); ?></p>
+								<?php endif; ?>
+							<?php else : ?>
+								<p class="tdwp-no-events"><?php esc_html_e( 'No active tournament.', 'poker-tournament-import' ); ?></p>
+							<?php endif; ?>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<!-- Hidden tournament ID for JS -->
+			<?php if ( ! empty( $active_tournaments ) ) : ?>
+				<input type="hidden" id="tdwp-current-tournament-id" value="<?php echo absint( $active_tournaments[0]->tournament_id ); ?>">
+			<?php endif; ?>
+		</div>
+		<?php
+	}
+
+	/**
+	 * AJAX: Start tournament
+	 *
+	 * @since 3.1.0
+	 */
+	public function ajax_start_tournament() {
+		check_ajax_referer( 'tdwp_live_control', 'nonce' );
+
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( array( 'message' => __( 'Permission denied', 'poker-tournament-import' ) ) );
+		}
+
+		$template_id   = isset( $_POST['template_id'] ) ? absint( $_POST['template_id'] ) : 0;
+		$total_players = isset( $_POST['total_players'] ) ? absint( $_POST['total_players'] ) : 0;
+
+		// Create temporary tournament ID (in production, this would create actual tournament post)
+		$tournament_id = time();
+
+		$result = $this->clock_manager->start( $tournament_id, $template_id, $total_players );
+
+		if ( is_wp_error( $result ) ) {
+			wp_send_json_error( array( 'message' => $result->get_error_message() ) );
+		}
+
+		wp_send_json_success(
+			array(
+				'message'       => __( 'Tournament started successfully', 'poker-tournament-import' ),
+				'tournament_id' => $tournament_id,
+			)
+		);
+	}
+
+	/**
+	 * AJAX: Pause tournament
+	 *
+	 * @since 3.1.0
+	 */
+	public function ajax_pause_tournament() {
+		check_ajax_referer( 'tdwp_live_control', 'nonce' );
+
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( array( 'message' => __( 'Permission denied', 'poker-tournament-import' ) ) );
+		}
+
+		$tournament_id  = isset( $_POST['tournament_id'] ) ? absint( $_POST['tournament_id'] ) : 0;
+		$time_remaining = isset( $_POST['time_remaining'] ) ? absint( $_POST['time_remaining'] ) : null;
+
+		$result = $this->clock_manager->pause( $tournament_id, $time_remaining );
+
+		if ( is_wp_error( $result ) ) {
+			wp_send_json_error( array( 'message' => $result->get_error_message() ) );
+		}
+
+		wp_send_json_success( array( 'message' => __( 'Tournament paused', 'poker-tournament-import' ) ) );
+	}
+
+	/**
+	 * AJAX: Resume tournament
+	 *
+	 * @since 3.1.0
+	 */
+	public function ajax_resume_tournament() {
+		check_ajax_referer( 'tdwp_live_control', 'nonce' );
+
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( array( 'message' => __( 'Permission denied', 'poker-tournament-import' ) ) );
+		}
+
+		$tournament_id = isset( $_POST['tournament_id'] ) ? absint( $_POST['tournament_id'] ) : 0;
+
+		$result = $this->clock_manager->resume( $tournament_id );
+
+		if ( is_wp_error( $result ) ) {
+			wp_send_json_error( array( 'message' => $result->get_error_message() ) );
+		}
+
+		wp_send_json_success( array( 'message' => __( 'Tournament resumed', 'poker-tournament-import' ) ) );
+	}
+
+	/**
+	 * AJAX: Advance level
+	 *
+	 * @since 3.1.0
+	 */
+	public function ajax_advance_level() {
+		check_ajax_referer( 'tdwp_live_control', 'nonce' );
+
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( array( 'message' => __( 'Permission denied', 'poker-tournament-import' ) ) );
+		}
+
+		$tournament_id = isset( $_POST['tournament_id'] ) ? absint( $_POST['tournament_id'] ) : 0;
+
+		$result = $this->clock_manager->advance_level( $tournament_id );
+
+		if ( is_wp_error( $result ) ) {
+			wp_send_json_error( array( 'message' => $result->get_error_message() ) );
+		}
+
+		wp_send_json_success( array( 'message' => __( 'Advanced to next level', 'poker-tournament-import' ) ) );
+	}
+
+	/**
+	 * AJAX: Complete tournament
+	 *
+	 * @since 3.1.0
+	 */
+	public function ajax_complete_tournament() {
+		check_ajax_referer( 'tdwp_live_control', 'nonce' );
+
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( array( 'message' => __( 'Permission denied', 'poker-tournament-import' ) ) );
+		}
+
+		$tournament_id = isset( $_POST['tournament_id'] ) ? absint( $_POST['tournament_id'] ) : 0;
+
+		$result = $this->clock_manager->complete( $tournament_id );
+
+		if ( is_wp_error( $result ) ) {
+			wp_send_json_error( array( 'message' => $result->get_error_message() ) );
+		}
+
+		wp_send_json_success( array( 'message' => __( 'Tournament completed', 'poker-tournament-import' ) ) );
+	}
+
+	/**
+	 * AJAX: Get live state
+	 *
+	 * @since 3.1.0
+	 */
+	public function ajax_get_live_state() {
+		check_ajax_referer( 'tdwp_live_control', 'nonce' );
+
+		$tournament_id = isset( $_POST['tournament_id'] ) ? absint( $_POST['tournament_id'] ) : 0;
+
+		$state = $this->live_manager->get_by_tournament_id( $tournament_id );
+
+		if ( ! $state ) {
+			wp_send_json_error( array( 'message' => __( 'Tournament not found', 'poker-tournament-import' ) ) );
+		}
+
+		wp_send_json_success(
+			array(
+				'state'  => $state,
+				'events' => $this->events_manager->get_events( $tournament_id, array( 'limit' => 5 ) ),
+			)
+		);
+	}
+
+	/**
+	 * Heartbeat integration
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array $response Heartbeat response.
+	 * @param array $data     Heartbeat data.
+	 * @return array Modified response.
+	 */
+	public function heartbeat_received( $response, $data ) {
+		// Check if this is a tournament clock heartbeat
+		if ( empty( $data['tdwp_tournament_id'] ) ) {
+			return $response;
+		}
+
+		$tournament_id = absint( $data['tdwp_tournament_id'] );
+
+		// Get current state first
+		$state = $this->live_manager->get_by_tournament_id( $tournament_id );
+
+		if ( $state ) {
+			// Calculate actual elapsed time since last update
+			$elapsed = time() - strtotime( $state->updated_at );
+			$elapsed = min( max( 0, $elapsed ), 30 ); // Cap between 0-30 seconds
+
+			// Tick by actual elapsed time
+			$this->clock_manager->tick( $tournament_id, $elapsed );
+
+			// Refresh state after tick
+			$state = $this->live_manager->get_by_tournament_id( $tournament_id );
+		}
+
+		if ( $state ) {
+			$response['tdwp_live_state'] = array(
+				'tournament_id'     => $state->tournament_id,
+				'status'            => $state->status,
+				'current_level'     => $state->current_level,
+				'time_remaining'    => $state->time_remaining,
+				'total_players'     => $state->total_players,
+				'remaining_players' => $state->remaining_players,
+				'total_rebuys'      => $state->total_rebuys,
+				'total_addons'      => $state->total_addons,
+				'prize_pool'        => $state->prize_pool,
+			);
+
+			// Get recent events
+			$events = $this->events_manager->get_events(
+				$tournament_id,
+				array( 'limit' => 5 )
+			);
+
+			$response['tdwp_events'] = array_map(
+				function( $event ) {
+					return TDWP_Tournament_Events::format_event( $event );
+				},
+				$events
+			);
+		}
+
+		return $response;
+	}
+
+	/**
+	 * Format time in MM:SS
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param int $seconds Seconds.
+	 * @return string Formatted time.
+	 */
+	private function format_time( $seconds ) {
+		$seconds = absint( $seconds );
+		$minutes = floor( $seconds / 60 );
+		$secs    = $seconds % 60;
+
+		return sprintf( '%02d:%02d', $minutes, $secs );
+	}
+
+	/**
+	 * Format currency
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param float $amount Amount.
+	 * @return string Formatted currency.
+	 */
+	private function format_currency( $amount ) {
+		$symbol = get_option( 'tdwp_currency_symbol', '$' );
+		return $symbol . number_format_i18n( $amount, 2 );
+	}
+}
+
+// Initialize
+new TDWP_Live_Control_Page();

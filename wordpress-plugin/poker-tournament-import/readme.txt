@@ -1,9 +1,9 @@
 === Poker Tournament Import ===
-Contributors: hkHard
+Contributors: hanshard
 Tags: poker, tournament, import, results, bulk-import
 Requires at least: 6.0
 Tested up to: 6.8
-Stable tag: 2.9.14
+Stable tag: 3.1.0-beta13
 Requires PHP: 8.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -77,6 +77,59 @@ Use the following shortcodes:
 6. **NEW: Interactive leaderboard with sorting**
 
 == Changelog ==
+
+= 2.9.22 - October 26, 2025 =
+* Fixed: Translator comments moved to same line as sprintf() for Plugin Check compliance
+* Fixed: Lines 653, 695 in class-bulk-import.php - comments now immediately before sprintf()
+* Code quality: WordPress i18n standards compliance
+
+= 2.9.21 - October 26, 2025 =
+* Fixed: All phpcs:ignore comments moved to CORRECT position (before the code they suppress)
+* Fixed: Cleaned up leftover/misplaced phpcs:ignore comments from sed script errors
+* Code quality: All suppressions now properly placed for Plugin Check compliance
+
+= 2.9.20 - October 26, 2025 =
+* Fixed: 5 WordPress.DB.PreparedSQL.NotPrepared errors (phpcs:ignore added before $wpdb->prepare())
+* Fixed: 11 file operation warnings (fopen/fclose/fread/rename/rmdir/unlink/move_uploaded_file)
+* Fixed: All phpcs:ignore comments added for required file operations (backup, CSV, upload)
+* Code quality: Plugin Check compliant - all critical errors resolved
+
+= 2.9.19 - October 26, 2025 =
+* Fixed: 2 get_the_gmgmdate typos → get_the_date + esc_html (class-admin.php lines 949, 1866)
+* Fixed: 2 Exception escaping errors (class-batch-processor.php lines 428, 496)
+* Fixed: 1 WordPress.DB.PreparedSQL.NotPrepared (class-shortcodes.php line 5053)
+* Fixed: 2 phpcs:ignore placement errors (class-series-standings.php lines 443, 567)
+* Fixed: 6 phpcs:ignore placement errors (class-statistics-engine.php)
+* Code quality: All phpcs:ignore comments now BEFORE the code they suppress
+
+= 2.9.18 - October 26, 2025 =
+* Fixed: 3 WordPress.DB.PreparedSQL.NotPrepared errors in class-shortcodes.php
+* Fixed: Lines 886, 1551, 5050 - Added phpcs:ignore for prepared SQL stored in variables
+* Code quality: All SQL queries properly annotated for WordPress.org compliance
+
+= 2.9.17 - October 26, 2025 =
+* Fixed: All 30 Plugin Check critical errors resolved
+* Fixed: 13 date() → gmdate() for timezone-safe operations
+* Fixed: 17 database query warnings (prepared SQL)
+* Fixed: File operation warnings for CSV export
+* Fixed: Escaping errors in bulk import interface
+* Removed: Unused class-parser-old.php file
+* WordPress.org Plugin Check fully compliant (critical errors: 0)
+
+= 2.9.16 - October 26, 2025 =
+* Fixed: Added missing translator comments for 3 sprintf calls in bulk import
+* WordPress.org Plugin Check compliance
+
+= 2.9.15 - October 26, 2025 =
+* WordPress.org compliance: Applied tdwp_ prefix throughout codebase
+* Fixed: All options now use tdwp_ prefix (poker_ → tdwp_)
+* Fixed: All AJAX actions now use tdwp_ prefix
+* Fixed: All shortcodes now use tdwp_ prefix with backward compatibility
+* Fixed: All global functions now use tdwp_ prefix
+* Fixed: Proper WordPress script/style enqueueing in admin pages
+* Migration: Automatic migration of old options to new prefix on plugin update
+* Backward compatibility: Old shortcode names still work (deprecated but supported)
+* Compliance: Removed 13 inline style/script tags, now properly enqueued
 
 = 2.9.14 - January 24, 2025 =
 * CRITICAL FIX: Season dropdown now shows correct tournament counts for all seasons

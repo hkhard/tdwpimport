@@ -1,0 +1,585 @@
+/**
+ * TDWP Display Shortcode Styles
+ *
+ * Styles for tournament display shortcodes
+ *
+ * @package Poker_Tournament_Import
+ * @subpackage Tournament_Manager
+ * @since 3.4.0
+ */
+
+/* Base display container */
+.tdwp-tournament-display {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.tdwp-display-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 20px;
+    text-align: center;
+}
+
+.tdwp-display-header h1 {
+    margin: 0;
+    font-size: 2em;
+    font-weight: 300;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+
+.tdwp-display-body {
+    display: flex;
+    flex-wrap: wrap;
+    padding: 20px;
+    gap: 20px;
+}
+
+/* Display components */
+.tdwp-clock-display,
+.tdwp-blinds-display,
+.tdwp-player-count-display,
+.tdwp-prize-pool-display {
+    flex: 1;
+    min-width: 200px;
+    text-align: center;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.tdwp-clock-display:hover,
+.tdwp-blinds-display:hover,
+.tdwp-player-count-display:hover,
+.tdwp-prize-pool-display:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+/* Clock display */
+.clock-time {
+    font-size: 3em;
+    font-weight: bold;
+    color: #dc3545;
+    font-family: 'Monaco', 'Menlo', monospace;
+    margin-bottom: 10px;
+}
+
+.clock-level {
+    font-size: 1.2em;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+/* Blinds display */
+.current-blinds {
+    font-size: 2.5em;
+    font-weight: bold;
+    color: #28a745;
+    font-family: 'Monaco', 'Menlo', monospace;
+    margin-bottom: 8px;
+}
+
+.next-blinds {
+    font-size: 1.1em;
+    color: #6c757d;
+}
+
+/* Player count display */
+.players-number {
+    font-size: 3em;
+    font-weight: bold;
+    color: #007bff;
+    margin-bottom: 10px;
+}
+
+.players-label {
+    font-size: 1.2em;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+/* Prize pool display */
+.prize-amount {
+    font-size: 2.5em;
+    font-weight: bold;
+    color: #ffc107;
+    margin-bottom: 8px;
+}
+
+.prize-label {
+    font-size: 1.1em;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+/* Display type variations */
+.tdwp-display-compact .tdwp-display-body {
+    padding: 15px;
+    gap: 15px;
+}
+
+.tdwp-display-compact .clock-time,
+.tdwp-display-compact .current-blinds,
+.tdwp-display-compact .players-number,
+.tdwp-display-compact .prize-amount {
+    font-size: 2em;
+}
+
+.tdwp-display-compact .tdwp-display-header h1 {
+    font-size: 1.5em;
+    padding: 15px;
+}
+
+.tdwp-display-minimal .tdwp-display-body {
+    padding: 10px;
+    gap: 10px;
+}
+
+.tdwp-display-minimal .tdwp-clock-display,
+.tdwp-display-minimal .tdwp-blinds-display,
+.tdwp-display-minimal .tdwp-player-count-display,
+.tdwp-display-minimal .tdwp-prize-pool-display {
+    padding: 10px;
+    min-width: 120px;
+}
+
+.tdwp-display-minimal .clock-time,
+.tdwp-display-minimal .current-blinds,
+.tdwp-display-minimal .players-number,
+.tdwp-display-minimal .prize-amount {
+    font-size: 1.5em;
+}
+
+.tdwp-display-minimal .tdwp-display-header {
+    padding: 10px;
+}
+
+.tdwp-display-minimal .tdwp-display-header h1 {
+    font-size: 1.2em;
+}
+
+.tdwp-display-minimal .clock-level,
+.tdwp-display-minimal .players-label,
+.tdwp-display-minimal .prize-label,
+.tdwp-display-minimal .next-blinds {
+    display: none;
+}
+
+/* Individual shortcodes */
+.tdwp-live-clock {
+    display: inline-block;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+    text-align: center;
+}
+
+.tdwp-live-clock .clock-display {
+    font-size: 2em;
+    font-weight: bold;
+    color: #dc3545;
+    font-family: 'Monaco', 'Menlo', monospace;
+}
+
+.tdwp-live-clock .level-display {
+    font-size: 1em;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 5px;
+}
+
+.tdwp-live-clock .next-blinds {
+    font-size: 0.9em;
+    color: #6c757d;
+    margin-top: 5px;
+}
+
+/* Tournament Status Styles */
+.tdwp-live-clock.status-pending,
+.tdwp-clock-display.status-pending {
+    opacity: 0.7;
+}
+
+.tdwp-live-clock.status-pending .clock-display,
+.tdwp-clock-display.status-pending .clock-time {
+    color: #6c757d;
+    font-style: italic;
+}
+
+.tdwp-live-clock.status-completed,
+.tdwp-clock-display.status-completed {
+    opacity: 0.8;
+}
+
+.tdwp-live-clock.status-completed .clock-display,
+.tdwp-clock-display.status-completed .clock-time {
+    color: #28a745;
+    font-weight: bold;
+}
+
+.tdwp-live-clock.status-paused .clock-display,
+.tdwp-clock-display.status-paused .clock-time {
+    color: #ffc107;
+}
+
+.tdwp-live-clock.status-break .clock-display,
+.tdwp-clock-display.status-break .clock-time {
+    color: #17a2b8;
+}
+
+.tdwp-live-clock.running .clock-display,
+.tdwp-clock-display.running .clock-time {
+    color: #dc3545;
+    font-weight: bold;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.8; }
+    100% { opacity: 1; }
+}
+
+/* Leaderboard */
+.tdwp-leaderboard {
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.tdwp-leaderboard-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.tdwp-leaderboard-table th {
+    background: #f8f9fa;
+    padding: 12px;
+    text-align: left;
+    font-weight: 600;
+    color: #495057;
+    border-bottom: 2px solid #dee2e6;
+}
+
+.tdwp-leaderboard-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.tdwp-leaderboard-table tr:hover {
+    background: #f8f9fa;
+}
+
+.tdwp-leaderboard-table .rank {
+    font-weight: bold;
+    color: #007bff;
+    text-align: center;
+}
+
+.tdwp-leaderboard-table .player-name {
+    font-weight: 500;
+}
+
+.tdwp-leaderboard-table .chips {
+    font-family: 'Monaco', 'Menlo', monospace;
+    text-align: right;
+    color: #28a745;
+}
+
+/* Prize pool */
+.tdwp-prize-pool {
+    text-align: center;
+    padding: 20px;
+    background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
+    color: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(255, 193, 7, 0.3);
+}
+
+.tdwp-prize-pool .prize-amount {
+    font-size: 3em;
+    font-weight: bold;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+
+.tdwp-prize-pool .prize-label {
+    font-size: 1.2em;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 10px;
+}
+
+.tdwp-prize-pool .prize-breakdown {
+    margin-top: 20px;
+    text-align: left;
+}
+
+.tdwp-prize-pool .prize-breakdown h4 {
+    margin: 0 0 10px 0;
+    font-size: 1.1em;
+}
+
+.tdwp-prize-pool .prize-breakdown ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.tdwp-prize-pool .prize-breakdown li {
+    padding: 5px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.2);
+}
+
+/* Player count */
+.tdwp-player-count {
+    display: inline-block;
+    text-align: center;
+    padding: 15px;
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+    color: white;
+    border-radius: 8px;
+    min-width: 120px;
+}
+
+.tdwp-player-count .players-remaining {
+    font-size: 2.5em;
+    font-weight: bold;
+    line-height: 1;
+}
+
+.tdwp-player-count .players-label {
+    font-size: 1em;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 8px;
+}
+
+/* Current blinds */
+.tdwp-current-blinds {
+    display: inline-block;
+    text-align: center;
+    padding: 15px;
+    background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);
+    color: white;
+    border-radius: 8px;
+    min-width: 140px;
+}
+
+.tdwp-current-blinds .current-blinds {
+    font-size: 2em;
+    font-weight: bold;
+    font-family: 'Monaco', 'Menlo', monospace;
+    line-height: 1;
+}
+
+.tdwp-current-blinds .next-blinds {
+    font-size: 0.9em;
+    margin-top: 8px;
+    opacity: 0.9;
+}
+
+/* Screen preview */
+.tdwp-screen-preview {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.tdwp-preview-frame {
+    border: none;
+    display: block;
+    width: 100%;
+}
+
+/* Connection status indicators */
+.tdwp-connection-status {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 8px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    z-index: 1000;
+    transition: all 0.3s ease;
+}
+
+.tdwp-connection-status.connected {
+    background: #28a745;
+    color: white;
+}
+
+.tdwp-connection-status.disconnected {
+    background: #dc3545;
+    color: white;
+}
+
+.tdwp-sync-indicator,
+.tdwp-health-indicator,
+.tdwp-quality-indicator {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 5px;
+}
+
+.tdwp-sync-indicator[data-status="connected"],
+.tdwp-health-indicator[data-health="healthy"],
+.tdwp-quality-indicator[data-quality="good"] {
+    background: #28a745;
+    box-shadow: 0 0 4px rgba(40, 167, 69, 0.5);
+}
+
+.tdwp-sync-indicator[data-status="disconnected"],
+.tdwp-health-indicator[data-health="offline"],
+.tdwp-quality-indicator[data-quality="poor"] {
+    background: #dc3545;
+    box-shadow: 0 0 4px rgba(220, 53, 69, 0.5);
+}
+
+.tdwp-sync-indicator[data-status="stale"],
+.tdwp-health-indicator[data-health="warning"],
+.tdwp-quality-indicator[data-quality="fair"] {
+    background: #ffc107;
+    box-shadow: 0 0 4px rgba(255, 193, 7, 0.5);
+}
+
+/* Update animations */
+.updated {
+    animation: tdwp-highlight 1s ease;
+}
+
+@keyframes tdwp-highlight {
+    0% { background-color: #fff3cd; }
+    100% { background-color: transparent; }
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .tdwp-display-body {
+        flex-direction: column;
+    }
+
+    .tdwp-clock-display,
+    .tdwp-blinds-display,
+    .tdwp-player-count-display,
+    .tdwp-prize-pool-display {
+        min-width: auto;
+    }
+
+    .clock-time,
+    .current-blinds,
+    .players-number,
+    .prize-amount {
+        font-size: 2em;
+    }
+
+    .tdwp-display-header h1 {
+        font-size: 1.5em;
+    }
+
+    .tdwp-connection-status {
+        top: 10px;
+        right: 10px;
+        font-size: 11px;
+    }
+}
+
+@media (max-width: 480px) {
+    .tdwp-display-body {
+        padding: 10px;
+        gap: 10px;
+    }
+
+    .tdwp-clock-display,
+    .tdwp-blinds-display,
+    .tdwp-player-count-display,
+    .tdwp-prize-pool-display {
+        padding: 15px;
+    }
+
+    .clock-time,
+    .current-blinds,
+    .players-number,
+    .prize-amount {
+        font-size: 1.5em;
+    }
+
+    .tdwp-display-header {
+        padding: 15px;
+    }
+
+    .tdwp-display-header h1 {
+        font-size: 1.2em;
+    }
+}
+
+/* Error messages */
+.tdwp-error {
+    background: #f8d7da;
+    color: #721c24;
+    padding: 12px;
+    border: 1px solid #f5c6cb;
+    border-radius: 4px;
+    margin: 10px 0;
+}
+
+.tdwp-no-data {
+    background: #fff3cd;
+    color: #856404;
+    padding: 20px;
+    text-align: center;
+    border-radius: 4px;
+    font-style: italic;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+    .tdwp-tournament-display {
+        background: #2d3748;
+        border-color: #4a5568;
+        color: #e2e8f0;
+    }
+
+    .tdwp-clock-display,
+    .tdwp-blinds-display,
+    .tdwp-player-count-display,
+    .tdwp-prize-pool-display {
+        background: #4a5568;
+        border-color: #718096;
+    }
+
+    .tdwp-display-header {
+        background: linear-gradient(135deg, #4c51bf 0%, #553c9a 100%);
+    }
+
+    .tdwp-leaderboard-table th {
+        background: #4a5568;
+        color: #e2e8f0;
+    }
+
+    .tdwp-leaderboard-table td {
+        border-color: #718096;
+    }
+
+    .tdwp-leaderboard-table tr:hover {
+        background: #4a5568;
+    }
+}

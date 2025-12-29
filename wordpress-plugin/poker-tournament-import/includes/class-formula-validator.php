@@ -12,6 +12,7 @@ if (!defined('ABSPATH')) {
 }
 
 class Poker_Tournament_Formula_Validator {
+    // phpcs:disable WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Debug/diagnostic class
 
     /**
      * Available Tournament Director variables and functions
@@ -1493,7 +1494,7 @@ class Poker_Tournament_Formula_Validator {
             case 'triangle':
                 $n = $args[0] ?? 0;
                 return $n * ($n + 1) / 2;
-            case 'random': return mt_rand() / mt_getrandmax();
+            case 'random': return wp_rand() / mt_getrandmax();
 
             // Logical
             case 'not': return !($args[0] ?? 0);
@@ -1634,8 +1635,8 @@ class Poker_Tournament_Formula_Validator {
             $expression
         );
 
-        // random() -> mt_rand() / mt_getrandmax()
-        $expression = str_replace('random()', '(mt_rand() / mt_getrandmax())', $expression);
+        // random() -> wp_rand() / mt_getrandmax()
+        $expression = str_replace('random()', '(wp_rand() / mt_getrandmax())', $expression);
 
         return $expression;
     }
@@ -1779,9 +1780,9 @@ class Poker_Tournament_Formula_Validator {
      * Save custom formula to database
      */
     public function save_formula($name, $formula_data) {
-        $formulas = get_option('poker_tournament_formulas', array());
+        $formulas = get_option('tdwp_tournament_formulas', array());
         $formulas[$name] = $formula_data;
-        update_option('poker_tournament_formulas', $formulas);
+        update_option('tdwp_tournament_formulas', $formulas);
     }
 
     /**
@@ -1789,7 +1790,7 @@ class Poker_Tournament_Formula_Validator {
      */
     public function get_formula($name) {
         // Check saved custom formulas first (allows overriding defaults)
-        $formulas = get_option('poker_tournament_formulas', array());
+        $formulas = get_option('tdwp_tournament_formulas', array());
         if (isset($formulas[$name])) {
             // NORMALIZE: Ensure dependencies is an array
             return $this->normalize_formula_data($formulas[$name]);
@@ -1840,7 +1841,7 @@ class Poker_Tournament_Formula_Validator {
      * Get all saved formulas
      */
     public function get_all_formulas() {
-        $saved_formulas = get_option('poker_tournament_formulas', array());
+        $saved_formulas = get_option('tdwp_tournament_formulas', array());
         return array_merge($this->default_formulas, $saved_formulas);
     }
 
@@ -1848,10 +1849,10 @@ class Poker_Tournament_Formula_Validator {
      * Delete formula
      */
     public function delete_formula($name) {
-        $formulas = get_option('poker_tournament_formulas', array());
+        $formulas = get_option('tdwp_tournament_formulas', array());
         if (isset($formulas[$name])) {
             unset($formulas[$name]);
-            update_option('poker_tournament_formulas', $formulas);
+            update_option('tdwp_tournament_formulas', $formulas);
             return true;
         }
         return false;

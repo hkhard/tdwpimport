@@ -1,0 +1,475 @@
+/**
+ * Player Management Admin Styles
+ *
+ * @package Poker_Tournament_Import
+ * @subpackage Tournament_Manager
+ * @since 3.0.0
+ */
+
+/* ==========================================================================
+   Tabs Navigation
+   ========================================================================== */
+
+.tdwp-player-tabs {
+	margin-bottom: 20px;
+	border-bottom: 1px solid #c3c4c7;
+}
+
+.tdwp-player-tabs .nav-tab {
+	margin-left: 0;
+}
+
+/* ==========================================================================
+   Players List
+   ========================================================================== */
+
+.tdwp-players-list {
+	margin-top: 20px;
+}
+
+.tdwp-list-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 20px;
+	padding: 15px;
+	background: #f6f7f7;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+}
+
+.tdwp-list-actions {
+	display: flex;
+	gap: 10px;
+}
+
+.tdwp-list-search {
+	display: flex;
+	gap: 10px;
+}
+
+.tdwp-list-search input[type="text"] {
+	min-width: 250px;
+	padding: 6px 12px;
+	border: 1px solid #8c8f94;
+	border-radius: 4px;
+}
+
+/* List Table Columns */
+.wp-list-table .column-name {
+	width: 25%;
+}
+
+.wp-list-table .column-email {
+	width: 20%;
+}
+
+.wp-list-table .column-uuid {
+	width: 20%;
+	font-family: monospace;
+	font-size: 12px;
+}
+
+.wp-list-table .column-status {
+	width: 10%;
+	text-align: center;
+}
+
+.wp-list-table .column-date {
+	width: 12%;
+}
+
+.wp-list-table .column-actions {
+	width: 13%;
+	text-align: right;
+}
+
+.wp-list-table .column-actions .button {
+	margin-left: 4px;
+}
+
+/* Status Badges */
+.status-badge {
+	display: inline-block;
+	padding: 3px 10px;
+	font-size: 11px;
+	font-weight: 600;
+	text-transform: uppercase;
+	border-radius: 3px;
+	letter-spacing: 0.5px;
+}
+
+.status-badge.status-publish {
+	background: #d7f8e4;
+	color: #006b2d;
+}
+
+.status-badge.status-draft {
+	background: #f0f0f1;
+	color: #646970;
+}
+
+.status-badge.status-pending {
+	background: #fcf9e8;
+	color: #996800;
+}
+
+/* Sort Indicators */
+.sort-indicator {
+	margin-left: 5px;
+	font-size: 10px;
+	color: #2271b1;
+}
+
+/* ==========================================================================
+   Player Form
+   ========================================================================== */
+
+.tdwp-player-form-container {
+	max-width: 800px;
+	margin: 20px 0;
+}
+
+.tdwp-player-form-container h2 {
+	margin-top: 0;
+	padding-bottom: 10px;
+	border-bottom: 2px solid #2271b1;
+}
+
+.player-stats-summary {
+	margin: 20px 0;
+	padding: 20px;
+	background: #f6f7f7;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+}
+
+.player-stats-summary h3 {
+	margin-top: 0;
+	margin-bottom: 15px;
+	font-size: 16px;
+}
+
+.stats-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+	gap: 15px;
+}
+
+.stat-box {
+	padding: 15px;
+	background: #fff;
+	border: 1px solid #dcdcde;
+	border-radius: 3px;
+	text-align: center;
+}
+
+.stat-box .stat-value {
+	font-size: 24px;
+	font-weight: 700;
+	color: #2271b1;
+	margin-bottom: 5px;
+}
+
+.stat-box .stat-label {
+	font-size: 12px;
+	color: #646970;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+}
+
+.tdwp-player-form .form-table {
+	margin-top: 20px;
+}
+
+.tdwp-player-form .form-table th {
+	padding: 20px 10px 20px 0;
+	vertical-align: middle;
+	font-weight: 600;
+}
+
+.tdwp-player-form .form-table td {
+	padding: 20px 10px;
+}
+
+.tdwp-player-form .required {
+	color: #d63638;
+	font-weight: bold;
+	margin-left: 3px;
+}
+
+.tdwp-player-form .description {
+	margin-top: 5px;
+	font-style: italic;
+	color: #646970;
+	font-size: 13px;
+}
+
+.tdwp-player-form input[type="text"],
+.tdwp-player-form input[type="email"],
+.tdwp-player-form input[type="tel"] {
+	width: 100%;
+	max-width: 500px;
+	padding: 8px 12px;
+}
+
+.tdwp-player-form textarea {
+	width: 100%;
+	max-width: 500px;
+	padding: 8px 12px;
+}
+
+.tdwp-player-form select {
+	padding: 6px 10px;
+	min-width: 200px;
+}
+
+/* ==========================================================================
+   Import Container
+   ========================================================================== */
+
+.tdwp-import-container {
+	max-width: 900px;
+	margin: 20px 0;
+}
+
+.tdwp-import-container h2 {
+	margin-top: 0;
+	padding-bottom: 10px;
+	border-bottom: 2px solid #2271b1;
+}
+
+.import-instructions {
+	margin: 20px 0;
+	padding: 20px;
+	background: #f0f6fc;
+	border-left: 4px solid #2271b1;
+	border-radius: 4px;
+}
+
+.import-instructions h3 {
+	margin-top: 0;
+	margin-bottom: 10px;
+	color: #2271b1;
+}
+
+.import-instructions ol {
+	margin-left: 20px;
+}
+
+.import-instructions ul {
+	margin-left: 40px;
+	margin-top: 10px;
+}
+
+.import-instructions li {
+	margin-bottom: 8px;
+}
+
+/* Import Preview */
+.import-preview,
+.import-results {
+	margin-top: 30px;
+	padding: 20px;
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+}
+
+.import-preview h3,
+.import-results h3 {
+	margin-top: 0;
+	margin-bottom: 15px;
+	padding-bottom: 10px;
+	border-bottom: 1px solid #dcdcde;
+}
+
+.import-preview-summary {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+	gap: 15px;
+	margin-bottom: 20px;
+}
+
+.preview-stat {
+	padding: 15px;
+	background: #f6f7f7;
+	border: 1px solid #dcdcde;
+	border-radius: 3px;
+	text-align: center;
+}
+
+.preview-stat.valid {
+	background: #d7f8e4;
+	border-color: #00a32a;
+}
+
+.preview-stat.invalid {
+	background: #fcf0f1;
+	border-color: #d63638;
+}
+
+.preview-stat .stat-value {
+	font-size: 28px;
+	font-weight: 700;
+	color: #1d2327;
+	margin-bottom: 5px;
+}
+
+.preview-stat .stat-label {
+	font-size: 12px;
+	color: #646970;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+}
+
+/* Import Errors */
+.import-errors {
+	margin-top: 20px;
+}
+
+.import-errors h4 {
+	margin-bottom: 10px;
+	color: #d63638;
+}
+
+.import-errors ul {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.import-errors li {
+	padding: 10px;
+	margin-bottom: 5px;
+	background: #fcf0f1;
+	border-left: 3px solid #d63638;
+	border-radius: 3px;
+}
+
+.import-errors .row-number {
+	font-weight: 600;
+	color: #d63638;
+}
+
+/* ==========================================================================
+   Messages
+   ========================================================================== */
+
+.tdwp-player-management .notice {
+	margin: 15px 0;
+}
+
+/* ==========================================================================
+   Loading States
+   ========================================================================== */
+
+.tdwp-loading {
+	opacity: 0.6;
+	pointer-events: none;
+}
+
+.button.is-busy::after {
+	content: "";
+	display: inline-block;
+	width: 16px;
+	height: 16px;
+	margin-left: 8px;
+	border: 2px solid #f3f3f3;
+	border-top: 2px solid #3498db;
+	border-radius: 50%;
+	animation: tdwp-spin 1s linear infinite;
+	vertical-align: middle;
+}
+
+@keyframes tdwp-spin {
+	0% {
+		transform: rotate(0deg);
+	}
+	100% {
+		transform: rotate(360deg);
+	}
+}
+
+.spinner {
+	display: inline-block;
+	width: 20px;
+	height: 20px;
+	margin-left: 10px;
+	border: 3px solid #f3f3f3;
+	border-top: 3px solid #2271b1;
+	border-radius: 50%;
+	animation: tdwp-spin 1s linear infinite;
+	vertical-align: middle;
+}
+
+/* ==========================================================================
+   Responsive Styles
+   ========================================================================== */
+
+@media screen and (max-width: 782px) {
+	.tdwp-list-header {
+		flex-direction: column;
+		align-items: stretch;
+		gap: 15px;
+	}
+
+	.tdwp-list-search {
+		flex-direction: column;
+	}
+
+	.tdwp-list-search input[type="text"] {
+		min-width: 100%;
+	}
+
+	.stats-grid {
+		grid-template-columns: repeat(2, 1fr);
+	}
+
+	.wp-list-table .column-uuid,
+	.wp-list-table .column-date {
+		display: none;
+	}
+
+	.tdwp-player-form input[type="text"],
+	.tdwp-player-form input[type="email"],
+	.tdwp-player-form input[type="tel"],
+	.tdwp-player-form textarea,
+	.tdwp-player-form select {
+		max-width: 100%;
+	}
+}
+
+@media screen and (max-width: 600px) {
+	.stats-grid {
+		grid-template-columns: 1fr;
+	}
+
+	.import-preview-summary {
+		grid-template-columns: 1fr;
+	}
+}
+
+/* ==========================================================================
+   Utility Classes
+   ========================================================================== */
+
+.tdwp-hidden {
+	display: none !important;
+}
+
+.tdwp-text-success {
+	color: #00a32a;
+}
+
+.tdwp-text-error {
+	color: #d63638;
+}
+
+.tdwp-text-muted {
+	color: #646970;
+}
+
+.tdwp-text-center {
+	text-align: center;
+}

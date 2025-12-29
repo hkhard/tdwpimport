@@ -248,7 +248,7 @@ jQuery(document).ready(function($) {
                 url: ajaxurl,
                 type: 'POST',
                 data: {
-                    action: 'poker_series_tab_content',
+                    action: 'tdwp_series_tab_content',
                     series_id: seriesId,
                     tab: tabName,
                     nonce: pokerImportFrontend.nonce || ''
@@ -355,7 +355,7 @@ jQuery(document).ready(function($) {
                 url: ajaxurl,
                 type: 'POST',
                 data: {
-                    action: 'poker_series_load_more',
+                    action: 'tdwp_series_load_more',
                     series_id: seriesId,
                     offset: offset,
                     limit: limit,
@@ -459,7 +459,7 @@ jQuery(document).ready(function($) {
             url: ajaxurl,
             type: 'POST',
             data: {
-                action: 'poker_reconstruct_chronology',
+                action: 'tdwp_reconstruct_chronology',
                 tournament_id: tournamentId,
                 nonce: pokerImportFrontend.nonce || ''
             },
@@ -620,7 +620,7 @@ jQuery(document).ready(function($) {
             url: ajaxurl,
             type: 'POST',
             data: {
-                action: 'poker_dashboard_tournaments_filtered',
+                action: 'tdwp_dashboard_tournaments_filtered',
                 season_id: seasonId || 'all',
                 page: tournamentsPage,
                 nonce: pokerImportFrontend.nonce || ''
@@ -731,7 +731,7 @@ jQuery(document).ready(function($) {
             url: ajaxurl,
             type: 'POST',
             data: {
-                action: 'poker_frontend_refresh_statistics',
+                action: 'tdwp_frontend_refresh_statistics',
                 season_id: seasonId || 'all',
                 nonce: pokerImportFrontend.nonce || ''
             },

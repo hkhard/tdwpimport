@@ -77,3 +77,28 @@ composer.lock
 
 # Local development
 *.local
+
+# Cross-Platform Tournament Director (mobile-app, controller, shared)
+mobile-app/.expo/
+mobile-app/dist/
+mobile-app/.expo-shared/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+web-build/
+controller/dist/
+controller/data/
+shared/dist/
+shared/node_modules/
+
+# Expo
+.expo/
+.expo-shared/
+
+# EAS Build
+eas-build-metadata.json
+# Continuous Claude cache (local only)
+.claude/cache/

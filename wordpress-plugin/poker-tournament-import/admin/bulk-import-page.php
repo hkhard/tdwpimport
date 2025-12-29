@@ -16,7 +16,7 @@ if (!defined('ABSPATH')) {
 
 // Check user permissions
 if (!current_user_can('manage_options')) {
-    wp_die(__('You do not have sufficient permissions to access this page.', 'poker-tournament-import'));
+    wp_die(esc_html__('You do not have sufficient permissions to access this page.', 'poker-tournament-import'));
 }
 
 // Get upload limits from WordPress
@@ -41,7 +41,7 @@ $post_max_size = wp_convert_hr_to_bytes(ini_get('post_max_size'));
             <li>
                 <?php
                 /* translators: %s: formatted file size */
-                printf(esc_html__('Max file size: %s', 'poker-tournament-import'), size_format($max_upload_size));
+                printf(esc_html__('Max file size: %s', 'poker-tournament-import'), esc_html(size_format($max_upload_size)));
                 ?>
             </li>
             <li>
@@ -53,7 +53,7 @@ $post_max_size = wp_convert_hr_to_bytes(ini_get('post_max_size'));
             <li>
                 <?php
                 /* translators: %s: formatted size */
-                printf(esc_html__('Max total size per request: %s', 'poker-tournament-import'), size_format($post_max_size));
+                printf(esc_html__('Max total size per request: %s', 'poker-tournament-import'), esc_html(size_format($post_max_size)));
                 ?>
             </li>
         </ul>

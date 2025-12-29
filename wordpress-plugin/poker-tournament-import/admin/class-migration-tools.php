@@ -582,6 +582,7 @@ class Poker_Tournament_Migration_Tools {
         if (false === $results) {
             // Cache miss - query database
             if ($args !== null) {
+            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Query prepared above
                 $prepared_sql = $wpdb->prepare($sql, $args);
                 $results = $wpdb->$query_type($prepared_sql);
             } else {

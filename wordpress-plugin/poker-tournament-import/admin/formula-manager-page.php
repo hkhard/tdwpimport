@@ -17,6 +17,14 @@ class Poker_Formula_Manager_Page {
      */
     public function __construct() {
         add_action('admin_init', array($this, 'save_formula_settings'));
+        add_action('admin_enqueue_scripts', array($this, 'enqueue_formula_manager_assets'));
+    }
+
+    public function enqueue_formula_manager_assets($hook) {
+        if ('tournament_page_poker-formula-manager' !== $hook) return;
+        wp_enqueue_script('jquery');
+        wp_add_inline_style('wp-admin', '.formula-manager{max-width:1200px}.formula-card{background:#fff;border:1px solid #ccd0d4;border-radius:4px;padding:20px;margin-bottom:20px}.formula-card.default{border-left:4px solid #0073aa}.formula-card h3{margin-top:0;color:#23282d}.formula-code{background:#f6f7f7;border:1px solid #ddd;border-radius:3px;padding:15px;font-family:monospace;font-size:13px;overflow-x:auto;white-space:pre;margin:10px 0}.formula-code.readonly{background:#fafafa;color:#666}.dependencies-list{margin:10px 0;padding-left:20px}.formula-actions{margin-top:15px}.formula-actions .button{margin-right:5px}.formula-description{color:#50575e;font-style:italic;margin:5px 0}.new-formula-form{background:#f9f9f9;border:1px solid #ddd;border-radius:4px;padding:20px;margin-bottom:20px}.form-row{margin-bottom:15px}.form-row label{display:block;font-weight:600;margin-bottom:5px}.form-row input[type="text"],.form-row textarea{width:100%;max-width:600px}.form-row textarea{min-height:100px;font-family:monospace}.dependencies-input{background:#fff;border:1px solid #ddd;padding:10px;border-radius:3px;margin-top:5px}.dependency-item{display:flex;gap:10px;margin-bottom:5px;align-items:center}.dependency-item input{flex:1}');
+        wp_add_inline_script('jquery', 'jQuery(document).ready(function($){function addDependencyField(){var container=$("#dependencies-container");var index=container.find(".dependency-item").length;var html=\'<div class="dependency-item"><input type="text" name="dependencies[]" placeholder="Enter dependency formula"><button type="button" class="button remove-dependency">Remove</button></div>\';container.append(html)}$("#add-dependency").click(function(e){e.preventDefault();addDependencyField()});$(document).on("click",".remove-dependency",function(){$(this).closest(".dependency-item").remove()});$(".edit-formula").click(function(e){e.preventDefault();var $card=$(this).closest(".formula-card");var key=$card.data("key");var $form=$("#edit-form-"+key);if($form.is(":visible")){$form.slideUp()}else{$(".formula-edit-form").slideUp();$form.slideDown()}});$(".cancel-edit").click(function(e){e.preventDefault();$(this).closest(".formula-edit-form").slideUp()});$(".delete-formula").click(function(e){if(!confirm("Are you sure you want to delete this formula?")){e.preventDefault()}})});');
     }
 
     /**
@@ -29,80 +37,6 @@ class Poker_Formula_Manager_Page {
             <?php $this->render_formulas_tab(); ?>
         </div>
 
-        <style>
-        .formula-editor {
-            max-width: 800px;
-        }
-        .formula-test {
-            margin-top: 20px;
-            padding: 15px;
-            background: #f9f9f9;
-            border-left: 4px solid #0073aa;
-        }
-        .variable-list {
-            columns: 2;
-            column-gap: 30px;
-        }
-        .variable-item {
-            margin-bottom: 10px;
-            break-inside: avoid;
-        }
-        .variable-name {
-            font-family: monospace;
-            background: #eee;
-            padding: 2px 4px;
-            border-radius: 3px;
-        }
-        .formula-modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.5);
-            z-index: 100000;
-        }
-        .formula-modal-content {
-            background: #fff;
-            margin: 50px auto;
-            padding: 20px;
-            max-width: 600px;
-            border-radius: 4px;
-        }
-        .validation-results {
-            margin-top: 15px;
-        }
-        .validation-results .success {
-            background: #dff0d8;
-            border: 1px solid #d6e9c6;
-            color: #3c763d;
-            padding: 10px;
-            border-radius: 4px;
-        }
-        .validation-results .error {
-            background: #f2dede;
-            border: 1px solid #ebccd1;
-            color: #a94442;
-            padding: 10px;
-            border-radius: 4px;
-        }
-        .validation-results .warning {
-            background: #fcf8e3;
-            border: 1px solid #faebcc;
-            color: #8a6d3b;
-            padding: 10px;
-            border-radius: 4px;
-        }
-        .formula-code {
-            font-family: 'Courier New', monospace;
-            background: #f8f8f8;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            white-space: pre-wrap;
-        }
-        </style>
 
         <!-- Formula Editor Modal -->
         <div id="formula-editor-modal" class="formula-modal">
@@ -460,141 +394,6 @@ assign(&quot;avgBC&quot;, monies/buyins)"></textarea>
             </div>
         </div>
 
-        <script>
-        jQuery(document).ready(function($) {
-            // Formula editor modal
-            window.openFormulaModal = function(formulaKey) {
-                $('#formula-editor-modal').show();
-                $('#formula-name').val(formulaKey);
-
-                if (formulaKey === 'new') {
-                    $('#modal-title').text('<?php esc_html_e('Add New Formula', 'poker-tournament-import'); ?>');
-                    $('#formula-display-name').val('').prop('readonly', false);
-                    $('#formula-description').val('');
-                    $('#formula-category').val('points');
-                    $('#formula-dependencies').val('');
-                    $('#formula-expression').val('');
-                } else {
-                    $('#modal-title').text('<?php esc_html_e('Edit Formula', 'poker-tournament-import'); ?>');
-
-                    // Load formula data via AJAX
-                    $.post(ajaxurl, {
-                        action: 'poker_get_formula',
-                        formula_key: formulaKey,
-                        nonce: '<?php echo esc_attr(wp_create_nonce("poker_formula_manager")); ?>'
-                    }, function(response) {
-                        if (response.success) {
-                            var isDefault = response.data.is_default || false;
-
-                            // Display name is readonly only for default formulas
-                            $('#formula-display-name').val(response.data.name).prop('readonly', isDefault);
-                            $('#formula-description').val(response.data.description);
-                            $('#formula-category').val(response.data.category);
-
-                            // Convert dependencies array to newline-separated string if needed
-                            var deps = response.data.dependencies;
-                            if (Array.isArray(deps)) {
-                                deps = deps.join('\n');
-                            }
-                            $('#formula-dependencies').val(deps);
-                            $('#formula-expression').val(response.data.formula);
-                        }
-                    });
-                }
-            };
-
-            window.closeFormulaModal = function() {
-                $('#formula-editor-modal').hide();
-                $('#formula-test-result').empty();
-            };
-
-            // Save formula
-            $('#save-formula-btn').click(function() {
-                var formData = {
-                    action: 'poker_save_formula',
-                    formula_name: $('#formula-name').val(),
-                    display_name: $('#formula-display-name').val(),
-                    description: $('#formula-description').val(),
-                    category: $('#formula-category').val(),
-                    dependencies: $('#formula-dependencies').val(),
-                    formula: $('#formula-expression').val(),
-                    nonce: '<?php echo esc_attr(wp_create_nonce("poker_formula_manager")); ?>'
-                };
-
-                $.post(ajaxurl, formData, function(response) {
-                    if (response.success) {
-                        alert(response.data.message);
-                        closeFormulaModal();
-                        location.reload();
-                    } else {
-                        alert(response.data.message + '\n' + (response.data.errors ? response.data.errors.join('\n') : ''));
-                    }
-                });
-            });
-
-            // Test formula
-            $('#test-formula-btn').click(function() {
-                var formula = $('#formula-dependencies').val() + ';' + $('#formula-expression').val();
-                var testData = {
-                    n: 20,
-                    r: 3,
-                    hits: 5,
-                    total_money: 2000,
-                    total_buyins: 20
-                };
-
-                $.post(ajaxurl, {
-                    action: 'poker_validate_formula',
-                    formula: formula,
-                    test_data: testData,
-                    nonce: '<?php echo esc_attr(wp_create_nonce("poker_formula_validator")); ?>'
-                }, function(response) {
-                    $('#formula-test-result').html(response);
-                });
-            });
-
-            // Delete formula
-            window.deleteFormula = function(formulaKey) {
-                if (confirm('<?php esc_html_e('Are you sure you want to delete this formula?', 'poker-tournament-import'); ?>')) {
-                    $.post(ajaxurl, {
-                        action: 'poker_delete_formula',
-                        formula_name: formulaKey,
-                        nonce: '<?php echo esc_attr(wp_create_nonce("poker_formula_manager")); ?>'
-                    }, function(response) {
-                        if (response.success) {
-                            alert(response.data.message);
-                            location.reload();
-                        } else {
-                            alert(response.data.message);
-                        }
-                    });
-                }
-            };
-
-            // Variable reference modal
-            window.openVariableReferenceModal = function() {
-                $('#variable-reference-modal').show();
-            };
-
-            window.closeVariableReferenceModal = function() {
-                $('#variable-reference-modal').hide();
-            };
-
-            // Variable reference tab switching
-            $('#variable-reference-modal .nav-tab').click(function(e) {
-                e.preventDefault();
-                var target = $(this).data('target');
-
-                // Update active tab
-                $('#variable-reference-modal .nav-tab').removeClass('nav-tab-active');
-                $(this).addClass('nav-tab-active');
-
-                // Show targeted tab pane
-                $('#variable-reference-modal .var-tab-pane').hide();
-                $('#' + target).show();
-            });
-        });
-        </script>
         <?php
     }
 
@@ -604,8 +403,8 @@ assign(&quot;avgBC&quot;, monies/buyins)"></textarea>
     private function render_formulas_tab() {
         $formula_validator = new Poker_Tournament_Formula_Validator();
         $formulas = $formula_validator->get_all_formulas();
-        $active_tournament = get_option('poker_active_tournament_formula', 'tournament_points');
-        $active_season = get_option('poker_active_season_formula', 'season_total');
+        $active_tournament = get_option('tdwp_active_tournament_formula', 'tournament_points');
+        $active_season = get_option('tdwp_active_season_formula', 'season_total');
         ?>
         <div class="formula-editor">
             <h2><?php esc_html_e('Manage Formulas', 'poker-tournament-import'); ?></h2>
@@ -699,27 +498,6 @@ assign(&quot;avgBC&quot;, monies/buyins)"></textarea>
             </div>
         </div>
 
-        <script>
-        function pokerValidateFormula() {
-            var formula = document.getElementById('formula-input').value;
-            var testData = {
-                n: parseInt(document.getElementById('test-n').value) || 20,
-                r: parseInt(document.getElementById('test-r').value) || 3,
-                hits: parseInt(document.getElementById('test-hits').value) || 5,
-                total_money: parseInt(document.getElementById('test-money').value) || 2000,
-                total_buyins: parseInt(document.getElementById('test-buyins').value) || 20
-            };
-
-            jQuery.post(ajaxurl, {
-                action: 'poker_validate_formula',
-                formula: formula,
-                test_data: testData,
-                nonce: '<?php echo esc_attr(wp_create_nonce("poker_formula_validator")); ?>'
-            }, function(response) {
-                document.getElementById('validation-result').innerHTML = response;
-            });
-        }
-        </script>
         <?php
     }
 
@@ -729,8 +507,8 @@ assign(&quot;avgBC&quot;, monies/buyins)"></textarea>
     private function render_settings_tab() {
         $formula_validator = new Poker_Tournament_Formula_Validator();
         $formulas = $formula_validator->get_all_formulas();
-        $active_tournament = get_option('poker_active_tournament_formula', 'tournament_points');
-        $active_season = get_option('poker_active_season_formula', 'season_total');
+        $active_tournament = get_option('tdwp_active_tournament_formula', 'tournament_points');
+        $active_season = get_option('tdwp_active_season_formula', 'season_total');
         ?>
         <div class="formula-settings">
             <h2><?php esc_html_e('Formula Settings', 'poker-tournament-import'); ?></h2>
@@ -781,7 +559,7 @@ assign(&quot;avgBC&quot;, monies/buyins)"></textarea>
                         </th>
                         <td>
                             <input type="checkbox" name="poker_formula_debug_mode" id="poker_formula_debug_mode"
-                                   value="1" <?php checked(get_option('poker_formula_debug_mode', 0)); ?>>
+                                   value="1" <?php checked(get_option('tdwp_formula_debug_mode', 0)); ?>>
                             <label for="poker_formula_debug_mode"><?php esc_html_e('Enable formula debugging and logging', 'poker-tournament-import'); ?></label>
                             <p class="description"><?php esc_html_e('When enabled, formula calculations will be logged for troubleshooting.', 'poker-tournament-import'); ?></p>
                         </td>

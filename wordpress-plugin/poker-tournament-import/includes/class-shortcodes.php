@@ -16,31 +16,45 @@ class Poker_Tournament_Import_Shortcodes {
      * Constructor
      */
     public function __construct() {
+        // Register new tdwp_ prefixed shortcodes
+        add_shortcode('tdwp_tournament_results', array($this, 'tournament_results_shortcode'));
+        add_shortcode('tdwp_tournament_series', array($this, 'tournament_series_shortcode'));
+        add_shortcode('tdwp_player_profile', array($this, 'player_profile_shortcode'));
+        add_shortcode('tdwp_series_overview', array($this, 'series_overview_shortcode'));
+        add_shortcode('tdwp_series_results', array($this, 'series_results_shortcode'));
+        add_shortcode('tdwp_series_statistics', array($this, 'series_statistics_shortcode'));
+        add_shortcode('tdwp_series_players', array($this, 'series_players_shortcode'));
+        add_shortcode('tdwp_series_leaderboard', array($this, 'series_leaderboard_shortcode'));
+        add_shortcode('tdwp_series_standings', array($this, 'series_standings_shortcode'));
+        add_shortcode('tdwp_series_tabs', array($this, 'series_tabs_shortcode'));
+        add_shortcode('tdwp_season_tabs', array($this, 'season_tabs_shortcode'));
+        add_shortcode('tdwp_season_overview', array($this, 'season_overview_shortcode'));
+        add_shortcode('tdwp_season_results', array($this, 'season_results_shortcode'));
+        add_shortcode('tdwp_season_statistics', array($this, 'season_statistics_shortcode'));
+        add_shortcode('tdwp_season_players', array($this, 'season_players_shortcode'));
+        add_shortcode('tdwp_season_standings', array($this, 'season_standings_shortcode'));
+        add_shortcode('tdwp_dashboard', array($this, 'poker_dashboard_shortcode'));
+        add_shortcode('tdwp_player_registration', array($this, 'player_registration_shortcode'));
+
+        // Backward compatibility - old shortcode names (deprecated but supported)
         add_shortcode('tournament_results', array($this, 'tournament_results_shortcode'));
         add_shortcode('tournament_series', array($this, 'tournament_series_shortcode'));
         add_shortcode('player_profile', array($this, 'player_profile_shortcode'));
-
-        // New tabbed interface shortcodes
         add_shortcode('series_overview', array($this, 'series_overview_shortcode'));
         add_shortcode('series_results', array($this, 'series_results_shortcode'));
         add_shortcode('series_statistics', array($this, 'series_statistics_shortcode'));
         add_shortcode('series_players', array($this, 'series_players_shortcode'));
         add_shortcode('series_leaderboard', array($this, 'series_leaderboard_shortcode'));
         add_shortcode('series_standings', array($this, 'series_standings_shortcode'));
-
-        // Tab navigation shortcode
         add_shortcode('series_tabs', array($this, 'series_tabs_shortcode'));
-
-        // Season shortcodes
         add_shortcode('season_tabs', array($this, 'season_tabs_shortcode'));
         add_shortcode('season_overview', array($this, 'season_overview_shortcode'));
         add_shortcode('season_results', array($this, 'season_results_shortcode'));
         add_shortcode('season_statistics', array($this, 'season_statistics_shortcode'));
         add_shortcode('season_players', array($this, 'season_players_shortcode'));
         add_shortcode('season_standings', array($this, 'season_standings_shortcode'));
-
-        // Dashboard shortcode
         add_shortcode('poker_dashboard', array($this, 'poker_dashboard_shortcode'));
+        add_shortcode('player_registration', array($this, 'player_registration_shortcode'));
     }
 
     /**
@@ -504,7 +518,7 @@ class Poker_Tournament_Import_Shortcodes {
                 echo '<a href="' . esc_url(get_permalink($tournament->ID)) . '">' . esc_html($tournament->post_title) . '</a>';
                 $tournament_date = get_post_meta($tournament->ID, '_tournament_date', true);
                 if ($tournament_date) {
-                    echo ' - ' . esc_html(date('M j, Y', strtotime($tournament_date)));
+                    echo ' - ' . esc_html(wp_date('M j, Y', strtotime($tournament_date)));
                 }
                 echo '</li>';
             }
@@ -870,7 +884,7 @@ class Poker_Tournament_Import_Shortcodes {
                  LIMIT 1",
                 ...$tournament_uuids
             );
-            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared -- Query prepared above
             $top_player_data = $wpdb->get_row($query);
 
             if ($top_player_data) {
@@ -1535,7 +1549,7 @@ class Poker_Tournament_Import_Shortcodes {
                  LIMIT 1",
                 ...$tournament_uuids
             );
-            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared -- Query prepared above
             $top_player_data = $wpdb->get_row($query);
 
             if ($top_player_data) {
@@ -2894,7 +2908,7 @@ class Poker_Tournament_Import_Shortcodes {
                             <div class="trends-chart">
                                 <?php foreach (array_slice($participation_trends, 0, 7) as $trend): ?>
                                     <div class="trend-item">
-                                        <div class="trend-date"><?php echo esc_html(date('M j', strtotime($trend->date))); ?></div>
+                                        <div class="trend-date"><?php echo esc_html(wp_date('M j', strtotime($trend->date))); ?></div>
                                         <div class="trend-stats">
                                             <span class="trend-players"><?php echo esc_html($trend->unique_players); ?> players</span>
                                             <span class="trend-entries"><?php echo esc_html($trend->total_entries); ?> entries</span>
@@ -3923,7 +3937,7 @@ class Poker_Tournament_Import_Shortcodes {
         <!-- Dashboard JavaScript -->
         <script>
         // Currency symbol for JavaScript usage
-        const pokerCurrencySymbol = '<?php echo esc_js(get_option('poker_currency_symbol', '$')); ?>';
+        const pokerCurrencySymbol = '<?php echo esc_js(get_option('tdwp_currency_symbol', '$')); ?>';
 
         jQuery(document).ready(function($) {
             // Season selector handler
@@ -4615,7 +4629,7 @@ class Poker_Tournament_Import_Shortcodes {
         global $wpdb;
 
         // Get configured season formula
-        $formula_key = get_option('poker_active_season_formula', 'season_total');
+        $formula_key = get_option('tdwp_active_season_formula', 'season_total');
 
         // Get individual tournament points for formula calculation
         $tournament_points = array();
@@ -4845,7 +4859,7 @@ class Poker_Tournament_Import_Shortcodes {
         }
 
         if (preg_match('/StartTime:\s*(\d+)/', $tournament_data, $matches)) {
-            $metadata['start_time'] = date('Y-m-d H:i:s', intval($matches[1] / 1000));
+            $metadata['start_time'] = gmdate('Y-m-d H:i:s', intval($matches[1] / 1000));
         }
 
         return $metadata;
@@ -5034,9 +5048,12 @@ class Poker_Tournament_Import_Shortcodes {
         if (false === $results) {
             // Cache miss - query database
             if ($args !== null) {
+                // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $sql parameter is being prepared here
                 $prepared_sql = $wpdb->prepare($sql, $args);
+                // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- SQL prepared on line above
                 $results = $wpdb->$query_type($prepared_sql);
             } else {
+                // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- SQL passed directly without placeholders
                 $results = $wpdb->$query_type($sql);
             }
 
@@ -5045,6 +5062,25 @@ class Poker_Tournament_Import_Shortcodes {
         }
 
         return $results;
+    }
+
+    /**
+     * Player Registration Shortcode
+     * Usage: [player_registration title="Register Now" require_email="yes"]
+     *
+     * @since 3.0.0
+     *
+     * @param array $atts Shortcode attributes.
+     * @return string Form HTML.
+     */
+    public function player_registration_shortcode( $atts ) {
+        // Ensure registration class is loaded
+        if ( ! class_exists( 'TDWP_Player_Registration' ) ) {
+            require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/class-player-registration.php';
+        }
+
+        $registration = new TDWP_Player_Registration();
+        return $registration->render_registration_form( $atts );
     }
 }
 

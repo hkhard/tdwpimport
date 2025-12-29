@@ -2,6 +2,8 @@
 
 Claude Code guidance for the Poker Tournament Import WordPress plugin.
 
+**Constitution**: See `.specify/memory/constitution.md` for core principles on code quality, testing, UX consistency, performance, and security requirements that govern all development.
+
 ## Project Status
 
 **Current Version**: 2.4.2 (Production)
@@ -113,3 +115,17 @@ Claude Code guidance for the Poker Tournament Import WordPress plugin.
 - always create updated installer zip file with new versions
 - the wp shell is  at /Users/hkh/Library/Application\ Support/Local/ssh-entry/hNPsf2SE_.sh
 - remember to update version number in the log file output so we know we are logging for the right patch level
+- use php to verify syntax on all changes
+
+## Active Technologies
+- PHP 8.0+ (8.2+ compatible) + WordPress 6.0+, MySQL 5.7+, jQuery, modern JavaScript (ES6+) (001-td3-integration)
+- MySQL with WordPress custom tables (12 existing tables), WordPress media library, transient caching (001-td3-integration)
+- TypeScript 5.0+ (strict mode), Node.js 20+ for controller (002-expo-rewrite)
+- TypeScript 5.0+ (strict mode) + Expo SDK 50+, React Navigation v6+, Zustand (state), React Native (UI) (001-blind-level-management)
+- SQLite (controller with tdwp_ prefix), Expo SQLite (mobile), AsyncStorage (offline cache) (001-blind-level-management)
+- TypeScript 5.0+ (strict mode) + Expo SDK 54, React Navigation v6, Zustand 4.4, Fastify (controller) (002-blind-level-crud)
+- AsyncStorage (offline cache), SQLite (controller database with tdwp_ prefix) (002-blind-level-crud)
+
+## Recent Changes
+- 001-td3-integration: Added PHP 8.0+ (8.2+ compatible) + WordPress 6.0+, MySQL 5.7+, jQuery, modern JavaScript (ES6+)
+- our database prefix is tdwp_ always, nothing else

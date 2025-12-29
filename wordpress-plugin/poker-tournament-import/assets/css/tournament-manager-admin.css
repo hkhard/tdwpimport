@@ -1,0 +1,174 @@
+/**
+ * Tournament Manager Admin Styles
+ *
+ * @package Poker_Tournament_Import
+ * @subpackage Tournament_Manager
+ * @since 3.0.0
+ */
+
+/* ==========================================================================
+   Template List Table
+   ========================================================================== */
+
+.tdwp-tournament-templates .wp-list-table .column-name {
+	width: 25%;
+}
+
+.tdwp-tournament-templates .wp-list-table .column-buyin {
+	width: 12%;
+}
+
+.tdwp-tournament-templates .wp-list-table .column-chips {
+	width: 15%;
+}
+
+.tdwp-tournament-templates .wp-list-table .column-blind {
+	width: 18%;
+}
+
+.tdwp-tournament-templates .wp-list-table .column-prize {
+	width: 18%;
+}
+
+.tdwp-tournament-templates .wp-list-table .column-date {
+	width: 12%;
+}
+
+.tdwp-tournament-templates .row-actions {
+	padding: 5px 0;
+}
+
+/* ==========================================================================
+   Template Form
+   ========================================================================== */
+
+.tdwp-template-form .form-table th {
+	padding: 20px 10px 20px 0;
+	vertical-align: middle;
+}
+
+.tdwp-template-form .form-table td {
+	padding: 20px 10px;
+}
+
+.tdwp-template-form .required {
+	color: #d63638;
+	font-weight: bold;
+}
+
+.tdwp-template-form .description {
+	margin-top: 5px;
+	font-style: italic;
+	color: #646970;
+}
+
+.tdwp-template-form input[type="number"].small-text {
+	width: 100px;
+}
+
+.tdwp-template-form input[type="text"].regular-text {
+	width: 350px;
+}
+
+.tdwp-template-form textarea.large-text {
+	width: 500px;
+	max-width: 100%;
+}
+
+.tdwp-template-form select.regular-text {
+	width: 350px;
+}
+
+/* ==========================================================================
+   Responsive Styles
+   ========================================================================== */
+
+@media screen and (max-width: 782px) {
+	.tdwp-template-form input[type="text"].regular-text,
+	.tdwp-template-form textarea.large-text,
+	.tdwp-template-form select.regular-text {
+		width: 100%;
+	}
+
+	.tdwp-tournament-templates .wp-list-table td[data-colname] {
+		display: block;
+		width: 100% !important;
+		text-align: left !important;
+		padding-left: 35% !important;
+	}
+
+	.tdwp-tournament-templates .wp-list-table td[data-colname]::before {
+		content: attr(data-colname) ": ";
+		font-weight: bold;
+		float: left;
+		margin-left: -35%;
+		width: 35%;
+	}
+}
+
+/* ==========================================================================
+   Admin Notices
+   ========================================================================== */
+
+.tdwp-admin-notice {
+	margin: 15px 0;
+	padding: 12px;
+}
+
+.tdwp-admin-notice.notice-success {
+	border-left: 4px solid #00a32a;
+}
+
+.tdwp-admin-notice.notice-error {
+	border-left: 4px solid #d63638;
+}
+
+/* ==========================================================================
+   Loading States
+   ========================================================================== */
+
+.tdwp-loading {
+	opacity: 0.6;
+	pointer-events: none;
+}
+
+.tdwp-loading::after {
+	content: "";
+	display: inline-block;
+	width: 16px;
+	height: 16px;
+	margin-left: 10px;
+	border: 2px solid #f3f3f3;
+	border-top: 2px solid #3498db;
+	border-radius: 50%;
+	animation: tdwp-spin 1s linear infinite;
+}
+
+@keyframes tdwp-spin {
+	0% {
+		transform: rotate(0deg);
+	}
+	100% {
+		transform: rotate(360deg);
+	}
+}
+
+/* ==========================================================================
+   Utility Classes
+   ========================================================================== */
+
+.tdwp-hidden {
+	display: none !important;
+}
+
+.tdwp-text-success {
+	color: #00a32a;
+}
+
+.tdwp-text-error {
+	color: #d63638;
+}
+
+.tdwp-text-muted {
+	color: #646970;
+}

@@ -11,6 +11,7 @@ if (!defined('ABSPATH')) {
 }
 
 class Poker_Tournament_Import_Debug {
+    // phpcs:disable WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Debug/diagnostic class
 
     /**
      * Debug messages array
@@ -33,21 +34,21 @@ class Poker_Tournament_Import_Debug {
         self::log('PHP Version: ' . PHP_VERSION);
         self::log('WordPress Version: ' . get_bloginfo('version'));
         self::log('Plugin Version: 1.0.1');
-        self::log('Server Info: ' . (isset($_SERVER['SERVER_SOFTWARE']) ? $_SERVER['SERVER_SOFTWARE'] : 'Unknown'));
+        self::log('Server Info: ' . (isset($_SERVER['SERVER_SOFTWARE']) ? sanitize_text_field(wp_unslash($_SERVER['SERVER_SOFTWARE'])) : 'Unknown'));
     }
 
     /**
      * Check if debug mode is enabled
      */
     public static function is_debug_enabled() {
-        return get_option('poker_import_debug_mode', 0) === '1';
+        return get_option('tdwp_import_debug_mode', 0) === '1';
     }
 
     /**
      * Check if debug logging is enabled
      */
     public static function is_logging_enabled() {
-        return get_option('poker_import_debug_logging', 0) === '1';
+        return get_option('tdwp_import_debug_logging', 0) === '1';
     }
 
     /**
@@ -55,6 +56,7 @@ class Poker_Tournament_Import_Debug {
      */
     public static function is_import_debug_enabled() {
         return self::is_debug_enabled() ||
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Debug class, no user input modification
                (isset($_POST['enable_debug_this_import']) && $_POST['enable_debug_this_import'] === '1');
     }
 
@@ -67,7 +69,7 @@ class Poker_Tournament_Import_Debug {
             return;
         }
 
-        $timestamp = date('Y-m-d H:i:s') . '.' . substr(microtime(), 2, 3);
+        $timestamp = gmdate('Y-m-d H:i:s') . '.' . substr(microtime(), 2, 3);
         $memory_usage = memory_get_usage(true);
         $memory_usage_mb = round($memory_usage / 1024 / 1024, 2);
 

@@ -1,0 +1,231 @@
+/**
+ * Player Registration Frontend Styles
+ *
+ * @package Poker_Tournament_Import
+ * @since 3.0.0
+ */
+
+/* ==========================================================================
+   Registration Form Container
+   ========================================================================== */
+
+.tdwp-player-registration-form {
+	max-width: 600px;
+	margin: 0 auto;
+	padding: 30px;
+	background: #ffffff;
+	border: 1px solid #ddd;
+	border-radius: 8px;
+	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.tdwp-player-registration-form .registration-title {
+	margin-top: 0;
+	margin-bottom: 30px;
+	padding-bottom: 15px;
+	border-bottom: 2px solid #2271b1;
+	font-size: 28px;
+	color: #1d2327;
+	text-align: center;
+}
+
+/* ==========================================================================
+   Messages
+   ========================================================================== */
+
+.registration-messages {
+	margin-bottom: 20px;
+}
+
+.registration-success,
+.registration-error {
+	padding: 15px;
+	margin-bottom: 20px;
+	border-radius: 4px;
+	font-size: 14px;
+}
+
+.registration-success {
+	background: #d7f8e4;
+	border-left: 4px solid #00a32a;
+	color: #006b2d;
+}
+
+.registration-success p {
+	margin: 0;
+}
+
+.registration-error {
+	background: #fcf0f1;
+	border-left: 4px solid #d63638;
+	color: #8b0000;
+}
+
+.registration-error p {
+	margin: 0;
+}
+
+/* ==========================================================================
+   Form Fields
+   ========================================================================== */
+
+.player-registration-form .form-row {
+	margin-bottom: 20px;
+}
+
+.player-registration-form label {
+	display: block;
+	margin-bottom: 8px;
+	font-weight: 600;
+	font-size: 14px;
+	color: #1d2327;
+}
+
+.player-registration-form label .required {
+	color: #d63638;
+	margin-left: 3px;
+}
+
+.player-registration-form input[type="text"],
+.player-registration-form input[type="email"],
+.player-registration-form input[type="tel"],
+.player-registration-form textarea {
+	width: 100%;
+	padding: 12px 15px;
+	font-size: 15px;
+	border: 1px solid #8c8f94;
+	border-radius: 4px;
+	transition: border-color 0.2s;
+}
+
+.player-registration-form input[type="text"]:focus,
+.player-registration-form input[type="email"]:focus,
+.player-registration-form input[type="tel"]:focus,
+.player-registration-form textarea:focus {
+	border-color: #2271b1;
+	outline: none;
+	box-shadow: 0 0 0 1px #2271b1;
+}
+
+.player-registration-form textarea {
+	resize: vertical;
+	min-height: 100px;
+}
+
+/* Validation States */
+.player-registration-form input.error,
+.player-registration-form textarea.error {
+	border-color: #d63638;
+}
+
+.player-registration-form input.success,
+.player-registration-form textarea.success {
+	border-color: #00a32a;
+}
+
+.field-error {
+	display: block;
+	margin-top: 5px;
+	font-size: 13px;
+	color: #d63638;
+}
+
+/* ==========================================================================
+   Honeypot Field (Hidden)
+   ========================================================================== */
+
+.hp-field {
+	position: absolute;
+	left: -9999px;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+}
+
+/* ==========================================================================
+   Submit Button
+   ========================================================================== */
+
+.player-registration-form .submit-row {
+	margin-top: 30px;
+	text-align: center;
+}
+
+.player-registration-form .submit-button {
+	display: inline-block;
+	padding: 14px 40px;
+	font-size: 16px;
+	font-weight: 600;
+	color: #fff;
+	background: #2271b1;
+	border: none;
+	border-radius: 4px;
+	cursor: pointer;
+	transition: background 0.2s;
+}
+
+.player-registration-form .submit-button:hover {
+	background: #135e96;
+}
+
+.player-registration-form .submit-button:disabled {
+	background: #8c8f94;
+	cursor: not-allowed;
+}
+
+.player-registration-form .submit-button.loading {
+	position: relative;
+	padding-right: 50px;
+}
+
+.player-registration-form .submit-row .spinner {
+	display: inline-block;
+	width: 20px;
+	height: 20px;
+	margin-left: 10px;
+	border: 3px solid rgba(255, 255, 255, 0.3);
+	border-top-color: #fff;
+	border-radius: 50%;
+	animation: spinner-rotation 0.8s linear infinite;
+	vertical-align: middle;
+}
+
+@keyframes spinner-rotation {
+	0% {
+		transform: rotate(0deg);
+	}
+	100% {
+		transform: rotate(360deg);
+	}
+}
+
+/* ==========================================================================
+   Responsive Styles
+   ========================================================================== */
+
+@media screen and (max-width: 600px) {
+	.tdwp-player-registration-form {
+		padding: 20px;
+		border-radius: 0;
+		border-left: none;
+		border-right: none;
+	}
+
+	.tdwp-player-registration-form .registration-title {
+		font-size: 24px;
+	}
+
+	.player-registration-form .submit-button {
+		width: 100%;
+		padding: 12px 20px;
+	}
+}
+
+/* ==========================================================================
+   Loading State
+   ========================================================================== */
+
+.tdwp-player-registration-form.loading {
+	opacity: 0.6;
+	pointer-events: none;
+}

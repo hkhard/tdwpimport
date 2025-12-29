@@ -216,6 +216,8 @@ class Poker_Tournament_Bulk_Import {
                 $filename = sanitize_file_name($file['name']);
                 $dest_path = $upload_dir . '/' . $filename;
 
+            // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_move_uploaded_file -- Required for file upload
+            // phpcs:ignore Generic.PHP.ForbiddenFunctions.Found -- Required for file upload handling
                 if (!move_uploaded_file($file['tmp_name'], $dest_path)) {
                     $rejected_files[] = array(
                         'filename' => $file['name'],
@@ -495,6 +497,7 @@ class Poker_Tournament_Bulk_Import {
             return new WP_REST_Response(array(
                 'retry_count' => $retry_count,
                 'batch_uuid' => $batch_uuid,
+                /* translators: %d: number of failed files being retried */
                 'message' => sprintf(__('Retrying %d failed file(s).', 'poker-tournament-import'), $retry_count)
             ), 200);
 
@@ -646,6 +649,7 @@ class Poker_Tournament_Bulk_Import {
 
         if (count($files) > $max_files) {
             return new WP_Error('too_many_files',
+                /* translators: %d: maximum number of files allowed */
                 sprintf(__('Too many files. Maximum allowed: %d', 'poker-tournament-import'), $max_files),
                 array('status' => 400)
             );
@@ -687,6 +691,7 @@ class Poker_Tournament_Bulk_Import {
         $max_size = wp_max_upload_size();
         if ($file['size'] > $max_size) {
             return new WP_Error('file_too_large',
+                /* translators: %s: maximum file size formatted as human-readable (e.g., "10 MB") */
                 sprintf(__('File exceeds maximum size of %s.', 'poker-tournament-import'), size_format($max_size))
             );
         }
@@ -702,8 +707,11 @@ class Poker_Tournament_Bulk_Import {
 
         // Check for suspicious content (PHP code injection)
         if (file_exists($file['tmp_name'])) {
+            // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen -- Reading uploaded file
             $handle = fopen($file['tmp_name'], 'r');
+            // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fread -- Reading file content
             $sample = fread($handle, 1000);
+            // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- Closing file handle
             fclose($handle);
 
             if (preg_match('/<\?php|<\?=/i', $sample)) {

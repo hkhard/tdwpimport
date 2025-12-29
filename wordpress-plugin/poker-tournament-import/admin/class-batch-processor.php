@@ -417,7 +417,7 @@ class Poker_Tournament_Batch_Processor {
 
         // Set tournament date if available
         if (!empty($metadata['start_time'])) {
-            $post_data['post_date'] = date('Y-m-d H:i:s', strtotime($metadata['start_time']));
+            $post_data['post_date'] = gmdate('Y-m-d H:i:s', strtotime($metadata['start_time']));
             $post_data['post_date_gmt'] = get_gmt_from_date($post_data['post_date']);
         }
 
@@ -425,7 +425,7 @@ class Poker_Tournament_Batch_Processor {
         $post_id = wp_insert_post($post_data);
 
         if (is_wp_error($post_id)) {
-            throw new Exception($post_id->get_error_message());
+            throw new Exception(esc_html($post_id->get_error_message()));
         }
 
         // Save tournament meta data (now with ALL metadata like regular import)
@@ -493,7 +493,7 @@ class Poker_Tournament_Batch_Processor {
         ));
 
         if (is_wp_error($result)) {
-            throw new Exception($result->get_error_message());
+            throw new Exception(esc_html($result->get_error_message()));
         }
 
         // Update tournament meta data
@@ -984,7 +984,7 @@ class Poker_Tournament_Batch_Processor {
         }
 
         // Fallback to default if nothing found
-        return floatval(get_option('poker_import_default_buyin', 200));
+        return floatval(get_option('tdwp_import_default_buyin', 200));
     }
 
     /**
@@ -1376,6 +1376,7 @@ class Poker_Tournament_Batch_Processor {
      */
     private function cleanup_temp_file($filepath) {
         if (file_exists($filepath)) {
+                    // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink -- Removing processed file
             @unlink($filepath);
         }
     }
