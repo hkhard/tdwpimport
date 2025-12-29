@@ -22,7 +22,8 @@ description: "Task list template for feature implementation"
 
 - **Single project**: `src/`, `tests/` at repository root
 - **Web app**: `backend/src/`, `frontend/src/`
-- **Mobile**: `api/src/`, `ios/src/` or `android/src/`
+- **Mobile + API (Expo)**: `mobile-app/src/`, `wordpress-plugin/includes/api/`
+- **Native mobile**: `api/src/`, `ios/src/` or `android/src/`
 - Paths shown below assume single project - adjust based on plan.md structure
 
 <!-- 
@@ -68,6 +69,10 @@ Examples of foundational tasks (adjust based on your project):
 - [ ] T007 Create base models/entities that all stories depend on
 - [ ] T008 Configure error handling and logging infrastructure
 - [ ] T009 Setup environment configuration management
+- [ ] T010 [Mobile] Initialize Expo project with TypeScript strict mode
+- [ ] T011 [Mobile] Configure React Navigation and state management
+- [ ] T012 [Mobile] Setup AsyncStorage/SecureStore for offline/auth
+- [ ] T013 [Mobile] Configure ESLint, Prettier, and Jest tests
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 
@@ -150,31 +155,11 @@ Examples of foundational tasks (adjust based on your project):
 
 **Purpose**: Improvements that affect multiple user stories
 
-### Constitution Compliance (Mandatory)
-
-- [ ] TXXX Run `php -l` syntax validation on all modified PHP files
-- [ ] TXXX Verify nonce implementation on all AJAX handlers
-- [ ] TXXX Verify capability checks on all admin operations
-- [ ] TXXX Verify prepared statements for all database operations
-- [ ] TXXX Test with representative data from tdtfiles/ directory
-- [ ] TXXX Verify memory usage <512MB for large operations
-- [ ] TXXX Update version number in plugin header and constant
-- [ ] TXXX Create installer ZIP: poker-tournament-import-vX.X.X.zip
-
-### Code Quality & Documentation
-
-- [ ] TXXX Verify PHPDoc blocks on all new classes/methods
-- [ ] TXXX Verify internationalization (text domain 'poker-tournament-import')
-- [ ] TXXX Verify no underscore prefixes on custom variables
-- [ ] TXXX Code cleanup and refactoring
 - [ ] TXXX [P] Documentation updates in docs/
-
-### Performance & Testing
-
-- [ ] TXXX Verify caching strategy implementation (transients)
-- [ ] TXXX Verify database indexing on new tables/columns
+- [ ] TXXX Code cleanup and refactoring
 - [ ] TXXX Performance optimization across all stories
 - [ ] TXXX [P] Additional unit tests (if requested) in tests/unit/
+- [ ] TXXX Security hardening
 - [ ] TXXX Run quickstart.md validation
 
 ---

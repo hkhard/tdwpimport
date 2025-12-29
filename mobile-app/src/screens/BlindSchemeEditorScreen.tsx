@@ -69,6 +69,7 @@ export function BlindSchemeEditorScreen({ mode, schemeId, onBack, onSuccess }: P
   // Modal state
   const [modalVisible, setModalVisible] = useState(false);
   const [editingLevelIndex, setEditingLevelIndex] = useState<number | null>(null);
+  const [isInsertMode, setIsInsertMode] = useState(false);
 
   // Check if form has unsaved changes
   const hasUnsavedChanges = useCallback((): boolean => {
@@ -174,42 +175,59 @@ export function BlindSchemeEditorScreen({ mode, schemeId, onBack, onSuccess }: P
   const handleAddLevel = useCallback(() => {
     // Open modal to add new level
     setEditingLevelIndex(levels.length);
+    setIsInsertMode(true);
     setModalVisible(true);
   }, [levels.length]);
 
   const handleAddBreak = useCallback(() => {
     // Open modal to add break (set index to length for new level)
     setEditingLevelIndex(levels.length);
+    setIsInsertMode(true);
     setModalVisible(true);
   }, [levels.length]);
+
+  const handleInsertAfter = useCallback((index: number) => {
+    // Open modal to insert level after the given position
+    setEditingLevelIndex(index + 1);
+    setIsInsertMode(true);
+    setModalVisible(true);
+  }, []);
 
   // Modal handlers
   const handleEditLevel = useCallback((index: number) => {
     setEditingLevelIndex(index);
+    setIsInsertMode(false);
     setModalVisible(true);
-  }, [levels]);
+  }, []);
 
   const handleModalSave = useCallback((data: BlindLevelData) => {
     if (editingLevelIndex === null) return;
 
     setLevels((prevLevels) => {
-      if (editingLevelIndex === prevLevels.length) {
-        // Adding new level
-        return [...prevLevels, data];
-      } else {
+      if (isInsertMode) {
+        // Inserting new level at the specified position
+        const updated = [...prevLevels];
+        updated.splice(editingLevelIndex, 0, data);
+        return updated;
+      } else if (editingLevelIndex < prevLevels.length) {
         // Editing existing level
         const updated = [...prevLevels];
         updated[editingLevelIndex] = data;
         return updated;
+      } else {
+        // Appending at end (shouldn't happen with proper state management)
+        return [...prevLevels, data];
       }
     });
     setModalVisible(false);
     setEditingLevelIndex(null);
-  }, [editingLevelIndex]);
+    setIsInsertMode(false);
+  }, [editingLevelIndex, isInsertMode]);
 
   const handleModalCancel = useCallback(() => {
     setModalVisible(false);
     setEditingLevelIndex(null);
+    setIsInsertMode(false);
   }, []);
 
   const handleDeleteLevel = useCallback((index: number) => {
@@ -508,6 +526,7 @@ export function BlindSchemeEditorScreen({ mode, schemeId, onBack, onSuccess }: P
               onDelete={() => handleDeleteLevel(index)}
               onMoveUp={() => handleMoveLevel(index, 'up')}
               onMoveDown={() => handleMoveLevel(index, 'down')}
+              onInsertAfter={() => handleInsertAfter(index)}
               canDelete={levels.length > 1}
               canMoveUp={index > 0}
               canMoveDown={index < levels.length - 1}
@@ -525,7 +544,10 @@ export function BlindSchemeEditorScreen({ mode, schemeId, onBack, onSuccess }: P
             • Add breaks between levels as needed
           </Text>
           <Text style={styles.infoText}>
-            • Use ↑↓ buttons to reorder levels
+            • Use ↑↓ buttons to reorder levels (renumbers automatically)
+          </Text>
+          <Text style={styles.infoText}>
+            • Use + button to insert a level after current position
           </Text>
           <Text style={styles.infoText}>
             • Big blind must be greater than small blind

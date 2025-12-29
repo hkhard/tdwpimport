@@ -1,210 +1,208 @@
 <!--
-Sync Impact Report:
-Version change: Initial → 1.0.0
-Modified principles: N/A (initial creation)
-Added sections:
-  - Core Principles (5 principles)
-  - Security Requirements
-  - Performance Standards
-  - Governance
-Templates requiring updates:
-  ✅ plan-template.md - Constitution Check section aligned
-  ✅ spec-template.md - Requirements sections aligned
-  ✅ tasks-template.md - Task categorization aligned
-Follow-up TODOs: None
+  Sync Impact Report: Constitution Update v1.0.0
+  =================================================
+  Version Change: INITIAL → 1.0.0
+  Modified Principles: N/A (initial constitution)
+  Added Sections: All sections (initial creation)
+  Removed Sections: N/A
+  Templates Updated:
+    ✅ plan-template.md - Constitution Check section remains applicable
+    ✅ spec-template.md - Requirements sections align with mobile + WP plugin principles
+    ✅ tasks-template.md - Task categorization supports multi-platform projects
+  Follow-up TODOs: None
 -->
 
-# Poker Tournament Import Plugin Constitution
+# Poker Tournament Platform Constitution
 
 ## Core Principles
 
-### I. WordPress Security-First
+### I. Mobile-First Architecture
 
-**MUST comply with WordPress.com security guidelines**: All features MUST implement proper data sanitization (`sanitize_text_field()`, `wp_kses_post()`), nonce verification for AJAX/form submissions, capability checks (`current_user_can('manage_options')`), and prepared statements for database operations. File uploads MUST validate file type and content. NO external security plugins needed - follow platform standards.
+All mobile application development MUST prioritize mobile UX and performance:
 
-**Rationale**: WordPress plugins handle sensitive user data. Security breaches can expose personal information, cause data loss, and damage reputation. Following WordPress security standards ensures protection against XSS, CSRF, SQL injection, and unauthorized access without adding unnecessary dependencies.
+- **Primary Platform**: Mobile app built with TypeScript + Expo (React Native)
+- **Cross-Platform Target**: iOS and Android parity in features and functionality
+- **Responsive by Default**: All UI components designed for smallest screen first, scaled up for tablets
+- **Offline-Capable Core**: Timer and tournament control MUST function without network connectivity
+- **Touch-Optimized**: Minimum touch target 44px, gestures preferred over taps
 
-### II. Code Quality & Standards
+**Rationale**: Tournament directors need portable, in-the-pocket functionality. Mobile-first ensures the critical timer and remote viewing features work reliably in tournament venues where WiFi may be spotty or unavailable.
 
-**MUST follow WordPress Coding Standards**: All code MUST adhere to WordPress PHP coding standards. Classes use `PascalCase_With_Underscores` (e.g., `Poker_Tournament_Parser`), methods/variables use `snake_case`, files use `hyphen-separation` (e.g., `class-parser.php`). PHP 8.0+ required with 8.2+ compatibility (declare dynamic properties). **NEVER use underscore prefixes for custom variables** - reserved for WordPress internals.
+### II. Precision Timing (NON-NEGOTIABLE)
 
-**MUST internationalize all user-facing text**: Use text domain `'poker-tournament-import'` with `__()`, `_e()`, `esc_html__()` functions. Enables translation and broader adoption.
+Tournament timing accuracy is the critical path:
 
-**MUST document with PHPDoc**: All classes/methods require PHPDoc blocks with `@since`, `@param`, `@return` tags. Complex logic requires inline comments explaining "why" not just "what".
+- **Resolution**: ALL timers MUST maintain 1/10th second (100ms) precision or better
+- **Display**: Clock displays MUST show tenths of seconds visibly
+- **Persistence**: Timer state MUST survive app backgrounding, crashes, and device restarts
+- **Synchronization**: Remote view clocks MUST sync to within 200ms across all connected devices
+- **Validation**: Every timer implementation MUST include automated precision tests
 
-**Rationale**: Consistent code standards enable maintainability, reduce bugs, facilitate team collaboration, and ensure WordPress.org plugin directory approval. Proper documentation reduces onboarding time and enables long-term maintenance.
+**Rationale**: Tournament integrity depends on accurate timing. Blinds escalate, breaks end, and tournaments conclude on precise schedules. 100ms precision ensures fair play and eliminates disputes.
 
-### III. Testing Discipline
+### III. CMS Integration Layer
 
-**MUST validate PHP syntax on all changes**: Run `php -l` on modified PHP files before committing. Catches syntax errors early.
+WordPress plugin remains the authoritative data backend:
 
-**MUST test with representative data**: Use sample .tdt files from `tdtfiles/` directory covering various tournament structures, player counts, and edge cases. Test import, display, statistics calculation, and performance with realistic data.
+- **API-First Design**: Mobile app communicates via REST/GraphQL endpoints only - no direct DB access
+- **Dual Workflow**: Mobile app creates/manages tournaments, WordPress displays/publishes results
+- **Bidirectional Sync**: Tournament data flows: Mobile App → CMS → Public Website
+- **Upload Functionality**: Mobile app MUST support .tdt file upload to WordPress CMS API
+- **Authentication**: OAuth2 or JWT token-based auth required for all API calls
 
-**MUST verify memory efficiency**: Large tournament imports (500+ players) MUST complete without exceeding 512MB memory. Use streaming parsers, chunk processing, and transient caching.
+**Rationale**: Leverages existing WordPress plugin investment while enabling modern mobile UX. CMS remains content authority, mobile app becomes the creation/control surface.
 
-**SHOULD write automated tests for critical paths**: Parser logic, points formula calculation, database operations, and security functions benefit from PHPUnit tests in `tests/` directory.
+### IV. TypeScript Discipline
 
-**Rationale**: WordPress environment inconsistencies demand thorough testing. Representative data catches edge cases. Memory limits are common hosting constraints. Automated tests prevent regressions in business-critical calculations.
+TypeScript strict mode enforcement across all code:
 
-### IV. User Experience Consistency
+- **Strict Mode**: `strict: true` mandatory in tsconfig.json
+- **No Any Types**: Explicit typing required; `any` type prohibited in PRs
+- **Interface-First**: All data models defined as interfaces/types before implementation
+- **Null Safety**: Leverage strictNullChecks for optional state handling
+- **ESLint + Prettier**: Automated formatting on save, enforced in CI/CD
 
-**MUST follow WordPress admin UI patterns**: Use WordPress admin components (metaboxes, notices, settings API). Match WordPress core styling. Ensure mobile-responsive admin interfaces.
+**Rationale**: Mobile app runtime errors are catastrophic (crashes in production). TypeScript compilation catches 15-20% of bugs before deployment, critical for distributed apps that cannot be hotfixed instantly.
 
-**MUST provide clear feedback**: Loading states for imports, success/error messages for all operations, progress indicators for long-running tasks, validation messages for form inputs.
+### V. Expo Managed Workflow (with exceptions)
 
-**MUST ensure frontend template compatibility**: Templates MUST work with common WordPress themes without style conflicts. Use namespaced CSS classes (e.g., `.poker-tournament-`), enqueue styles properly, test with popular themes.
+Prefer Expo managed workflow for development velocity:
 
-**MUST optimize for accessibility**: Follow WCAG 2.1 AA standards - keyboard navigation, screen reader support, proper semantic HTML, sufficient color contrast.
+- **Managed Default**: Use Expo Go for development, EAS Build for deployment
+- **Expo Modules**: Prefer ecosystem packages over native modules when possible
+- **Config Plugins**: Use expo-module-scripts for any necessary native code
+- **Exception Protocol**: Custom native code allowed ONLY if:
+  - No Expo module exists for required capability
+  - Documented in plan.md with justification
+  - Approved via constitution review
 
-**Rationale**: Users expect WordPress plugins to feel native. Consistent UX reduces learning curve, increases adoption, and minimizes support requests. Accessibility is both ethical requirement and legal compliance in many jurisdictions.
+**Rationale**: Expo provides 10x faster iteration, OTA updates for critical bug fixes, and unified build pipeline. Custom native code introduces complexity that defeats the platform's benefits.
 
-### V. Performance Requirements
+### VI. Real-Time Remote Viewing
 
-**MUST implement transient caching**: Computed statistics, leaderboards, and aggregations MUST cache results using WordPress transients. Cache invalidation on data changes.
+Tournament state synchronization for remote participants:
 
-**MUST optimize database queries**: Use proper indexing on foreign keys and frequently queried columns. Avoid N+1 queries. Use `$wpdb->prepare()` for parameterized queries.
+- **WebSocket/Streaming**: Use real-time protocols for clock/leaderboard updates
+- **Optimized Payloads**: Delta updates only (changed data), not full state refreshes
+- **Reconnection Logic**: Auto-reconnect with exponential backoff, state reconciliation on reconnect
+- **Bandwidth Awareness**: Detect network quality, throttle updates on poor connections
+- **View Permissions**: Public read-only views separate from director controls
 
-**MUST handle large files efficiently**: Parsing .tdt files >5MB MUST use streaming/chunking. Avoid loading entire file into memory.
+**Rationale**: Remote players and spectators need live tournament status without requiring app install or login. Web-viewable remote screens maximize accessibility.
 
-**MUST implement async processing**: Statistics refresh on tournament save/delete MUST use `wp_schedule_single_event()` for background processing. Don't block user interactions.
+## Technology Stack Standards
 
-**Performance targets**: Import 200-player tournament <30 seconds, display tournament results <500ms, admin dashboard loads <2 seconds.
+### Mobile App (Primary Platform)
 
-**Rationale**: Performance directly impacts user satisfaction and hosting costs. Shared hosting environments have strict resource limits. Background processing prevents timeouts and improves perceived responsiveness.
+- **Framework**: Expo SDK 50+ (latest stable)
+- **Language**: TypeScript 5.0+ in strict mode
+- **State Management**: Zustand or Redux Toolkit (plan.md must decide)
+- **Navigation**: React Navigation v6+
+- **Networking**: Axios or Fetch API with interceptors
+- **Real-Time**: WebSocket or Server-Sent Events (plan.md must decide)
+- **Storage**: AsyncStorage for offline cache, SecureStore for auth tokens
+- **Testing**: Jest + React Native Testing Library
+- **Build**: EAS Build for iOS/Android deployment
 
-## Security Requirements
+### WordPress Plugin (Existing Platform)
 
-### WordPress Security Compliance
+- **Backend**: PHP 8.0+, WordPress 6.0+
+- **Database**: MySQL 5.7+, custom tables with `tdwp_` prefix
+- **API**: REST API endpoints for mobile app consumption
+- **Caching**: Transients API for computed statistics
+- **Frontend**: Shortcodes for tournament display on public site
 
-**File Upload Security**:
-- MUST validate .tdt file extensions and MIME types
-- MUST sanitize all parsed content before database storage
-- MUST limit file size (default: 10MB max)
-- MUST store uploads in non-web-accessible directory when possible
+### Development Tools
 
-**Input Validation & Sanitization**:
-- Form inputs: `sanitize_text_field()`, `sanitize_email()`, `absint()` for IDs
-- Rich text: `wp_kses_post()` with allowed HTML tags
-- URLs: `esc_url()`, `esc_url_raw()`
-- Database output: `esc_html()`, `esc_attr()`, `wp_kses_post()`
+- **Version Control**: Git with feature branch workflow
+- **Code Quality**: ESLint, Prettier, TypeScript compiler
+- **CI/CD**: GitHub Actions or similar for automated testing/builds
+- **Documentation**: Markdown in docs/, JSDoc for code comments
 
-**Authentication & Authorization**:
-- Admin actions: `current_user_can('manage_options')` check
-- AJAX handlers: Nonce verification via `check_ajax_referer()`
-- Form submissions: Nonce verification via `wp_verify_nonce()`
-- Role-based access: Use WordPress capability system
+## Quality Gates
 
-**Database Security**:
-- MUST use `$wpdb->prepare()` for all parameterized queries
-- NEVER concatenate user input into SQL
-- Use `%s`, `%d`, `%f` placeholders appropriately
-- Validate/sanitize before prepare statements
+### Pre-Commit (Automated)
 
-### Data Privacy (GDPR Compliance)
+- TypeScript compilation must pass with zero errors
+- ESLint must pass with zero warnings
+- Prettier formatting applied automatically
+- Unit tests for modified modules must pass
 
-- Player data: Support data export/deletion requests
-- Minimal data collection: Only store tournament-relevant data
-- Clear privacy policy integration
-- User consent for data display (configurable visibility)
+### Pre-Merge (Code Review)
 
-## Performance Standards
+- All PRs must include tests for new functionality
+- Timer precision tests MUST pass for any timing code changes
+- API contracts validated against WordPress backend
+- No TypeScript `any` types in new code
+- Mobile app tested on at least one physical device
 
-### Database Optimization
+### Pre-Release (Deployment)
 
-**Indexing Requirements**:
-- Primary keys on all custom tables
-- Foreign key indexes for relationships
-- Composite indexes on frequently queried column combinations
-- Unique indexes on UUID/identifier columns
+- Full test suite passes (unit + integration + E2E)
+- Manual smoke test on iOS and Android physical devices
+- Timer stress test: 8+ hour continuous operation verification
+- Offline mode validated (core features work without network)
+- EAS Build successful for both platforms
+- App Store / Play Store submission checklist completed
 
-**Query Optimization**:
-- Use `SELECT` specific columns, avoid `SELECT *`
-- Implement pagination for large result sets
-- Cache query results with transients (5-60 minute TTL)
-- Monitor slow query log (>500ms queries need optimization)
+## Performance Requirements
 
-### Caching Strategy
+### Mobile App Performance
 
-**Transient Usage**:
-- Statistics dashboard: 15-minute cache
-- Leaderboards: 5-minute cache
-- Player profiles: 30-minute cache
-- Series standings: 10-minute cache
-- Invalidate on relevant data changes
+- **App Start**: Cold launch <3 seconds on mid-range device
+- **Timer Rendering**: 60 FPS for clock display updates
+- **API Response**: p95 <500ms for CRUD operations
+- **Offline Recovery**: <2 seconds to restore state from local cache
+- **Bundle Size**: <50MB initial download (iOS/Android)
 
-**Object Caching Support**:
-- Compatible with Redis/Memcached when available
-- Graceful degradation to transients
-- Cache keys namespaced with plugin prefix
+### WordPress Plugin Performance
 
-### Resource Management
+- **Import Processing**: <30 seconds for 1000-player .tdt file
+- **API Response**: p95 <200ms for REST endpoints
+- **Database Queries**: All queries <100ms with proper indexing
+- **Cache Hit Rate**: >90% for computed statistics
 
-**Memory Limits**:
-- Target: 256MB minimum, 512MB recommended
-- Large imports: Chunk processing in 100-record batches
-- Cleanup: `unset()` large variables after processing
+## Security Standards
 
-**Execution Time**:
-- Imports >30 seconds: Use background processing
-- Admin pages: <3 seconds total load time
-- AJAX requests: <2 seconds response time
-- Frontend: <500ms first contentful paint
+### Mobile App Security
+
+- **API Authentication**: OAuth2 with PKCE or JWT with refresh token rotation
+- **Secure Storage**: Tokens stored in SecureStore (Keychain/Keystore)
+- **Certificate Pinning**: Implement SSL pinning for production API calls
+- **Obfuscation**: Code obfuscation enabled in release builds
+- **Data at Rest**: Encrypt sensitive cached data
+
+### WordPress Plugin Security
+
+- **Input Validation**: All .tdt file data sanitized
+- **Capability Checks**: Role-based access for all admin functions
+- **Nonce Verification**: CSRF protection on all forms
+- **Prepared Statements**: All database queries use prepared statements
+- **Rate Limiting**: API endpoints throttled to prevent abuse
 
 ## Governance
 
 ### Amendment Process
 
-Constitution amendments require:
-1. Clear justification documenting why change needed
-2. Version increment following semantic versioning (MAJOR.MINOR.PATCH)
-3. Update all dependent templates in `.specify/templates/`
-4. Sync report documenting changes and impact
-5. Validation that no unexplained placeholder tokens remain
+1. Propose change via GitHub issue with rationale
+2. Document impact on existing features
+3. Create migration plan if breaking change
+4. Approve via maintainer review
+5. Update version per semantic versioning rules
+6. Update all dependent templates
+7. Communicate changes to contributors
 
-### Versioning Policy
+### Versioning
 
-- **MAJOR**: Backward-incompatible principle removals/redefinitions
-- **MINOR**: New principles added or material guidance expansions
-- **PATCH**: Clarifications, wording fixes, non-semantic refinements
+- **MAJOR**: Principle removal, backward-incompatible changes
+- **MINOR**: New principle added, material guidance expansion
+- **PATCH**: Clarification, wording improvements, non-semantic changes
 
-### Compliance Review
+### Compliance Verification
 
-**Pre-Development**:
-- All feature specs MUST reference constitution principles
-- Implementation plans MUST include "Constitution Check" section
-- Complexity violations MUST be justified in plan
+- All code MUST pass constitution checks before merge
+- Complexity beyond principles requires explicit justification in plan.md
+- Use `.specify/templates/` for automated compliance checking
+- Reference `CLAUDE.md` for runtime development guidance
 
-**Pre-Commit**:
-- Run `php -l` on all modified PHP files
-- Verify nonce implementation on new AJAX handlers
-- Check capability checks on new admin features
-- Update version numbers in plugin header and constant
-
-**Pre-Release**:
-- Test with sample .tdt files from `tdtfiles/` directory
-- Verify all security requirements implemented
-- Check performance targets met
-- Create updated installer ZIP: `poker-tournament-import-vX.X.X.zip`
-- Update version in log file output
-
-### Development Workflow
-
-**Release Process**:
-1. Update `POKER_TOURNAMENT_IMPORT_VERSION` constant
-2. Update plugin header version in `poker-tournament-import.php:6`
-3. Test changes thoroughly with representative data
-4. Run syntax validation on all modified files
-5. Create distribution ZIP with version number
-6. Update changelog in README.md
-
-**Local Development**:
-- WordPress shell: `/Users/hkh/Library/Application\ Support/Local/ssh-entry/hNPsf2SE_.sh`
-- Test environment: Local WP with sample tournament data
-- Database access: Via WP shell or phpMyAdmin
-
-**Guidance Files**:
-- Runtime development: `/Users/hkh/dev/tdwpimport/CLAUDE.md`
-- User instructions: `/Users/hkh/.claude/CLAUDE.md`
-- Memory files: `.specify/memory/*.md`
-
-**Version**: 1.0.0 | **Ratified**: 2025-10-30 | **Last Amended**: 2025-10-30
+**Version**: 1.0.0 | **Ratified**: 2025-12-26 | **Last Amended**: 2025-12-26

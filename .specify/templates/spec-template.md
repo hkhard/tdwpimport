@@ -90,48 +90,21 @@
 - **FR-004**: System MUST [data requirement, e.g., "persist user preferences"]
 - **FR-005**: System MUST [behavior, e.g., "log all security events"]
 
+*Mobile-specific examples:*
+- **FR-006**: Mobile app MUST support offline tournament timer with 1/10s precision
+- **FR-007**: App MUST sync tournament data to WordPress REST/GraphQL API
+- **FR-008**: Timer MUST survive app backgrounding and device restarts
+- **FR-009**: Remote viewing MUST use WebSocket for real-time clock sync
+
+*WordPress plugin examples:*
+- **FR-010**: Plugin MUST provide REST API endpoints for mobile app consumption
+- **FR-011**: API MUST support OAuth2/JWT authentication
+- **FR-012**: Upload MUST accept .tdt files via mobile app API calls
+
 *Example of marking unclear requirements:*
 
-- **FR-006**: System MUST authenticate users via [NEEDS CLARIFICATION: auth method not specified - email/password, SSO, OAuth?]
-- **FR-007**: System MUST retain user data for [NEEDS CLARIFICATION: retention period not specified]
-
-### Security Requirements (per Constitution)
-
-<!--
-  Reference: `.specify/memory/constitution.md` - Principle I: WordPress Security-First
-  All features must address these security concerns:
--->
-
-- **SEC-001**: Input sanitization using WordPress functions (`sanitize_text_field()`, `wp_kses_post()`, etc.)
-- **SEC-002**: AJAX nonce verification via `check_ajax_referer()`
-- **SEC-003**: Capability checks for admin operations (`current_user_can()`)
-- **SEC-004**: Prepared statements for database operations (`$wpdb->prepare()`)
-- **SEC-005**: [Add feature-specific security requirements, e.g., "File upload validation for .tdt files"]
-
-### Performance Requirements (per Constitution)
-
-<!--
-  Reference: `.specify/memory/constitution.md` - Principle V: Performance Requirements
-  Features must meet these performance standards:
--->
-
-- **PERF-001**: Response time targets (e.g., "<500ms for display, <30s for imports")
-- **PERF-002**: Caching strategy (e.g., "Transient cache with 15-minute TTL")
-- **PERF-003**: Memory efficiency (e.g., "<512MB for large imports")
-- **PERF-004**: Background processing (e.g., "Async statistics refresh via wp_schedule_single_event()")
-- **PERF-005**: [Add feature-specific performance requirements]
-
-### User Experience Requirements (per Constitution)
-
-<!--
-  Reference: `.specify/memory/constitution.md` - Principle IV: User Experience Consistency
--->
-
-- **UX-001**: WordPress admin UI patterns compliance
-- **UX-002**: Clear feedback/loading states for all operations
-- **UX-003**: Frontend template compatibility (no theme conflicts)
-- **UX-004**: Accessibility compliance (WCAG 2.1 AA)
-- **UX-005**: [Add feature-specific UX requirements]
+- **FR-013**: System MUST authenticate users via [NEEDS CLARIFICATION: auth method not specified - email/password, SSO, OAuth?]
+- **FR-014**: System MUST retain user data for [NEEDS CLARIFICATION: retention period not specified]
 
 ### Key Entities *(include if feature involves data)*
 

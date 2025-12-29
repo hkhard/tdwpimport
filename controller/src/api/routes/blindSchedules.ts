@@ -12,6 +12,11 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { blindScheduleService } from '../../services/blindSchedule/BlindScheduleService';
 import { broadcastToTournament } from '../../websocket/server';
+import {
+  CreateBlindSchemeInputSchema,
+  UpdateBlindSchemeInputSchema,
+  formatValidationErrors,
+} from '../../services/blindSchedule/validation';
 import type { BlindLevel } from '@shared/types/timer';
 
 // Extend Fastify schema
@@ -80,6 +85,42 @@ export async function blindScheduleRoutes(fastify: FastifyInstance): Promise<voi
   });
 
   /**
+   * GET /blind-schedules/:id/in-use
+   * Check if blind schedule is in use by any tournament
+   */
+  fastify.get<{
+    Params: { id: string };
+  }>('/blind-schedules/:id/in-use', async (request, reply) => {
+    const { id } = request.params;
+
+    try {
+      const schedule = await fastify.blindScheduleService.getScheduleById(id);
+
+      if (!schedule) {
+        return reply.code(404).send({
+          success: false,
+          error: 'Blind schedule not found',
+        });
+      }
+
+      const inUse = fastify.blindScheduleService.isScheduleInUse(id);
+
+      return reply.send({
+        success: true,
+        data: {
+          id,
+          inUse,
+        },
+      });
+    } catch (error: any) {
+      return reply.code(500).send({
+        success: false,
+        error: error.message,
+      });
+    }
+  });
+
+  /**
    * POST /blind-schedules
    * Create new blind schedule
    */
@@ -91,7 +132,6 @@ export async function blindScheduleRoutes(fastify: FastifyInstance): Promise<voi
       breakInterval: number;
       breakDuration: number;
       levels: Array<{
-        level: number;
         smallBlind: number;
         bigBlind: number;
         ante?: number;
@@ -101,6 +141,17 @@ export async function blindScheduleRoutes(fastify: FastifyInstance): Promise<voi
     };
   }>('/blind-schedules', async (request, reply) => {
     const input = request.body;
+
+    // Validate input with Zod
+    const validationResult = CreateBlindSchemeInputSchema.safeParse(input);
+    if (!validationResult.success) {
+      const errors = formatValidationErrors(validationResult.error);
+      return reply.code(400).send({
+        success: false,
+        error: 'Validation failed',
+        validationErrors: errors,
+      });
+    }
 
     try {
       const schedule = await fastify.blindScheduleService.createSchedule({
@@ -132,10 +183,28 @@ export async function blindScheduleRoutes(fastify: FastifyInstance): Promise<voi
       startingStack?: number;
       breakInterval?: number;
       breakDuration?: number;
+      levels?: Array<{
+        smallBlind: number;
+        bigBlind: number;
+        ante?: number;
+        duration: number;
+        isBreak: boolean;
+      }>;
     };
   }>('/blind-schedules/:id', async (request, reply) => {
     const { id } = request.params;
     const updates = request.body;
+
+    // Validate input with Zod (partial update schema)
+    const validationResult = UpdateBlindSchemeInputSchema.safeParse(updates);
+    if (!validationResult.success) {
+      const errors = formatValidationErrors(validationResult.error);
+      return reply.code(400).send({
+        success: false,
+        error: 'Validation failed',
+        validationErrors: errors,
+      });
+    }
 
     try {
       const schedule = await fastify.blindScheduleService.updateSchedule(id, updates);
@@ -149,6 +218,14 @@ export async function blindScheduleRoutes(fastify: FastifyInstance): Promise<voi
         return reply.code(404).send({
           success: false,
           error: error.message,
+        });
+      }
+      // Check for isDefault conflict - return 403 and suggest duplicate
+      if (error.message.includes('default') || error.message.includes('Cannot update')) {
+        return reply.code(403).send({
+          success: false,
+          error: error.message,
+          suggestion: 'Use POST /blind-schedules/:id/duplicate to create a copy',
         });
       }
       return reply.code(400).send({
@@ -194,7 +271,7 @@ export async function blindScheduleRoutes(fastify: FastifyInstance): Promise<voi
     Body: { newName?: string };
   }>('/blind-schedules/:id/duplicate', async (request, reply) => {
     const { id } = request.params;
-    const { newName } = request.body;
+    const { newName } = request.body || {};
 
     try {
       const duplicated = await fastify.blindScheduleService.duplicateSchedule(id, newName);
@@ -204,9 +281,10 @@ export async function blindScheduleRoutes(fastify: FastifyInstance): Promise<voi
         data: duplicated,
       });
     } catch (error: any) {
+      console.error('[Duplicate] Error:', error);
       return reply.code(400).send({
         success: false,
-        error: error.message,
+        error: error.message || 'Failed to duplicate scheme',
       });
     }
   });

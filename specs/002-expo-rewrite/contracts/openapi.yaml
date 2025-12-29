@@ -1,0 +1,992 @@
+openapi: 3.0.3
+info:
+  title: Poker Tournament Director API
+  description: REST API for the Cross-Platform Tournament Director Platform
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@example.com
+
+servers:
+  - url: https://api.tournamentdirector.com/v1
+    description: Production server
+  - url: https://staging-api.tournamentdirector.com/v1
+    description: Staging server
+  - url: http://localhost:3000/v1
+    description: Local development server
+
+security:
+  - BearerAuth: []
+
+tags:
+  - name: Authentication
+    description: User authentication and token management
+  - name: Tournaments
+    description: Tournament CRUD operations
+  - name: Players
+    description: Player management
+  - name: Timer
+    description: Timer control and synchronization
+  - name: Sync
+    description: Offline synchronization
+  - name: Blind Schedules
+    description: Blind schedule templates
+
+paths:
+  /auth/register:
+    post:
+      tags: [Authentication]
+      summary: Register new user
+      description: Create a new user account with email/password
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password, name]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: director@example.com
+                password:
+                  type: string
+                  format: password
+                  minLength: 8
+                  example: SecurePass123!
+                name:
+                  type: string
+                  example: John Doe
+      responses:
+        '201':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        $ref: '#/components/schemas/User'
+                      token:
+                        type: string
+                        description: JWT auth token
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: Email already registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/login:
+    post:
+      tags: [Authentication]
+      summary: Login user
+      description: Authenticate with email/password and receive JWT token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        $ref: '#/components/schemas/User'
+                      token:
+                        type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /tournaments:
+    get:
+      tags: [Tournaments]
+      summary: List tournaments
+      description: Get all tournaments with optional filtering
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [upcoming, active, paused, completed]
+        - name: createdBy
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            minimum: 1
+            maximum: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+      responses:
+        '200':
+          description: Tournaments retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Tournament'
+                  pagination:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                      limit:
+                        type: integer
+                      offset:
+                        type: integer
+
+    post:
+      tags: [Tournaments]
+      summary: Create tournament
+      description: Create a new tournament
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TournamentCreate'
+      responses:
+        '201':
+          description: Tournament created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Tournament'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /tournaments/{tournamentId}:
+    get:
+      tags: [Tournaments]
+      summary: Get tournament
+      parameters:
+        - $ref: '#/components/parameters/TournamentId'
+      responses:
+        '200':
+          description: Tournament retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/TournamentDetail'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags: [Tournaments]
+      summary: Update tournament
+      parameters:
+        - $ref: '#/components/parameters/TournamentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TournamentUpdate'
+      responses:
+        '200':
+          description: Tournament updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Tournament'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags: [Tournaments]
+      summary: Delete tournament
+      parameters:
+        - $ref: '#/components/parameters/TournamentId'
+      responses:
+        '204':
+          description: Tournament deleted
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /tournaments/{tournamentId}/start:
+    post:
+      tags: [Timer]
+      summary: Start tournament timer
+      parameters:
+        - $ref: '#/components/parameters/TournamentId'
+      responses:
+        '200':
+          description: Tournament started
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/TimerState'
+
+  /tournaments/{tournamentId}/pause:
+    post:
+      tags: [Timer]
+      summary: Pause tournament timer
+      parameters:
+        - $ref: '#/components/parameters/TournamentId'
+      responses:
+        '200':
+          description: Timer paused
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/TimerState'
+
+  /tournaments/{tournamentId}/resume:
+    post:
+      tags: [Timer]
+      summary: Resume tournament timer
+      parameters:
+        - $ref: '#/components/parameters/TournamentId'
+      responses:
+        '200':
+          description: Timer resumed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/TimerState'
+
+  /tournaments/{tournamentId}/players:
+    get:
+      tags: [Players]
+      summary: List tournament players
+      parameters:
+        - $ref: '#/components/parameters/TournamentId'
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Players retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TournamentPlayer'
+
+    post:
+      tags: [Players]
+      summary: Register player
+      description: Add a player to the tournament
+      parameters:
+        - $ref: '#/components/parameters/TournamentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [playerId, startingStack]
+              properties:
+                playerId:
+                  type: string
+                  format: uuid
+                startingStack:
+                  type: integer
+                  minimum: 0
+                  example: 10000
+      responses:
+        '201':
+          description: Player registered
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/TournamentPlayer'
+
+  /tournaments/{tournamentId}/players/{playerId}/bustout:
+    post:
+      tags: [Players]
+      summary: Record player bustout
+      parameters:
+        - $ref: '#/components/parameters/TournamentId'
+        - $ref: '#/components/parameters/PlayerId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [finishPosition]
+              properties:
+                finishPosition:
+                  type: integer
+                  minimum: 1
+                eliminations:
+                  type: integer
+                  minimum: 0
+                  default: 0
+      responses:
+        '200':
+          description: Bustout recorded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/TournamentPlayer'
+
+  /sync:
+    post:
+      tags: [Sync]
+      summary: Upload local changes
+      description: Sync local changes from device to server
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SyncUpload'
+      responses:
+        '200':
+          description: Sync completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/SyncResult'
+
+    get:
+      tags: [Sync]
+      summary: Pull server changes
+      description: Get changes from server since last sync
+      parameters:
+        - name: since
+          in: query
+          required: true
+          schema:
+            type: integer
+            format: int64
+            description: Timestamp in milliseconds
+      responses:
+        '200':
+          description: Changes retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      changes:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Change'
+                      serverTimestamp:
+                        type: integer
+                        format: int64
+                      conflicts:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Conflict'
+
+  /blind-schedules:
+    get:
+      tags: [Blind Schedules]
+      summary: List blind schedules
+      responses:
+        '200':
+          description: Schedules retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BlindSchedule'
+
+    post:
+      tags: [Blind Schedules]
+      summary: Create blind schedule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BlindScheduleCreate'
+      responses:
+        '201':
+          description: Schedule created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/BlindSchedule'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    TournamentId:
+      name: tournamentId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Tournament UUID
+    PlayerId:
+      name: playerId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Player UUID
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        role:
+          type: string
+          enum: [admin, director, scorekeeper, viewer]
+        createdAt:
+          type: string
+          format: date-time
+        lastLoginAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    Tournament:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [upcoming, active, paused, completed]
+        startTime:
+          type: string
+          format: date-time
+          nullable: true
+        endTime:
+          type: string
+          format: date-time
+          nullable: true
+        currentLevel:
+          type: integer
+        elapsedTime:
+          type: integer
+          description: Elapsed time in milliseconds
+        prizePool:
+          type: number
+          format: decimal
+        createdAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+          format: uuid
+
+    TournamentDetail:
+      allOf:
+        - $ref: '#/components/schemas/Tournament'
+        - type: object
+          properties:
+            blindSchedule:
+              $ref: '#/components/schemas/BlindSchedule'
+            players:
+              type: array
+              items:
+                $ref: '#/components/schemas/TournamentPlayer'
+            timerState:
+              $ref: '#/components/schemas/TimerState'
+
+    TournamentCreate:
+      type: object
+      required: [name, blindScheduleId]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+          nullable: true
+        blindScheduleId:
+          type: string
+          format: uuid
+        prizePool:
+          type: number
+          format: decimal
+          minimum: 0
+          default: 0
+
+    TournamentUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [upcoming, active, paused, completed]
+        prizePool:
+          type: number
+          format: decimal
+          minimum: 0
+
+    TimerState:
+      type: object
+      properties:
+        tournamentId:
+          type: string
+          format: uuid
+        level:
+          type: integer
+          minimum: 1
+        elapsedTime:
+          type: integer
+          description: Elapsed time in milliseconds
+        remainingTime:
+          type: integer
+          description: Remaining time in current level (milliseconds)
+        smallBlind:
+          type: number
+          format: decimal
+        bigBlind:
+          type: number
+          format: decimal
+        ante:
+          type: number
+          format: decimal
+          nullable: true
+        status:
+          type: string
+          enum: [running, paused, stopped]
+        serverTimestamp:
+          type: integer
+          format: int64
+          description: Authoritative server timestamp
+
+    Player:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        stats:
+          type: object
+          properties:
+            tournamentsPlayed:
+              type: integer
+            wins:
+              type: integer
+            totalWinnings:
+              type: number
+              format: decimal
+
+    TournamentPlayer:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        tournamentId:
+          type: string
+          format: uuid
+        player:
+          $ref: '#/components/schemas/Player'
+        startingStack:
+          type: integer
+          minimum: 0
+        currentStack:
+          type: integer
+          minimum: 0
+        finishPosition:
+          type: integer
+          minimum: 1
+          nullable: true
+        winnings:
+          type: number
+          format: decimal
+          minimum: 0
+        eliminations:
+          type: integer
+          minimum: 0
+        registeredAt:
+          type: string
+          format: date-time
+        bustoutTime:
+          type: string
+          format: date-time
+          nullable: true
+
+    BlindSchedule:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        startingStack:
+          type: integer
+          minimum: 0
+        breakInterval:
+          type: integer
+          minimum: 0
+        breakDuration:
+          type: integer
+          minimum: 0
+        levels:
+          type: array
+          items:
+            $ref: '#/components/schemas/BlindLevel'
+        createdAt:
+          type: string
+          format: date-time
+
+    BlindScheduleCreate:
+      type: object
+      required: [name, levels]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+          nullable: true
+        startingStack:
+          type: integer
+          minimum: 0
+          default: 10000
+        breakInterval:
+          type: integer
+          minimum: 0
+          default: 0
+        breakDuration:
+          type: integer
+          minimum: 0
+          default: 10
+        levels:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [levelNumber, smallBlind, bigBlind, durationMinutes]
+            properties:
+              levelNumber:
+                type: integer
+                minimum: 1
+              smallBlind:
+                type: number
+                format: decimal
+                minimum: 0
+              bigBlind:
+                type: number
+                format: decimal
+                minimum: 0
+              ante:
+                type: number
+                format: decimal
+                minimum: 0
+                nullable: true
+              durationMinutes:
+                type: integer
+                minimum: 1
+              isBreak:
+                type: boolean
+                default: false
+
+    BlindLevel:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        blindScheduleId:
+          type: string
+          format: uuid
+        levelNumber:
+          type: integer
+          minimum: 1
+        smallBlind:
+          type: number
+          format: decimal
+        bigBlind:
+          type: number
+          format: decimal
+        ante:
+          type: number
+          format: decimal
+          nullable: true
+        durationMinutes:
+          type: integer
+          minimum: 1
+        isBreak:
+          type: boolean
+
+    SyncUpload:
+      type: object
+      required: [deviceId, changes, lastSyncTimestamp]
+      properties:
+        deviceId:
+          type: string
+          format: uuid
+          description: Device identifier
+        changes:
+          type: array
+          items:
+            type: object
+            required: [entityType, operation, entityId, data, localTimestamp]
+            properties:
+              entityType:
+                type: string
+                enum: [tournament, player, tournamentPlayer, timerEvent]
+              operation:
+                type: string
+                enum: [create, update, delete]
+              entityId:
+                type: string
+                format: uuid
+              data:
+                type: object
+                description: Entity data (varies by entityType)
+              localTimestamp:
+                type: integer
+                format: int64
+                description: Local timestamp when change was made
+        lastSyncTimestamp:
+          type: integer
+          format: int64
+          description: Last successful sync timestamp
+
+    SyncResult:
+      type: object
+      properties:
+        syncId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [success, partial, failed]
+        conflicts:
+          type: array
+          items:
+            $ref: '#/components/schemas/Conflict'
+        appliedChanges:
+          type: integer
+          description: Number of changes applied
+        serverTimestamp:
+          type: integer
+          format: int64
+
+    Change:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        entityType:
+          type: string
+          enum: [tournament, player, tournamentPlayer, timerEvent]
+        operation:
+          type: string
+          enum: [create, update, delete]
+        entityId:
+          type: string
+          format: uuid
+        data:
+          type: object
+        timestamp:
+          type: integer
+          format: int64
+
+    Conflict:
+      type: object
+      properties:
+        entityType:
+          type: string
+        entityId:
+          type: string
+          format: uuid
+        localVersion:
+          type: object
+        serverVersion:
+          type: object
+        resolvedVersion:
+          type: object
+          description: Last-write-wins resolution
+
+    Error:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              example: VALIDATION_ERROR
+            message:
+              type: string
+              example: Invalid input data
+            details:
+              type: object
+              additionalProperties: true
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'

@@ -1,0 +1,347 @@
+/**
+ * TD3 Layout Builder CSS - Enhanced Grid System
+ * Provides grid-based layout functionality with component sizing
+ *
+ * @version 3.4.0
+ * @package PokerTournamentImport
+ */
+
+/* Grid Controls */
+.tdwp-grid-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding: 10px;
+    background: #f8f9f9;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.tdwp-grid-settings {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.tdwp-grid-settings label {
+    font-weight: 500;
+    margin-right: 5px;
+}
+
+.tdwp-grid-options {
+    display: flex;
+    gap: 8px;
+}
+
+/* Enhanced Canvas Area */
+.tdwp-canvas-area {
+    position: relative;
+    min-height: 400px;
+    background: #f9f9f9;
+    border: 2px dashed #ccc;
+    padding: 0;
+    overflow: hidden;
+}
+
+.tdwp-grid-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.tdwp-grid-cell {
+    position: absolute;
+    border: 1px solid #e0e0e0;
+    background: transparent;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    pointer-events: all;
+}
+
+.tdwp-grid-cell:hover {
+    background: rgba(63, 124, 133, 0.1);
+    border-color: #3f7c85;
+}
+
+.tdwp-grid-cell.selected {
+    background: rgba(63, 124, 133, 0.2);
+    border-color: #3f7c85;
+    border-style: solid;
+}
+
+.tdwp-grid-cell.occupied {
+    background: rgba(220, 50, 50, 0.1);
+    border-color: #dc3232;
+    pointer-events: none;
+}
+
+.tdwp-grid-cell.conflict {
+    background: rgba(255, 165, 0, 0.2);
+    border-color: #ffa500;
+    animation: conflict-pulse 1s ease-in-out infinite;
+}
+
+@keyframes conflict-pulse {
+    0%, 100% { background: rgba(255, 165, 0, 0.2); }
+    50% { background: rgba(255, 165, 0, 0.4); }
+}
+
+/* Grid Hidden State */
+.tdwp-grid-overlay.hidden .tdwp-grid-cell {
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* Component Container */
+.tdwp-component-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    z-index: 2;
+}
+
+/* Enhanced Layout Components */
+.tdwp-layout-component {
+    position: absolute;
+    background: #fff;
+    border: 2px solid #3f7c85;
+    padding: 10px;
+    margin: 0;
+    border-radius: 4px;
+    cursor: move;
+    transition: all 0.2s ease;
+    user-select: none;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    font-weight: 500;
+}
+
+.tdwp-layout-component:hover {
+    border-color: #2d5b63;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    transform: translateY(-1px);
+}
+
+.tdwp-layout-component.selected {
+    border-color: #0073aa;
+    box-shadow: 0 0 0 3px rgba(0,115,170,0.3);
+    z-index: 10;
+}
+
+.tdwp-layout-component.dragging {
+    opacity: 0.7;
+    z-index: 1000;
+    cursor: grabbing;
+}
+
+/* Resize Handles */
+.tdwp-layout-component .resize-handle {
+    position: absolute;
+    background: #3f7c85;
+    border: 1px solid #fff;
+    border-radius: 50%;
+    width: 10px;
+    height: 10px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.tdwp-layout-component:hover .resize-handle,
+.tdwp-layout-component.selected .resize-handle {
+    opacity: 1;
+}
+
+.tdwp-layout-component .resize-handle.nw { top: -5px; left: -5px; cursor: nw-resize; }
+.tdwp-layout-component .resize-handle.ne { top: -5px; right: -5px; cursor: ne-resize; }
+.tdwp-layout-component .resize-handle.sw { bottom: -5px; left: -5px; cursor: sw-resize; }
+.tdwp-layout-component .resize-handle.se { bottom: -5px; right: -5px; cursor: se-resize; }
+
+/* Property Panel Enhancements */
+.tdwp-property-group {
+    margin-bottom: 20px;
+    padding: 15px;
+    background: #f9f9f9;
+    border: 1px solid #e1e1e1;
+    border-radius: 4px;
+}
+
+.tdwp-property-group h4 {
+    margin: 0 0 10px 0;
+    color: #23282d;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.tdwp-property-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.tdwp-property-table td {
+    padding: 8px 5px;
+    border-bottom: 1px solid #e1e1e1;
+    vertical-align: middle;
+}
+
+.tdwp-property-table td:first-child {
+    width: 35%;
+    font-weight: 500;
+}
+
+.tdwp-property-unit {
+    font-size: 12px;
+    color: #666;
+    margin-left: 5px;
+}
+
+.tdwp-size-presets {
+    margin: 15px 0;
+}
+
+.tdwp-size-presets label {
+    display: block;
+    font-weight: 500;
+    margin-bottom: 8px;
+    color: #23282d;
+}
+
+.tdwp-preset-buttons {
+    display: flex;
+    gap: 5px;
+    flex-wrap: wrap;
+}
+
+.tdwp-preset-buttons .button {
+    min-width: 50px;
+}
+
+.tdwp-property-actions {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid #e1e1e1;
+    display: flex;
+    gap: 10px;
+}
+
+/* Selection Rectangle */
+.tdwp-selection-rectangle {
+    position: absolute;
+    border: 2px dashed #3f7c85;
+    background: rgba(63, 124, 133, 0.1);
+    pointer-events: none;
+    z-index: 3;
+    border-radius: 2px;
+}
+
+/* Component Drop Preview */
+.tdwp-drop-preview {
+    position: absolute;
+    background: rgba(63, 124, 133, 0.3);
+    border: 2px dashed #3f7c85;
+    border-radius: 4px;
+    pointer-events: none;
+    z-index: 5;
+    transition: all 0.2s ease;
+}
+
+/* Status Messages */
+.tdwp-status-message {
+    position: fixed;
+    top: 32px;
+    right: 20px;
+    padding: 10px 15px;
+    border-radius: 4px;
+    font-weight: 500;
+    z-index: 10000;
+    animation: slideInRight 0.3s ease-out;
+}
+
+.tdwp-status-message.success {
+    background: #46b450;
+    color: white;
+    border-left: 4px solid #00a32a;
+}
+
+.tdwp-status-message.error {
+    background: #d63638;
+    color: white;
+    border-left: 4px solid #871c1c;
+}
+
+.tdwp-status-message.warning {
+    background: #dba617;
+    color: white;
+    border-left: 4px solid #7c5600;
+}
+
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+    .tdwp-grid-controls {
+        flex-direction: column;
+        gap: 10px;
+        align-items: stretch;
+    }
+
+    .tdwp-grid-settings,
+    .tdwp-grid-options {
+        justify-content: center;
+    }
+}
+
+/* Accessibility */
+.tdwp-grid-cell:focus {
+    outline: 2px solid #3f7c85;
+    outline-offset: 1px;
+}
+
+.tdwp-layout-component:focus {
+    outline: 2px solid #0073aa;
+    outline-offset: 2px;
+}
+
+/* Loading State */
+.tdwp-loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.tdwp-loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #3f7c85;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}

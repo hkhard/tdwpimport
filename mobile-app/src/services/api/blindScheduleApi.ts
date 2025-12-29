@@ -11,6 +11,10 @@ import type {
   BlindScheduleApiResponse,
   BlindScheduleListApiResponse,
 } from '../../types/blindSchedule';
+import type {
+  CreateBlindSchemeInput,
+  UpdateBlindSchemeInput,
+} from '@shared/types/timer';
 import { API_BASE_URL } from '../../config/api';
 
 // Cache key for blind schedules
@@ -161,9 +165,6 @@ export class BlindScheduleApiService {
   async deleteBlindSchedule(id: string): Promise<void> {
     const response = await fetch(`${API_BASE_URL}/blind-schedules/${id}`, {
       method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-      },
     });
 
     if (!response.ok) {
@@ -197,6 +198,30 @@ export class BlindScheduleApiService {
     }
 
     return result.data;
+  }
+
+  /**
+   * Check if blind schedule is in use by any tournament
+   */
+  async isScheduleInUse(scheduleId: string): Promise<boolean> {
+    const response = await fetch(`${API_BASE_URL}/blind-schedules/${scheduleId}/in-use`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status} ${response.statusText}`);
+    }
+
+    const result = await response.json();
+
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to check schedule in-use status');
+    }
+
+    return result.data.inUse;
   }
 
   /**
@@ -245,6 +270,61 @@ export class BlindScheduleApiService {
     if (!result.success) {
       throw new Error(result.error || 'Failed to change blind level');
     }
+
+    return result.data;
+  }
+
+  /**
+   * Create new blind scheme (alias for createBlindSchedule)
+   * Uses new type definitions from shared types
+   */
+  async createScheme(input: CreateBlindSchemeInput): Promise<BlindScheduleWithMetadata> {
+    return this.createBlindSchedule(input as BlindScheduleFormData);
+  }
+
+  /**
+   * Update existing blind scheme (alias for updateBlindSchedule)
+   * Uses new type definitions from shared types
+   */
+  async updateScheme(
+    id: string,
+    input: UpdateBlindSchemeInput
+  ): Promise<BlindScheduleWithMetadata> {
+    return this.updateBlindSchedule(id, input as Partial<BlindScheduleFormData>);
+  }
+
+  /**
+   * Delete blind scheme (alias for deleteBlindSchedule)
+   */
+  async deleteScheme(id: string): Promise<void> {
+    return this.deleteBlindSchedule(id);
+  }
+
+  /**
+   * Duplicate blind scheme
+   * Creates a copy of an existing scheme (used for editing defaults)
+   */
+  async duplicateScheme(id: string, newName?: string): Promise<BlindScheduleWithMetadata> {
+    const response = await fetch(`${API_BASE_URL}/blind-schedules/${id}/duplicate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(newName ? { name: newName } : {}),
+    });
+
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status} ${response.statusText}`);
+    }
+
+    const result: BlindScheduleApiResponse = await response.json();
+
+    if (!result.success || !result.data) {
+      throw new Error(result.error || 'Failed to duplicate blind schedule');
+    }
+
+    // Invalidate cache
+    await this.invalidateCache();
 
     return result.data;
   }

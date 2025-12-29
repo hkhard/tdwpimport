@@ -6,6 +6,7 @@
 import { BlindScheduleRepository } from '../../db/repositories/BlindScheduleRepository';
 import { BlindLevelRepository } from '../../db/repositories/BlindLevelRepository';
 import type { BlindSchedule, BlindLevel } from '@shared/types/timer';
+import { randomUUID } from 'node:crypto';
 
 interface CreateScheduleInput {
   name: string;
@@ -14,7 +15,6 @@ interface CreateScheduleInput {
   breakInterval: number;
   breakDuration: number;
   levels: Array<{
-    level: number;
     smallBlind: number;
     bigBlind: number;
     ante?: number;
@@ -30,6 +30,13 @@ interface UpdateScheduleInput {
   startingStack?: number;
   breakInterval?: number;
   breakDuration?: number;
+  levels?: Array<{
+    smallBlind: number;
+    bigBlind: number;
+    ante?: number;
+    duration: number;
+    isBreak: boolean;
+  }>;
 }
 
 interface ScheduleWithMetadata {
@@ -118,11 +125,17 @@ export class BlindScheduleService {
       throw new Error(`Blind schedule with name "${input.name}" already exists`);
     }
 
-    // Validate levels
-    for (const level of input.levels) {
-      const validation = this.levelRepo.validateLevel(level);
+    // Validate levels and auto-generate level numbers
+    const levelsWithNumbers: BlindLevel[] = input.levels.map((level, index) => ({
+      blindLevelId: randomUUID(),
+      level: index + 1, // Auto-generate sequential level numbers
+      ...level,
+    }));
+
+    for (let i = 0; i < input.levels.length; i++) {
+      const validation = this.levelRepo.validateLevel(input.levels[i]);
       if (!validation.valid) {
-        throw new Error(`Level ${level.level} invalid: ${validation.errors.join(', ')}`);
+        throw new Error(`Level ${i + 1} invalid: ${validation.errors.join(', ')}`);
       }
     }
 
@@ -139,7 +152,7 @@ export class BlindScheduleService {
         updatedAt: new Date(),
         createdBy: input.createdBy,
       },
-      input.levels as BlindLevel[]
+      levelsWithNumbers
     );
 
     const created = await this.getScheduleById(scheduleId);
@@ -172,7 +185,31 @@ export class BlindScheduleService {
       }
     }
 
-    this.scheduleRepo.updateSchedule(id, updates);
+    // Update schedule metadata
+    const { levels, ...metadataUpdates } = updates;
+    this.scheduleRepo.updateSchedule(id, metadataUpdates);
+
+    // Update levels if provided
+    if (levels && levels.length > 0) {
+      // Auto-generate level numbers and IDs
+      const levelsWithNumbers: BlindLevel[] = levels.map((level, index) => ({
+        blindLevelId: randomUUID(),
+        level: index + 1,
+        ...level,
+      }));
+
+      // Validate all levels
+      for (let i = 0; i < levels.length; i++) {
+        const validation = this.levelRepo.validateLevel(levelsWithNumbers[i]);
+        if (!validation.valid) {
+          throw new Error(`Level ${i + 1} invalid: ${validation.errors.join(', ')}`);
+        }
+      }
+
+      // Delete existing levels and insert new ones
+      this.levelRepo.deleteByScheduleId(id);
+      this.levelRepo.insertLevels(levelsWithNumbers, id);
+    }
 
     const updated = await this.getScheduleById(id);
     if (!updated) throw new Error('Failed to retrieve updated schedule');
@@ -291,14 +328,7 @@ export class BlindScheduleService {
     if (!input.levels || input.levels.length === 0) {
       throw new Error('At least one blind level is required');
     }
-
-    // Verify levels are sequential starting at 1
-    const sortedLevels = [...input.levels].sort((a, b) => a.level - b.level);
-    for (let i = 0; i < sortedLevels.length; i++) {
-      if (sortedLevels[i].level !== i + 1) {
-        throw new Error('Levels must be sequential starting at 1');
-      }
-    }
+    // Note: Level numbers are auto-generated sequentially starting at 1
   }
 
   /**

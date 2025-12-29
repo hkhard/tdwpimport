@@ -9,10 +9,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getApiBaseUrl, setApiBaseUrl } from '../services/api/tournamentApi';
 import { getDefaultApiUrl } from '../config/api';
 
+interface Props {
+  onNavigateToBlindSchemes: () => void;
+}
+
 const API_URL_KEY = 'tdwp_api_url';
 const DEFAULT_API_URL = getDefaultApiUrl();
 
-export function SettingsScreen() {
+export function SettingsScreen({ onNavigateToBlindSchemes }: Props) {
   const [apiUrl, setApiUrlInput] = useState(DEFAULT_API_URL);
   const [isEditingUrl, setIsEditingUrl] = useState(false);
   const [tempUrl, setTempUrl] = useState(DEFAULT_API_URL);
@@ -137,6 +141,21 @@ export function SettingsScreen() {
       </View>
 
       <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Tournament Management</Text>
+
+        <TouchableOpacity
+          style={styles.setting}
+          onPress={onNavigateToBlindSchemes}
+        >
+          <View style={styles.settingContent}>
+            <Text style={styles.settingLabel}>Blind Level Management</Text>
+            <Text style={styles.settingDescription}>Manage blind level schemes for tournaments</Text>
+          </View>
+          <Text style={styles.chevron}>{'›'}</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.section}>
         <Text style={styles.sectionTitle}>Preferences</Text>
 
         <TouchableOpacity style={styles.setting}>
@@ -249,12 +268,26 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
   },
+  settingContent: {
+    flex: 1,
+  },
   settingLabel: {
     fontSize: 16,
+  },
+  settingDescription: {
+    fontSize: 13,
+    color: '#666',
+    marginTop: 2,
   },
   settingValue: {
     fontSize: 16,
     color: '#666',
+  },
+  chevron: {
+    fontSize: 24,
+    color: '#ccc',
+    fontWeight: '300',
+    marginLeft: 8,
   },
   footer: {
     padding: 20,

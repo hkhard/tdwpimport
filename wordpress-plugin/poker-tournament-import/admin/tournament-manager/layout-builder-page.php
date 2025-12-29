@@ -35,6 +35,74 @@ class TDWP_Layout_Builder_Page {
 	 */
 	public function __construct() {
 		$this->layout_builder = TDWP_Layout_Builder::get_instance();
+
+		// Add admin menu
+		add_action( 'admin_menu', array( $this, 'add_admin_menu' ) );
+
+		// Enqueue admin assets
+		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
+	}
+
+	/**
+	 * Add admin menu item
+	 *
+	 * @since 3.4.0
+	 */
+	public function add_admin_menu() {
+		add_submenu_page(
+			'tdwp-tournament-manager',
+			__( 'TD3 Layout Builder', 'poker-tournament-import' ),
+			__( 'Layout Builder', 'poker-tournament-import' ),
+			'manage_options',
+			'tdwp-layout-builder',
+			array( $this, 'render_admin_page' )
+		);
+	}
+
+	/**
+	 * Enqueue admin assets
+	 *
+	 * @since 3.4.0
+	 * @param string $hook Current admin page hook.
+	 */
+	public function enqueue_admin_assets( $hook ) {
+		// Only load on layout builder page
+		if ( 'tournament-manager_page_tdwp-layout-builder' !== $hook ) {
+			return;
+		}
+
+		// Enqueue jQuery UI dependencies
+		wp_enqueue_style( 'wp-jquery-ui-dialog' );
+		wp_enqueue_script( 'jquery-ui-draggable' );
+		wp_enqueue_script( 'jquery-ui-droppable' );
+		wp_enqueue_script( 'jquery-ui-sortable' );
+
+		// Enqueue layout builder script
+		wp_enqueue_script(
+			'tdwp-layout-builder',
+			POKER_TOURNAMENT_IMPORT_PLUGIN_URL . 'assets/js/layout-builder.js',
+			array( 'jquery', 'jquery-ui-draggable', 'jquery-ui-droppable', 'jquery-ui-sortable' ),
+			POKER_TOURNAMENT_IMPORT_VERSION,
+			true
+		);
+	}
+
+	/**
+	 * Render layout builder admin page
+	 *
+	 * @since 3.4.0
+	 */
+	public function render_admin_page() {
+		// Get the main admin class to render simple layout
+		global $poker_tournament_admin;
+
+		if ( ! $poker_tournament_admin ) {
+			// Fallback: instantiate admin class if not available
+			$poker_tournament_admin = new Poker_Tournament_Import_Admin();
+		}
+
+		// Call the simple layout renderer
+		$poker_tournament_admin->render_layout_builder_page();
 	}
 
 	/**
@@ -300,4 +368,9 @@ class TDWP_Layout_Builder_Page {
 		</div>
 		<?php
 	}
+}
+
+// Instantiate the layout builder page
+if ( class_exists( 'TDWP_Layout_Builder' ) ) {
+	new TDWP_Layout_Builder_Page();
 }
