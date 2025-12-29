@@ -1,0 +1,148 @@
+/* Data Mart Cleaner Admin Styles */
+
+.cleaning-options {
+    margin: 20px 0;
+}
+
+.option-group {
+    background: #fff;
+    border: 1px solid #ccd0d4;
+    border-left: 4px solid #2271b1;
+    border-radius: 4px;
+    margin-bottom: 20px;
+    padding: 20px;
+}
+
+.option-group.danger-zone {
+    border-left-color: #d63638;
+    background: #fef7f7;
+}
+
+.option-group h3 {
+    margin: 0 0 10px 0;
+    color: #1d2327;
+}
+
+.option-group.danger-zone h3 {
+    color: #d63638;
+}
+
+.status-active {
+    color: #00a32a;
+    font-weight: bold;
+}
+
+.status-inactive {
+    color: #787c82;
+}
+
+.status-success {
+    color: #00a32a;
+    font-weight: bold;
+}
+
+.status-warning {
+    color: #d63638;
+    font-weight: bold;
+}
+
+.status-info {
+    color: #2271b1;
+    font-weight: bold;
+}
+
+.card {
+    background: #fff;
+    border: 1px solid #c3c4c7;
+    border-radius: 4px;
+    margin: 20px 0;
+    padding: 20px;
+}
+
+.card h2 {
+    margin: 0 0 20px 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #ddd;
+}
+
+dl {
+    margin: 0;
+}
+
+dt {
+    margin-top: 15px;
+    font-weight: bold;
+}
+
+dd {
+    margin: 5px 0 0 20px;
+    color: #50575e;
+}
+
+/* AJAX Loading Styles */
+.poker-ajax-loading {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.poker-spinner {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #2271b1;
+    border-radius: 50%;
+    animation: poker-spin 1s linear infinite;
+    margin-right: 10px;
+    vertical-align: middle;
+}
+
+@keyframes poker-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.poker-ajax-message {
+    margin: 10px 0;
+    padding: 10px;
+    border-radius: 4px;
+}
+
+.poker-ajax-success {
+    background: #f0f6fc;
+    border: 1px solid #00a32a;
+    color: #00a32a;
+}
+
+.poker-ajax-error {
+    background: #fef7f7;
+    border: 1px solid #d63638;
+    color: #d63638;
+}
+
+.poker-ajax-warning {
+    background: #fcf9e6;
+    border: 1px solid #f0ad4e;
+    color: #0073aa;
+}
+
+.button.poker-ajax-disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.poker-progress-bar {
+    width: 100%;
+    height: 20px;
+    background: #f0f0f1;
+    border-radius: 10px;
+    overflow: hidden;
+    margin: 10px 0;
+}
+
+.poker-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #2271b1, #135e96);
+    border-radius: 10px;
+    transition: width 0.3s ease;
+}

@@ -1,16 +1,25 @@
 # Apache configuration for static HTML export in /tdwpimport subfolder
-# Handles client-side routing for single-page application
+# Handles static HTML pages with extensionless URLs
 
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /tdwpimport/
 
-  # Don't rewrite files or directories
+  # Remove trailing slash if present
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule ^(.*)/$ /$1 [R=301,L]
+
+  # Add .html extension if file exists
+  RewriteCond %{REQUEST_FILENAME}.html -f
+  RewriteCond %{REQUEST_URI} !\.html$
+  RewriteRule ^(.*)$ $1.html [L]
+
+  # Don't rewrite if file or directory exists
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
 
-  # Rewrite everything else to index.html for client-side routing
-  RewriteRule ^ index.html [L]
+  # For index, serve index.html
+  RewriteRule ^$ index.html [L]
 </IfModule>
 
 # Security headers
