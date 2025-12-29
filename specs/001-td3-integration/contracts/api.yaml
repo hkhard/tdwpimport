@@ -1,0 +1,1363 @@
+openapi: 3.0.3
+info:
+  title: TD3 Integration API
+  description: REST API for Tournament Director 3 integration features including display management, event notifications, player engagement, and multi-screen support
+  version: 1.0.0
+  contact:
+    name: Poker Tournament Import Plugin
+    url: https://github.com/hkhard/tdwpimport
+
+servers:
+  - url: /wp-json/poker-tournament/v1
+    description: WordPress REST API endpoint
+
+paths:
+  # Display System Endpoints
+  /displays/templates:
+    get:
+      summary: Get display templates
+      tags:
+        - Display System
+      parameters:
+        - name: tournament_id
+          in: query
+          schema:
+            type: integer
+          description: Filter by tournament ID
+        - name: template_type
+          in: query
+          schema:
+            type: string
+            enum: [clock, rankings, prizes, seating, rules, custom]
+          description: Filter by template type
+      responses:
+        '200':
+          description: List of display templates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DisplayTemplate'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+    post:
+      summary: Create display template
+      tags:
+        - Display System
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDisplayTemplateRequest'
+      responses:
+        '201':
+          description: Template created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DisplayTemplate'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /displays/templates/{template_id}:
+    get:
+      summary: Get specific display template
+      tags:
+        - Display System
+      parameters:
+        - name: template_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Template details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DisplayTemplate'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+    put:
+      summary: Update display template
+      tags:
+        - Display System
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: template_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateDisplayTemplateRequest'
+      responses:
+        '200':
+          description: Template updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DisplayTemplate'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+    delete:
+      summary: Delete display template
+      tags:
+        - Display System
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: template_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Template deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /displays/layouts:
+    get:
+      summary: Get display layouts
+      tags:
+        - Display System
+      parameters:
+        - name: tournament_id
+          in: query
+          schema:
+            type: integer
+          description: Filter by tournament ID
+      responses:
+        '200':
+          description: List of display layouts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DisplayLayout'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+    post:
+      summary: Create display layout
+      tags:
+        - Display System
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDisplayLayoutRequest'
+      responses:
+        '201':
+          description: Layout created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DisplayLayout'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /displays/screens:
+    get:
+      summary: Get display screens
+      tags:
+        - Display System
+      parameters:
+        - name: tournament_id
+          in: query
+          schema:
+            type: integer
+          description: Filter by tournament ID
+        - name: online_only
+          in: query
+          schema:
+            type: boolean
+          description: Filter only online screens
+      responses:
+        '200':
+          description: List of display screens
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DisplayScreen'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+    post:
+      summary: Create display screen
+      tags:
+        - Display System
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDisplayScreenRequest'
+      responses:
+        '201':
+          description: Screen created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DisplayScreen'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /displays/screens/{screen_id}/ping:
+    post:
+      summary: Ping display screen (heartbeat)
+      tags:
+        - Display System
+      parameters:
+        - name: screen_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: object
+                  properties:
+                    connection_quality:
+                      type: string
+                      enum: [excellent, good, poor, offline]
+                    bandwidth_usage:
+                      type: number
+                      format: float
+                    current_url:
+                      type: string
+      responses:
+        '200':
+          description: Ping received successfully
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  # Event Notification Endpoints
+  /events/queue:
+    get:
+      summary: Get event queue
+      tags:
+        - Event Notifications
+      parameters:
+        - name: tournament_id
+          in: query
+          schema:
+            type: integer
+          required: true
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, processing, completed, failed]
+          description: Filter by status
+      responses:
+        '200':
+          description: List of queued events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/QueuedEvent'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+    post:
+      summary: Queue event
+      tags:
+        - Event Notifications
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueueEventRequest'
+      responses:
+        '201':
+          description: Event queued successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueuedEvent'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /events/preferences:
+    get:
+      summary: Get notification preferences
+      tags:
+        - Event Notifications
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: tournament_id
+          in: query
+          schema:
+            type: integer
+          description: Filter by tournament ID
+      responses:
+        '200':
+          description: User notification preferences
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationPreferences'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+    put:
+      summary: Update notification preferences
+      tags:
+        - Event Notifications
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateNotificationPreferencesRequest'
+      responses:
+        '200':
+          description: Preferences updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationPreferences'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /events/sounds:
+    get:
+      summary: Get sound library
+      tags:
+        - Event Notifications
+      parameters:
+        - name: event_type
+          in: query
+          schema:
+            type: string
+          description: Filter by event type
+        - name: active_only
+          in: query
+          schema:
+            type: boolean
+          description: Filter only active sounds
+      responses:
+        '200':
+          description: List of available sounds
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SoundEffect'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+    post:
+      summary: Upload sound effect
+      tags:
+        - Event Notifications
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - sound_file
+                - sound_name
+              properties:
+                sound_file:
+                  type: string
+                  format: binary
+                sound_name:
+                  type: string
+                event_types:
+                  type: array
+                  items:
+                    type: string
+                volume_level:
+                  type: number
+                  format: float
+                  minimum: 0
+                  maximum: 1
+                is_default:
+                  type: boolean
+      responses:
+        '201':
+          description: Sound uploaded successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SoundEffect'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  # Player Features Endpoints
+  /players/photos:
+    get:
+      summary: Get player photos
+      tags:
+        - Player Features
+      parameters:
+        - name: player_id
+          in: query
+          schema:
+            type: integer
+          required: true
+        - name: photo_type
+          in: query
+          schema:
+            type: string
+            enum: [profile, badge, action]
+          description: Filter by photo type
+      responses:
+        '200':
+          description: List of player photos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PlayerPhoto'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+    post:
+      summary: Upload player photo
+      tags:
+        - Player Features
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - player_id
+                - photo_file
+              properties:
+                player_id:
+                  type: integer
+                photo_file:
+                  type: string
+                  format: binary
+                photo_type:
+                  type: string
+                  enum: [profile, badge, action]
+                caption:
+                  type: string
+      responses:
+        '201':
+          description: Photo uploaded successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlayerPhoto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /players/achievements:
+    get:
+      summary: Get achievements
+      tags:
+        - Player Features
+      parameters:
+        - name: player_id
+          in: query
+          schema:
+            type: integer
+          description: Filter by player ID
+        - name: tournament_id
+          in: query
+          schema:
+            type: integer
+          description: Filter by tournament ID
+      responses:
+        '200':
+          description: List of achievements
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PlayerAchievement'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /leagues:
+    get:
+      summary: Get leagues
+      tags:
+        - Player Features
+      parameters:
+        - name: active_only
+          in: query
+          schema:
+            type: boolean
+          description: Filter only active leagues
+      responses:
+        '200':
+          description: List of leagues
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/League'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+    post:
+      summary: Create league
+      tags:
+        - Player Features
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateLeagueRequest'
+      responses:
+        '201':
+          description: League created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/League'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /leagues/{league_id}/standings:
+    get:
+      summary: Get league standings
+      tags:
+        - Player Features
+      parameters:
+        - name: league_id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: refresh
+          in: query
+          schema:
+            type: boolean
+          description: Force refresh of standings
+      responses:
+        '200':
+          description: League standings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LeagueStanding'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  # QR Code Endpoints
+  /qr-codes:
+    post:
+      summary: Generate QR code
+      tags:
+        - QR Codes
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateQRCodeRequest'
+      responses:
+        '201':
+          description: QR code generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QRCode'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /qr-codes/{qr_id}/scan:
+    post:
+      summary: Scan QR code
+      tags:
+        - QR Codes
+      parameters:
+        - name: qr_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                user_agent:
+                  type: string
+                ip_address:
+                  type: string
+                location_data:
+                  type: object
+      responses:
+        '200':
+          description: QR code scanned successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QRScanResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+components:
+  schemas:
+    DisplayTemplate:
+      type: object
+      properties:
+        template_id:
+          type: integer
+          readOnly: true
+        tournament_id:
+          type: integer
+        template_name:
+          type: string
+        template_type:
+          type: string
+          enum: [clock, rankings, prizes, seating, rules, custom]
+        html_template:
+          type: string
+        css_styles:
+          type: string
+        tokens_used:
+          type: array
+          items:
+            type: string
+        is_default:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+
+    CreateDisplayTemplateRequest:
+      type: object
+      required:
+        - tournament_id
+        - template_name
+        - template_type
+        - html_template
+      properties:
+        tournament_id:
+          type: integer
+        template_name:
+          type: string
+          maxLength: 255
+        template_type:
+          type: string
+          enum: [clock, rankings, prizes, seating, rules, custom]
+        html_template:
+          type: string
+        css_styles:
+          type: string
+        is_default:
+          type: boolean
+          default: false
+
+    UpdateDisplayTemplateRequest:
+      type: object
+      properties:
+        template_name:
+          type: string
+          maxLength: 255
+        html_template:
+          type: string
+        css_styles:
+          type: string
+        is_default:
+          type: boolean
+
+    DisplayLayout:
+      type: object
+      properties:
+        layout_id:
+          type: integer
+          readOnly: true
+        tournament_id:
+          type: integer
+        layout_name:
+          type: string
+        screen_size:
+          type: string
+        grid_config:
+          type: object
+        component_positions:
+          type: object
+        breakpoints:
+          type: object
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+
+    CreateDisplayLayoutRequest:
+      type: object
+      required:
+        - tournament_id
+        - layout_name
+      properties:
+        tournament_id:
+          type: integer
+        layout_name:
+          type: string
+          maxLength: 255
+        screen_size:
+          type: string
+        grid_config:
+          type: object
+        component_positions:
+          type: object
+        breakpoints:
+          type: object
+        is_active:
+          type: boolean
+          default: false
+
+    DisplayScreen:
+      type: object
+      properties:
+        screen_id:
+          type: integer
+          readOnly: true
+        screen_name:
+          type: string
+        endpoint_url:
+          type: string
+        layout_id:
+          type: integer
+        template_id:
+          type: integer
+        screen_type:
+          type: string
+          enum: [clock, rankings, prizes, seating, custom]
+        location:
+          type: string
+        last_ping:
+          type: string
+          format: date-time
+        is_online:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+
+    CreateDisplayScreenRequest:
+      type: object
+      required:
+        - screen_name
+        - endpoint_url
+      properties:
+        screen_name:
+          type: string
+          maxLength: 255
+        endpoint_url:
+          type: string
+          maxLength: 500
+        layout_id:
+          type: integer
+        template_id:
+          type: integer
+        screen_type:
+          type: string
+          enum: [clock, rankings, prizes, seating, custom]
+        location:
+          type: string
+
+    QueuedEvent:
+      type: object
+      properties:
+        event_id:
+          type: integer
+          readOnly: true
+        tournament_id:
+          type: integer
+        event_type:
+          type: string
+        event_data:
+          type: object
+        priority:
+          type: string
+          enum: [low, medium, high, critical]
+        notification_types:
+          type: array
+          items:
+            type: string
+        scheduled_at:
+          type: string
+          format: date-time
+        processed_at:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [pending, processing, completed, failed]
+        retry_count:
+          type: integer
+        error_message:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+
+    QueueEventRequest:
+      type: object
+      required:
+        - tournament_id
+        - event_type
+        - event_data
+      properties:
+        tournament_id:
+          type: integer
+        event_type:
+          type: string
+        event_data:
+          type: object
+        priority:
+          type: string
+          enum: [low, medium, high, critical]
+          default: medium
+        notification_types:
+          type: array
+          items:
+            type: string
+        scheduled_at:
+          type: string
+          format: date-time
+
+    NotificationPreferences:
+      type: object
+      properties:
+        preference_id:
+          type: integer
+          readOnly: true
+        user_id:
+          type: integer
+        tournament_id:
+          type: integer
+        event_types:
+          type: array
+          items:
+            type: string
+        sound_enabled:
+          type: boolean
+        email_enabled:
+          type: boolean
+        sms_enabled:
+          type: boolean
+        quiet_hours:
+          type: string
+        custom_settings:
+          type: object
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+
+    UpdateNotificationPreferencesRequest:
+      type: object
+      properties:
+        tournament_id:
+          type: integer
+        event_types:
+          type: array
+          items:
+            type: string
+        sound_enabled:
+          type: boolean
+        email_enabled:
+          type: boolean
+        sms_enabled:
+          type: boolean
+        quiet_hours:
+          type: string
+        custom_settings:
+          type: object
+
+    SoundEffect:
+      type: object
+      properties:
+        sound_id:
+          type: integer
+          readOnly: true
+        sound_name:
+          type: string
+        sound_file:
+          type: string
+        event_types:
+          type: array
+          items:
+            type: string
+        duration_ms:
+          type: integer
+        volume_level:
+          type: number
+          format: float
+        is_default:
+          type: boolean
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+
+    PlayerPhoto:
+      type: object
+      properties:
+        photo_id:
+          type: integer
+          readOnly: true
+        player_id:
+          type: integer
+        attachment_id:
+          type: integer
+        photo_type:
+          type: string
+          enum: [profile, badge, action]
+        caption:
+          type: string
+        display_order:
+          type: integer
+        is_approved:
+          type: boolean
+        photo_url:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+
+    PlayerAchievement:
+      type: object
+      properties:
+        player_achievement_id:
+          type: integer
+          readOnly: true
+        player_id:
+          type: integer
+        achievement_id:
+          type: integer
+        tournament_id:
+          type: integer
+        earned_at:
+          type: string
+          format: date-time
+        points_awarded:
+          type: integer
+        metadata:
+          type: object
+        achievement:
+          $ref: '#/components/schemas/Achievement'
+
+    Achievement:
+      type: object
+      properties:
+        achievement_id:
+          type: integer
+        achievement_key:
+          type: string
+        achievement_name:
+          type: string
+        description:
+          type: string
+        icon_url:
+          type: string
+        points_bonus:
+          type: integer
+        achievement_type:
+          type: string
+          enum: [milestone, streak, performance, special]
+        criteria:
+          type: object
+        is_active:
+          type: boolean
+
+    League:
+      type: object
+      properties:
+        league_id:
+          type: integer
+          readOnly: true
+        league_name:
+          type: string
+        league_description:
+          type: string
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        scoring_formula:
+          type: string
+        tournament_weights:
+          type: object
+        best_x_count:
+          type: integer
+        player_cap:
+          type: integer
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+
+    CreateLeagueRequest:
+      type: object
+      required:
+        - league_name
+        - start_date
+        - end_date
+      properties:
+        league_name:
+          type: string
+          maxLength: 255
+        league_description:
+          type: string
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        scoring_formula:
+          type: string
+        tournament_weights:
+          type: object
+        best_x_count:
+          type: integer
+        player_cap:
+          type: integer
+
+    LeagueStanding:
+      type: object
+      properties:
+        standing_id:
+          type: integer
+          readOnly: true
+        league_id:
+          type: integer
+        player_id:
+          type: integer
+        total_points:
+          type: number
+          format: decimal
+        tournaments_played:
+          type: integer
+        tournaments_won:
+          type: integer
+        best_finish:
+          type: integer
+        average_finish:
+          type: number
+          format: decimal
+        last_calculated:
+          type: string
+          format: date-time
+        rank_position:
+          type: integer
+        player:
+          type: object
+          properties:
+            player_name:
+              type: string
+
+    QRCode:
+      type: object
+      properties:
+        qr_id:
+          type: integer
+          readOnly: true
+        qr_code_data:
+          type: object
+        qr_type:
+          type: string
+          enum: [player_checkin, receipt, badge, table]
+        entity_id:
+          type: integer
+        qr_url:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
+        is_active:
+          type: boolean
+        usage_count:
+          type: integer
+        last_used:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+
+    GenerateQRCodeRequest:
+      type: object
+      required:
+        - qr_type
+        - entity_id
+        - qr_code_data
+      properties:
+        qr_type:
+          type: string
+          enum: [player_checkin, receipt, badge, table]
+        entity_id:
+          type: integer
+        qr_code_data:
+          type: object
+        expires_hours:
+          type: integer
+          default: 24
+
+    QRScanResult:
+      type: object
+      properties:
+        scan_id:
+          type: integer
+          readOnly: true
+        qr_id:
+          type: integer
+        scanned_at:
+          type: string
+          format: date-time
+        scan_result:
+          type: string
+          enum: [success, expired, invalid, duplicate]
+        user_agent:
+          type: string
+        ip_address:
+          type: string
+        location_data:
+          type: object
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+              message:
+                type: string
+              details:
+                type: object
+
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+              message:
+                type: string
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+              message:
+                type: string
+
+    ServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+              message:
+                type: string
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+tags:
+  - name: Display System
+    description: Display template, layout, and screen management
+  - name: Event Notifications
+    description: Event queue, notification preferences, and sound library
+  - name: Player Features
+    description: Player photos, achievements, and league management
+  - name: QR Codes
+    description: QR code generation and scanning

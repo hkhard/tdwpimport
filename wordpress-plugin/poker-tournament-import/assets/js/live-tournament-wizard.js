@@ -51,6 +51,31 @@
 				loadTournamentData(tournamentId);
 			}
 		});
+
+		// Financial policy conditional fields
+		$('#allow-reentry').on('change', function() {
+			if ($(this).is(':checked')) {
+				$('.reentry-options').show();
+			} else {
+				$('.reentry-options').hide();
+			}
+		});
+
+		$('#bounty-type').on('change', function() {
+			const bountyType = $(this).val();
+
+			if (bountyType !== 'none') {
+				$('.bounty-options').show();
+
+				if (bountyType === 'pko') {
+					$('.bounty-pko-only').show();
+				} else {
+					$('.bounty-pko-only').hide();
+				}
+			} else {
+				$('.bounty-options').hide();
+			}
+		});
 	}
 
 	/**

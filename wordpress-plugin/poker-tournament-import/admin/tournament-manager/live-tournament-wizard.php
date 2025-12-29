@@ -228,6 +228,170 @@ class TDWP_Live_Tournament_Wizard {
 							</table>
 						</div>
 
+						<!-- Financial Policy Section -->
+						<div class="tdwp-form-section tdwp-financial-policies">
+							<h3><?php esc_html_e( 'Financial Policy', 'poker-tournament-import' ); ?></h3>
+							<p class="description"><?php esc_html_e( 'Configure re-entry, rebuy, add-on, and bounty rules for this tournament.', 'poker-tournament-import' ); ?></p>
+
+							<!-- Re-entry Policy -->
+							<h4><?php esc_html_e( 'Re-entry Policy', 'poker-tournament-import' ); ?></h4>
+							<table class="form-table">
+								<tr>
+									<th scope="row">
+										<label for="allow-reentry"><?php esc_html_e( 'Allow Re-entry', 'poker-tournament-import' ); ?></label>
+									</th>
+									<td>
+										<label>
+											<input type="checkbox" name="allow_reentry" id="allow-reentry" value="1">
+											<?php esc_html_e( 'Players can re-enter after being eliminated', 'poker-tournament-import' ); ?>
+										</label>
+									</td>
+								</tr>
+								<tr class="reentry-options" style="display: none;">
+									<th scope="row">
+										<label for="reentry-cost"><?php esc_html_e( 'Re-entry Cost', 'poker-tournament-import' ); ?></label>
+									</th>
+									<td>
+										<input type="number" name="reentry_cost" id="reentry-cost" class="small-text" step="0.01" min="0" value="0">
+										<p class="description"><?php esc_html_e( 'Cost for re-entering (usually same as buy-in)', 'poker-tournament-import' ); ?></p>
+									</td>
+								</tr>
+								<tr class="reentry-options" style="display: none;">
+									<th scope="row">
+										<label for="reentry-chips"><?php esc_html_e( 'Re-entry Chips', 'poker-tournament-import' ); ?></label>
+									</th>
+									<td>
+										<input type="number" name="reentry_chips" id="reentry-chips" class="small-text" step="1" min="0" value="0">
+										<p class="description"><?php esc_html_e( 'Chip amount for re-entry (usually same as starting chips)', 'poker-tournament-import' ); ?></p>
+									</td>
+								</tr>
+								<tr class="reentry-options" style="display: none;">
+									<th scope="row">
+										<label for="reentry-limit"><?php esc_html_e( 'Re-entry Limit', 'poker-tournament-import' ); ?></label>
+									</th>
+									<td>
+										<input type="number" name="reentry_limit" id="reentry-limit" class="small-text" step="1" min="0" value="0">
+										<p class="description"><?php esc_html_e( 'Maximum re-entries per player (0 = unlimited)', 'poker-tournament-import' ); ?></p>
+									</td>
+								</tr>
+								<tr class="reentry-options" style="display: none;">
+									<th scope="row">
+										<label for="reentry-until-level"><?php esc_html_e( 'Re-entry Until Level', 'poker-tournament-import' ); ?></label>
+									</th>
+									<td>
+										<input type="number" name="reentry_until_level" id="reentry-until-level" class="small-text" step="1" min="0" value="0">
+										<p class="description"><?php esc_html_e( 'Re-entry allowed until this level (0 = late reg only)', 'poker-tournament-import' ); ?></p>
+									</td>
+								</tr>
+							</table>
+
+							<!-- Rebuy Policy -->
+							<h4><?php esc_html_e( 'Rebuy Policy', 'poker-tournament-import' ); ?></h4>
+							<table class="form-table">
+								<tr>
+									<th scope="row">
+										<label for="rebuy-until-level"><?php esc_html_e( 'Rebuy Until Level', 'poker-tournament-import' ); ?></label>
+									</th>
+									<td>
+										<input type="number" name="rebuy_until_level" id="rebuy-until-level" class="small-text" step="1" min="0" value="0">
+										<p class="description"><?php esc_html_e( 'Rebuys allowed until this level (0 = no rebuys)', 'poker-tournament-import' ); ?></p>
+									</td>
+								</tr>
+								<tr>
+									<th scope="row">
+										<label for="rebuy-chip-threshold"><?php esc_html_e( 'Rebuy Chip Threshold', 'poker-tournament-import' ); ?></label>
+									</th>
+									<td>
+										<input type="number" name="rebuy_chip_threshold" id="rebuy-chip-threshold" class="small-text" step="1" min="0" value="0">
+										<p class="description"><?php esc_html_e( 'Can rebuy if chips below this amount (0 = no threshold)', 'poker-tournament-import' ); ?></p>
+									</td>
+								</tr>
+								<tr>
+									<th scope="row">
+										<label for="rebuy-limit-per-player"><?php esc_html_e( 'Rebuy Limit Per Player', 'poker-tournament-import' ); ?></label>
+									</th>
+									<td>
+										<input type="number" name="rebuy_limit_per_player" id="rebuy-limit-per-player" class="small-text" step="1" min="0" value="0">
+										<p class="description"><?php esc_html_e( 'Maximum rebuys per player (0 = unlimited)', 'poker-tournament-import' ); ?></p>
+									</td>
+								</tr>
+							</table>
+
+							<!-- Add-on Policy -->
+							<h4><?php esc_html_e( 'Add-on Policy', 'poker-tournament-import' ); ?></h4>
+							<table class="form-table">
+								<tr>
+									<th scope="row">
+										<label for="addon-at-level"><?php esc_html_e( 'Add-on At Level', 'poker-tournament-import' ); ?></label>
+									</th>
+									<td>
+										<input type="number" name="addon_at_level" id="addon-at-level" class="small-text" step="1" min="0" value="0">
+										<p class="description"><?php esc_html_e( 'Add-on available at this level (0 = no add-ons)', 'poker-tournament-import' ); ?></p>
+									</td>
+								</tr>
+								<tr>
+									<th scope="row">
+										<label for="addon-until-level"><?php esc_html_e( 'Add-on Until Level', 'poker-tournament-import' ); ?></label>
+									</th>
+									<td>
+										<input type="number" name="addon_until_level" id="addon-until-level" class="small-text" step="1" min="0" value="0">
+										<p class="description"><?php esc_html_e( 'Add-on available until this level (0 = same as start level)', 'poker-tournament-import' ); ?></p>
+									</td>
+								</tr>
+							</table>
+
+							<!-- Bounty/Knockout Policy -->
+							<h4><?php esc_html_e( 'Bounty / Knockout Policy', 'poker-tournament-import' ); ?></h4>
+							<table class="form-table">
+								<tr>
+									<th scope="row">
+										<label for="bounty-type"><?php esc_html_e( 'Bounty Type', 'poker-tournament-import' ); ?></label>
+									</th>
+									<td>
+										<select name="bounty_type" id="bounty-type" class="regular-text">
+											<option value="none" selected><?php esc_html_e( 'No Bounties', 'poker-tournament-import' ); ?></option>
+											<option value="fixed"><?php esc_html_e( 'Fixed Bounty', 'poker-tournament-import' ); ?></option>
+											<option value="pko"><?php esc_html_e( 'Progressive Knockout (PKO)', 'poker-tournament-import' ); ?></option>
+										</select>
+										<p class="description"><?php esc_html_e( 'Fixed: Full bounty to eliminator. PKO: Half to eliminator, half added to their bounty', 'poker-tournament-import' ); ?></p>
+									</td>
+								</tr>
+								<tr class="bounty-options" style="display: none;">
+									<th scope="row">
+										<label for="bounty-amount"><?php esc_html_e( 'Bounty Amount', 'poker-tournament-import' ); ?></label>
+									</th>
+									<td>
+										<input type="number" name="bounty_amount" id="bounty-amount" class="small-text" step="0.01" min="0" value="0">
+										<p class="description"><?php esc_html_e( 'Bounty amount per player (for Fixed or PKO starting amount)', 'poker-tournament-import' ); ?></p>
+									</td>
+								</tr>
+								<tr class="bounty-options bounty-pko-only" style="display: none;">
+									<th scope="row">
+										<label for="bounty-percentage"><?php esc_html_e( 'PKO Split Percentage', 'poker-tournament-import' ); ?></label>
+									</th>
+									<td>
+										<input type="number" name="bounty_percentage" id="bounty-percentage" class="small-text" step="0.01" min="0" max="100" value="50">
+										<span>%</span>
+										<p class="description"><?php esc_html_e( 'Percentage awarded to eliminator (remaining goes to their bounty)', 'poker-tournament-import' ); ?></p>
+									</td>
+								</tr>
+							</table>
+
+							<!-- Late Registration Policy -->
+							<h4><?php esc_html_e( 'Late Registration', 'poker-tournament-import' ); ?></h4>
+							<table class="form-table">
+								<tr>
+									<th scope="row">
+										<label for="late-reg-until-level"><?php esc_html_e( 'Late Reg Until Level', 'poker-tournament-import' ); ?></label>
+									</th>
+									<td>
+										<input type="number" name="late_reg_until_level" id="late-reg-until-level" class="small-text" step="1" min="0" value="0">
+										<p class="description"><?php esc_html_e( 'Late registration allowed until this level (0 = no late reg)', 'poker-tournament-import' ); ?></p>
+									</td>
+								</tr>
+							</table>
+						</div>
+
 						<!-- Template Selection (template method) -->
 						<div class="tdwp-form-section" id="template-section" style="display: none;">
 							<h3><?php esc_html_e( 'Select Template', 'poker-tournament-import' ); ?></h3>
@@ -394,7 +558,7 @@ class TDWP_Live_Tournament_Wizard {
 			wp_send_json_error( array( 'message' => __( 'Failed to create tournament', 'poker-tournament-import' ) ) );
 		}
 
-		// Save meta fields.
+		// Save basic meta fields.
 		$buy_in          = isset( $_POST['buy_in'] ) ? floatval( $_POST['buy_in'] ) : 0;
 		$starting_chips  = isset( $_POST['starting_chips'] ) ? intval( $_POST['starting_chips'] ) : 0;
 		$rebuy_cost      = isset( $_POST['rebuy_cost'] ) ? floatval( $_POST['rebuy_cost'] ) : 0;
@@ -414,6 +578,37 @@ class TDWP_Live_Tournament_Wizard {
 		update_post_meta( $post_id, '_rake_percentage', $rake_percentage );
 		update_post_meta( $post_id, '_creation_method', $method );
 		update_post_meta( $post_id, '_is_practice', $is_practice );
+
+		// Save financial policy fields (Beta 20).
+		$allow_reentry           = isset( $_POST['allow_reentry'] ) && '1' === $_POST['allow_reentry'] ? 1 : 0;
+		$reentry_cost            = isset( $_POST['reentry_cost'] ) ? floatval( $_POST['reentry_cost'] ) : 0;
+		$reentry_chips           = isset( $_POST['reentry_chips'] ) ? intval( $_POST['reentry_chips'] ) : 0;
+		$reentry_limit           = isset( $_POST['reentry_limit'] ) ? intval( $_POST['reentry_limit'] ) : 0;
+		$reentry_until_level     = isset( $_POST['reentry_until_level'] ) ? intval( $_POST['reentry_until_level'] ) : 0;
+		$rebuy_until_level       = isset( $_POST['rebuy_until_level'] ) ? intval( $_POST['rebuy_until_level'] ) : 0;
+		$rebuy_chip_threshold    = isset( $_POST['rebuy_chip_threshold'] ) ? intval( $_POST['rebuy_chip_threshold'] ) : 0;
+		$rebuy_limit_per_player  = isset( $_POST['rebuy_limit_per_player'] ) ? intval( $_POST['rebuy_limit_per_player'] ) : 0;
+		$addon_at_level          = isset( $_POST['addon_at_level'] ) ? intval( $_POST['addon_at_level'] ) : 0;
+		$addon_until_level       = isset( $_POST['addon_until_level'] ) ? intval( $_POST['addon_until_level'] ) : 0;
+		$bounty_type             = isset( $_POST['bounty_type'] ) ? sanitize_text_field( wp_unslash( $_POST['bounty_type'] ) ) : 'none';
+		$bounty_amount           = isset( $_POST['bounty_amount'] ) ? floatval( $_POST['bounty_amount'] ) : 0;
+		$bounty_percentage       = isset( $_POST['bounty_percentage'] ) ? floatval( $_POST['bounty_percentage'] ) : 50;
+		$late_reg_until_level    = isset( $_POST['late_reg_until_level'] ) ? intval( $_POST['late_reg_until_level'] ) : 0;
+
+		update_post_meta( $post_id, '_allow_reentry', $allow_reentry );
+		update_post_meta( $post_id, '_reentry_cost', $reentry_cost );
+		update_post_meta( $post_id, '_reentry_chips', $reentry_chips );
+		update_post_meta( $post_id, '_reentry_limit', $reentry_limit );
+		update_post_meta( $post_id, '_reentry_until_level', $reentry_until_level );
+		update_post_meta( $post_id, '_rebuy_until_level', $rebuy_until_level );
+		update_post_meta( $post_id, '_rebuy_chip_threshold', $rebuy_chip_threshold );
+		update_post_meta( $post_id, '_rebuy_limit_per_player', $rebuy_limit_per_player );
+		update_post_meta( $post_id, '_addon_at_level', $addon_at_level );
+		update_post_meta( $post_id, '_addon_until_level', $addon_until_level );
+		update_post_meta( $post_id, '_bounty_type', $bounty_type );
+		update_post_meta( $post_id, '_bounty_amount', $bounty_amount );
+		update_post_meta( $post_id, '_bounty_percentage', $bounty_percentage );
+		update_post_meta( $post_id, '_late_reg_until_level', $late_reg_until_level );
 
 		// Handle method-specific data.
 		switch ( $method ) {

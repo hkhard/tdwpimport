@@ -23,62 +23,79 @@ if ( ! defined( 'ABSPATH' ) ) {
 class TDWP_Seat_Manager {
 
 	/**
-	 * Move player to a seat
+	 * Move player registration to a seat
 	 *
 	 * @since 3.1.0
-	 * @param int $player_id Player post ID.
+	 * @since 3.2.0 Updated to use registration_id instead of player_id
+	 * @param int $registration_id Registration ID from tdwp_tournament_players.id.
 	 * @param int $to_table_id Destination table ID.
 	 * @param int $to_seat_number Destination seat number.
 	 * @return bool True on success
 	 */
-	public static function move_player( $player_id, $to_table_id, $to_seat_number ) {
+	public static function move_player( $registration_id, $to_table_id, $to_seat_number ) {
 		global $wpdb;
 
-		$seats_table = $wpdb->prefix . 'tdwp_tournament_seats';
+		$players_table = $wpdb->prefix . 'tdwp_tournament_players';
+		$seats_table   = $wpdb->prefix . 'tdwp_tournament_seats';
+
+		// Get registration data
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$registration = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT * FROM {$players_table} WHERE id = %d",
+				$registration_id
+			)
+		);
+
+		if ( ! $registration ) {
+			return false;
+		}
 
 		// Validate destination seat is empty
 		if ( ! self::is_seat_empty( $to_table_id, $to_seat_number ) ) {
 			return false;
 		}
 
-		// Check if player is currently seated
+		// Check if this registration is currently seated
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$current_seat = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT * FROM {$seats_table} WHERE player_id = %d",
-				$player_id
+				"SELECT * FROM {$seats_table} WHERE registration_id = %d",
+				$registration_id
 			)
 		);
 
-		// If player is currently seated, save movement history
-		$moved_from_table_id = null;
+		// If registration is currently seated, save movement history
+		$moved_from_table_id    = null;
 		$moved_from_seat_number = null;
 
 		if ( $current_seat ) {
-			$moved_from_table_id     = $current_seat->table_id;
-			$moved_from_seat_number  = $current_seat->seat_number;
+			$moved_from_table_id    = $current_seat->table_id;
+			$moved_from_seat_number = $current_seat->seat_number;
 
 			// Clear old seat
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
 			$wpdb->update(
 				$seats_table,
 				array(
-					'player_id'   => null,
-					'status'      => 'empty',
-					'assigned_at' => null,
+					'player_id'       => null,
+					'registration_id' => null,
+					'status'          => 'empty',
+					'assigned_at'     => null,
 				),
 				array( 'id' => $current_seat->id ),
-				array( '%d', '%s', '%s' ),
+				array( '%d', '%d', '%s', '%s' ),
 				array( '%d' )
 			);
 		}
 
-		// Assign player to new seat
+		// Assign registration to new seat
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
 		$result = $wpdb->update(
 			$seats_table,
 			array(
-				'player_id'              => $player_id,
+				'player_id'              => $registration->player_id,
+				'registration_id'        => $registration_id,
 				'status'                 => 'occupied',
 				'assigned_at'            => current_time( 'mysql' ),
 				'moved_from_table_id'    => $moved_from_table_id,
@@ -88,14 +105,14 @@ class TDWP_Seat_Manager {
 				'table_id'    => $to_table_id,
 				'seat_number' => $to_seat_number,
 			),
-			array( '%d', '%s', '%s', '%d', '%d' ),
+			array( '%d', '%d', '%s', '%s', '%d', '%d' ),
 			array( '%d', '%d' )
 		);
 
 		if ( $result !== false ) {
 			$table = TDWP_Table_Manager::get_table( $to_table_id );
 			if ( $table ) {
-				do_action( 'tdwp_player_moved', $table->tournament_id, $player_id, $to_table_id, $to_seat_number );
+				do_action( 'tdwp_player_moved', $table->tournament_id, $registration->player_id, $to_table_id, $to_seat_number );
 			}
 		}
 
@@ -105,48 +122,100 @@ class TDWP_Seat_Manager {
 	/**
 	 * Unseat player
 	 *
+	 * Updated to handle re-entries by using registration_id for precise unseating.
+	 * If registration_id is provided, only that specific registration is unseated.
+	 * If only player_id is provided, ALL registrations for that player are unseated.
+	 *
 	 * @since 3.1.0
 	 * @param int $player_id Player post ID.
+	 * @param int $registration_id Optional. Specific registration ID to unseat.
 	 * @return bool True on success
 	 */
-	public static function unseat_player( $player_id ) {
+	public static function unseat_player( $player_id, $registration_id = null ) {
 		global $wpdb;
 
 		$seats_table = $wpdb->prefix . 'tdwp_tournament_seats';
+		$success = false;
 
-		// Find player's current seat
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$current_seat = $wpdb->get_row(
-			$wpdb->prepare(
-				"SELECT * FROM {$seats_table} WHERE player_id = %d",
-				$player_id
-			)
-		);
+		if ( $registration_id ) {
+			// Unseat specific registration
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$current_seat = $wpdb->get_row(
+				$wpdb->prepare(
+					"SELECT * FROM {$seats_table} WHERE registration_id = %d",
+					$registration_id
+				)
+			);
 
-		if ( ! $current_seat ) {
-			return false; // Player not seated
+			if ( ! $current_seat ) {
+				return false; // Registration not seated
+			}
+
+			$success = self::clear_seat( $current_seat->id );
+
+			if ( $success ) {
+				$table = TDWP_Table_Manager::get_table( $current_seat->table_id );
+				if ( $table ) {
+					do_action( 'tdwp_player_unseated', $table->tournament_id, $player_id, $current_seat->table_id, $current_seat->seat_number );
+				}
+			}
+
+		} else {
+			// Unseat ALL registrations for this player (backward compatibility)
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$current_seats = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT * FROM {$seats_table} WHERE player_id = %d",
+					$player_id
+				)
+			);
+
+			if ( empty( $current_seats ) ) {
+				return false; // Player not seated
+			}
+
+			foreach ( $current_seats as $current_seat ) {
+				$seat_cleared = self::clear_seat( $current_seat->id );
+				if ( $seat_cleared ) {
+					$success = true;
+
+					$table = TDWP_Table_Manager::get_table( $current_seat->table_id );
+					if ( $table ) {
+						do_action( 'tdwp_player_unseated', $table->tournament_id, $player_id, $current_seat->table_id, $current_seat->seat_number );
+					}
+				}
+			}
 		}
+
+		return $success;
+	}
+
+	/**
+	 * Clear a specific seat
+	 *
+	 * @since 3.2.0
+	 * @param int $seat_id Seat ID to clear.
+	 * @return bool True on success
+	 */
+	private static function clear_seat( $seat_id ) {
+		global $wpdb;
+
+		$seats_table = $wpdb->prefix . 'tdwp_tournament_seats';
 
 		// Clear seat
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
 		$result = $wpdb->update(
 			$seats_table,
 			array(
-				'player_id'   => null,
-				'status'      => 'empty',
-				'assigned_at' => null,
+				'player_id'       => null,
+				'registration_id' => null,
+				'status'          => 'empty',
+				'assigned_at'     => null,
 			),
-			array( 'id' => $current_seat->id ),
-			array( '%d', '%s', '%s' ),
+			array( 'id' => $seat_id ),
+			array( '%d', '%d', '%s', '%s' ),
 			array( '%d' )
 		);
-
-		if ( $result !== false ) {
-			$table = TDWP_Table_Manager::get_table( $current_seat->table_id );
-			if ( $table ) {
-				do_action( 'tdwp_player_unseated', $table->tournament_id, $player_id, $current_seat->table_id, $current_seat->seat_number );
-			}
-		}
 
 		return $result !== false;
 	}
@@ -209,16 +278,17 @@ class TDWP_Seat_Manager {
 	/**
 	 * Auto-seat all unseated players
 	 *
-	 * Assigns unseated players to optimal seats, balancing tables
+	 * Assigns unseated player registrations to optimal seats, balancing tables
 	 *
 	 * @since 3.1.0
+	 * @since 3.2.0 Updated to work with registration objects
 	 * @param int $tournament_id Tournament post ID.
 	 * @return array Results with seated count and any errors
 	 */
 	public static function auto_seat_players( $tournament_id ) {
-		$unseated_players = self::get_unseated_players( $tournament_id );
+		$unseated_registrations = self::get_unseated_players( $tournament_id );
 
-		if ( empty( $unseated_players ) ) {
+		if ( empty( $unseated_registrations ) ) {
 			return array(
 				'success'      => true,
 				'seated_count' => 0,
@@ -229,19 +299,25 @@ class TDWP_Seat_Manager {
 		$seated_count = 0;
 		$errors       = array();
 
-		foreach ( $unseated_players as $player ) {
+		foreach ( $unseated_registrations as $registration ) {
 			$seat = self::find_optimal_seat( $tournament_id );
 
 			if ( ! $seat ) {
+				// Build display name with entry number if re-entry
+				$display_name = $registration->player_name;
+				if ( $registration->entry_number > 1 ) {
+					$display_name .= ' (Entry #' . $registration->entry_number . ')';
+				}
+
 				$errors[] = sprintf(
 					/* translators: %s: player name */
 					__( 'No available seat for %s', 'poker-tournament-import' ),
-					$player->post_title
+					$display_name
 				);
 				continue;
 			}
 
-			$success = self::move_player( $player->ID, $seat->table_id, $seat->seat_number );
+			$success = self::move_player( $registration->id, $seat->table_id, $seat->seat_number );
 
 			if ( $success ) {
 				++$seated_count;
@@ -249,7 +325,7 @@ class TDWP_Seat_Manager {
 				$errors[] = sprintf(
 					/* translators: %s: player name */
 					__( 'Failed to seat %s', 'poker-tournament-import' ),
-					$player->post_title
+					$registration->player_name
 				);
 			}
 		}
@@ -293,51 +369,38 @@ class TDWP_Seat_Manager {
 	}
 
 	/**
-	 * Get unseated players for tournament
+	 * Get unseated player registrations for tournament
 	 *
-	 * Returns registered players not currently seated
+	 * Returns registration data for unseated entries (not player post objects)
 	 *
 	 * @since 3.1.0
+	 * @since 3.2.0 Updated to return registration objects and join on registration_id
 	 * @param int $tournament_id Tournament post ID.
-	 * @return array Array of player post objects
+	 * @return array Array of registration objects with player data
 	 */
 	public static function get_unseated_players( $tournament_id ) {
 		global $wpdb;
 
-		// Query tournament_players table for eligible unseated players
-		// Only players with status 'paid' or 'active' are eligible for seating
 		$players_table = $wpdb->prefix . 'tdwp_tournament_players';
 		$seats_table   = $wpdb->prefix . 'tdwp_tournament_seats';
 
+		// Query returns registration records that are NOT seated
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
-		$player_ids = $wpdb->get_col(
+		$registrations = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT tp.player_id
+				"SELECT tp.*, p.post_title as player_name
 				FROM {$players_table} tp
-				LEFT JOIN {$seats_table} ts ON tp.player_id = ts.player_id
+				LEFT JOIN {$seats_table} ts ON tp.id = ts.registration_id
+				INNER JOIN {$wpdb->posts} p ON tp.player_id = p.ID
 				WHERE tp.tournament_id = %d
 				AND tp.status IN ('paid', 'active')
-				AND ts.player_id IS NULL
+				AND ts.registration_id IS NULL
 				ORDER BY tp.registration_date ASC",
 				$tournament_id
 			)
 		);
 
-		if ( empty( $player_ids ) ) {
-			return array();
-		}
-
-		// Get player post objects
-		$players = get_posts(
-			array(
-				'post_type'      => 'player',
-				'post__in'       => $player_ids,
-				'posts_per_page' => -1,
-				'orderby'        => 'post__in',
-			)
-		);
-
-		return $players;
+		return $registrations;
 	}
 
 	/**
@@ -371,12 +434,13 @@ class TDWP_Seat_Manager {
 	 * Validate seat assignment
 	 *
 	 * @since 3.1.0
-	 * @param int $player_id Player post ID.
+	 * @since 3.2.0 Updated to use registration_id instead of player_id
+	 * @param int $registration_id Registration ID from tdwp_tournament_players.id.
 	 * @param int $table_id Table ID.
 	 * @param int $seat_number Seat number.
 	 * @return array Array with 'valid' bool and 'error' message
 	 */
-	public static function validate_assignment( $player_id, $table_id, $seat_number ) {
+	public static function validate_assignment( $registration_id, $table_id, $seat_number ) {
 		global $wpdb;
 
 		// Check if seat exists
@@ -398,8 +462,8 @@ class TDWP_Seat_Manager {
 			);
 		}
 
-		// Check if seat is empty
-		if ( $seat->player_id && $seat->player_id !== $player_id ) {
+		// Check if seat is empty (or occupied by the same registration being moved)
+		if ( $seat->registration_id && $seat->registration_id !== $registration_id ) {
 			return array(
 				'valid' => false,
 				'error' => __( 'Seat is occupied', 'poker-tournament-import' ),

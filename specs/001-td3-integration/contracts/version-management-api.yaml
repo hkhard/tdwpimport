@@ -1,0 +1,611 @@
+openapi: 3.0.3
+info:
+  title: TCPDF Version Management API
+  description: Internal API for managing TCPDF library version selection and installation
+  version: 1.0.0
+  contact:
+    name: Poker Tournament Import Plugin
+    url: https://nikielhard.se/tdwpimport
+
+# Internal API endpoints for admin use only
+paths:
+  /versions:
+    get:
+      summary: Get all available PDF library versions
+      description: Retrieves available versions from all repositories with preference indicators
+      operationId: getAllVersions
+      tags:
+        - Version Management
+      parameters:
+        - name: refresh
+          in: query
+          description: Force refresh from repositories
+          required: false
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Successfully retrieved version list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      preferred_version:
+                        $ref: '#/components/schemas/LibraryVersion'
+                      available_versions:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/LibraryVersion'
+                      repositories:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/VersionRepository'
+                      current_installation:
+                        $ref: '#/components/schemas/InstallationInfo'
+        '500':
+          description: Server error during version retrieval
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /versions/preferred:
+    get:
+      summary: Get preferred version based on configuration
+      description: Returns the version that should be used according to preference rules
+      operationId: getPreferredVersion
+      tags:
+        - Version Management
+      responses:
+        '200':
+          description: Successfully retrieved preferred version
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/LibraryVersion'
+        '404':
+          description: No preferred version available
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /repositories/{repository}/versions:
+    get:
+      summary: Get versions from specific repository
+      description: Retrieves available versions from a specific repository
+      operationId: getRepositoryVersions
+      tags:
+        - Version Management
+      parameters:
+        - name: repository
+          in: path
+          required: true
+          description: Repository identifier
+          schema:
+            type: string
+            enum: [TCPDF, tc-lib-pdf]
+      responses:
+        '200':
+          description: Successfully retrieved repository versions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      repository:
+                        $ref: '#/components/schemas/VersionRepository'
+                      versions:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/LibraryVersion'
+                      count:
+                        type: integer
+                        example: 15
+
+  /installation:
+    get:
+      summary: Get current installation status
+      description: Returns information about currently installed PDF library version
+      operationId: getInstallationStatus
+      tags:
+        - Installation Management
+      responses:
+        '200':
+          description: Successfully retrieved installation status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/InstallationInfo'
+
+    post:
+      summary: Install or update PDF library version
+      description: Installs specified version of PDF library
+      operationId: installVersion
+      tags:
+        - Installation Management
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - version
+              properties:
+                version:
+                  type: string
+                  description: Version to install (e.g., "6.10.0", "8.1.5")
+                  example: "6.10.0"
+                repository:
+                  type: string
+                  description: Repository to download from (auto-detected if not specified)
+                  enum: [TCPDF, tc-lib-pdf]
+                force:
+                  type: boolean
+                  description: Force re-installation even if version already installed
+                  default: false
+      responses:
+        '200':
+          description: Installation completed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/InstallationResult'
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Installation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /installation/preferred:
+    post:
+      summary: Install preferred version
+      description: Installs the preferred version according to current configuration
+      operationId: installPreferredVersion
+      tags:
+        - Installation Management
+      responses:
+        '200':
+          description: Preferred version installation completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/InstallationResult'
+        '500':
+          description: Installation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /configuration/preferences:
+    get:
+      summary: Get version preference configuration
+      description: Returns current version preference settings
+      operationId: getPreferences
+      tags:
+        - Configuration Management
+      responses:
+        '200':
+          description: Successfully retrieved preferences
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/VersionPreference'
+
+    put:
+      summary: Update version preference configuration
+      description: Updates version preference settings
+      operationId: updatePreferences
+      tags:
+        - Configuration Management
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VersionPreferenceInput'
+      responses:
+        '200':
+          description: Preferences updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/VersionPreference'
+        '400':
+          description: Invalid preference settings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /configuration/reset:
+    post:
+      summary: Reset preferences to defaults
+      description: Resets all version preferences to default values
+      operationId: resetPreferences
+      tags:
+        - Configuration Management
+      responses:
+        '200':
+          description: Preferences reset successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/VersionPreference'
+
+components:
+  schemas:
+    LibraryVersion:
+      type: object
+      description: A specific version of the PDF library
+      required:
+        - version
+        - repository
+        - download_url
+        - tag_name
+      properties:
+        version:
+          type: string
+          description: Semantic version number
+          example: "6.10.0"
+        repository:
+          type: string
+          description: Source repository name
+          enum: [TCPDF, tc-lib-pdf]
+          example: "TCPDF"
+        download_url:
+          type: string
+          description: Direct download URL for this version
+          example: "https://github.com/tecnickcom/TCPDF/archive/refs/tags/6.10.0.zip"
+        tag_name:
+          type: string
+          description: Git tag reference
+          example: "6.10.0"
+        metadata:
+          type: object
+          description: Additional version metadata
+          properties:
+            release_date:
+              type: string
+              format: date
+              example: "2023-06-12"
+            size:
+              type: integer
+              description: Archive size in bytes
+              example: 5242880
+            checksum:
+              type: string
+              description: SHA256 checksum
+              example: "a1b2c3d4e5f6..."
+            is_prerelease:
+              type: boolean
+              default: false
+        is_preferred:
+          type: boolean
+          description: Whether this version matches current preferences
+          example: true
+        is_latest:
+          type: boolean
+          description: Whether this is the latest version in its repository
+          example: false
+
+    VersionRepository:
+      type: object
+      description: A source repository for PDF library versions
+      required:
+        - name
+        - api_url
+        - download_url
+        - preference
+      properties:
+        name:
+          type: string
+          description: Human-readable repository name
+          example: "TCPDF"
+        api_url:
+          type: string
+          description: GitHub API endpoint for version tags
+          example: "https://api.github.com/repos/tecnickcom/TCPDF/git/refs/tags"
+        download_url:
+          type: string
+          description: GitHub download URL template
+          example: "https://github.com/tecnickcom/TCPDF/archive/refs/tags/%s.zip"
+        preference:
+          type: integer
+          description: Priority level (1 = highest preference)
+          example: 1
+        version_pattern:
+          type: string
+          description: Regex pattern for version filtering
+          example: "^6\\.[0-9]+\\.[0-9]+$"
+        description:
+          type: string
+          description: Repository description
+          example: "Legacy TCPDF library (stable, proven)"
+        status:
+          type: string
+          description: Repository availability status
+          enum: [available, unavailable, error]
+          example: "available"
+
+    VersionPreference:
+      type: object
+      description: Version selection preferences and configuration
+      required:
+        - preferred_major
+        - allow_fallback
+      properties:
+        preferred_major:
+          type: string
+          description: Preferred major version number
+          example: "6"
+        auto_upgrade:
+          type: boolean
+          description: Whether to auto-upgrade within preferred range
+          default: true
+          example: true
+        manual_version:
+          type: string
+          nullable: true
+          description: User-specified version override
+          example: null
+        allow_fallback:
+          type: boolean
+          description: Whether to fallback to non-preferred versions
+          default: true
+          example: true
+        last_check:
+          type: string
+          format: date-time
+          description: When version check was performed
+          example: "2025-11-01T10:30:00Z"
+        notification_preferences:
+          type: object
+          properties:
+            notify_updates:
+              type: boolean
+              default: true
+            notify_preferred_available:
+              type: boolean
+              default: true
+            notify_fallback_used:
+              type: boolean
+              default: true
+
+    VersionPreferenceInput:
+      type: object
+      description: Input for updating version preferences
+      properties:
+        preferred_major:
+          type: string
+          description: Preferred major version number
+          example: "6"
+        auto_upgrade:
+          type: boolean
+          description: Whether to auto-upgrade within preferred range
+          default: true
+        manual_version:
+          type: string
+          nullable: true
+          description: User-specified version override
+        allow_fallback:
+          type: boolean
+          description: Whether to fallback to non-preferred versions
+          default: true
+        notification_preferences:
+          type: object
+          properties:
+            notify_updates:
+              type: boolean
+              default: true
+            notify_preferred_available:
+              type: boolean
+              default: true
+            notify_fallback_used:
+              type: boolean
+              default: true
+
+    InstallationInfo:
+      type: object
+      description: Information about current PDF library installation
+      required:
+        - status
+        - version
+        - repository
+      properties:
+        status:
+          $ref: '#/components/schemas/InstallationStatus'
+        version:
+          type: string
+          description: Currently installed version
+          example: "6.10.0"
+        repository:
+          type: string
+          description: Source repository of installed version
+          enum: [TCPDF, tc-lib-pdf, none]
+          example: "TCPDF"
+        install_date:
+          type: string
+          format: date-time
+          description: When current version was installed
+          example: "2025-11-01T10:15:00Z"
+        is_preferred:
+          type: boolean
+          description: Whether installed version matches preferences
+          example: true
+        update_available:
+          type: boolean
+          description: Whether updates are available
+          example: false
+        last_check:
+          type: string
+          format: date-time
+          description: When installation status was last checked
+          example: "2025-11-01T10:30:00Z"
+
+    InstallationResult:
+      type: object
+      description: Result of an installation operation
+      required:
+        - success
+        - status
+      properties:
+        success:
+          type: boolean
+          description: Whether installation was successful
+          example: true
+        status:
+          $ref: '#/components/schemas/InstallationStatus'
+        version:
+          type: string
+          description: Version that was installed
+          example: "6.10.0"
+        repository:
+          type: string
+          description: Repository version was installed from
+          example: "TCPDF"
+        message:
+          type: string
+          description: Human-readable result message
+          example: "Successfully installed TCPDF 6.10.0"
+        duration:
+          type: number
+          description: Installation duration in seconds
+          example: 12.5
+        install_path:
+          type: string
+          description: Where version was installed
+          example: "/vendor/tcpdf"
+        previous_version:
+          type: string
+          nullable: true
+          description: Previously installed version
+          example: "8.1.5"
+
+    InstallationStatus:
+      type: string
+      enum:
+        - not_installed
+        - preferred_installed
+        - fallback_installed
+        - manual_installed
+        - installation_error
+        - upgrading
+      description: Current installation status
+
+    ErrorResponse:
+      type: object
+      description: Standard error response
+      required:
+        - success
+        - error
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              description: Error code
+              example: "VERSION_NOT_FOUND"
+            message:
+              type: string
+              description: Human-readable error message
+              example: "The specified version was not found in any repository"
+            details:
+              type: object
+              description: Additional error details
+              properties:
+                repository:
+                  type: string
+                  example: "TCPDF"
+                version:
+                  type: string
+                  example: "6.11.0"
+                api_response:
+                  type: object
+
+  securitySchemes:
+    WordPressNonce:
+      type: apiKey
+      in: header
+      name: X-WP-Nonce
+      description: WordPress nonce for authentication
+
+security:
+  - WordPressNonce: []
+
+tags:
+  - name: Version Management
+    description: Operations for managing PDF library versions
+  - name: Installation Management
+    description: Operations for installing and managing PDF library installations
+  - name: Configuration Management
+    description: Operations for managing version preferences and configuration

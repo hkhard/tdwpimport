@@ -1,0 +1,8 @@
+{
+  "android": {
+    "package": "com.anonymous.tdwpimportroot"
+  },
+  "ios": {
+    "bundleIdentifier": "com.anonymous.tdwpimportroot"
+  }
+}

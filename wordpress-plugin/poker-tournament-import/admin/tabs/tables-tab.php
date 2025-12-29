@@ -82,6 +82,7 @@ $balance_status = TDWP_Table_Balancer::get_balance_status( $tournament_id );
 
 									<?php if ( $seat->player_id ) : ?>
 										<div class="player-chip draggable-player"
+											data-registration-id="<?php echo esc_attr( $seat->registration_id ); ?>"
 											data-player-id="<?php echo esc_attr( $seat->player_id ); ?>"
 											data-table-id="<?php echo esc_attr( $table->id ); ?>"
 											data-seat-number="<?php echo esc_attr( $seat->seat_number ); ?>">
@@ -109,10 +110,18 @@ $balance_status = TDWP_Table_Balancer::get_balance_status( $tournament_id );
 				<?php if ( empty( $unseated_players ) ) : ?>
 					<p class="no-players"><?php esc_html_e( 'No unseated players', 'poker-tournament-import' ); ?></p>
 				<?php else : ?>
-					<?php foreach ( $unseated_players as $player ) : ?>
+					<?php foreach ( $unseated_players as $registration ) : ?>
+						<?php
+						// Build display name with entry number if re-entry
+						$display_name = $registration->player_name;
+						if ( $registration->entry_number > 1 ) {
+							$display_name .= ' (Entry #' . $registration->entry_number . ')';
+						}
+						?>
 						<div class="player-chip draggable-player unseated"
-							data-player-id="<?php echo esc_attr( $player->ID ); ?>">
-							<span class="player-name"><?php echo esc_html( $player->post_title ); ?></span>
+							data-registration-id="<?php echo esc_attr( $registration->id ); ?>"
+							data-player-id="<?php echo esc_attr( $registration->player_id ); ?>">
+							<span class="player-name"><?php echo esc_html( $display_name ); ?></span>
 						</div>
 					<?php endforeach; ?>
 				<?php endif; ?>

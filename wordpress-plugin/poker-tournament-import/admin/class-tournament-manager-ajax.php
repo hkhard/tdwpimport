@@ -56,6 +56,17 @@ class TDWP_Tournament_Manager_AJAX {
 		add_action( 'wp_ajax_tdwp_tm_remove_player', array( __CLASS__, 'remove_player_from_tournament' ) );
 		add_action( 'wp_ajax_tdwp_tm_update_player_status', array( __CLASS__, 'update_player_status' ) );
 		add_action( 'wp_ajax_tdwp_tm_process_buyins', array( __CLASS__, 'process_buyins' ) );
+
+		// Live player operations endpoints (Phase 2 Beta22+)
+		add_action( 'wp_ajax_tdwp_tm_bust_player', array( __CLASS__, 'bust_player' ) );
+		add_action( 'wp_ajax_tdwp_tm_reentry_player', array( __CLASS__, 'reentry_player' ) );
+		add_action( 'wp_ajax_tdwp_tm_process_declined_reentry', array( __CLASS__, 'process_declined_reentry' ) );
+		add_action( 'wp_ajax_tdwp_tm_process_rebuy', array( __CLASS__, 'process_rebuy' ) );
+		add_action( 'wp_ajax_tdwp_tm_process_addon', array( __CLASS__, 'process_addon' ) );
+		add_action( 'wp_ajax_tdwp_tm_update_chip_count', array( __CLASS__, 'update_chip_count' ) );
+
+		// Transaction log endpoint (Phase 2 Completion v3.2.0)
+		add_action( 'wp_ajax_tdwp_tm_get_transaction_log', array( __CLASS__, 'get_transaction_log' ) );
 	}
 
 	/**
@@ -492,30 +503,30 @@ class TDWP_Tournament_Manager_AJAX {
 	 * Move player to seat
 	 *
 	 * @since 3.1.0
+	 * @since 3.2.0 Updated to use registration_id
 	 */
 	public static function move_player() {
 		self::verify_request();
 
-		$player_id      = isset( $_POST['player_id'] ) ? intval( $_POST['player_id'] ) : 0;
-		$to_table_id    = isset( $_POST['to_table_id'] ) ? intval( $_POST['to_table_id'] ) : 0;
-		$to_seat_number = isset( $_POST['to_seat_number'] ) ? intval( $_POST['to_seat_number'] ) : 0;
+		$registration_id = isset( $_POST['registration_id'] ) ? intval( $_POST['registration_id'] ) : 0;
+		$to_table_id     = isset( $_POST['to_table_id'] ) ? intval( $_POST['to_table_id'] ) : 0;
+		$to_seat_number  = isset( $_POST['to_seat_number'] ) ? intval( $_POST['to_seat_number'] ) : 0;
 
-		if ( ! $player_id || ! $to_table_id || ! $to_seat_number ) {
+		if ( ! $registration_id || ! $to_table_id || ! $to_seat_number ) {
 			wp_send_json_error( array( 'message' => __( 'Invalid parameters', 'poker-tournament-import' ) ) );
 		}
 
 		// Validate assignment
-		$validation = TDWP_Seat_Manager::validate_assignment( $player_id, $to_table_id, $to_seat_number );
+		$validation = TDWP_Seat_Manager::validate_assignment( $registration_id, $to_table_id, $to_seat_number );
 		if ( ! $validation['valid'] ) {
 			wp_send_json_error( array( 'message' => $validation['error'] ) );
 		}
 
-		$success = TDWP_Seat_Manager::move_player( $player_id, $to_table_id, $to_seat_number );
+		$success = TDWP_Seat_Manager::move_player( $registration_id, $to_table_id, $to_seat_number );
 
 		if ( $success ) {
 			wp_send_json_success( array(
 				'message' => __( 'Player moved', 'poker-tournament-import' ),
-				'seat'    => TDWP_Seat_Manager::get_player_seat( $player_id ),
 			) );
 		} else {
 			wp_send_json_error( array( 'message' => __( 'Failed to move player', 'poker-tournament-import' ) ) );
@@ -846,6 +857,276 @@ class TDWP_Tournament_Manager_AJAX {
 				)
 			);
 		}
+	}
+
+	/**
+	 * Bust player (Phase 2 Beta22)
+	 *
+	 * @since 3.1.0
+	 */
+	public static function bust_player() {
+		self::verify_request();
+
+		$tournament_id = isset( $_POST['tournament_id'] ) ? intval( $_POST['tournament_id'] ) : 0;
+		$player_id     = isset( $_POST['player_id'] ) ? intval( $_POST['player_id'] ) : 0;
+
+		if ( ! $tournament_id || ! $player_id ) {
+			wp_send_json_error( array( 'message' => __( 'Invalid parameters', 'poker-tournament-import' ) ) );
+		}
+
+		// Extract eliminator IDs array (multi-hitman support)
+		$eliminated_by = array();
+		if ( isset( $_POST['eliminated_by'] ) ) {
+			$eliminated_by_raw = stripslashes( $_POST['eliminated_by'] );
+			$eliminated_by     = json_decode( $eliminated_by_raw, true );
+
+			// Ensure it's an array
+			if ( ! is_array( $eliminated_by ) ) {
+				$eliminated_by = array();
+			}
+		}
+
+		// Use new Player Operations class with transaction logging and multi-hitman support
+		$result = TDWP_Player_Operations::process_bustout( $tournament_id, $player_id, $eliminated_by );
+
+		if ( is_wp_error( $result ) ) {
+			wp_send_json_error( array( 'message' => $result->get_error_message() ) );
+		}
+
+		wp_send_json_success( $result );
+	}
+
+	/**
+	 * Re-entry player (Phase 2 Beta23)
+	 *
+	 * @since 3.1.0
+	 */
+	public static function reentry_player() {
+		self::verify_request();
+
+		$tournament_id = isset( $_POST['tournament_id'] ) ? intval( $_POST['tournament_id'] ) : 0;
+		$player_id     = isset( $_POST['player_id'] ) ? intval( $_POST['player_id'] ) : 0;
+
+		if ( ! $tournament_id || ! $player_id ) {
+			wp_send_json_error( array( 'message' => __( 'Invalid parameters', 'poker-tournament-import' ) ) );
+		}
+
+		$result = TDWP_Tournament_Player_Manager::reentry_player( $tournament_id, $player_id );
+
+		if ( is_wp_error( $result ) ) {
+			wp_send_json_error( array( 'message' => $result->get_error_message() ) );
+		}
+
+		wp_send_json_success( $result );
+	}
+
+	/**
+	 * Process declined re-entry and player withdrawal (Phase 3 v3.3.0)
+	 *
+	 * @since 3.3.0
+	 */
+	public static function process_declined_reentry() {
+		self::verify_request();
+
+		$tournament_id = isset( $_POST['tournament_id'] ) ? intval( $_POST['tournament_id'] ) : 0;
+		$player_id     = isset( $_POST['player_id'] ) ? intval( $_POST['player_id'] ) : 0;
+		$reason        = isset( $_POST['reason'] ) ? sanitize_text_field( $_POST['reason'] ) : '';
+
+		if ( ! $tournament_id || ! $player_id ) {
+			wp_send_json_error( array( 'message' => __( 'Invalid parameters', 'poker-tournament-import' ) ) );
+		}
+
+		// Use Tournament Player Manager for declined re-entry processing
+		$result = TDWP_Tournament_Player_Manager::process_declined_reentry( $tournament_id, $player_id, $reason );
+
+		if ( is_wp_error( $result ) ) {
+			wp_send_json_error( array( 'message' => $result->get_error_message() ) );
+		}
+
+		wp_send_json_success( $result );
+	}
+
+	/**
+	 * Process rebuy (Phase 2 Beta25 - Updated v3.2.0)
+	 *
+	 * @since 3.1.0
+	 * @since 3.2.0 Uses TDWP_Player_Operations with transaction logging
+	 */
+	public static function process_rebuy() {
+		self::verify_request();
+
+		$tournament_id = isset( $_POST['tournament_id'] ) ? intval( $_POST['tournament_id'] ) : 0;
+		$player_id     = isset( $_POST['player_id'] ) ? intval( $_POST['player_id'] ) : 0;
+		$amount        = isset( $_POST['amount'] ) ? floatval( $_POST['amount'] ) : 50.00; // Default rebuy amount
+
+		if ( ! $tournament_id || ! $player_id ) {
+			wp_send_json_error( array( 'message' => __( 'Invalid parameters', 'poker-tournament-import' ) ) );
+		}
+
+		// Use new Player Operations class with transaction logging
+		$result = TDWP_Player_Operations::process_rebuy( $tournament_id, $player_id, $amount );
+
+		if ( is_wp_error( $result ) ) {
+			wp_send_json_error( array( 'message' => $result->get_error_message() ) );
+		}
+
+		wp_send_json_success( $result );
+	}
+
+	/**
+	 * Process addon (Phase 2 Beta25 - Updated v3.2.0)
+	 *
+	 * @since 3.1.0
+	 * @since 3.2.0 Uses TDWP_Player_Operations with transaction logging
+	 */
+	public static function process_addon() {
+		self::verify_request();
+
+		$tournament_id = isset( $_POST['tournament_id'] ) ? intval( $_POST['tournament_id'] ) : 0;
+		$player_id     = isset( $_POST['player_id'] ) ? intval( $_POST['player_id'] ) : 0;
+		$amount        = isset( $_POST['amount'] ) ? floatval( $_POST['amount'] ) : 25.00; // Default addon amount
+
+		if ( ! $tournament_id || ! $player_id ) {
+			wp_send_json_error( array( 'message' => __( 'Invalid parameters', 'poker-tournament-import' ) ) );
+		}
+
+		// Use new Player Operations class with transaction logging
+		$result = TDWP_Player_Operations::process_addon( $tournament_id, $player_id, $amount );
+
+		if ( is_wp_error( $result ) ) {
+			wp_send_json_error( array( 'message' => $result->get_error_message() ) );
+		}
+
+		wp_send_json_success( $result );
+	}
+
+	/**
+	 * Update chip count (Phase 2 Beta26 - Updated v3.2.0)
+	 *
+	 * Now uses chip adjustment with transaction logging and required reason
+	 *
+	 * @since 3.1.0
+	 * @since 3.2.0 Uses TDWP_Player_Operations::process_chip_adjustment with transaction logging
+	 */
+	public static function update_chip_count() {
+		self::verify_request();
+
+		$tournament_id = isset( $_POST['tournament_id'] ) ? intval( $_POST['tournament_id'] ) : 0;
+		$player_id     = isset( $_POST['player_id'] ) ? intval( $_POST['player_id'] ) : 0;
+		$adjustment    = isset( $_POST['adjustment'] ) ? intval( $_POST['adjustment'] ) : 0;
+		$reason        = isset( $_POST['reason'] ) ? sanitize_text_field( $_POST['reason'] ) : '';
+
+		if ( ! $tournament_id || ! $player_id ) {
+			wp_send_json_error( array( 'message' => __( 'Invalid parameters', 'poker-tournament-import' ) ) );
+		}
+
+		// Use new Player Operations class with transaction logging
+		$result = TDWP_Player_Operations::process_chip_adjustment( $tournament_id, $player_id, $adjustment, $reason );
+
+		if ( is_wp_error( $result ) ) {
+			wp_send_json_error( array( 'message' => $result->get_error_message() ) );
+		}
+
+		wp_send_json_success( $result );
+	}
+
+	/**
+	 * Get transaction log for tournament (Phase 2 Completion v3.2.0)
+	 *
+	 * Returns complete immutable audit trail of all player operations
+	 *
+	 * @since 3.2.0
+	 */
+	public static function get_transaction_log() {
+		self::verify_request();
+
+		$tournament_id     = isset( $_POST['tournament_id'] ) ? intval( $_POST['tournament_id'] ) : 0;
+		$transaction_type  = isset( $_POST['transaction_type'] ) ? sanitize_text_field( $_POST['transaction_type'] ) : '';
+		$player_id         = isset( $_POST['player_id'] ) ? intval( $_POST['player_id'] ) : 0;
+		$limit             = isset( $_POST['limit'] ) ? intval( $_POST['limit'] ) : 100;
+		$offset            = isset( $_POST['offset'] ) ? intval( $_POST['offset'] ) : 0;
+
+		if ( ! $tournament_id ) {
+			wp_send_json_error( array( 'message' => __( 'Invalid tournament ID', 'poker-tournament-import' ) ) );
+		}
+
+		$args = array(
+			'transaction_type' => $transaction_type,
+			'player_id'        => $player_id,
+			'order_by'         => 'created_at',
+			'order'            => 'DESC',
+			'limit'            => $limit,
+			'offset'           => $offset,
+		);
+
+		$raw_transactions = TDWP_Transaction_Logger::get_tournament_transactions( $tournament_id, $args );
+		$total_count      = TDWP_Transaction_Logger::get_transaction_count( $tournament_id, $transaction_type );
+
+		// Process transactions to add player and actor names
+		$processed_transactions = array();
+		$summary = array(
+			'buyins' => 0,
+			'rebuys' => 0,
+			'addons' => 0,
+			'prize_pool' => 0,
+		);
+
+		foreach ( $raw_transactions as $transaction ) {
+			// Get player name
+			$player_post = get_post( $transaction->player_id );
+			$player_name = $player_post ? $player_post->post_title : __( 'Unknown Player', 'poker-tournament-import' );
+
+			// Get actor name
+			$actor_user = get_user_by( 'id', $transaction->actor_user_id );
+			$actor_name = $actor_user ? $actor_user->display_name : __( 'System', 'poker-tournament-import' );
+
+			// Normalize transaction type for frontend
+			$normalized_type = $transaction->transaction_type;
+			if ( 'bust_out' === $normalized_type ) {
+				$normalized_type = 'bustout';
+			}
+
+			// Create processed transaction object
+			$processed_transaction = array(
+				'id' => $transaction->id,
+				'tournament_id' => $transaction->tournament_id,
+				'player_id' => $transaction->player_id,
+				'player_name' => $player_name,
+				'transaction_type' => $normalized_type,
+				'amount' => floatval( $transaction->amount ),
+				'chips' => intval( $transaction->chips ),
+				'reason' => $transaction->reason,
+				'actor_user_id' => $transaction->actor_user_id,
+				'actor_name' => $actor_name,
+				'created_at' => date( 'Y-m-d H:i:s', strtotime( $transaction->created_at ) ),
+			);
+
+			$processed_transactions[] = (object) $processed_transaction;
+
+			// Calculate summary statistics
+			switch ( $normalized_type ) {
+				case 'buyin':
+					$summary['buyins'] += floatval( $transaction->amount );
+					$summary['prize_pool'] += floatval( $transaction->amount );
+					break;
+				case 'rebuy':
+					$summary['rebuys'] += floatval( $transaction->amount );
+					$summary['prize_pool'] += floatval( $transaction->amount );
+					break;
+				case 'addon':
+					$summary['addons'] += floatval( $transaction->amount );
+					$summary['prize_pool'] += floatval( $transaction->amount );
+					break;
+			}
+		}
+
+		wp_send_json_success( array(
+			'transactions' => $processed_transactions,
+			'summary' => $summary,
+			'total' => $total_count,
+			'limit' => $limit,
+			'offset' => $offset,
+		) );
 	}
 }
 

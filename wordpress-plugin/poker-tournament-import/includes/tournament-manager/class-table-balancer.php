@@ -423,4 +423,90 @@ class TDWP_Table_Balancer {
 
 		return $plan['balanced'] ? 'balanced' : 'unbalanced';
 	}
+
+	/**
+	 * Trigger automatic table rebalancing
+	 *
+	 * Automatically calculates and executes balance plan if needed.
+	 * Used after player eliminations to maintain optimal table distribution.
+	 *
+	 * @since 3.2.0
+	 * @param int $tournament_id Tournament post ID.
+	 * @return array|WP_Error Rebalancing results or error
+	 */
+	public static function trigger_rebalance( $tournament_id ) {
+		// Validate tournament ID
+		if ( ! $tournament_id ) {
+			return new WP_Error(
+				'invalid_tournament',
+				__( 'Invalid tournament ID', 'poker-tournament-import' )
+			);
+		}
+
+		try {
+			// Calculate current balance plan
+			$plan = self::calculate_balance_plan( $tournament_id );
+
+			// Check if rebalancing is needed
+			$active_tables = TDWP_Table_Manager::get_tables( $tournament_id, 'active' );
+
+			if ( count( $active_tables ) <= 1 ) {
+				return array(
+					'rebalanced' => false,
+					'message'   => __( 'Single table - no rebalancing needed', 'poker-tournament-import' ),
+					'tables'    => count( $active_tables ),
+				);
+			}
+
+			if ( $plan['balanced'] ) {
+				return array(
+					'rebalanced' => false,
+					'message'   => __( 'Tables already balanced', 'poker-tournament-import' ),
+					'balance'   => $plan['average'],
+				);
+			}
+
+			// Execute automatic rebalancing if moves are available
+			if ( ! empty( $plan['moves'] ) ) {
+				$results = self::execute_balance( $tournament_id, $plan['moves'] );
+
+				if ( is_wp_error( $results ) ) {
+					return $results;
+				}
+
+				return array(
+					'rebalanced' => true,
+					'message'   => sprintf(
+						/* translators: %d: number of moves executed */
+						_n(
+							'Executed %d rebalancing move',
+							'Executed %d rebalancing moves',
+							count( $results['moves'] ),
+							'poker-tournament-import'
+						),
+						count( $results['moves'] )
+					),
+					'moves'     => $results['moves'],
+					'tables'    => count( $active_tables ),
+				);
+			}
+
+			// No moves available despite being unbalanced
+			return array(
+				'rebalanced' => false,
+				'message'   => __( 'No rebalancing moves available', 'poker-tournament-import' ),
+				'reason'    => __( 'Cannot balance with current player distribution', 'poker-tournament-import' ),
+			);
+
+		} catch ( Exception $e ) {
+			return new WP_Error(
+				'rebalance_failed',
+				sprintf(
+					/* translators: %s: error message */
+					__( 'Table rebalancing failed: %s', 'poker-tournament-import' ),
+					$e->getMessage()
+				)
+			);
+		}
+	}
 }
