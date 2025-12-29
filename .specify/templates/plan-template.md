@@ -17,41 +17,21 @@
   the iteration process.
 -->
 
-**Language/Version**: [e.g., TypeScript 5.0, PHP 8.0, Swift 5.9 or NEEDS CLARIFICATION]
-**Primary Dependencies**: [e.g., Expo SDK 50, React Navigation, WordPress REST API or NEEDS CLARIFICATION]
-**Storage**: [e.g., AsyncStorage, MySQL with tdwp_ prefix, WordPress transients or N/A]
-**Testing**: [e.g., Jest + RNTL, PHPUnit, Cypress or NEEDS CLARIFICATION]
-**Target Platform**: [e.g., iOS 13+, Android 8+, WordPress 6.0+ or NEEDS CLARIFICATION]
-**Project Type**: [single/web/mobile+api - determines source structure]
-**Performance Goals**: [e.g., <3s cold launch, 60 FPS timer, 1/10s precision, 1000 req/s or NEEDS CLARIFICATION]
-**Constraints**: [e.g., <50MB bundle, offline-capable timer, <200ms API p95 or NEEDS CLARIFICATION]
-**Scale/Scope**: [e.g., 1000 concurrent tournaments, 10k players, 50 screens or NEEDS CLARIFICATION]
+**Language/Version**: [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION]  
+**Primary Dependencies**: [e.g., FastAPI, UIKit, LLVM or NEEDS CLARIFICATION]  
+**Storage**: [if applicable, e.g., PostgreSQL, CoreData, files or N/A]  
+**Testing**: [e.g., pytest, XCTest, cargo test or NEEDS CLARIFICATION]  
+**Target Platform**: [e.g., Linux server, iOS 15+, WASM or NEEDS CLARIFICATION]
+**Project Type**: [single/web/mobile - determines source structure]  
+**Performance Goals**: [domain-specific, e.g., 1000 req/s, 10k lines/sec, 60 fps or NEEDS CLARIFICATION]  
+**Constraints**: [domain-specific, e.g., <200ms p95, <100MB memory, offline-capable or NEEDS CLARIFICATION]  
+**Scale/Scope**: [domain-specific, e.g., 10k users, 1M LOC, 50 screens or NEEDS CLARIFICATION]
 
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-### Mobile App Features (if applicable)
-
-- [ ] **Mobile-First**: UI designed for smallest screen, responsive scaling validated
-- [ ] **Precision Timing**: Timer implementations include 1/10s precision tests
-- [ ] **Offline Capability**: Core timer/control functions work without network
-- [ ] **TypeScript Strict**: `strict: true`, no `any` types, interfaces defined
-- [ ] **Expo Compliance**: Managed workflow preferred; custom native code justified if used
-- [ ] **Real-Time Sync**: WebSocket/streaming for remote viewing with reconnection logic
-
-### WordPress Plugin Features (if applicable)
-
-- [ ] **CMS Integration**: API-only communication, no direct DB access from mobile
-- [ ] **Security**: Input sanitization, capability checks, prepared statements
-- [ ] **Performance**: Import <30s for 1000 players, API p95 <200ms
-- [ ] **Database**: `tdwp_` prefix only, proper indexing, <100ms queries
-
-### Quality Gates
-
-- [ ] **Pre-Commit**: TypeScript compiles, ESLint passes, Prettier applied
-- [ ] **Pre-Merge**: Tests for new functionality, physical device test required
-- [ ] **Pre-Release**: Full test suite, 8hr timer stress test, offline mode validated
+[Gates determined based on constitution file]
 
 ## Project Structure
 
@@ -103,44 +83,12 @@ frontend/
 │   └── services/
 └── tests/
 
-# [REMOVE IF UNUSED] Option 3: Mobile + API (Expo/React Native)
-mobile-app/                    # Expo React Native app
-├── src/
-│   ├── components/           # Reusable UI components
-│   ├── screens/              # Screen-level components
-│   ├── navigation/           # React Navigation config
-│   ├── services/             # API clients, networking
-│   ├── hooks/                # Custom React hooks
-│   ├── store/                # State management (Zustand/Redux)
-│   ├── utils/                # Helper functions
-│   ├── types/                # TypeScript type definitions
-│   └── constants/            # App constants
-├── assets/
-│   ├── images/
-│   ├── fonts/
-│   └── i18n/                 # Internationalization
-├── __tests__/                # Jest tests
-│   ├── unit/
-│   ├── integration/
-│   └── e2e/
-├── app.json                  # Expo config
-├── tsconfig.json             # TypeScript strict mode config
-├── package.json
-└── eas.json                  # EAS Build configuration
+# [REMOVE IF UNUSED] Option 3: Mobile + API (when "iOS/Android" detected)
+api/
+└── [same as backend above]
 
-wordpress-plugin/             # Existing WP plugin (CMS backend)
-├── poker-tournament-import/
-│   ├── includes/
-│   │   └── api/              # REST/GraphQL endpoints for mobile
-│   └── [existing structure]
-└── [existing structure]
-
-# [REMOVE IF UNUSED] Option 4: Native mobile (when custom native required)
-ios/                          # Native iOS (Swift)
-├── [iOS project structure]
-
-android/                      # Native Android (Kotlin)
-├── [Android project structure]
+ios/ or android/
+└── [platform-specific structure: feature modules, UI flows, platform tests]
 ```
 
 **Structure Decision**: [Document the selected structure and reference the real

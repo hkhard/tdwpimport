@@ -85,26 +85,15 @@
 ### Functional Requirements
 
 - **FR-001**: System MUST [specific capability, e.g., "allow users to create accounts"]
-- **FR-002**: System MUST [specific capability, e.g., "validate email addresses"]
+- **FR-002**: System MUST [specific capability, e.g., "validate email addresses"]  
 - **FR-003**: Users MUST be able to [key interaction, e.g., "reset their password"]
 - **FR-004**: System MUST [data requirement, e.g., "persist user preferences"]
 - **FR-005**: System MUST [behavior, e.g., "log all security events"]
 
-*Mobile-specific examples:*
-- **FR-006**: Mobile app MUST support offline tournament timer with 1/10s precision
-- **FR-007**: App MUST sync tournament data to WordPress REST/GraphQL API
-- **FR-008**: Timer MUST survive app backgrounding and device restarts
-- **FR-009**: Remote viewing MUST use WebSocket for real-time clock sync
-
-*WordPress plugin examples:*
-- **FR-010**: Plugin MUST provide REST API endpoints for mobile app consumption
-- **FR-011**: API MUST support OAuth2/JWT authentication
-- **FR-012**: Upload MUST accept .tdt files via mobile app API calls
-
 *Example of marking unclear requirements:*
 
-- **FR-013**: System MUST authenticate users via [NEEDS CLARIFICATION: auth method not specified - email/password, SSO, OAuth?]
-- **FR-014**: System MUST retain user data for [NEEDS CLARIFICATION: retention period not specified]
+- **FR-006**: System MUST authenticate users via [NEEDS CLARIFICATION: auth method not specified - email/password, SSO, OAuth?]
+- **FR-007**: System MUST retain user data for [NEEDS CLARIFICATION: retention period not specified]
 
 ### Key Entities *(include if feature involves data)*
 

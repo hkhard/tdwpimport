@@ -22,8 +22,7 @@ description: "Task list template for feature implementation"
 
 - **Single project**: `src/`, `tests/` at repository root
 - **Web app**: `backend/src/`, `frontend/src/`
-- **Mobile + API (Expo)**: `mobile-app/src/`, `wordpress-plugin/includes/api/`
-- **Native mobile**: `api/src/`, `ios/src/` or `android/src/`
+- **Mobile**: `api/src/`, `ios/src/` or `android/src/`
 - Paths shown below assume single project - adjust based on plan.md structure
 
 <!-- 
@@ -69,10 +68,6 @@ Examples of foundational tasks (adjust based on your project):
 - [ ] T007 Create base models/entities that all stories depend on
 - [ ] T008 Configure error handling and logging infrastructure
 - [ ] T009 Setup environment configuration management
-- [ ] T010 [Mobile] Initialize Expo project with TypeScript strict mode
-- [ ] T011 [Mobile] Configure React Navigation and state management
-- [ ] T012 [Mobile] Setup AsyncStorage/SecureStore for offline/auth
-- [ ] T013 [Mobile] Configure ESLint, Prettier, and Jest tests
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 
