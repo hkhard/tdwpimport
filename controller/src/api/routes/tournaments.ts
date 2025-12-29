@@ -56,6 +56,14 @@ export async function tournamentRoutes(fastify: FastifyInstance): Promise<void> 
   }>('/tournaments', async (request, reply) => {
     const input = request.body;
 
+    // Validate required fields
+    if (!input.blindScheduleId) {
+      return reply.code(400).send({
+        success: false,
+        error: 'blindScheduleId is required',
+      });
+    }
+
     // Convert startTime from string to Date if needed
     const startTime = input.startTime instanceof Date
       ? input.startTime

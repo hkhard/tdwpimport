@@ -70,6 +70,11 @@ export class TournamentService {
    * Create a new tournament
    */
   async createTournament(input: CreateTournamentInput): Promise<Tournament> {
+    // Validate required fields
+    if (!input.blindScheduleId) {
+      throw new Error('blindScheduleId is required for tournament creation');
+    }
+
     // Allocate tournament ID
     const allocation = this.allocator.allocateTournament(input.name, input.createdBy);
 
@@ -91,7 +96,7 @@ export class TournamentService {
         lastUpdateTime: new Date(),
       },
       prizePool: undefined,
-      blindScheduleId: input.blindScheduleId || undefined,
+      blindScheduleId: input.blindScheduleId, // Required field
       createdBy: input.createdBy,
     };
 

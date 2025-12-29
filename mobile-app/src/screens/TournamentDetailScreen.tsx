@@ -83,7 +83,8 @@ export default function TournamentDetailScreen({ tournamentId, onBack }: Props) 
         setCurrentBlindLevel(data.currentLevelInfo);
       }
     } catch (err) {
-      console.debug('[BlindLevel] Fetch failed', err);
+      console.error('[BlindLevel] Fetch failed:', err);
+      // Silently fail - the empty state UI will handle missing schedules
     }
   };
 
@@ -519,13 +520,23 @@ export default function TournamentDetailScreen({ tournamentId, onBack }: Props) 
         )}
 
         {/* Blind Level Display */}
-        {currentBlindLevel && (
-          <BlindLevelDisplay
-            blindLevel={currentBlindLevel}
-            colorScheme="dark"
-            size="medium"
-            showLevel={false}
-          />
+        {tournament.blindScheduleId ? (
+          currentBlindLevel ? (
+            <BlindLevelDisplay
+              blindLevel={currentBlindLevel}
+              colorScheme="dark"
+              size="medium"
+              showLevel={false}
+            />
+          ) : (
+            <ActivityIndicator size="small" color="#007AFF" />
+          )
+        ) : (
+          <View style={styles.infoBox}>
+            <Text style={styles.infoText}>
+              No blind schedule assigned. Please edit the tournament to select a blind schedule.
+            </Text>
+          </View>
         )}
 
         {/* Timer Controls */}
@@ -564,15 +575,24 @@ export default function TournamentDetailScreen({ tournamentId, onBack }: Props) 
         {/* Level Controls */}
         <View style={styles.levelControls}>
           <TouchableOpacity
-            style={[styles.levelButton, styles.levelDownButton]}
+            style={[
+              styles.levelButton,
+              styles.levelDownButton,
+              !tournament.blindScheduleId && styles.levelButtonDisabled,
+            ]}
             onPress={handleLevelDown}
-            disabled={!timerState || timerState.level <= 1}
+            disabled={!timerState || timerState.level <= 1 || !tournament.blindScheduleId}
           >
             <Text style={styles.levelButtonText}>− Level</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.levelButton, styles.levelUpButton]}
+            style={[
+              styles.levelButton,
+              styles.levelUpButton,
+              !tournament.blindScheduleId && styles.levelButtonDisabled,
+            ]}
             onPress={handleLevelUp}
+            disabled={!tournament.blindScheduleId}
           >
             <Text style={styles.levelButtonText}>+ Level</Text>
           </TouchableOpacity>
@@ -1010,6 +1030,23 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 14,
     fontWeight: '600',
+  },
+  levelButtonDisabled: {
+    backgroundColor: '#CCCCCC',
+    opacity: 0.6,
+  },
+  infoBox: {
+    backgroundColor: '#FFF3CD',
+    borderLeftWidth: 4,
+    borderLeftColor: '#FFC107',
+    padding: 12,
+    marginVertical: 12,
+    borderRadius: 4,
+  },
+  infoText: {
+    fontSize: 14,
+    color: '#666',
+    lineHeight: 20,
   },
   addButton: {
     paddingHorizontal: 12,
