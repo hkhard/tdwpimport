@@ -1,0 +1,401 @@
+/**
+ * Blind Builder Admin Styles
+ *
+ * @package Poker_Tournament_Import
+ * @subpackage Tournament_Manager
+ * @since 3.0.0
+ */
+
+/* ==========================================================================
+   Schedule List Table
+   ========================================================================== */
+
+.tdwp-blind-builder .wp-list-table .column-name {
+	width: 30%;
+}
+
+.tdwp-blind-builder .wp-list-table .column-duration {
+	width: 15%;
+}
+
+.tdwp-blind-builder .wp-list-table .column-breaks {
+	width: 20%;
+}
+
+.tdwp-blind-builder .wp-list-table .column-levels {
+	width: 10%;
+	text-align: center;
+}
+
+.tdwp-blind-builder .wp-list-table .column-date {
+	width: 15%;
+}
+
+.tdwp-blind-builder .row-actions {
+	padding: 5px 0;
+}
+
+/* ==========================================================================
+   Schedule Form
+   ========================================================================== */
+
+.tdwp-schedule-form .form-table th {
+	padding: 20px 10px 20px 0;
+	vertical-align: middle;
+}
+
+.tdwp-schedule-form .form-table td {
+	padding: 20px 10px;
+}
+
+.tdwp-schedule-form .required {
+	color: #d63638;
+	font-weight: bold;
+}
+
+.tdwp-schedule-form .description {
+	margin-top: 5px;
+	font-style: italic;
+	color: #646970;
+}
+
+.tdwp-schedule-form input[type="number"].small-text {
+	width: 100px;
+}
+
+.tdwp-schedule-form input[type="text"].regular-text {
+	width: 350px;
+}
+
+.tdwp-schedule-form textarea.large-text {
+	width: 500px;
+	max-width: 100%;
+}
+
+/* ==========================================================================
+   Level Builder
+   ========================================================================== */
+
+.tdwp-level-builder {
+	margin-top: 30px;
+}
+
+.level-builder-controls {
+	margin-bottom: 20px;
+	padding: 15px;
+	background: #f6f7f7;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+}
+
+.level-builder-controls button {
+	margin-right: 10px;
+}
+
+.levels-list-container {
+	margin-bottom: 30px;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	background: #fff;
+}
+
+.levels-list {
+	margin: 0;
+	border: none;
+}
+
+.levels-list thead th {
+	padding: 12px;
+	font-weight: 600;
+	background: #f6f7f7;
+	border-bottom: 2px solid #c3c4c7;
+}
+
+.levels-list .column-drag {
+	width: 40px;
+	text-align: center;
+	cursor: move;
+}
+
+.levels-list .column-drag .dashicons {
+	color: #8c8f94;
+	font-size: 18px;
+}
+
+.levels-list .column-order {
+	width: 60px;
+	text-align: center;
+}
+
+.levels-list .column-sb,
+.levels-list .column-bb,
+.levels-list .column-ante {
+	width: 120px;
+}
+
+.levels-list .column-sb input,
+.levels-list .column-bb input,
+.levels-list .column-ante input,
+.levels-list .break-length {
+	width: 100px;
+}
+
+.levels-list .column-type {
+	width: 120px;
+}
+
+.levels-list .column-actions {
+	width: 100px;
+	text-align: center;
+}
+
+.levels-list tbody td {
+	padding: 12px;
+	vertical-align: middle;
+}
+
+.level-row {
+	transition: background-color 0.2s;
+}
+
+.level-row:hover {
+	background-color: #f6f7f7;
+}
+
+.level-row.ui-sortable-helper {
+	background: #fff;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+	border: 1px solid #c3c4c7;
+}
+
+.level-row.ui-sortable-placeholder {
+	background: #f0f6fc;
+	border: 2px dashed #2271b1;
+	visibility: visible !important;
+}
+
+.level-break {
+	background-color: #fff8e5;
+}
+
+.level-break:hover {
+	background-color: #fff3cd;
+}
+
+.level-break strong {
+	color: #d63638;
+	font-weight: 700;
+}
+
+.no-levels td {
+	padding: 40px;
+	text-align: center;
+	color: #646970;
+	font-style: italic;
+}
+
+.delete-level {
+	color: #d63638;
+	border-color: #d63638;
+}
+
+.delete-level:hover {
+	background: #d63638;
+	color: #fff;
+	border-color: #d63638;
+}
+
+/* ==========================================================================
+   Schedule Preview
+   ========================================================================== */
+
+.level-preview {
+	margin-top: 30px;
+	padding: 20px;
+	background: #f6f7f7;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+}
+
+.level-preview h3 {
+	margin-top: 0;
+	margin-bottom: 15px;
+	font-size: 16px;
+	font-weight: 600;
+}
+
+#schedule-preview {
+	background: #fff;
+	padding: 15px;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	max-height: 400px;
+	overflow-y: auto;
+}
+
+.preview-level {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 10px;
+	margin-bottom: 8px;
+	background: #fff;
+	border: 1px solid #dcdcde;
+	border-radius: 3px;
+	transition: all 0.2s;
+}
+
+.preview-level:hover {
+	border-color: #2271b1;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.preview-level-number {
+	font-weight: 600;
+	color: #2271b1;
+	min-width: 30px;
+}
+
+.preview-level-blinds {
+	flex-grow: 1;
+	padding: 0 15px;
+	font-size: 14px;
+}
+
+.preview-level-blinds strong {
+	font-weight: 600;
+}
+
+.preview-level-ante {
+	color: #646970;
+	font-size: 13px;
+	min-width: 100px;
+	text-align: right;
+}
+
+.preview-break {
+	background: #fff8e5;
+	border-color: #ffc107;
+}
+
+.preview-break .preview-level-blinds {
+	color: #d63638;
+	font-weight: 600;
+}
+
+.preview-empty {
+	padding: 30px;
+	text-align: center;
+	color: #646970;
+	font-style: italic;
+}
+
+/* ==========================================================================
+   Loading States
+   ========================================================================== */
+
+.tdwp-saving {
+	opacity: 0.6;
+	pointer-events: none;
+}
+
+.button.is-busy::after {
+	content: "";
+	display: inline-block;
+	width: 16px;
+	height: 16px;
+	margin-left: 8px;
+	border: 2px solid #f3f3f3;
+	border-top: 2px solid #3498db;
+	border-radius: 50%;
+	animation: tdwp-spin 1s linear infinite;
+	vertical-align: middle;
+}
+
+@keyframes tdwp-spin {
+	0% {
+		transform: rotate(0deg);
+	}
+	100% {
+		transform: rotate(360deg);
+	}
+}
+
+/* ==========================================================================
+   Responsive Styles
+   ========================================================================== */
+
+@media screen and (max-width: 782px) {
+	.tdwp-schedule-form input[type="text"].regular-text,
+	.tdwp-schedule-form textarea.large-text {
+		width: 100%;
+	}
+
+	.level-builder-controls button {
+		display: block;
+		width: 100%;
+		margin: 0 0 10px 0;
+	}
+
+	.levels-list .column-drag,
+	.levels-list .column-order {
+		display: none;
+	}
+
+	.levels-list thead th {
+		font-size: 12px;
+		padding: 8px;
+	}
+
+	.levels-list tbody td {
+		padding: 8px;
+	}
+
+	.levels-list .column-sb input,
+	.levels-list .column-bb input,
+	.levels-list .column-ante input {
+		width: 60px;
+		font-size: 13px;
+	}
+
+	.preview-level {
+		flex-direction: column;
+		align-items: flex-start;
+	}
+
+	.preview-level-number,
+	.preview-level-blinds,
+	.preview-level-ante {
+		width: 100%;
+		text-align: left;
+		margin-bottom: 5px;
+	}
+
+	.preview-level-ante {
+		margin-bottom: 0;
+	}
+}
+
+/* ==========================================================================
+   Utility Classes
+   ========================================================================== */
+
+.tdwp-hidden {
+	display: none !important;
+}
+
+.tdwp-text-success {
+	color: #00a32a;
+}
+
+.tdwp-text-error {
+	color: #d63638;
+}
+
+.tdwp-text-muted {
+	color: #646970;
+}
+
+.tdwp-text-center {
+	text-align: center;
+}

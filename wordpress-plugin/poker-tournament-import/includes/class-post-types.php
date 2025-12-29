@@ -20,6 +20,7 @@ class Poker_Tournament_Import_Post_Types {
         $this->register_series_post_type();
         $this->register_season_post_type();
         $this->register_player_post_type();
+        $this->register_live_tournament_post_type();
     }
 
     /**
@@ -186,5 +187,53 @@ class Poker_Tournament_Import_Post_Types {
         );
 
         register_post_type('player', $args);
+    }
+
+    /**
+     * Register Live Tournament post type
+     * For actively running tournaments with clock/table management
+     */
+    private function register_live_tournament_post_type() {
+        $labels = array(
+            'name' => _x('Live Tournaments', 'Post type general name', 'poker-tournament-import'),
+            'singular_name' => _x('Live Tournament', 'Post type singular name', 'poker-tournament-import'),
+            'menu_name' => _x('Live Tournaments', 'Admin Menu text', 'poker-tournament-import'),
+            'add_new' => __('New Live Tournament', 'poker-tournament-import'),
+            'add_new_item' => __('Create Live Tournament', 'poker-tournament-import'),
+            'new_item' => __('New Live Tournament', 'poker-tournament-import'),
+            'edit_item' => __('Manage Live Tournament', 'poker-tournament-import'),
+            'view_item' => __('View Live Tournament', 'poker-tournament-import'),
+            'all_items' => __('All Live Tournaments', 'poker-tournament-import'),
+            'search_items' => __('Search Live Tournaments', 'poker-tournament-import'),
+            'not_found' => __('No live tournaments found.', 'poker-tournament-import'),
+            'not_found_in_trash' => __('No live tournaments found in Trash.', 'poker-tournament-import'),
+        );
+
+        $args = array(
+            'label' => __('Live Tournament', 'poker-tournament-import'),
+            'labels' => $labels,
+            'public' => false,
+            'has_archive' => false,
+            'publicly_queryable' => false,
+            'show_ui' => true,
+            'show_in_menu' => 'tdwp-tournament-manager',
+            'query_var' => false,
+            'capability_type' => 'post',
+            'map_meta_cap' => true,
+            'capabilities' => array(
+                'create_posts' => 'manage_options',
+                'edit_posts' => 'manage_options',
+                'edit_others_posts' => 'manage_options',
+                'delete_posts' => 'manage_options',
+                'publish_posts' => 'manage_options',
+                'read_private_posts' => 'manage_options',
+            ),
+            'hierarchical' => false,
+            'supports' => array('title', 'custom-fields'),
+            'show_in_rest' => false,
+            'menu_icon' => 'dashicons-games',
+        );
+
+        register_post_type('live_tournament', $args);
     }
 }

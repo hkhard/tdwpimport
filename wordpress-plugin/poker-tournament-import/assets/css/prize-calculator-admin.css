@@ -1,0 +1,687 @@
+/**
+ * Prize Calculator Admin Styles
+ *
+ * @package Poker_Tournament_Import
+ * @subpackage Tournament_Manager
+ * @since 3.0.0
+ */
+
+/* ==========================================================================
+   Tabs Navigation
+   ========================================================================== */
+
+.tdwp-calculator-tabs {
+	margin-bottom: 20px;
+	border-bottom: 1px solid #c3c4c7;
+}
+
+.tdwp-calculator-tabs .nav-tab {
+	margin-left: 0;
+}
+
+/* ==========================================================================
+   Structure List Table
+   ========================================================================== */
+
+.tdwp-prize-calculator .wp-list-table .column-name {
+	width: 30%;
+}
+
+.tdwp-prize-calculator .wp-list-table .column-players {
+	width: 15%;
+}
+
+.tdwp-prize-calculator .wp-list-table .column-places {
+	width: 12%;
+	text-align: center;
+}
+
+.tdwp-prize-calculator .wp-list-table .column-preview {
+	width: 25%;
+}
+
+.tdwp-prize-calculator .wp-list-table .column-date {
+	width: 15%;
+}
+
+.tdwp-prize-calculator .row-actions {
+	padding: 5px 0;
+}
+
+/* ==========================================================================
+   Structure Form
+   ========================================================================== */
+
+.tdwp-structure-form .form-table th {
+	padding: 20px 10px 20px 0;
+	vertical-align: middle;
+}
+
+.tdwp-structure-form .form-table td {
+	padding: 20px 10px;
+}
+
+.tdwp-structure-form .required {
+	color: #d63638;
+	font-weight: bold;
+}
+
+.tdwp-structure-form .description {
+	margin-top: 5px;
+	font-style: italic;
+	color: #646970;
+}
+
+.tdwp-structure-form input[type="number"].small-text {
+	width: 100px;
+}
+
+.tdwp-structure-form input[type="text"].regular-text {
+	width: 350px;
+}
+
+.tdwp-structure-form textarea.large-text {
+	width: 500px;
+	max-width: 100%;
+}
+
+/* ==========================================================================
+   Payout Builder
+   ========================================================================== */
+
+.tdwp-payout-builder {
+	margin: 20px 0;
+	padding: 20px;
+	background: #f6f7f7;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+}
+
+.payout-builder-controls {
+	margin-bottom: 20px;
+	padding: 15px;
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 15px;
+}
+
+.payout-builder-controls #add-place-button {
+	margin-right: auto;
+}
+
+.preset-buttons {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	flex-wrap: wrap;
+}
+
+.preset-buttons span {
+	font-weight: 600;
+	color: #646970;
+}
+
+.preset-buttons button {
+	padding: 4px 12px;
+	font-size: 12px;
+}
+
+.percentage-sum-indicator {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 8px 15px;
+	background: #fff;
+	border: 2px solid #c3c4c7;
+	border-radius: 4px;
+	font-weight: 600;
+}
+
+.percentage-sum-indicator .sum-value {
+	font-size: 16px;
+	color: #2271b1;
+	min-width: 50px;
+	text-align: right;
+}
+
+.percentage-sum-indicator.valid {
+	border-color: #00a32a;
+	background: #f0f6fc;
+}
+
+.percentage-sum-indicator.valid .sum-value {
+	color: #00a32a;
+}
+
+.percentage-sum-indicator.invalid {
+	border-color: #d63638;
+	background: #fcf0f1;
+}
+
+.percentage-sum-indicator.invalid .sum-value {
+	color: #d63638;
+}
+
+.sum-status {
+	font-size: 18px;
+}
+
+.sum-status.valid::after {
+	content: "\2713";
+	color: #00a32a;
+}
+
+.sum-status.invalid::after {
+	content: "\2717";
+	color: #d63638;
+}
+
+/* ==========================================================================
+   Places List
+   ========================================================================== */
+
+.places-list {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	margin-bottom: 20px;
+}
+
+.place-row {
+	display: flex;
+	align-items: center;
+	gap: 15px;
+	padding: 15px;
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	transition: all 0.2s;
+}
+
+.place-row:hover {
+	border-color: #2271b1;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.place-row.invalid {
+	border-color: #d63638;
+	background: #fcf0f1;
+}
+
+.place-number {
+	min-width: 80px;
+}
+
+.place-number label {
+	display: block;
+	font-weight: 600;
+	font-size: 12px;
+	color: #646970;
+	margin-bottom: 5px;
+}
+
+.place-number input {
+	width: 60px;
+	text-align: center;
+	font-weight: 600;
+	color: #2271b1;
+	background: #f6f7f7;
+}
+
+.place-percentage {
+	flex-grow: 1;
+}
+
+.place-percentage label {
+	display: block;
+	font-weight: 600;
+	font-size: 12px;
+	color: #646970;
+	margin-bottom: 5px;
+}
+
+.place-percentage input {
+	width: 120px;
+}
+
+.percentage-input.invalid {
+	border-color: #d63638;
+	background: #fcf0f1;
+}
+
+.place-actions {
+	min-width: 80px;
+}
+
+.delete-place {
+	color: #d63638;
+	border-color: #d63638;
+}
+
+.delete-place:hover {
+	background: #d63638;
+	color: #fff;
+	border-color: #d63638;
+}
+
+/* ==========================================================================
+   Payout Preview
+   ========================================================================== */
+
+.payout-preview {
+	margin-top: 20px;
+	padding: 15px;
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+}
+
+.payout-preview h4 {
+	margin-top: 0;
+	margin-bottom: 15px;
+	font-size: 14px;
+	font-weight: 600;
+}
+
+#payout-preview-content {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+	gap: 10px;
+}
+
+.preview-payout {
+	padding: 10px;
+	background: #f6f7f7;
+	border: 1px solid #dcdcde;
+	border-radius: 3px;
+	text-align: center;
+}
+
+.preview-payout .place {
+	font-weight: 600;
+	color: #2271b1;
+	font-size: 12px;
+}
+
+.preview-payout .amount {
+	font-size: 16px;
+	font-weight: 700;
+	color: #00a32a;
+	margin-top: 5px;
+}
+
+.preview-payout .percentage {
+	font-size: 11px;
+	color: #646970;
+	margin-top: 2px;
+}
+
+/* ==========================================================================
+   Calculator Tool
+   ========================================================================== */
+
+.tdwp-calculator-tool {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 30px;
+	margin-top: 20px;
+}
+
+.calculator-inputs,
+.calculator-results {
+	background: #fff;
+	padding: 20px;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+}
+
+.calculator-inputs h3,
+.calculator-results h3 {
+	margin-top: 0;
+	margin-bottom: 15px;
+	padding-bottom: 10px;
+	border-bottom: 2px solid #2271b1;
+}
+
+.calculator-inputs .form-table {
+	margin-bottom: 0;
+}
+
+.calculator-inputs .form-table th {
+	font-weight: 600;
+	color: #1d2327;
+}
+
+.calculator-results {
+	position: sticky;
+	top: 32px;
+	max-height: calc(100vh - 80px);
+	overflow-y: auto;
+}
+
+#pool-breakdown {
+	margin-bottom: 20px;
+}
+
+.pool-breakdown-item {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 10px;
+	margin-bottom: 8px;
+	background: #f6f7f7;
+	border-radius: 3px;
+}
+
+.pool-breakdown-item.total {
+	background: #f0f6fc;
+	border: 2px solid #2271b1;
+	font-weight: 700;
+	font-size: 16px;
+}
+
+.pool-breakdown-item .label {
+	color: #646970;
+}
+
+.pool-breakdown-item .value {
+	font-weight: 600;
+	color: #1d2327;
+}
+
+.pool-breakdown-item.total .value {
+	color: #00a32a;
+}
+
+#structure-select {
+	margin: 15px 0;
+	width: 100%;
+}
+
+.tdwp-payout-table {
+	width: 100%;
+	border-collapse: collapse;
+	margin-top: 15px;
+}
+
+.tdwp-payout-table thead th {
+	background: #f6f7f7;
+	padding: 10px;
+	text-align: left;
+	font-weight: 600;
+	border-bottom: 2px solid #c3c4c7;
+}
+
+.tdwp-payout-table tbody td {
+	padding: 10px;
+	border-bottom: 1px solid #dcdcde;
+}
+
+.tdwp-payout-table tbody tr:nth-child(odd) {
+	background: #f9f9f9;
+}
+
+.tdwp-payout-table tbody tr:hover {
+	background: #f0f6fc;
+}
+
+.tdwp-payout-table tbody tr:first-child {
+	background: #fff8e5;
+	font-weight: 600;
+}
+
+.tdwp-payout-table tbody tr:first-child:hover {
+	background: #fff3cd;
+}
+
+/* ==========================================================================
+   Chop Calculator
+   ========================================================================== */
+
+.tdwp-chop-calculator {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 30px;
+	margin-top: 20px;
+}
+
+.chop-inputs,
+.chop-results {
+	background: #fff;
+	padding: 20px;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+}
+
+.chop-inputs h3,
+.chop-inputs h4,
+.chop-results h3 {
+	margin-top: 0;
+	margin-bottom: 15px;
+	padding-bottom: 10px;
+	border-bottom: 2px solid #2271b1;
+}
+
+.chop-inputs h4 {
+	border-bottom: 1px solid #c3c4c7;
+	margin-top: 20px;
+}
+
+#chop-players-container {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	margin-bottom: 15px;
+}
+
+.chop-player-row {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 10px;
+	background: #f6f7f7;
+	border: 1px solid #c3c4c7;
+	border-radius: 3px;
+}
+
+.chop-player-row .player-name {
+	flex: 2;
+}
+
+.chop-player-row .player-chips {
+	flex: 1;
+}
+
+.chop-player-row .remove-player {
+	color: #d63638;
+	border-color: #d63638;
+}
+
+.chop-player-row .remove-player:hover {
+	background: #d63638;
+	color: #fff;
+}
+
+.chop-results {
+	position: sticky;
+	top: 32px;
+	max-height: calc(100vh - 80px);
+	overflow-y: auto;
+}
+
+#chop-distribution {
+	margin-top: 15px;
+}
+
+.chop-distribution-item {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 12px;
+	margin-bottom: 10px;
+	background: #f6f7f7;
+	border: 1px solid #c3c4c7;
+	border-radius: 3px;
+}
+
+.chop-distribution-item.highlight {
+	background: #f0f6fc;
+	border-color: #2271b1;
+}
+
+.chop-distribution-item .player-info {
+	display: flex;
+	flex-direction: column;
+}
+
+.chop-distribution-item .player-name {
+	font-weight: 600;
+	color: #1d2327;
+}
+
+.chop-distribution-item .player-chips {
+	font-size: 12px;
+	color: #646970;
+}
+
+.chop-distribution-item .chop-amount {
+	font-size: 18px;
+	font-weight: 700;
+	color: #00a32a;
+}
+
+/* ==========================================================================
+   Loading States
+   ========================================================================== */
+
+.tdwp-loading {
+	opacity: 0.6;
+	pointer-events: none;
+}
+
+.button.is-busy::after {
+	content: "";
+	display: inline-block;
+	width: 16px;
+	height: 16px;
+	margin-left: 8px;
+	border: 2px solid #f3f3f3;
+	border-top: 2px solid #3498db;
+	border-radius: 50%;
+	animation: tdwp-spin 1s linear infinite;
+	vertical-align: middle;
+}
+
+@keyframes tdwp-spin {
+	0% {
+		transform: rotate(0deg);
+	}
+	100% {
+		transform: rotate(360deg);
+	}
+}
+
+/* ==========================================================================
+   Responsive Styles
+   ========================================================================== */
+
+@media screen and (max-width: 1200px) {
+	.tdwp-calculator-tool,
+	.tdwp-chop-calculator {
+		grid-template-columns: 1fr;
+	}
+
+	.calculator-results,
+	.chop-results {
+		position: static;
+		max-height: none;
+	}
+
+	#payout-preview-content {
+		grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+	}
+}
+
+@media screen and (max-width: 782px) {
+	.tdwp-structure-form input[type="text"].regular-text,
+	.tdwp-structure-form textarea.large-text {
+		width: 100%;
+	}
+
+	.payout-builder-controls {
+		flex-direction: column;
+		align-items: stretch;
+	}
+
+	.payout-builder-controls #add-place-button {
+		margin-right: 0;
+	}
+
+	.preset-buttons {
+		flex-direction: column;
+		align-items: stretch;
+	}
+
+	.preset-buttons button {
+		width: 100%;
+	}
+
+	.place-row {
+		flex-direction: column;
+		align-items: stretch;
+		gap: 10px;
+	}
+
+	.place-number,
+	.place-percentage,
+	.place-actions {
+		min-width: auto;
+		width: 100%;
+	}
+
+	.place-percentage input {
+		width: 100%;
+	}
+
+	#payout-preview-content {
+		grid-template-columns: repeat(2, 1fr);
+	}
+
+	.chop-player-row {
+		flex-direction: column;
+		align-items: stretch;
+	}
+
+	.chop-player-row .player-name,
+	.chop-player-row .player-chips {
+		width: 100%;
+	}
+}
+
+/* ==========================================================================
+   Utility Classes
+   ========================================================================== */
+
+.tdwp-hidden {
+	display: none !important;
+}
+
+.tdwp-text-success {
+	color: #00a32a;
+}
+
+.tdwp-text-error {
+	color: #d63638;
+}
+
+.tdwp-text-muted {
+	color: #646970;
+}
+
+.tdwp-text-center {
+	text-align: center;
+}

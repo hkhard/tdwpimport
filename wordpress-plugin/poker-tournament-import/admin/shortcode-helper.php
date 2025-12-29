@@ -35,13 +35,37 @@ class Poker_Shortcode_Helper {
             return;
         }
 
-        // Enqueue styles
-        wp_enqueue_style(
-            'poker-shortcode-helper',
-            POKER_TOURNAMENT_IMPORT_PLUGIN_URL . 'assets/css/shortcode-helper.css',
-            array(),
-            POKER_TOURNAMENT_IMPORT_VERSION
-        );
+        // Add inline styles for shortcode helper meta box
+        $styles = '
+        .poker-shortcode-helper-content {
+            padding: 10px;
+        }
+        .shortcode-example {
+            margin-bottom: 10px;
+        }
+        .shortcode-example label {
+            display: block;
+            margin-bottom: 3px;
+            font-weight: 600;
+            font-size: 12px;
+        }
+        .shortcode-example input {
+            font-family: monospace;
+            font-size: 11px;
+        }
+        .shortcode-info {
+            margin: 10px 0;
+            padding: 8px;
+            background: #f9f9f9;
+            border-left: 3px solid #0073aa;
+            border-radius: 3px;
+        }
+        .shortcode-links {
+            margin-top: 10px;
+        }
+        ';
+
+        wp_add_inline_style('wp-admin', $styles);
     }
 
     /**

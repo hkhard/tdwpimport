@@ -1,0 +1,72 @@
+# Distribution exclusion file for WordPress plugin
+# Excludes development files, dependencies, and non-essential items
+
+# Composer dependencies (bundled separately)
+vendor/
+composer.json
+composer.lock
+
+# Development files
+.git/
+.gitignore
+.gitattributes
+.svn/
+.hg/
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Node.js dependencies
+node_modules/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Build and temporary files
+build/
+dist/
+tmp/
+.cache/
+*.tmp
+*.log
+
+# Testing files
+tests/
+*.test.php
+*.spec.php
+phpunit.xml
+.phpunit.result.cache
+
+# Development tools
+.php-cs-fixer.php
+.php_cs
+.eslintrc*
+.prettierrc*
+.vscode/
+.idea/
+
+# Backup files
+*.backup
+*.bak
+*.old
+
+# Documentation (kept minimal)
+README.md
+CHANGELOG.md
+LICENSE.md
+
+# Local development configuration
+.env
+.env.local
+.env.example
+
+# IDE and editor files
+*.sublime-*
+*.sublime-project
+*.sublime-workspace
+
+# OS-specific files
+desktop.ini
+ehthumbs.db

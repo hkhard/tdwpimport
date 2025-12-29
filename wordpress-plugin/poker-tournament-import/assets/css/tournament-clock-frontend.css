@@ -1,0 +1,386 @@
+/**
+ * Tournament Clock Frontend Styles
+ *
+ * Public display for tournament clock shortcode
+ *
+ * @package Poker_Tournament_Import
+ * @since 3.1.0
+ */
+
+/* ========================================
+   Clock Widget Base
+   ======================================== */
+
+.tdwp-clock-widget {
+	max-width: 800px;
+	margin: 0 auto;
+	padding: 30px;
+	background: #fff;
+	border-radius: 12px;
+	box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+	text-align: center;
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+}
+
+/* ========================================
+   Clock Main Display
+   ======================================== */
+
+.tdwp-clock-main {
+	margin-bottom: 30px;
+}
+
+.tdwp-clock-time {
+	font-size: 96px;
+	font-weight: 700;
+	line-height: 1;
+	color: #1d2327;
+	margin: 20px 0;
+	font-variant-numeric: tabular-nums;
+	letter-spacing: -3px;
+}
+
+.tdwp-clock-level {
+	font-size: 28px;
+	font-weight: 600;
+	color: #646970;
+	margin: 15px 0;
+}
+
+.tdwp-clock-status {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	font-size: 14px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 1px;
+	padding: 8px 20px;
+	border-radius: 20px;
+	margin-top: 10px;
+}
+
+/* Status indicator dot */
+.tdwp-status-indicator {
+	width: 10px;
+	height: 10px;
+	border-radius: 50%;
+	display: inline-block;
+}
+
+/* Status colors */
+.tdwp-clock-status-running .tdwp-clock-status {
+	background: rgba(0, 200, 83, 0.1);
+	color: #00a32a;
+	border: 2px solid rgba(0, 200, 83, 0.3);
+}
+
+.tdwp-clock-status-running .tdwp-status-indicator {
+	background: #00a32a;
+	animation: tdwp-pulse-dot 2s ease-in-out infinite;
+}
+
+.tdwp-clock-status-paused .tdwp-clock-status {
+	background: rgba(255, 193, 7, 0.1);
+	color: #f0b429;
+	border: 2px solid rgba(255, 193, 7, 0.3);
+}
+
+.tdwp-clock-status-paused .tdwp-status-indicator {
+	background: #f0b429;
+}
+
+.tdwp-clock-status-break .tdwp-clock-status {
+	background: rgba(33, 150, 243, 0.1);
+	color: #2196f3;
+	border: 2px solid rgba(33, 150, 243, 0.3);
+}
+
+.tdwp-clock-status-break .tdwp-status-indicator {
+	background: #2196f3;
+	animation: tdwp-pulse-dot 2s ease-in-out infinite;
+}
+
+.tdwp-clock-status-completed .tdwp-clock-status {
+	background: rgba(214, 54, 56, 0.1);
+	color: #d63638;
+	border: 2px solid rgba(214, 54, 56, 0.3);
+}
+
+.tdwp-clock-status-completed .tdwp-status-indicator {
+	background: #d63638;
+}
+
+@keyframes tdwp-pulse-dot {
+	0%, 100% {
+		opacity: 1;
+		transform: scale(1);
+	}
+	50% {
+		opacity: 0.6;
+		transform: scale(1.2);
+	}
+}
+
+/* ========================================
+   Statistics Grid
+   ======================================== */
+
+.tdwp-clock-stats {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+	gap: 15px;
+	padding: 20px 0;
+	border-top: 2px solid #f0f0f1;
+	border-bottom: 2px solid #f0f0f1;
+}
+
+.tdwp-clock-stat {
+	padding: 15px;
+	background: #f6f7f7;
+	border-radius: 8px;
+}
+
+.tdwp-stat-label {
+	display: block;
+	font-size: 11px;
+	font-weight: 600;
+	text-transform: uppercase;
+	color: #646970;
+	margin-bottom: 8px;
+	letter-spacing: 0.5px;
+}
+
+.tdwp-stat-value {
+	display: block;
+	font-size: 24px;
+	font-weight: 700;
+	color: #1d2327;
+	line-height: 1;
+}
+
+/* ========================================
+   Footer
+   ======================================== */
+
+.tdwp-clock-footer {
+	margin-top: 20px;
+	padding-top: 15px;
+	border-top: 1px solid #f0f0f1;
+}
+
+.tdwp-clock-footer small {
+	color: #646970;
+	font-size: 12px;
+}
+
+/* ========================================
+   Empty State
+   ======================================== */
+
+.tdwp-clock-empty {
+	padding: 60px 30px;
+	background: #f6f7f7;
+}
+
+.tdwp-clock-message {
+	color: #646970;
+	font-size: 16px;
+}
+
+.tdwp-clock-message p {
+	margin: 0;
+}
+
+/* ========================================
+   Theme: Dark
+   ======================================== */
+
+.tdwp-clock-theme-dark {
+	background: #1d2327;
+	color: #fff;
+}
+
+.tdwp-clock-theme-dark .tdwp-clock-time {
+	color: #fff;
+	text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.tdwp-clock-theme-dark .tdwp-clock-level {
+	color: #c3c4c7;
+}
+
+.tdwp-clock-theme-dark .tdwp-clock-stat {
+	background: #2c3338;
+}
+
+.tdwp-clock-theme-dark .tdwp-stat-label {
+	color: #a7aaad;
+}
+
+.tdwp-clock-theme-dark .tdwp-stat-value {
+	color: #fff;
+}
+
+.tdwp-clock-theme-dark .tdwp-clock-stats {
+	border-top-color: #3c434a;
+	border-bottom-color: #3c434a;
+}
+
+.tdwp-clock-theme-dark .tdwp-clock-footer {
+	border-top-color: #3c434a;
+}
+
+.tdwp-clock-theme-dark .tdwp-clock-footer small {
+	color: #a7aaad;
+}
+
+/* ========================================
+   Theme: Light (High Contrast)
+   ======================================== */
+
+.tdwp-clock-theme-light {
+	background: #ffffff;
+	border: 2px solid #dcdcde;
+}
+
+.tdwp-clock-theme-light .tdwp-clock-time {
+	color: #000;
+}
+
+/* ========================================
+   Size Variants
+   ======================================== */
+
+/* Small */
+.tdwp-clock-size-small {
+	max-width: 400px;
+	padding: 20px;
+}
+
+.tdwp-clock-size-small .tdwp-clock-time {
+	font-size: 48px;
+}
+
+.tdwp-clock-size-small .tdwp-clock-level {
+	font-size: 18px;
+}
+
+.tdwp-clock-size-small .tdwp-clock-status {
+	font-size: 12px;
+	padding: 6px 15px;
+}
+
+.tdwp-clock-size-small .tdwp-stat-value {
+	font-size: 18px;
+}
+
+.tdwp-clock-size-small .tdwp-clock-stats {
+	padding: 15px 0;
+	gap: 10px;
+}
+
+/* Medium */
+.tdwp-clock-size-medium {
+	max-width: 600px;
+}
+
+.tdwp-clock-size-medium .tdwp-clock-time {
+	font-size: 72px;
+}
+
+.tdwp-clock-size-medium .tdwp-clock-level {
+	font-size: 24px;
+}
+
+/* Large (default) */
+.tdwp-clock-size-large {
+	max-width: 800px;
+}
+
+/* ========================================
+   Responsive
+   ======================================== */
+
+@media screen and (max-width: 768px) {
+	.tdwp-clock-widget {
+		padding: 20px;
+	}
+
+	.tdwp-clock-time {
+		font-size: 64px;
+	}
+
+	.tdwp-clock-level {
+		font-size: 20px;
+	}
+
+	.tdwp-clock-stats {
+		grid-template-columns: 1fr;
+	}
+
+	.tdwp-stat-value {
+		font-size: 20px;
+	}
+}
+
+@media screen and (max-width: 480px) {
+	.tdwp-clock-time {
+		font-size: 48px;
+	}
+
+	.tdwp-clock-level {
+		font-size: 18px;
+	}
+
+	.tdwp-clock-status {
+		font-size: 12px;
+		padding: 6px 15px;
+	}
+}
+
+/* ========================================
+   Fullscreen Mode (for TV displays)
+   ======================================== */
+
+.tdwp-clock-fullscreen {
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	max-width: none;
+	border-radius: 0;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	z-index: 999999;
+}
+
+.tdwp-clock-fullscreen .tdwp-clock-time {
+	font-size: 160px;
+}
+
+.tdwp-clock-fullscreen .tdwp-clock-level {
+	font-size: 48px;
+}
+
+.tdwp-clock-fullscreen .tdwp-stat-value {
+	font-size: 36px;
+}
+
+/* ========================================
+   Print Styles
+   ======================================== */
+
+@media print {
+	.tdwp-clock-widget {
+		box-shadow: none;
+		border: 2px solid #000;
+	}
+
+	.tdwp-clock-status,
+	.tdwp-clock-footer {
+		display: none;
+	}
+}

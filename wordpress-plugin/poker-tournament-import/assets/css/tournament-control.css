@@ -1,0 +1,428 @@
+/**
+ * Tournament Control Base Styles
+ * Tab framework, minimized indicator, modals
+ */
+
+/* Form field error highlighting */
+.tdwp-tournament-control input.error,
+.tdwp-tournament-control select.error,
+.tdwp-tournament-control textarea.error {
+    border-color: #d63638 !important;
+    box-shadow: 0 0 0 1px #d63638 !important;
+    background-color: #fef7f7 !important;
+}
+
+.tdwp-tournament-control input.error:focus,
+.tdwp-tournament-control select.error:focus,
+.tdwp-tournament-control textarea.error:focus {
+    outline-color: #d63638 !important;
+    box-shadow: 0 0 0 2px #d63638 !important;
+}
+
+.tdwp-tournament-control {
+    margin-top: 20px;
+}
+
+/* Minimized Clock Indicator */
+.tdwp-minimized-clock {
+    position: sticky;
+    top: 32px;
+    background: #2271b1;
+    color: #fff;
+    padding: 12px 20px;
+    border-radius: 3px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    font-size: 14px;
+    font-weight: 600;
+    z-index: 100;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.tdwp-minimized-clock .clock-divider {
+    color: rgba(255,255,255,0.5);
+}
+
+.tdwp-minimized-clock .clock-time {
+    font-family: 'Courier New', monospace;
+    font-size: 16px;
+}
+
+/* Tab Navigation */
+.tdwp-tab-nav {
+    display: flex;
+    gap: 5px;
+    border-bottom: 1px solid #c3c4c7;
+    margin-bottom: 20px;
+}
+
+.tdwp-tab-button {
+    background: #f0f0f1;
+    border: 1px solid #c3c4c7;
+    border-bottom: none;
+    padding: 10px 20px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    color: #50575e;
+    border-radius: 3px 3px 0 0;
+    transition: background 0.2s;
+}
+
+.tdwp-tab-button:hover {
+    background: #fff;
+}
+
+.tdwp-tab-button.active {
+    background: #fff;
+    color: #2271b1;
+    border-bottom: 2px solid #fff;
+    margin-bottom: -1px;
+}
+
+/* Tab Panels */
+.tdwp-tab-content {
+    background: #fff;
+    border: 1px solid #c3c4c7;
+    border-radius: 0 3px 3px 3px;
+    padding: 20px;
+    min-height: 600px;
+}
+
+.tdwp-tab-panel {
+    display: none;
+}
+
+.tdwp-tab-panel.active {
+    display: block;
+}
+
+/* Stub Content */
+.stub-content {
+    text-align: center;
+    padding: 60px 20px;
+}
+
+.stub-message h2 {
+    color: #50575e;
+    margin-bottom: 10px;
+}
+
+.stub-message .description {
+    font-size: 16px;
+    color: #787c82;
+    margin-bottom: 40px;
+}
+
+.feature-preview {
+    max-width: 600px;
+    margin: 0 auto;
+    text-align: left;
+    background: #f6f7f7;
+    padding: 30px;
+    border-radius: 5px;
+}
+
+.feature-preview h3 {
+    margin-top: 0;
+    color: #2271b1;
+}
+
+.feature-list {
+    list-style: none;
+    padding: 0;
+}
+
+.feature-list li {
+    padding: 10px 0;
+    border-bottom: 1px solid #dcdcde;
+}
+
+.feature-list li:last-child {
+    border-bottom: none;
+}
+
+.feature-list li:before {
+    content: "→ ";
+    color: #2271b1;
+    font-weight: bold;
+    margin-right: 8px;
+}
+
+/* Inline Expansion Styles (WordPress Quick Edit style) */
+.tdwp-bustout-template-table {
+    display: none !important;
+}
+
+.tdwp-bustout-inline-template {
+    display: none !important;
+}
+
+tr.tdwp-bustout-inline-row {
+    background: #f6f7f7;
+    animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        max-height: 0;
+    }
+    to {
+        opacity: 1;
+        max-height: 600px;
+    }
+}
+
+.tdwp-bustout-inline-cell {
+    padding: 0 !important;
+}
+
+.tdwp-bustout-inline-container {
+    background: #fff;
+    border: 1px solid #c3c4c7;
+    border-radius: 3px;
+    margin: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+}
+
+.tdwp-bustout-inline-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 20px;
+    background: #f6f7f7;
+    border-bottom: 1px solid #c3c4c7;
+}
+
+.tdwp-bustout-inline-header h4 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #2271b1;
+}
+
+.tdwp-bustout-inline-close {
+    background: transparent;
+    border: none;
+    font-size: 24px;
+    line-height: 1;
+    color: #787c82;
+    cursor: pointer;
+    padding: 0;
+    width: 24px;
+    height: 24px;
+}
+
+.tdwp-bustout-inline-close:hover {
+    color: #d63638;
+}
+
+.tdwp-bustout-inline-body {
+    padding: 20px;
+}
+
+.tdwp-bustout-inline-body .bustout-player-name {
+    font-size: 15px;
+    margin-bottom: 15px;
+}
+
+.eliminator-section {
+    margin: 15px 0;
+}
+
+.eliminator-label {
+    font-weight: 600;
+    margin-bottom: 8px;
+    display: block;
+}
+
+.tdwp-bustout-inline-footer {
+    padding: 15px 20px;
+    background: #f6f7f7;
+    border-top: 1px solid #c3c4c7;
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+}
+
+/* Utility Classes */
+.status-item {
+    padding: 5px 12px;
+    background: #f0f0f1;
+    border-radius: 3px;
+    font-size: 13px;
+}
+
+.balance-status-balanced {
+    background: #00a32a;
+    color: #fff;
+}
+
+.balance-status-unbalanced {
+    background: #d63638;
+    color: #fff;
+}
+
+.balance-status-single_table {
+    background: #787c82;
+    color: #fff;
+}
+
+/* ===== Multi-Hitman Bustout Styles ===== */
+
+.bustout-confirmation {
+    margin-bottom: 20px;
+    padding: 15px;
+    background: #f0f0f1;
+    border-left: 4px solid #d63638;
+    border-radius: 3px;
+}
+
+.bustout-confirmation label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    margin: 0;
+}
+
+.bustout-confirmation input[type="checkbox"] {
+    margin-right: 10px;
+    cursor: pointer;
+}
+
+.eliminator-checkboxes-container {
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    padding: 10px;
+    margin: 15px 0;
+    background: #fff;
+    border-radius: 3px;
+}
+
+.eliminator-checkbox {
+    display: block;
+    padding: 8px 10px;
+    margin: 5px 0;
+    cursor: pointer;
+    transition: background 0.2s ease;
+    border-radius: 3px;
+}
+
+.eliminator-checkbox:hover {
+    background: #f0f0f1;
+}
+
+.eliminator-checkbox input[type="checkbox"] {
+    margin-right: 8px;
+    cursor: pointer;
+}
+
+.eliminator-checkbox:has(input:checked) {
+    background: #e5f5fa;
+    border-left: 3px solid #2271b1;
+}
+
+/* Bounty preview styling */
+.bounty-preview {
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Phase 3: Enhanced Bustout Tracking & Player Withdrawals */
+.withdrawn-status {
+    background-color: #f0f6fc;
+    border: 1px solid #2271b1;
+    color: #2271b1;
+}
+
+.declined-reentry-status {
+    background-color: #fef7ed;
+    border: 1px solid #d83b01;
+    color: #d83b01;
+}
+
+/* Withdrawal and Re-entry Modal Enhancements */
+.reentry-options {
+    margin: 15px 0;
+}
+
+.reentry-options h4 {
+    margin-bottom: 10px;
+    font-weight: 600;
+}
+
+.reentry-options .form-row {
+    margin-bottom: 15px;
+}
+
+.reentry-options input[type="radio"] {
+    margin-right: 8px;
+}
+
+.reentry-options label {
+    font-weight: 500;
+}
+
+.reentry-options .description {
+    margin: 5px 0 0 20px;
+    font-style: italic;
+    color: #666;
+    font-size: 0.9em;
+}
+
+#withdrawal-reason-field {
+    background-color: #fef7ed;
+    padding: 10px;
+    border-radius: 4px;
+    border-left: 4px solid #d83b01;
+}
+
+/* Enhanced player status display */
+.players-table .withdrawn-status:hover,
+.players-table .declined-reentry-status:hover {
+    transform: scale(1.05);
+    transition: transform 0.2s ease;
+    cursor: help;
+}
+
+/* Modal enhancements for withdrawal workflow */
+.tdwp-modal .form-row {
+    margin-bottom: 15px;
+}
+
+.tdwp-modal .form-row label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 5px;
+}
+
+.tdwp-modal .form-row .description {
+    margin-top: 5px;
+    font-size: 0.9em;
+    color: #666;
+    font-style: italic;
+}
+
+/* Re-entry option specific styling */
+input[name="reentry_option"]:checked + strong {
+    color: #2271b1;
+}
+
+input[name="reentry_option"][value="decline_withdraw"]:checked + strong {
+    color: #d83b01;
+}
+

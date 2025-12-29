@@ -1,0 +1,608 @@
+openapi: 3.0.3
+info:
+  title: Blind Schemes Management API
+  description: REST API for blind level scheme CRUD operations
+  version: 1.0.0
+  contact:
+    name: Poker Tournament Platform
+
+servers:
+  - url: http://localhost:3000/api
+    description: Local development
+  - url: https://api.example.com/api
+    description: Production
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: schemes
+    description: Blind scheme management operations
+
+paths:
+  /blind-schemes:
+    get:
+      summary: List all blind schemes
+      description: Returns list of all blind schemes with metadata (no levels)
+      operationId: listBlindSchemes
+      tags: [schemes]
+      parameters:
+        - name: includeDefault
+          in: query
+          description: Include default schemes (Turbo, Standard, Deep Stack)
+          required: false
+          schema:
+            type: boolean
+            default: true
+      responses:
+        '200':
+          description: List of blind schemes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BlindSchemeListItem'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+    post:
+      summary: Create new blind scheme
+      description: Creates a new custom blind scheme with levels
+      operationId: createBlindScheme
+      tags: [schemes]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBlindSchemeInput'
+      responses:
+        '201':
+          description: Scheme created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/BlindScheme'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: Scheme name already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                success: false
+                error: "A scheme with this name already exists"
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /blind-schemes/{schemeId}:
+    get:
+      summary: Get blind scheme details
+      description: Returns full blind scheme with all levels
+      operationId: getBlindScheme
+      tags: [schemes]
+      parameters:
+        - $ref: '#/components/parameters/schemeId'
+      responses:
+        '200':
+          description: Blind scheme details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/BlindScheme'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+    put:
+      summary: Update blind scheme
+      description: Updates blind scheme metadata and/or levels
+      operationId: updateBlindScheme
+      tags: [schemes]
+      parameters:
+        - $ref: '#/components/parameters/schemeId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateBlindSchemeInput'
+      responses:
+        '200':
+          description: Scheme updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/BlindScheme'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Cannot modify default scheme
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                success: false
+                error: "Cannot modify default blind schemes (use duplicate instead)"
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Update conflict (scheme modified by another client)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                success: false
+                error: "Scheme was modified by another device. Please refresh and try again."
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+    delete:
+      summary: Delete blind scheme
+      description: Permanently deletes a blind scheme
+      operationId: deleteBlindScheme
+      tags: [schemes]
+      parameters:
+        - $ref: '#/components/parameters/schemeId'
+      responses:
+        '200':
+          description: Scheme deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      deleted:
+                        type: string
+                        example: "abc-123-def"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Cannot delete (default or in use)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                default:
+                  summary: Default scheme
+                  value:
+                    success: false
+                    error: "Cannot delete default blind schemes"
+                inUse:
+                  summary: In use by tournament
+                  value:
+                    success: false
+                    error: "Cannot delete scheme used by active tournament"
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /blind-schemes/{schemeId}/duplicate:
+    post:
+      summary: Duplicate blind scheme
+      description: Creates a copy of an existing scheme (used for editing defaults)
+      operationId: duplicateBlindScheme
+      tags: [schemes]
+      parameters:
+        - $ref: '#/components/parameters/schemeId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Name for the duplicated scheme
+                  example: "My Custom Turbo"
+      responses:
+        '201':
+          description: Scheme duplicated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/BlindScheme'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    schemeId:
+      name: schemeId
+      in: path
+      required: true
+      description: Blind scheme UUID
+      schema:
+        type: string
+        format: uuid
+      example: "550e8400-e29b-41d4-a716-446655440000"
+
+  schemas:
+    BlindSchemeListItem:
+      type: object
+      description: Blind scheme metadata without levels (for list view)
+      required:
+        - id
+        - name
+        - startingStack
+        - levelCount
+        - totalDurationMinutes
+        - isDefault
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Scheme unique identifier
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Scheme name
+          example: "Turbo"
+        description:
+          type: string
+          maxLength: 500
+          nullable: true
+          description: Optional description
+          example: "Fast-paced tournament structure"
+          default: null
+        startingStack:
+          type: integer
+          minimum: 1
+          description: Starting chip stack
+          example: 10000
+        levelCount:
+          type: integer
+          minimum: 1
+          description: Number of blind levels in scheme
+          example: 15
+        totalDurationMinutes:
+          type: integer
+          minimum: 1
+          description: Total play time excluding breaks (minutes)
+          example: 180
+        isDefault:
+          type: boolean
+          description: Whether this is a default scheme (cannot be deleted)
+          example: true
+
+    BlindLevel:
+      type: object
+      description: Individual blind level
+      required:
+        - blindLevelId
+        - blindScheduleId
+        - level
+        - smallBlind
+        - bigBlind
+        - duration
+        - isBreak
+      properties:
+        blindLevelId:
+          type: string
+          format: uuid
+          description: Level unique identifier
+          example: "550e8400-e29b-41d4-a716-446655440001"
+        blindScheduleId:
+          type: string
+          format: uuid
+          description: Parent scheme identifier
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        level:
+          type: integer
+          minimum: 1
+          description: Sequential level number
+          example: 1
+        smallBlind:
+          type: integer
+          minimum: 0
+          description: Small blind amount
+          example: 100
+        bigBlind:
+          type: integer
+          minimum: 0
+          description: Big blind amount (must be >= smallBlind)
+          example: 200
+        ante:
+          type: integer
+          minimum: 0
+          nullable: true
+          description: Optional ante amount
+          example: 25
+          default: null
+        duration:
+          type: integer
+          minimum: 1
+          description: Level duration in minutes
+          example: 20
+        isBreak:
+          type: boolean
+          description: Whether this is a break level (break levels have zero blinds)
+          example: false
+
+    BlindScheme:
+      type: object
+      description: Complete blind scheme with levels
+      allOf:
+        - $ref: '#/components/schemas/BlindSchemeListItem'
+        - type: object
+          required:
+            - levels
+          properties:
+            levels:
+              type: array
+              description: Blind levels in sequential order
+              items:
+                $ref: '#/components/schemas/BlindLevel'
+              minItems: 1
+              example:
+                - blindLevelId: "550e8400-e29b-41d4-a716-446655440001"
+                  blindScheduleId: "550e8400-e29b-41d4-a716-446655440000"
+                  level: 1
+                  smallBlind: 100
+                  bigBlind: 200
+                  ante: 0
+                  duration: 20
+                  isBreak: false
+            createdAt:
+              type: string
+              format: date-time
+              description: ISO 8601 creation timestamp
+              example: "2025-12-28T12:00:00Z"
+            updatedAt:
+              type: string
+              format: date-time
+              description: ISO 8601 last update timestamp
+              example: "2025-12-28T12:00:00Z"
+            createdBy:
+              type: string
+              nullable: true
+              description: User ID who created the scheme
+              example: "user-123"
+
+    CreateBlindLevelInput:
+      type: object
+      description: Input for creating a blind level
+      required:
+        - smallBlind
+        - bigBlind
+        - duration
+        - isBreak
+      properties:
+        smallBlind:
+          type: integer
+          minimum: 0
+          example: 100
+        bigBlind:
+          type: integer
+          minimum: 0
+          example: 200
+        ante:
+          type: integer
+          minimum: 0
+          example: 25
+        duration:
+          type: integer
+          minimum: 1
+          example: 20
+        isBreak:
+          type: boolean
+          example: false
+
+    CreateBlindSchemeInput:
+      type: object
+      description: Input for creating a blind scheme
+      required:
+        - name
+        - startingStack
+        - breakInterval
+        - breakDuration
+        - levels
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: "My Weekly Game"
+        description:
+          type: string
+          maxLength: 500
+          example: "Custom structure for our weekly tournament"
+        startingStack:
+          type: integer
+          minimum: 1
+          example: 10000
+        breakInterval:
+          type: integer
+          minimum: 0
+          example: 5
+        breakDuration:
+          type: integer
+          minimum: 0
+          example: 10
+        levels:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/CreateBlindLevelInput'
+          example:
+            - smallBlind: 100
+              bigBlind: 200
+              duration: 20
+              isBreak: false
+
+    UpdateBlindSchemeInput:
+      type: object
+      description: Input for updating a blind scheme (all fields optional)
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: "My Weekly Game v2"
+        description:
+          type: string
+          maxLength: 500
+          example: "Updated structure"
+        startingStack:
+          type: integer
+          minimum: 1
+          example: 15000
+        breakInterval:
+          type: integer
+          minimum: 0
+          example: 6
+        breakDuration:
+          type: integer
+          minimum: 0
+          example: 15
+        levels:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/CreateBlindLevelInput'
+
+    Error:
+      type: object
+      required:
+        - success
+        - error
+      properties:
+        success:
+          type: boolean
+          enum: [false]
+        error:
+          type: string
+          description: Human-readable error message
+          example: "Validation failed"
+
+    ValidationError:
+      type: object
+      required:
+        - success
+        - errors
+      properties:
+        success:
+          type: boolean
+          enum: [false]
+        errors:
+          type: array
+          description: List of validation errors
+          items:
+            type: object
+            required:
+              - field
+              - message
+            properties:
+              field:
+                type: string
+                example: "levels[0].bigBlind"
+              message:
+                type: string
+                example: "Big blind must be >= small blind"
+              level:
+                type: integer
+                description: Level number for level-specific errors
+                example: 1
+
+  responses:
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            success: false
+            error: "Authentication required"
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            success: false
+            error: "Blind scheme not found"
+
+    ValidationError:
+      description: Validation failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationError'
+
+    ServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            success: false
+            error: "Internal server error"

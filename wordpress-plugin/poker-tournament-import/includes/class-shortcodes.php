@@ -34,6 +34,7 @@ class Poker_Tournament_Import_Shortcodes {
         add_shortcode('tdwp_season_players', array($this, 'season_players_shortcode'));
         add_shortcode('tdwp_season_standings', array($this, 'season_standings_shortcode'));
         add_shortcode('tdwp_dashboard', array($this, 'poker_dashboard_shortcode'));
+        add_shortcode('tdwp_player_registration', array($this, 'player_registration_shortcode'));
 
         // Backward compatibility - old shortcode names (deprecated but supported)
         add_shortcode('tournament_results', array($this, 'tournament_results_shortcode'));
@@ -53,6 +54,7 @@ class Poker_Tournament_Import_Shortcodes {
         add_shortcode('season_players', array($this, 'season_players_shortcode'));
         add_shortcode('season_standings', array($this, 'season_standings_shortcode'));
         add_shortcode('poker_dashboard', array($this, 'poker_dashboard_shortcode'));
+        add_shortcode('player_registration', array($this, 'player_registration_shortcode'));
     }
 
     /**
@@ -5060,6 +5062,25 @@ class Poker_Tournament_Import_Shortcodes {
         }
 
         return $results;
+    }
+
+    /**
+     * Player Registration Shortcode
+     * Usage: [player_registration title="Register Now" require_email="yes"]
+     *
+     * @since 3.0.0
+     *
+     * @param array $atts Shortcode attributes.
+     * @return string Form HTML.
+     */
+    public function player_registration_shortcode( $atts ) {
+        // Ensure registration class is loaded
+        if ( ! class_exists( 'TDWP_Player_Registration' ) ) {
+            require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/class-player-registration.php';
+        }
+
+        $registration = new TDWP_Player_Registration();
+        return $registration->render_registration_form( $atts );
     }
 }
 

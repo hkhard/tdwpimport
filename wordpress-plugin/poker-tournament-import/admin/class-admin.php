@@ -76,6 +76,18 @@ class Poker_Tournament_Import_Admin {
             array($this, 'render_settings_page')
         );
 
+        // TD3 Layout Builder menu
+        if (class_exists('TDWP_Layout_Builder')) {
+            add_submenu_page(
+                'poker-tournament-import',
+                __('TD3 Layout Builder', 'poker-tournament-import'),
+                __('Layout Builder', 'poker-tournament-import'),
+                'manage_options',
+                'tdwp-layout-builder',
+                array($this, 'render_layout_builder_page')
+            );
+        }
+
         add_submenu_page(
             'poker-tournament-import',
             __('Migration Tools', 'poker-tournament-import'),
@@ -83,6 +95,15 @@ class Poker_Tournament_Import_Admin {
             'manage_options',
             'poker-migration-tools',
             array($this, 'render_migration_page')
+        );
+
+        add_submenu_page(
+            'poker-tournament-import',
+            __('Debug Log', 'poker-tournament-import'),
+            __('Debug Log', 'poker-tournament-import'),
+            'manage_options',
+            'poker-tournament-debug-log',
+            array($this, 'render_debug_log_page')
         );
     }
 
@@ -238,8 +259,12 @@ class Poker_Tournament_Import_Admin {
         // Debug: Log the actual hook value to identify why scripts aren't loading
         error_log('Poker Import - Admin Scripts Hook: ' . $hook);
 
-        // Match our admin pages - check for both main plugin pages and migration tools
-        if (strpos($hook, 'poker-tournament-import') !== false || strpos($hook, 'poker-migration-tools') !== false || strpos($hook, 'poker') !== false) {
+        // Load tournament import scripts on main tournament pages and migration tools
+        $is_tournament_page = strpos($hook, 'poker-tournament-import') !== false;
+        $is_migration_page = strpos($hook, 'poker-migration-tools') !== false;
+
+    
+        if ($is_tournament_page || $is_migration_page) {
             wp_enqueue_style(
                 'poker-tournament-import-admin',
                 POKER_TOURNAMENT_IMPORT_PLUGIN_URL . 'assets/css/admin.css',
@@ -326,17 +351,13 @@ class Poker_Tournament_Import_Admin {
                 )
             );
 
-            // Add formula preview script for import page
+            // Add inline script for formula preview on import page
             if ($hook === 'toplevel_page_poker-tournament-import') {
-                wp_enqueue_script(
-                    'poker-formula-preview',
-                    POKER_TOURNAMENT_IMPORT_PLUGIN_URL . 'assets/js/formula-preview.js',
-                    array('jquery', 'poker-tournament-import-admin'),
-                    POKER_TOURNAMENT_IMPORT_VERSION,
-                    true
-                );
+                wp_add_inline_script('jquery', 'jQuery(document).ready(function($){var formulaData=pokerFormulaEditor.formulas;$("input[name=\'formula_mode\']").change(function(){if($(this).val()===\'override\'){$("#formula-selector").slideDown();updateFormulaPreview()}else{$("#formula-selector").slideUp();$("#formula-preview-box").slideUp()}});$("#override_formula").change(function(){updateFormulaPreview()});function updateFormulaPreview(){var selectedKey=$("#override_formula").val();var formula=formulaData[selectedKey];if(formula){$("#formula-description").text(formula.description||"No description available");var codeDisplay=formula.formula;if(formula.dependencies&&formula.dependencies.length>0){codeDisplay="// Dependencies:\\n"+formula.dependencies.join(";\\n")+";\\n\\n// Main formula:\\n"+formula.formula}$("#formula-code").text(codeDisplay);$("#formula-preview-box").slideDown()}}});');
             }
-        }
+
+          
+          }
     }
 
     /**
@@ -2072,6 +2093,15 @@ class Poker_Tournament_Import_Admin {
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/migration-tools.php';
         $migration_page = new Poker_Migration_Admin_Page();
         $migration_page->render_migration_page();
+    }
+
+    /**
+     * Render debug log page
+     *
+     * @since 3.1.0
+     */
+    public function render_debug_log_page() {
+        require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/tournament-manager/debug-log-page.php';
     }
 
     /**
@@ -4718,5 +4748,224 @@ class Poker_Tournament_Import_Admin {
         } else {
             return null; // Unsupported type
         }
+    }
+
+    /**
+     * Render TD3 Layout Builder page
+     *
+     * @since 3.4.0
+     */
+    public function render_layout_builder_page() {
+        // Check if layout builder class is available
+        if (!class_exists('TDWP_Layout_Builder')) {
+            echo '<div class="wrap">';
+            echo '<h1>' . esc_html__('TD3 Layout Builder', 'poker-tournament-import') . '</h1>';
+            echo '<div class="notice notice-error"><p>' . esc_html__('Layout Builder class not found. Please ensure TD3 Integration components are properly installed.', 'poker-tournament-import') . '</p></div>';
+            echo '</div>';
+            return;
+        }
+
+        // Get layout builder instance
+        $layout_builder = TDWP_Layout_Builder::get_instance();
+        ?>
+        <div class="wrap">
+            <h1><?php esc_html_e('TD3 Layout Builder', 'poker-tournament-import'); ?></h1>
+            <p><?php esc_html_e('Create and manage display templates for tournament screens.', 'poker-tournament-import'); ?></p>
+
+            <div id="tdwp-layout-builder-app">
+                <!-- Layout Builder Interface -->
+                <div class="tdwp-layout-builder-container">
+                    <div class="tdwp-layout-sidebar">
+                        <h3><?php esc_html_e('Components', 'poker-tournament-import'); ?></h3>
+                        <div class="tdwp-component-palette">
+                            <div class="tdwp-component" data-component="tournament-title"><?php esc_html_e('Tournament Title', 'poker-tournament-import'); ?></div>
+                            <div class="tdwp-component" data-component="player-list"><?php esc_html_e('Player List', 'poker-tournament-import'); ?></div>
+                            <div class="tdwp-component" data-component="clock"><?php esc_html_e('Tournament Clock', 'poker-tournament-import'); ?></div>
+                            <div class="tdwp-component" data-component="prize-pool"><?php esc_html_e('Prize Pool', 'poker-tournament-import'); ?></div>
+                            <div class="tdwp-component" data-component="blind-level"><?php esc_html_e('Blind Level', 'poker-tournament-import'); ?></div>
+                        </div>
+                    </div>
+
+                    <div class="tdwp-layout-canvas">
+                        <h3><?php esc_html_e('Layout Canvas', 'poker-tournament-import'); ?></h3>
+
+                        <!-- Grid Controls -->
+                        <div class="tdwp-grid-controls">
+                            <div class="tdwp-grid-settings">
+                                <label><?php esc_html_e('Grid Size:', 'poker-tournament-import'); ?></label>
+                                <input type="number" id="tdwp-grid-columns" value="12" min="4" max="20" class="small-text">
+                                <span>×</span>
+                                <input type="number" id="tdwp-grid-rows" value="8" min="4" max="20" class="small-text">
+                                <button type="button" class="button button-secondary" id="tdwp-update-grid"><?php esc_html_e('Update Grid', 'poker-tournament-import'); ?></button>
+                            </div>
+                            <div class="tdwp-grid-options">
+                                <button type="button" class="button button-secondary" id="tdwp-toggle-grid" data-active="true"><?php esc_html_e('Hide Grid', 'poker-tournament-import'); ?></button>
+                                <button type="button" class="button button-secondary" id="tdwp-clear-selection"><?php esc_html_e('Clear Selection', 'poker-tournament-import'); ?></button>
+                            </div>
+                        </div>
+
+                        <!-- Enhanced Canvas Area with Grid -->
+                        <div class="tdwp-canvas-area" id="tdwp-canvas">
+                            <!-- Grid Overlay -->
+                            <div class="tdwp-grid-overlay" id="tdwp-grid-overlay">
+                                <!-- Grid cells will be generated by JavaScript -->
+                            </div>
+
+                            <!-- Component Container -->
+                            <div class="tdwp-component-container" id="tdwp-component-container">
+                                <div class="tdwp-placeholder"><?php esc_html_e('Drag components here to build your layout', 'poker-tournament-import'); ?></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tdwp-layout-properties">
+                        <h3><?php esc_html_e('Properties', 'poker-tournament-import'); ?></h3>
+                        <div class="tdwp-property-panel" id="tdwp-property-panel">
+                            <p class="description"><?php esc_html_e('Select a component to edit its properties', 'poker-tournament-import'); ?></p>
+
+                            <!-- Component Size Controls (hidden by default) -->
+                            <div id="tdwp-component-properties" style="display: none;">
+                                <div class="tdwp-property-group">
+                                    <h4><?php esc_html_e('Size & Position', 'poker-tournament-import'); ?></h4>
+                                    <table class="tdwp-property-table">
+                                        <tr>
+                                            <td><label><?php esc_html_e('Position:', 'poker-tournament-import'); ?></label></td>
+                                            <td colspan="3">
+                                                X: <input type="number" id="tdwp-prop-x" class="small-text" value="0" min="0">
+                                                Y: <input type="number" id="tdwp-prop-y" class="small-text" value="0" min="0">
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td><label><?php esc_html_e('Size:', 'poker-tournament-import'); ?></label></td>
+                                            <td>
+                                                <input type="number" id="tdwp-prop-width" class="small-text" value="1" min="1">
+                                                <span class="tdwp-property-unit">columns</span>
+                                            </td>
+                                            <td>
+                                                <input type="number" id="tdwp-prop-height" class="small-text" value="1" min="1">
+                                                <span class="tdwp-property-unit">rows</span>
+                                            </td>
+                                        </tr>
+                                    </table>
+
+                                    <!-- Size Presets -->
+                                    <div class="tdwp-size-presets">
+                                        <label><?php esc_html_e('Quick Size:', 'poker-tournament-import'); ?></label>
+                                        <div class="tdwp-preset-buttons">
+                                            <button type="button" class="button button-small tdwp-preset-size" data-width="1" data-height="1">1×1</button>
+                                            <button type="button" class="button button-small tdwp-preset-size" data-width="2" data-height="1">2×1</button>
+                                            <button type="button" class="button button-small tdwp-preset-size" data-width="2" data-height="2">2×2</button>
+                                            <button type="button" class="button button-small tdwp-preset-size" data-width="4" data-height="2">4×2</button>
+                                            <button type="button" class="button button-small tdwp-preset-size" data-width="6" data-height="3">6×3</button>
+                                        </div>
+                                    </div>
+
+                                    <div class="tdwp-property-actions">
+                                        <button type="button" class="button button-secondary" id="tdwp-apply-properties"><?php esc_html_e('Apply Changes', 'poker-tournament-import'); ?></button>
+                                        <button type="button" class="button button-link-delete" id="tdwp-delete-component"><?php esc_html_e('Delete Component', 'poker-tournament-import'); ?></button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tdwp-layout-toolbar">
+                    <button type="button" class="button button-primary" id="tdwp-save-layout"><?php esc_html_e('Save Layout', 'poker-tournament-import'); ?></button>
+                    <button type="button" class="button" id="tdwp-preview-layout"><?php esc_html_e('Preview', 'poker-tournament-import'); ?></button>
+                    <button type="button" class="button" id="tdwp-clear-layout"><?php esc_html_e('Clear', 'poker-tournament-import'); ?></button>
+                </div>
+
+                <!-- Status Bar -->
+                <div class="tdwp-layout-status">
+                    <span class="tdwp-status-left">
+                        <span id="tdwp-grid-info">12×8 Grid</span>
+                        <span id="tdwp-component-count">0 Components</span>
+                    </span>
+                    <span class="tdwp-status-right">
+                        <span id="tdwp-layout-status" class="tdwp-status-ready">Ready</span>
+                    </span>
+                </div>
+            </div>
+
+            <style>
+            .tdwp-layout-builder-container {
+                display: flex;
+                gap: 20px;
+                margin: 20px 0;
+            }
+            .tdwp-layout-sidebar,
+            .tdwp-layout-canvas,
+            .tdwp-layout-properties {
+                background: #fff;
+                border: 1px solid #ccd0d4;
+                padding: 15px;
+                border-radius: 4px;
+            }
+            .tdwp-layout-sidebar {
+                flex: 0 0 200px;
+            }
+            .tdwp-layout-canvas {
+                flex: 1;
+            }
+            .tdwp-layout-properties {
+                flex: 0 0 250px;
+            }
+            .tdwp-component {
+                background: #f6f7f7;
+                border: 1px solid #ddd;
+                padding: 10px;
+                margin: 5px 0;
+                cursor: move;
+                border-radius: 3px;
+            }
+            .tdwp-component:hover {
+                background: #e9e9e9;
+            }
+            .tdwp-canvas-area {
+                min-height: 400px;
+                background: #f9f9f9;
+                border: 2px dashed #ccc;
+                padding: 20px;
+                position: relative;
+            }
+            .tdwp-layout-component {
+                background: #fff;
+                border: 1px solid #3f7c85;
+                padding: 10px;
+                margin: 5px;
+                border-radius: 3px;
+                cursor: pointer;
+            }
+            .tdwp-placeholder {
+                text-align: center;
+                color: #666;
+                font-style: italic;
+                margin-top: 150px;
+            }
+            .tdwp-layout-status {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 10px 15px;
+                background: #f8f9f9;
+                border: 1px solid #ddd;
+                border-top: none;
+                font-size: 12px;
+                color: #666;
+            }
+            .tdwp-status-left {
+                display: flex;
+                gap: 15px;
+            }
+            .tdwp-status-right {
+                font-weight: 500;
+            }
+            .tdwp-status-ready {
+                color: #46b450;
+            }
+            </style>
+        </div>
+        <?php
     }
 }

@@ -1,0 +1,416 @@
+/**
+ * Live Tournament Control Admin Styles
+ *
+ * @package Poker_Tournament_Import
+ * @since 3.1.0
+ */
+
+/* ========================================
+   Layout
+   ======================================== */
+
+.tdwp-live-control {
+	padding: 20px 0;
+}
+
+.tdwp-live-grid {
+	display: grid;
+	grid-template-columns: 2fr 1fr;
+	gap: 20px;
+	margin-top: 20px;
+}
+
+.tdwp-card {
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	padding: 20px;
+	box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+}
+
+.tdwp-card h2 {
+	margin-top: 0;
+	padding-bottom: 10px;
+	border-bottom: 1px solid #dcdcde;
+}
+
+/* ========================================
+   Start New Tournament Form
+   ======================================== */
+
+.tdwp-start-new p {
+	margin: 0 0 15px;
+	color: #646970;
+}
+
+.tdwp-form {
+	margin-top: 20px;
+}
+
+.tdwp-form-row {
+	margin-bottom: 15px;
+}
+
+.tdwp-form-row label {
+	display: block;
+	margin-bottom: 5px;
+	font-weight: 600;
+}
+
+.tdwp-form-row .required {
+	color: #d63638;
+}
+
+.tdwp-form-row select,
+.tdwp-form-row input[type="number"] {
+	width: 100%;
+	max-width: 300px;
+}
+
+/* ========================================
+   Clock Display
+   ======================================== */
+
+.tdwp-clock-display {
+	text-align: center;
+	padding: 30px 20px;
+	background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+	border-radius: 8px;
+	margin-bottom: 20px;
+	color: #fff;
+}
+
+.tdwp-clock-time {
+	font-size: 72px;
+	font-weight: 700;
+	line-height: 1;
+	margin-bottom: 10px;
+	font-variant-numeric: tabular-nums;
+	letter-spacing: -2px;
+}
+
+.tdwp-time-value {
+	display: inline-block;
+	min-width: 180px;
+}
+
+.tdwp-clock-level {
+	font-size: 24px;
+	font-weight: 600;
+	margin-bottom: 5px;
+	opacity: 0.9;
+}
+
+.tdwp-clock-status {
+	font-size: 14px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 1px;
+	padding: 5px 15px;
+	border-radius: 20px;
+	display: inline-block;
+	margin-top: 10px;
+}
+
+.tdwp-clock-status.status-running {
+	background: rgba(0, 200, 83, 0.3);
+	border: 2px solid rgba(0, 200, 83, 0.8);
+}
+
+.tdwp-clock-status.status-paused {
+	background: rgba(255, 193, 7, 0.3);
+	border: 2px solid rgba(255, 193, 7, 0.8);
+}
+
+.tdwp-clock-status.status-break {
+	background: rgba(33, 150, 243, 0.3);
+	border: 2px solid rgba(33, 150, 243, 0.8);
+}
+
+/* ========================================
+   Control Buttons
+   ======================================== */
+
+.tdwp-control-buttons {
+	display: flex;
+	gap: 10px;
+	margin-bottom: 20px;
+	flex-wrap: wrap;
+}
+
+.tdwp-control-buttons .button {
+	flex: 1;
+	min-width: 120px;
+	height: auto;
+	padding: 12px 20px;
+	font-size: 14px;
+	font-weight: 600;
+}
+
+.tdwp-pause-btn {
+	background: #f0b429;
+	border-color: #c79c1f;
+	color: #fff;
+}
+
+.tdwp-pause-btn:hover,
+.tdwp-pause-btn:focus {
+	background: #e0a419;
+	border-color: #b78c0f;
+	color: #fff;
+}
+
+.tdwp-resume-btn {
+	background: #00a32a;
+	border-color: #008a25;
+	color: #fff;
+}
+
+.tdwp-resume-btn:hover,
+.tdwp-resume-btn:focus {
+	background: #009325;
+	border-color: #007a20;
+	color: #fff;
+}
+
+.tdwp-advance-btn {
+	background: #2271b1;
+	border-color: #135e96;
+	color: #fff;
+}
+
+.tdwp-advance-btn:hover,
+.tdwp-advance-btn:focus {
+	background: #135e96;
+	border-color: #0a4a7a;
+	color: #fff;
+}
+
+.tdwp-complete-btn {
+	background: #d63638;
+	border-color: #b02a2c;
+	color: #fff;
+}
+
+.tdwp-complete-btn:hover,
+.tdwp-complete-btn:focus {
+	background: #b32628;
+	border-color: #8e1f21;
+	color: #fff;
+}
+
+/* Button states */
+.button[disabled],
+.button.is-busy {
+	opacity: 0.6;
+	cursor: wait;
+}
+
+/* ========================================
+   Statistics Panel
+   ======================================== */
+
+.tdwp-stats-panel {
+	background: #f6f7f7;
+	border: 1px solid #dcdcde;
+	border-radius: 4px;
+	padding: 15px;
+}
+
+.tdwp-stats-panel h3 {
+	margin: 0 0 15px;
+	font-size: 14px;
+	font-weight: 600;
+	text-transform: uppercase;
+	color: #646970;
+}
+
+.tdwp-stats-grid {
+	display: grid;
+	grid-template-columns: repeat(2, 1fr);
+	gap: 15px;
+}
+
+.tdwp-stat {
+	background: #fff;
+	border: 1px solid #dcdcde;
+	border-radius: 4px;
+	padding: 12px;
+	text-align: center;
+}
+
+.tdwp-stat-wide {
+	grid-column: 1 / -1;
+}
+
+.tdwp-stat-label {
+	display: block;
+	font-size: 11px;
+	font-weight: 600;
+	text-transform: uppercase;
+	color: #646970;
+	margin-bottom: 5px;
+	letter-spacing: 0.5px;
+}
+
+.tdwp-stat-value {
+	display: block;
+	font-size: 24px;
+	font-weight: 700;
+	color: #1d2327;
+	line-height: 1;
+}
+
+/* ========================================
+   Event Log
+   ======================================== */
+
+.tdwp-events-container {
+	max-height: 600px;
+	overflow-y: auto;
+	margin-top: 15px;
+}
+
+.tdwp-events-list {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.tdwp-event-item {
+	padding: 10px 12px;
+	margin-bottom: 8px;
+	background: #f6f7f7;
+	border-left: 3px solid #2271b1;
+	border-radius: 3px;
+	font-size: 13px;
+	line-height: 1.4;
+	color: #1d2327;
+}
+
+.tdwp-event-item.event-type-tournament_started {
+	border-left-color: #00a32a;
+	background: #edfaef;
+}
+
+.tdwp-event-item.event-type-tournament_paused {
+	border-left-color: #f0b429;
+	background: #fef8e7;
+}
+
+.tdwp-event-item.event-type-tournament_completed {
+	border-left-color: #d63638;
+	background: #fcebec;
+}
+
+.tdwp-event-item.event-type-level_advanced {
+	border-left-color: #2271b1;
+	background: #e5f5fa;
+}
+
+.tdwp-no-events {
+	text-align: center;
+	color: #646970;
+	padding: 40px 20px;
+	font-style: italic;
+}
+
+/* ========================================
+   Responsive
+   ======================================== */
+
+@media screen and (max-width: 1200px) {
+	.tdwp-live-grid {
+		grid-template-columns: 1fr;
+	}
+
+	.tdwp-clock-time {
+		font-size: 60px;
+	}
+}
+
+@media screen and (max-width: 768px) {
+	.tdwp-control-buttons {
+		flex-direction: column;
+	}
+
+	.tdwp-control-buttons .button {
+		width: 100%;
+	}
+
+	.tdwp-stats-grid {
+		grid-template-columns: 1fr;
+	}
+
+	.tdwp-clock-time {
+		font-size: 48px;
+	}
+
+	.tdwp-clock-level {
+		font-size: 20px;
+	}
+}
+
+/* ========================================
+   Loading States
+   ======================================== */
+
+.tdwp-loading-overlay {
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background: rgba(255, 255, 255, 0.8);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 10;
+}
+
+.tdwp-loading-spinner {
+	width: 40px;
+	height: 40px;
+	border: 4px solid #f3f3f3;
+	border-top: 4px solid #2271b1;
+	border-radius: 50%;
+	animation: tdwp-spin 1s linear infinite;
+}
+
+@keyframes tdwp-spin {
+	0% { transform: rotate(0deg); }
+	100% { transform: rotate(360deg); }
+}
+
+/* ========================================
+   Animations
+   ======================================== */
+
+.tdwp-fade-in {
+	animation: tdwp-fade-in 0.3s ease-in;
+}
+
+@keyframes tdwp-fade-in {
+	from {
+		opacity: 0;
+		transform: translateY(-10px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+/* Clock pulse animation when running */
+.status-running .tdwp-time-value {
+	animation: tdwp-pulse 2s ease-in-out infinite;
+}
+
+@keyframes tdwp-pulse {
+	0%, 100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.85;
+	}
+}
