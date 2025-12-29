@@ -35,6 +35,7 @@ class Poker_Tournament_Import_Shortcodes {
         add_shortcode('tdwp_season_standings', array($this, 'season_standings_shortcode'));
         add_shortcode('tdwp_dashboard', array($this, 'poker_dashboard_shortcode'));
         add_shortcode('tdwp_player_registration', array($this, 'player_registration_shortcode'));
+        add_shortcode('tdwp_tournament_import', array($this, 'tournament_import_shortcode'));
 
         // Backward compatibility - old shortcode names (deprecated but supported)
         add_shortcode('tournament_results', array($this, 'tournament_results_shortcode'));
@@ -321,28 +322,6 @@ class Poker_Tournament_Import_Shortcodes {
 
             echo '<div class="tournament-players">';
             echo '<h3>' . esc_html__('Tournament Results', 'poker-tournament-import') . '</h3>';
-
-            // CRITICAL FIX: Add enhanced fallback notice with actionable solutions
-            echo '<div class="processing-notice" style="background: #fef7f7; border: 1px solid #d63638; border-radius: 4px; padding: 15px; margin-bottom: 20px;">';
-            echo '<p><strong>⚠️ Using Legacy Database Results</strong> - This tournament is showing results in buy-in order because it was imported before version 2.1.3.</p>';
-
-            // Add tournament ID for debugging
-            echo '<p><small><strong>Tournament ID:</strong> ' . esc_html($tournament_id) . '</small></p>';
-
-            // Add actionable solutions
-            echo '<div class="solution-options" style="margin-top: 10px;">';
-            echo '<p><strong>Solutions:</strong></p>';
-            echo '<ol style="margin: 5px 0; padding-left: 20px;">';
-            echo '<li><button type="button" class="button button-small" onclick="attemptChronologicalReconstruction(' . esc_js($tournament_id) . ')">Try Chronological Reconstruction</button></li>';
-            echo '<li><button type="button" class="button button-small" onclick="showTdtUploadInterface(' . esc_js($tournament_id) . ')">Upload Original .tdt File</button></li>';
-            echo '<li><a href="' . esc_url(admin_url('admin.php?page=poker-data-mart-cleaner&tab=migration')) . '" class="button button-small">Use Migration Tools</a></li>';
-            echo '</ol>';
-            echo '</div>';
-
-            echo '</div>';
-
-            // Add hidden container for reconstruction results
-            echo '<div id="reconstruction-results-' . esc_attr($tournament_id) . '" style="display: none; margin: 15px 0;"></div>';
 
             // Add tournament summary
             echo '<div class="tournament-summary-grid">';
@@ -676,7 +655,7 @@ class Poker_Tournament_Import_Shortcodes {
             "SELECT SUM(winnings) FROM $table_name WHERE tournament_id = %s AND winnings > 0",
             $tournament_uuid
         ));
-            wp_cache_set($cache_key, $leaderboard, 'poker_tournament', HOUR_IN_SECONDS);
+            wp_cache_set($cache_key, $result, 'poker_tournament', HOUR_IN_SECONDS);
 
         }
 
@@ -699,7 +678,7 @@ class Poker_Tournament_Import_Shortcodes {
             "SELECT COUNT(*) FROM $table_name WHERE tournament_id = %s AND winnings > 0",
             $tournament_uuid
         ));
-            wp_cache_set($cache_key, $leaderboard, 'poker_tournament', HOUR_IN_SECONDS);
+            wp_cache_set($cache_key, $result, 'poker_tournament', HOUR_IN_SECONDS);
 
         }
 
@@ -1188,7 +1167,7 @@ class Poker_Tournament_Import_Shortcodes {
              LIMIT 20",
             ...$tournament_uuids
         ));
-            wp_cache_set($cache_key, $leaderboard, 'poker_tournament', HOUR_IN_SECONDS);
+            wp_cache_set($cache_key, $result, 'poker_tournament', HOUR_IN_SECONDS);
 
         }
 
@@ -1320,7 +1299,7 @@ class Poker_Tournament_Import_Shortcodes {
              ORDER BY player_name ASC",
             ...$tournament_uuids
         ));
-            wp_cache_set($cache_key, $leaderboard, 'poker_tournament', HOUR_IN_SECONDS);
+            wp_cache_set($cache_key, $result, 'poker_tournament', HOUR_IN_SECONDS);
 
         }
 
@@ -1845,7 +1824,7 @@ class Poker_Tournament_Import_Shortcodes {
              LIMIT 20",
             ...$tournament_uuids
         ));
-            wp_cache_set($cache_key, $leaderboard, 'poker_tournament', HOUR_IN_SECONDS);
+            wp_cache_set($cache_key, $result, 'poker_tournament', HOUR_IN_SECONDS);
 
         }
 
@@ -1977,7 +1956,7 @@ class Poker_Tournament_Import_Shortcodes {
              ORDER BY player_name ASC",
             ...$tournament_uuids
         ));
-            wp_cache_set($cache_key, $leaderboard, 'poker_tournament', HOUR_IN_SECONDS);
+            wp_cache_set($cache_key, $result, 'poker_tournament', HOUR_IN_SECONDS);
 
         }
 
@@ -3904,7 +3883,7 @@ class Poker_Tournament_Import_Shortcodes {
                 </div>
                 <div class="poker-modal-body">
                     <form id="frontend-import-form" enctype="multipart/form-data">
-                        <?php wp_nonce_field('poker_frontend_import', 'import_nonce'); ?>
+                        <?php wp_nonce_field('tdwp_frontend_import_tournament', 'import_nonce'); ?>
 
                         <div class="form-group">
                             <label for="tdt-file-input"><?php esc_html_e('Select .tdt File', 'poker-tournament-import'); ?></label>
@@ -4214,7 +4193,7 @@ class Poker_Tournament_Import_Shortcodes {
                 const $result = $('.import-result');
                 const formData = new FormData(this);
 
-                formData.append('action', 'poker_frontend_import_tournament');
+                formData.append('action', 'tdwp_frontend_import_tournament');
                 formData.append('nonce', $('#import_nonce').val());
 
                 // Disable submit button
@@ -4471,7 +4450,7 @@ class Poker_Tournament_Import_Shortcodes {
             // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
             $roi_count = $roi_exists ? $wpdb->get_var("SELECT COUNT(*) FROM $roi_table") : 0;
             error_log("Top Players Debug - ROI table exists: " . ($roi_exists ? 'YES' : 'NO'));
-                wp_cache_set($cache_key, $leaderboard, 'poker_tournament', HOUR_IN_SECONDS);
+                wp_cache_set($cache_key, $result, 'poker_tournament', HOUR_IN_SECONDS);
 
             }
             error_log("Top Players Debug - ROI table rows: " . $roi_count);
@@ -4486,7 +4465,7 @@ class Poker_Tournament_Import_Shortcodes {
                                     $non_null_count = $wpdb->get_var("SELECT COUNT(*) FROM $roi_table WHERE net_profit IS NOT NULL");
                 // Cache check
                 $cache_key = 'poker_query_' . md5(serialize(func_get_args()));
-                    wp_cache_set($cache_key, $leaderboard, 'poker_tournament', HOUR_IN_SECONDS);
+                    wp_cache_set($cache_key, $result, 'poker_tournament', HOUR_IN_SECONDS);
 
                 }
                 $positive_profit = wp_cache_get($cache_key, 'poker_tournament');
@@ -4495,7 +4474,7 @@ class Poker_Tournament_Import_Shortcodes {
                                     $positive_profit = $wpdb->get_var("SELECT COUNT(*) FROM $roi_table WHERE net_profit > 0");
                 // Cache check
                 $cache_key = 'poker_query_' . md5(serialize(func_get_args()));
-                    wp_cache_set($cache_key, $leaderboard, 'poker_tournament', HOUR_IN_SECONDS);
+                    wp_cache_set($cache_key, $result, 'poker_tournament', HOUR_IN_SECONDS);
 
                 }
                 $sample_data = wp_cache_get($cache_key, 'poker_tournament');
@@ -4505,7 +4484,7 @@ class Poker_Tournament_Import_Shortcodes {
                 error_log("Top Players Debug - Non-null net_profit rows: " . $non_null_count);
                 error_log("Top Players Debug - Positive net_profit rows: " . $positive_profit);
                 error_log("Top Players Debug - Sample data: " . print_r($sample_data, true));
-                    wp_cache_set($cache_key, $leaderboard, 'poker_tournament', HOUR_IN_SECONDS);
+                    wp_cache_set($cache_key, $result, 'poker_tournament', HOUR_IN_SECONDS);
 
                 }
             }
@@ -4571,7 +4550,7 @@ class Poker_Tournament_Import_Shortcodes {
                                     // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
                                     $simple_query = $wpdb->get_results("SELECT player_id, net_profit FROM $roi_table LIMIT 5", ARRAY_A);
                 error_log("Top Players Debug - Simple query results: " . print_r($simple_query, true));
-                    wp_cache_set($cache_key, $leaderboard, 'poker_tournament', HOUR_IN_SECONDS);
+                    wp_cache_set($cache_key, $result, 'poker_tournament', HOUR_IN_SECONDS);
 
                 }
             } else {
@@ -5081,6 +5060,165 @@ class Poker_Tournament_Import_Shortcodes {
 
         $registration = new TDWP_Player_Registration();
         return $registration->render_registration_form( $atts );
+    }
+
+    /**
+     * Tournament Import Shortcode
+     * Usage: [tdwp_tournament_import]
+     *
+     * Displays a file upload form for importing tournaments from .tdt files.
+     * Requires users to be logged in with 'edit_posts' capability.
+     *
+     * @since 3.1.0
+     *
+     * @param array $atts Shortcode attributes (currently unused).
+     * @return string Form HTML or error message.
+     */
+    public function tournament_import_shortcode($atts) {
+        // Check if user is logged in
+        if (!is_user_logged_in()) {
+            return '<div class="notice notice-info"><p>' .
+                esc_html__('Please log in to import tournaments.', 'poker-tournament-import') .
+                '</p></div>';
+        }
+
+        // Check if user has permission to import
+        if (!current_user_can('edit_posts')) {
+            return '<div class="notice notice-warning"><p>' .
+                esc_html__('You do not have permission to import tournaments.', 'poker-tournament-import') .
+                '</p></div>';
+        }
+
+        // Prepare data for JavaScript (output inline to avoid script dependencies)
+        $ajax_url = admin_url('admin-ajax.php');
+        $nonce = wp_create_nonce('tdwp_frontend_import_tournament');
+        error_log('[TDWP Import Beta20] Shortcode - Nonce created: ' . $nonce);
+        $strings = array(
+            'uploading' => __('Uploading...', 'poker-tournament-import'),
+            'success' => __('Tournament imported successfully!', 'poker-tournament-import'),
+            'error' => __('Import failed. Please try again.', 'poker-tournament-import'),
+            'invalidFile' => __('Please select a valid .tdt file.', 'poker-tournament-import'),
+        );
+
+        // Render the import form
+        ob_start();
+        ?>
+        <div class="tdwp-tournament-import-wrapper" style="max-width: 600px; margin: 20px auto; padding: 20px; border: 1px solid #ddd; border-radius: 5px;">
+            <h3 style="margin-top: 0;"><?php esc_html_e('Import Tournament', 'poker-tournament-import'); ?></h3>
+            <p class="description"><?php esc_html_e('Upload a Tournament Director (.tdt) file to import tournament results.', 'poker-tournament-import'); ?></p>
+
+            <form id="tdwp-import-form" enctype="multipart/form-data">
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label for="tdwp-tdt-file" style="display: block; font-weight: bold; margin-bottom: 5px;">
+                        <?php esc_html_e('Select .tdt File:', 'poker-tournament-import'); ?>
+                    </label>
+                    <input
+                        type="file"
+                        id="tdwp-tdt-file"
+                        name="tdt_file"
+                        accept=".tdt"
+                        required
+                        style="width: 100%;"
+                    />
+                    <small class="description"><?php esc_html_e('Accepted file type: .tdt only', 'poker-tournament-import'); ?></small>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px;">
+                        <input type="checkbox" name="publish_immediately" value="1" checked />
+                        <?php esc_html_e('Publish tournament immediately', 'poker-tournament-import'); ?>
+                    </label>
+                </div>
+
+                <button type="submit" class="button button-primary" style="margin-top: 10px;">
+                    <?php esc_html_e('Import Tournament', 'poker-tournament-import'); ?>
+                </button>
+            </form>
+
+            <div id="tdwp-import-status" style="margin-top: 15px; display: none;">
+                <div class="notice notice-info">
+                    <p id="tdwp-import-message"></p>
+                </div>
+            </div>
+        </div>
+
+        <script>
+        (function() {
+            const form = document.getElementById('tdwp-import-form');
+            const statusDiv = document.getElementById('tdwp-import-status');
+            const messageEl = document.getElementById('tdwp-import-message');
+            const fileInput = document.getElementById('tdwp-tdt-file');
+
+            if (!form || !fileInput) return;
+
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+
+                const file = fileInput.files[0];
+                if (!file) {
+                    alert(<?php echo wp_json_encode($strings['invalidFile']); ?>);
+                    return;
+                }
+
+                // Validate file extension
+                const extension = file.name.split('.').pop().toLowerCase();
+                if (extension !== 'tdt') {
+                    alert(<?php echo wp_json_encode($strings['invalidFile']); ?>);
+                    return;
+                }
+
+                // Show uploading status
+                statusDiv.style.display = 'block';
+                statusDiv.querySelector('.notice').className = 'notice notice-info';
+                messageEl.textContent = <?php echo wp_json_encode($strings['uploading']); ?>;
+
+                // Prepare form data
+                const formData = new FormData();
+                formData.append('tdt_file', file);
+                formData.append('publish_immediately', form.querySelector('input[name="publish_immediately"]').checked ? '1' : '0');
+
+                // Beta21: Console logging for debugging
+                console.log('[TDWP Beta21] About to send AJAX');
+                console.log('[TDWP Beta21] Action: tdwp_frontend_import_tournament');
+                console.log('[TDWP Beta21] Nonce:', <?php echo wp_json_encode($nonce); ?>.substring(0, 8) + '...');
+                console.log('[TDWP Beta21] User logged in:', <?php echo is_user_logged_in() ? 'true' : 'false'; ?>);
+
+                // Send AJAX request with jQuery for WordPress compatibility
+                // Action and nonce passed as URL parameters to avoid WordPress FormData parsing issues
+                $.ajax({
+                    url: <?php echo wp_json_encode($ajax_url); ?> + '?action=tdwp_frontend_import_tournament&nonce=' + encodeURIComponent(<?php echo wp_json_encode($nonce); ?>),
+                    type: 'POST',
+                    data: formData,
+                    processData: false,  // Required for FormData
+                    contentType: false,   // Required for FormData
+                    success: function(data) {
+                        if (data.success) {
+                            statusDiv.querySelector('.notice').className = 'notice notice-success';
+                            messageEl.textContent = data.data.message || <?php echo wp_json_encode($strings['success']); ?>;
+                            form.reset();
+                        } else {
+                            statusDiv.querySelector('.notice').className = 'notice notice-error';
+                            messageEl.textContent = data.data.message || <?php echo wp_json_encode($strings['error']); ?>;
+                        }
+                    },
+                    error: function(xhr, status, errorThrown) {
+                        console.error('=== TDWP AJAX ERROR ===');
+                        console.error('Status:', xhr.status, xhr.statusText);
+                        console.error('Response Text:', xhr.responseText);
+                        console.error('Response JSON:', xhr.responseJSON);
+                        console.error('Status Code:', xhr.status);
+                        console.error('=====================');
+
+                        statusDiv.querySelector('.notice').className = 'notice notice-error';
+                        const errorMsg = xhr.responseJSON && xhr.responseJSON.data ? xhr.responseJSON.data.message : <?php echo wp_json_encode($strings['error']); ?>;
+                        messageEl.textContent = 'Error: ' + errorMsg + ' (HTTP ' + xhr.status + ')';
+                    }
+                });
+            });
+        })();
+        </script>
+        <?php
+        return ob_get_clean();
     }
 }
 

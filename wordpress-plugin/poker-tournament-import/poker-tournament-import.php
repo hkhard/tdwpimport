@@ -3,7 +3,7 @@
  * Plugin Name: Poker Tournament Import
  * Plugin URI: https://nikielhard.se/tdwpimport
  * Description: Import and display poker tournament results from Tournament Director (.tdt) files. Now with Tournament Manager for creating tournaments without TD software!
- * Version: 3.4.0-beta4
+ * Version: 3.4.0-beta27
  * Author: Hans Kästel Hård
  * Author URI: https://nikielhard.se
  * License: GPL v2 or later
@@ -20,7 +20,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('POKER_TOURNAMENT_IMPORT_VERSION', '3.4.0-beta4');
+define('POKER_TOURNAMENT_IMPORT_VERSION', '3.4.0-beta27');
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -220,9 +220,26 @@ class Poker_Tournament_Import {
         add_action('wp_ajax_tdwp_clean_all_enhanced', array($this, 'ajax_clean_all_enhanced'));
         add_action('wp_ajax_tdwp_get_cleaning_status', array($this, 'ajax_get_cleaning_status'));
 
-        // AJAX handlers for frontend dashboard (logged-in users)
+        // AJAX handlers for frontend dashboard (logged-in and public users)
         add_action('wp_ajax_tdwp_frontend_import_tournament', array($this, 'ajax_frontend_import_tournament'));
+        add_action('wp_ajax_nopriv_tdwp_frontend_import_tournament', array($this, 'ajax_frontend_import_tournament'));
         add_action('wp_ajax_tdwp_frontend_refresh_statistics', array($this, 'ajax_frontend_refresh_statistics'));
+        add_action('wp_ajax_nopriv_tdwp_frontend_refresh_statistics', array($this, 'ajax_frontend_refresh_statistics'));
+
+        // Beta21: Log handler registration confirmation
+        error_log('[TDWP Beta21] AJAX handlers registered successfully');
+
+        // Beta21: Early AJAX detection hook
+        add_action('admin_init', function() {
+            if (defined('DOING_AJAX') && DOING_AJAX && isset($_REQUEST['action'])) {
+                error_log('[TDWP Beta21] AJAX request detected, action: ' . $_REQUEST['action']);
+                error_log('[TDWP Beta21] User logged in: ' . (is_user_logged_in() ? 'yes (' . get_current_user_id() . ')' : 'no'));
+            }
+        });
+
+        // Beta21: Test handler to verify AJAX system works
+        add_action('wp_ajax_tdwp_ajax_test', 'tdwp_ajax_test_handler');
+        add_action('wp_ajax_nopriv_tdwp_ajax_test', 'tdwp_ajax_test_handler');
 
         // **PHASE 4: TD3 Display System AJAX handlers**
         add_action('wp_ajax_tdwp_get_tournament_data', array($this, 'ajax_get_tournament_data'));
@@ -2479,7 +2496,14 @@ class Poker_Tournament_Import {
      * AJAX handler for frontend tournament import (non-admin users)
      */
     public function ajax_frontend_import_tournament() {
-        check_ajax_referer('poker_frontend_import', 'nonce');
+        error_log('[TDWP Import Beta20] AJAX handler called');
+        error_log('[TDWP Import Beta20] User logged in: ' . (is_user_logged_in() ? 'yes' : 'no'));
+        error_log('[TDWP Import Beta20] User ID: ' . get_current_user_id());
+        error_log('[TDWP Import Beta20] REQUEST: ' . print_r($_REQUEST, true));
+        error_log('[TDWP Import Beta20] FILES: ' . print_r($_FILES, true));
+
+        check_ajax_referer('tdwp_frontend_import_tournament', 'nonce');
+        error_log('[TDWP Import Beta20] Nonce verified successfully');
 
         if (!is_user_logged_in()) {
             wp_send_json_error(array(
@@ -3247,6 +3271,14 @@ if (!function_exists('poker_cached_query')) {
     }
 
   }
+
+/**
+ * Beta21: Test AJAX handler to verify AJAX system works
+ */
+function tdwp_ajax_test_handler() {
+    error_log('[TDWP Beta21] TEST handler called!');
+    wp_send_json_success(array('message' => 'AJAX works!', 'time' => time()));
+}
 
 // Initialize the plugin
 Poker_Tournament_Import::get_instance();

@@ -23,8 +23,12 @@ jQuery(document).ready(function($) {
 
     // File upload validation
     $('#tdt_file').on('change', function() {
+        console.log('=== TDWP ADMIN FILE CHANGE ===');
         const file = this.files[0];
+        console.log('File selected:', file ? file.name : 'none');
         const uploadArea = $('.upload-area');
+        console.log('Button element count:', $('.tdwp-import-submit').length);
+        console.log('Button visible before:', $('.tdwp-import-submit').is(':visible'));
 
         if (file) {
             // Check file extension
@@ -46,6 +50,9 @@ jQuery(document).ready(function($) {
             // Update upload area to show selected file
             uploadArea.addClass('file-selected');
             uploadArea.find('p').html(`Selected file: <strong>${escape(fileName)}</strong><br>Size: ${formatFileSize(file.size)}`);
+
+            // Show submit button when valid file selected
+            $('.tdwp-import-submit').removeClass('tdwp-hidden');
         }
     });
 

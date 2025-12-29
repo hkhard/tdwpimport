@@ -1857,7 +1857,7 @@ class Poker_Statistics_Engine {
 
             // Update existing record
             // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
-            $wpdb->upgmdate(
+            $wpdb->update(
                 $analytics_table,
                 array(
                     'total_tournaments' => $new_total_tournaments,
