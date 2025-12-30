@@ -12,13 +12,21 @@
 if (!defined('ABSPATH')) {
     exit;
 }
+?>
+<!DOCTYPE html>
+<html <?php language_attributes(); ?>>
+<head>
+    <meta charset="<?php bloginfo('charset'); ?>">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title><?php wp_title('|', true, 'right'); ?> <?php bloginfo('name'); ?></title>
+    <?php wp_head(); ?>
+</head>
+<body <?php body_class(); ?>>
+<?php wp_body_open(); ?>
 
-// Theme integration - handle both classic and block themes
-if (function_exists('wp_is_block_theme') && wp_is_block_theme()) {
-    // Block theme: Use block template parts
-    block_template_part('header');
-} else {
-    // Classic theme: Use standard get_header()
+<!-- Minimal WordPress integration - skip block themes to avoid unwanted navigation -->
+<?php
+if (!function_exists('wp_is_block_theme') || !wp_is_block_theme()) {
     get_header();
 }
 ?>
@@ -145,12 +153,10 @@ if (function_exists('wp_is_block_theme') && wp_is_block_theme()) {
 }
 </style>
 <?php
-// Theme integration - handle both classic and block themes
-if (function_exists('wp_is_block_theme') && wp_is_block_theme()) {
-    // Block theme: Use block template parts
-    block_template_part('footer');
-} else {
-    // Classic theme: Use standard get_footer()
+// Minimal WordPress integration - skip block themes to avoid unwanted footer content
+if (!function_exists('wp_is_block_theme') || !wp_is_block_theme()) {
     get_footer();
 }
 ?>
+</body>
+</html>
