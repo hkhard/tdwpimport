@@ -13,6 +13,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 ?>
+<?php get_header(); ?>
 
 <div class="poker-series-wrapper">
     <main id="primary" class="site-main">
@@ -134,4 +135,4 @@ if (!defined('ABSPATH')) {
         justify-content: center;
     }
 }
-</style>
+</style><?php get_footer(); ?>
