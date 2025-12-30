@@ -1,0 +1,227 @@
+/**
+ * Poker Dashboard Frontend Styles
+ * All styles are scoped to #poker-dashboard to avoid theme conflicts
+ */
+
+/* Stats Grid */
+#poker-dashboard .poker-dashboard-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    margin: 20px 0;
+}
+
+@media (max-width: 768px) {
+    #poker-dashboard .poker-dashboard-stats {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Stat Card */
+#poker-dashboard .poker-stat-card {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+#poker-dashboard .poker-stat-card:hover {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    transform: translateY(-2px);
+}
+
+/* Stat Icon */
+#poker-dashboard .poker-stat-icon {
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    font-size: 24px;
+}
+
+#poker-dashboard .poker-stat-icon .dashicons {
+    width: 1em;
+    height: 1em;
+}
+
+#poker-dashboard .poker-stat-icon.dashicons-list-view {
+    background: rgba(37, 99, 235, 0.1);
+    color: #2563eb;
+}
+
+#poker-dashboard .poker-stat-icon.dashicons-groups {
+    background: rgba(34, 197, 94, 0.1);
+    color: #22c55e;
+}
+
+#poker-dashboard .poker-stat-icon.dashicons-calendar {
+    background: rgba(234, 179, 8, 0.1);
+    color: #eab308;
+}
+
+/* Stat Content */
+#poker-dashboard .poker-stat-content {
+    flex: 1;
+}
+
+#poker-dashboard .poker-stat-content h3 {
+    margin: 0 0 5px 0;
+    font-size: 14px;
+    font-weight: 500;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+#poker-dashboard .poker-stat-value {
+    font-size: 28px;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 8px;
+}
+
+#poker-dashboard .poker-stat-link {
+    display: inline-block;
+    font-size: 13px;
+    color: #2563eb;
+    text-decoration: none;
+    padding: 4px 0;
+}
+
+#poker-dashboard .poker-stat-link:hover {
+    text-decoration: underline;
+}
+
+/* Recent Tournaments Section */
+#poker-dashboard .poker-dashboard-recent {
+    margin: 30px 0;
+}
+
+#poker-dashboard .poker-dashboard-recent h2 {
+    font-size: 20px;
+    font-weight: 600;
+    color: #1e293b;
+    margin: 0 0 15px 0;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #e2e8f0;
+}
+
+/* Table */
+#poker-dashboard .poker-dashboard-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #fff;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+#poker-dashboard .poker-dashboard-table thead {
+    background: #f8fafc;
+}
+
+#poker-dashboard .poker-dashboard-table th {
+    padding: 12px 15px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 13px;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+#poker-dashboard .poker-dashboard-table td {
+    padding: 12px 15px;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: 14px;
+    color: #334155;
+}
+
+#poker-dashboard .poker-dashboard-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+#poker-dashboard .poker-dashboard-table tbody tr:hover {
+    background: #f8fafc;
+}
+
+#poker-dashboard .poker-dashboard-table a {
+    color: #2563eb;
+    text-decoration: none;
+}
+
+#poker-dashboard .poker-dashboard-table a:hover {
+    text-decoration: underline;
+}
+
+/* Data Mart Health Section */
+#poker-dashboard .poker-dashboard-health {
+    margin: 30px 0;
+    padding: 20px;
+    background: #f8fafc;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+}
+
+#poker-dashboard .poker-dashboard-health h2 {
+    font-size: 18px;
+    font-weight: 600;
+    color: #1e293b;
+    margin: 0 0 12px 0;
+}
+
+#poker-dashboard .poker-health-ok {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    color: #16a34a;
+    font-size: 14px;
+}
+
+#poker-dashboard .poker-health-ok .dashicons-yes-alt {
+    color: #22c55e;
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+}
+
+#poker-dashboard .poker-health-warning {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    color: #ca8a04;
+    font-size: 14px;
+}
+
+#poker-dashboard .poker-health-warning .dashicons-warning {
+    color: #eab308;
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+    #poker-dashboard .poker-dashboard-table {
+        font-size: 13px;
+    }
+
+    #poker-dashboard .poker-dashboard-table th,
+    #poker-dashboard .poker-dashboard-table td {
+        padding: 10px 12px;
+    }
+
+    #poker-dashboard .poker-stat-value {
+        font-size: 24px;
+    }
+}
