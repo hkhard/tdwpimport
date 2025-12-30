@@ -54,7 +54,7 @@ class Poker_Tournament_Import_Shortcodes {
         add_shortcode('season_statistics', array($this, 'season_statistics_shortcode'));
         add_shortcode('season_players', array($this, 'season_players_shortcode'));
         add_shortcode('season_standings', array($this, 'season_standings_shortcode'));
-        add_shortcode('poker_dashboard', array($this, 'poker_dashboard_shortcode'));
+        // Removed: add_shortcode('poker_dashboard', ...) - now handled by Poker_Dashboard_Shortcode class
         add_shortcode('player_registration', array($this, 'player_registration_shortcode'));
     }
 

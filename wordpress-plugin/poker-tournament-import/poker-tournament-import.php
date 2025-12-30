@@ -3,7 +3,7 @@
  * Plugin Name: Poker Tournament Import
  * Plugin URI: https://nikielhard.se/tdwpimport
  * Description: Import and display poker tournament results from Tournament Director (.tdt) files. Now with Tournament Manager for creating tournaments without TD software!
- * Version: 3.4.0-beta27
+ * Version: 3.5.0-beta4
  * Author: Hans Kästel Hård
  * Author URI: https://nikielhard.se
  * License: GPL v2 or later
@@ -20,7 +20,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('POKER_TOURNAMENT_IMPORT_VERSION', '3.4.0-beta27');
+define('POKER_TOURNAMENT_IMPORT_VERSION', '3.5.0-beta4');
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -248,8 +248,7 @@ class Poker_Tournament_Import {
         add_action('wp_ajax_nopriv_tdwp_unregister_screen', array($this, 'ajax_unregister_screen'));
         add_action('wp_ajax_tdwp_dashboard_tournaments_filtered', array($this, 'ajax_dashboard_tournaments_filtered'));
         add_action('wp_ajax_nopriv_tdwp_dashboard_tournaments_filtered', array($this, 'ajax_dashboard_tournaments_filtered'));
-        add_action('wp_ajax_tdwp_load_tournaments_data', array($this, 'ajax_load_tournaments_data'));
-        add_action('wp_ajax_nopriv_tdwp_load_tournaments_data', array($this, 'ajax_load_tournaments_data'));
+        // Note: tdwp_load_tournaments_data handler is in admin/class-admin.php (duplicate removed)
 
         // **PHASE 4.1: Display System - Live Tournament Integration AJAX handlers**
         if (class_exists('TDWP_Display_Manager')) {
@@ -566,6 +565,9 @@ class Poker_Tournament_Import {
             require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-display-shortcode.php';
             TDWP_Display_Shortcode::get_instance();
         }
+
+        // **Poker Dashboard Shortcode**
+        require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/class-poker-dashboard-shortcode.php';
       }
 
 /**
@@ -2704,81 +2706,7 @@ class Poker_Tournament_Import {
         }
     }
 
-    /**
-     * AJAX handler for loading tournaments data (frontend dashboard)
-     * Matches admin.js expectations for renderTournamentsTab
-     */
-    public function ajax_load_tournaments_data() {
-        check_ajax_referer('poker_dashboard_nonce', 'nonce');
-
-        // Allow any logged-in user (v2.5.9 requirement - non-admin dashboard access)
-        if (!is_user_logged_in()) {
-            wp_send_json_error('You must be logged in to view tournaments');
-        }
-
-        $page = isset($_POST['page']) ? intval($_POST['page']) : 1;
-        $per_page = isset($_POST['per_page']) ? intval($_POST['per_page']) : 25;
-        $search = isset($_POST['search']) ? sanitize_text_field($_POST['search']) : '';
-        $status = isset($_POST['status']) ? sanitize_text_field($_POST['status']) : '';
-
-        $args = array(
-            'post_type' => 'tournament',
-            'posts_per_page' => $per_page,
-            'paged' => $page,
-            'orderby' => 'date',
-            'order' => 'DESC',
-            'post_status' => 'publish'
-        );
-
-        if (!empty($search)) {
-            $args['s'] = $search;
-        }
-
-        if (!empty($status)) {
-            $args['meta_query'] = array(
-                array(
-                    'key' => '_tournament_status',
-                    'value' => $status
-                )
-            );
-        }
-
-        $query = new WP_Query($args);
-        $tournament_data = array();
-
-        if ($query->have_posts()) {
-            while ($query->have_posts()) {
-                $query->the_post();
-                $tournament_id = get_the_ID();
-                
-                $tournament_data[] = array(
-                    'id' => $tournament_id,
-                    'title' => get_the_title(),
-                    'date' => get_post_meta($tournament_id, '_tournament_date', true) ?: get_the_gmdate('Y-m-d'),
-                    'players_count' => get_post_meta($tournament_id, '_players_count', true) ?: 0,
-                    'prize_pool' => get_post_meta($tournament_id, '_prize_pool', true) ?: 0,
-                    'status' => get_post_status(),
-                    'edit_link' => get_edit_post_link($tournament_id),
-                    'view_link' => get_permalink($tournament_id)
-                );
-            }
-            wp_reset_postdata();
-        }
-
-        $total_tournaments = $query->found_posts;
-
-        $response = array(
-            'tournaments' => $tournament_data,
-            'pagination' => array(
-                'current_page' => $page,
-                'total_pages' => $query->max_num_pages,
-                'total_items' => $total_tournaments,
-                'per_page' => $per_page
-            )
-        );
-
-        wp_send_json_success($response);
-    }
+    // Note: ajax_load_tournaments_data is now handled in admin/class-admin.php to avoid duplicate function definition
 
     /**
      * Reconstruct chronological order from buy-in data
