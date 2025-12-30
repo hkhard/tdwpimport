@@ -12,8 +12,16 @@
 if (!defined('ABSPATH')) {
     exit;
 }
+
+// Theme integration - handle both classic and block themes
+if (function_exists('wp_is_block_theme') && wp_is_block_theme()) {
+    // Block theme: Use block template parts
+    block_template_part('header');
+} else {
+    // Classic theme: Use standard get_header()
+    get_header();
+}
 ?>
-<?php get_header(); ?>
 
 <div class="poker-season-wrapper">
     <main id="primary" class="site-main">
@@ -135,4 +143,14 @@ if (!defined('ABSPATH')) {
         justify-content: center;
     }
 }
-</style><?php get_footer(); ?>
+</style>
+<?php
+// Theme integration - handle both classic and block themes
+if (function_exists('wp_is_block_theme') && wp_is_block_theme()) {
+    // Block theme: Use block template parts
+    block_template_part('footer');
+} else {
+    // Classic theme: Use standard get_footer()
+    get_footer();
+}
+?>

@@ -12,8 +12,14 @@
 if (!defined('ABSPATH')) {
     exit;
 }
+
+// Theme integration - handle both classic and block themes
+if (function_exists('wp_is_block_theme') && wp_is_block_theme()) {
+    block_template_part('header');
+} else {
+    get_header();
+}
 ?>
-<?php get_header(); ?>
 
 <!-- Breadcrumb Navigation -->
 <?php
@@ -451,4 +457,11 @@ $archive_url = get_post_type_archive_link($post_type);
     </main>
 </div>
 
-<?php get_footer(); ?>
+<?php
+// Theme integration - handle both classic and block themes
+if (function_exists('wp_is_block_theme') && wp_is_block_theme()) {
+    block_template_part('footer');
+} else {
+    get_footer();
+}
+?>
