@@ -264,6 +264,13 @@ class Poker_Tournament_Import {
         add_action('wp_trash_post', array($this, 'on_tournament_delete'));
         add_action('untrash_post', array($this, 'on_tournament_restore'));
 
+        // Clear overall standings cache on tournament changes
+        if (class_exists('Poker_Series_Standings_Calculator')) {
+            $standings_calculator = new Poker_Series_Standings_Calculator();
+            add_action('save_post_tournament', array($standings_calculator, 'clear_overall_standings_cache'));
+            add_action('before_delete_post', array($standings_calculator, 'clear_overall_standings_cache'));
+        }
+
         // Hook for asynchronous statistics refresh
         add_action('poker_refresh_statistics_async', array($this, 'async_refresh_statistics'));
     }

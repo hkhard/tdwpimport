@@ -91,6 +91,9 @@ class Poker_CSS_Dashboard_Config extends CSS_Dashboard_Base
         // Seasons Table Section
         $config['sections'][] = $this->get_seasons_section();
 
+        // Overall Points Standings Section
+        $config['sections'][] = $this->get_overall_standings_section($filters);
+
         return $config;
     }
 
@@ -335,6 +338,108 @@ class Poker_CSS_Dashboard_Config extends CSS_Dashboard_Base
                     'headers' => array('Season', 'Tournaments'),
                     'rows' => $rows,
                     'per_page' => 25,
+                )
+            )
+        );
+    }
+
+    /**
+     * Overall Points Standings Section
+     * Shows player rankings across all tournaments (filtered by season)
+     *
+     * @param Poker_Dashboard_Filters $filters Filter system instance
+     * @return array Section configuration
+     */
+    private function get_overall_standings_section($filters) {
+        // Get filtered tournament IDs
+        $tournament_ids = $filters->get_filtered_tournament_ids();
+
+        // Calculate standings
+        $calculator = new Poker_Series_Standings_Calculator();
+        $standings = $calculator->calculate_overall_standings($tournament_ids);
+
+        if (empty($standings)) {
+            // Return empty section with message
+            return array(
+                'id' => 'overall-standings',
+                'title' => __('Overall Points Standings', 'poker-tournament-import'),
+                'columns' => 1,
+                'components' => array(
+                    array(
+                        'id' => 'standings-empty',
+                        'parent_section_id' => 'overall-standings',
+                        'type' => 'custom',
+                        'html' => '<p>' . esc_html__('No standings data available.', 'poker-tournament-import') . '</p>'
+                    )
+                )
+            );
+        }
+
+        // Build table rows
+        $rows = array();
+        foreach ($standings as $standing) {
+            $rank_display = $standing['rank'];
+            if ($standing['is_tied']) {
+                $rank_display .= 'T';
+            }
+
+            // Add position indicators for top ranks
+            $rank_suffix = '';
+            $rank_class = '';
+            if ($standing['rank'] === 1) {
+                $rank_suffix = ' 🥇';
+                $rank_class = ' rank-first';
+            } elseif ($standing['rank'] === 2) {
+                $rank_suffix = ' 🥈';
+                $rank_class = ' rank-second';
+            } elseif ($standing['rank'] === 3) {
+                $rank_suffix = ' 🥉';
+                $rank_class = ' rank-third';
+            }
+
+            // Player cell with link
+            $player_cell = $standing['player_url']
+                ? sprintf('<a href="%s">%s</a>', $standing['player_url'], esc_html($standing['player_name']))
+                : esc_html($standing['player_name']);
+
+            $rows[] = array(
+                'cells' => array(
+                    '<span class="rank-cell' . esc_attr($rank_class) . '">' . esc_html($rank_display) . esc_html($rank_suffix) . '</span>',
+                    $player_cell,
+                    '<span class="points-cell">' . number_format($standing['overall_points'], 1) . '</span>',
+                    number_format($standing['tournaments_played']),
+                    $standing['best_finish'],
+                    number_format($standing['avg_finish'], 1),
+                    number_format($standing['tie_breakers']['first_places']),
+                    number_format($standing['tie_breakers']['top3_finishes']),
+                    number_format($standing['tie_breakers']['top5_finishes']),
+                )
+            );
+        }
+
+        return array(
+            'id' => 'overall-standings',
+            'title' => __('Overall Points Standings', 'poker-tournament-import'),
+            'columns' => 1,
+            'components' => array(
+                array(
+                    'id' => 'overall-standings-table',
+                    'parent_section_id' => 'overall-standings',
+                    'type' => 'table',
+                    'sortable' => false, // Server-side sorted, no client sorting needed
+                    'headers' => array(
+                        __('Rank', 'poker-tournament-import'),
+                        __('Player', 'poker-tournament-import'),
+                        __('Points', 'poker-tournament-import'),
+                        __('Played', 'poker-tournament-import'),
+                        __('Best', 'poker-tournament-import'),
+                        __('Avg Finish', 'poker-tournament-import'),
+                        __('1st', 'poker-tournament-import'),
+                        __('Top 3', 'poker-tournament-import'),
+                        __('Top 5', 'poker-tournament-import'),
+                    ),
+                    'rows' => $rows,
+                    'per_page' => 25
                 )
             )
         );

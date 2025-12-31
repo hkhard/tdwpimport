@@ -357,6 +357,206 @@ class Poker_Series_Standings_Calculator {
     }
 
     /**
+     * Calculate overall standings across all tournaments
+     * Supports season filtering and formula application
+     *
+     * @param array|null $tournament_ids Optional tournament IDs to filter by
+     * @param string|null $formula_key Optional formula key for calculation
+     * @return array Overall standings with tie-breakers
+     */
+    public function calculate_overall_standings($tournament_ids = null, $formula_key = null) {
+        global $wpdb;
+
+        if (!$formula_key) {
+            $formula_key = get_option('tdwp_active_season_formula', 'season_total');
+        }
+
+        // Generate cache key including tournament IDs
+        $cache_key = 'poker_overall_standings_' . md5(serialize($tournament_ids) . $formula_key);
+        $cached_standings = get_transient($cache_key);
+
+        if ($cached_standings !== false) {
+            return $cached_standings;
+        }
+
+        // Get tournament IDs if not provided
+        if ($tournament_ids === null) {
+            $tournament_ids = get_posts(array(
+                'post_type' => 'tournament',
+                'posts_per_page' => -1,
+                'post_status' => 'publish',
+                'fields' => 'ids'
+            ));
+        }
+
+        if (empty($tournament_ids)) {
+            return array();
+        }
+
+        // Get all players who participated
+        $table_name = $wpdb->prefix . 'poker_tournament_players';
+
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+        $unique_players = $wpdb->get_col($wpdb->prepare(
+            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is safe, uses $wpdb->prefix
+            "SELECT DISTINCT player_id FROM $table_name
+         WHERE tournament_id IN (" . implode(',', array_fill(0, count($tournament_ids), '%s')) . ")",
+            $tournament_ids
+        ));
+
+        if (empty($unique_players)) {
+            return array();
+        }
+
+        // Calculate standings for each player
+        $standings = array();
+        foreach ($unique_players as $player_id) {
+            $player_data = $this->calculate_overall_player_data($player_id, $tournament_ids, $formula_key);
+            if ($player_data) {
+                $standings[] = $player_data;
+            }
+        }
+
+        // Sort with tie-breakers
+        $standings = $this->sort_standings_with_tiebreakers($standings);
+
+        // Assign rankings
+        $standings = $this->assign_final_rankings($standings);
+
+        // Cache for 1 hour
+        set_transient($cache_key, $standings, HOUR_IN_SECONDS);
+
+        return $standings;
+    }
+
+    /**
+     * Calculate overall data for a single player
+     * Mirrors calculate_player_series_data but for overall/all-time
+     *
+     * @param string $player_id Player UUID
+     * @param array $tournament_ids Tournament IDs to include
+     * @param string $formula_key Formula key for calculation
+     * @return array|null Player data or null if no results
+     */
+    private function calculate_overall_player_data($player_id, $tournament_ids, $formula_key) {
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'poker_tournament_players';
+
+        // Get all tournament results for this player
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+        $results = $wpdb->get_results($wpdb->prepare(
+            "SELECT tournament_id, finish_position, winnings, points, hits
+         FROM $table_name
+            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is safe, uses $wpdb->prefix
+         WHERE player_id = %s AND tournament_id IN (" . implode(',', array_fill(0, count($tournament_ids), '%s')) . ")
+         ORDER BY tournament_id",
+            array_merge(array($player_id), $tournament_ids)
+        ));
+
+        if (empty($results)) {
+            return null;
+        }
+
+        // Calculate cumulative statistics (same logic as series)
+        $total_points = 0;
+        $total_winnings = 0;
+        $total_hits = 0;
+        $best_finish = PHP_INT_MAX;
+        $worst_finish = 0;
+        $tournaments_played = count($results);
+        $tournament_points_list = array();
+        $finishes = array();
+
+        foreach ($results as $result) {
+            $total_points += floatval($result->points);
+            $total_winnings += floatval($result->winnings);
+            $total_hits += intval($result->hits);
+
+            if ($result->finish_position < $best_finish) {
+                $best_finish = $result->finish_position;
+            }
+            if ($result->finish_position > $worst_finish) {
+                $worst_finish = $result->finish_position;
+            }
+
+            $tournament_points_list[] = floatval($result->points);
+            $finishes[] = intval($result->finish_position);
+        }
+
+        $avg_finish = array_sum($finishes) / count($finishes);
+
+        // Get player information
+        $player_post = get_posts(array(
+            'post_type' => 'player',
+            'meta_query' => array(
+                array(
+                    'key' => '_player_uuid',
+                    'value' => $player_id,
+                    'compare' => '='
+                )
+            ),
+            'posts_per_page' => 1
+        ));
+
+        $player_name = $player_id;
+        $player_url = '';
+
+        if (!empty($player_post)) {
+            $player_name = $player_post[0]->post_title;
+            $player_url = esc_url(get_permalink($player_post[0]->ID));
+        }
+
+        // Build overall data array
+        $overall_data = array(
+            'player_id' => $player_id,
+            'player_name' => $player_name,
+            'player_url' => $player_url,
+            'tournaments_played' => $tournaments_played,
+            'total_points' => $total_points,
+            'total_winnings' => $total_winnings,
+            'total_hits' => $total_hits,
+            'best_finish' => $best_finish === PHP_INT_MAX ? 0 : $best_finish,
+            'worst_finish' => $worst_finish,
+            'avg_finish' => $avg_finish,
+            'tournament_points' => $tournament_points_list,
+            'finishes' => $finishes,
+            'results_detail' => $results
+        );
+
+        // Apply formula if specified
+        if ($formula_key && $formula_key !== 'direct_sum') {
+            $overall_points = $this->apply_series_formula($overall_data, $formula_key);
+            $overall_data['overall_points'] = $overall_points;
+            $overall_data['formula_used'] = $formula_key;
+        } else {
+            $overall_data['overall_points'] = $total_points;
+            $overall_data['formula_used'] = 'direct_sum';
+        }
+
+        // Calculate tie-breakers
+        $overall_data['tie_breakers'] = $this->calculate_tie_breakers($overall_data);
+
+        return $overall_data;
+    }
+
+    /**
+     * Clear overall standings cache
+     * Call this when tournaments are saved/deleted
+     *
+     * @return void
+     */
+    public function clear_overall_standings_cache() {
+        global $wpdb;
+
+        // Clear all overall standings transients
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+        $wpdb->query(
+            "DELETE FROM {$wpdb->options}
+         WHERE option_name LIKE '_transient_poker_overall_standings_%'"
+        );
+    }
+
+    /**
      * Get series statistics summary
      */
     public function get_series_statistics($series_id) {
