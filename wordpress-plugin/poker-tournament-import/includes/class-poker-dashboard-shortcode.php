@@ -11,6 +11,9 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+// Require filter system class
+require_once plugin_dir_path(dirname(__FILE__)) . 'includes/class-dashboard-filters.php';
+
 class Poker_Dashboard_Shortcode
 {
 
@@ -33,6 +36,14 @@ class Poker_Dashboard_Shortcode
             'poker-dashboard-frontend',
             POKER_TOURNAMENT_IMPORT_PLUGIN_URL . 'assets/css/poker-dashboard-frontend.css',
             array(),
+            POKER_TOURNAMENT_IMPORT_VERSION
+        );
+
+        // Enqueue filters CSS for dashboard filter controls
+        wp_enqueue_style(
+            'poker-dashboard-filters',
+            POKER_TOURNAMENT_IMPORT_PLUGIN_URL . 'assets/css-dashboard/filters.css',
+            array('poker-dashboard-frontend'),
             POKER_TOURNAMENT_IMPORT_VERSION
         );
     }
@@ -72,6 +83,16 @@ class Poker_Dashboard_Shortcode
     {
         global $wpdb;
 
+        // Initialize filter system
+        $filters = new Poker_Dashboard_Filters();
+        $current_url = remove_query_arg(array_keys($_GET));
+
+        // Render filter controls first
+        $this->render_filter_controls($filters, $current_url);
+
+        // Get filtered tournament IDs for all queries
+        $filtered_tournament_ids = $filters->get_filtered_tournament_ids();
+
         // Get counts
         $tournament_count = wp_count_posts('tournament');
         $total_tournaments = $tournament_count->publish;
@@ -82,14 +103,28 @@ class Poker_Dashboard_Shortcode
         $season_count = wp_count_posts('tournament_season');
         $total_seasons = $season_count->publish;
 
-        // Get recent tournaments
-        $recent_tournaments = get_posts(array(
+        // Get recent tournaments (filtered if active)
+        $tournament_args = array(
             'post_type' => 'tournament',
             'posts_per_page' => $recent_count,
             'orderby' => 'date',
             'order' => 'DESC',
             'post_status' => 'publish',
-        ));
+        );
+
+        // Apply season filter if active
+        $active_filters = $filters->get_active_filters();
+        if (!empty($active_filters['season'])) {
+            $tournament_args['meta_query'] = array(
+                array(
+                    'key' => '_tournament_season_id',
+                    'value' => $active_filters['season'],
+                    'compare' => '='
+                )
+            );
+        }
+
+        $recent_tournaments = get_posts($tournament_args);
 
         // Get data mart health info
         $datamart_last_refresh = get_option('tdwp_statistics_last_refresh', null);
@@ -103,6 +138,9 @@ class Poker_Dashboard_Shortcode
         if ($show_recent && !empty($recent_tournaments)) {
             $this->render_recent_tournaments($recent_tournaments);
         }
+
+        // Render overall standings (always show if enabled)
+        $this->render_overall_standings($filtered_tournament_ids);
 
         // Render data mart health
         if ($show_health) {
@@ -221,6 +259,101 @@ class Poker_Dashboard_Shortcode
                     <?php esc_html_e('Statistics have not been refreshed yet.', 'poker-tournament-import'); ?>
                 </p>
             <?php endif; ?>
+        </div>
+        <?php
+    }
+
+    /**
+     * Render filter controls
+     *
+     * @param Poker_Dashboard_Filters $filters Filter system instance
+     * @param string $current_url Base URL for form action
+     */
+    private function render_filter_controls($filters, $current_url)
+    {
+        echo $filters->render_filter_controls($current_url);
+    }
+
+    /**
+     * Render overall standings table
+     *
+     * @param array $tournament_ids Tournament IDs to calculate standings for
+     */
+    private function render_overall_standings($tournament_ids = null)
+    {
+        // Require the standings calculator
+        if (!class_exists('Poker_Series_Standings_Calculator')) {
+            require_once plugin_dir_path(dirname(__FILE__)) . 'includes/class-series-standings.php';
+        }
+
+        $calculator = new Poker_Series_Standings_Calculator();
+        $standings = $calculator->calculate_overall_standings($tournament_ids);
+
+        if (empty($standings)) {
+            return;
+        }
+        ?>
+        <div class="poker-dashboard-standings">
+            <h2><?php esc_html_e('Overall Points Standings', 'poker-tournament-import'); ?></h2>
+            <table class="poker-dashboard-table poker-standings-table">
+                <thead>
+                    <tr>
+                        <th><?php esc_html_e('Rank', 'poker-tournament-import'); ?></th>
+                        <th><?php esc_html_e('Player', 'poker-tournament-import'); ?></th>
+                        <th><?php esc_html_e('Points', 'poker-tournament-import'); ?></th>
+                        <th><?php esc_html_e('Played', 'poker-tournament-import'); ?></th>
+                        <th><?php esc_html_e('Best', 'poker-tournament-import'); ?></th>
+                        <th><?php esc_html_e('Avg Finish', 'poker-tournament-import'); ?></th>
+                        <th><?php esc_html_e('1st', 'poker-tournament-import'); ?></th>
+                        <th><?php esc_html_e('Top 3', 'poker-tournament-import'); ?></th>
+                        <th><?php esc_html_e('Top 5', 'poker-tournament-import'); ?></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($standings as $standing) :
+                        $rank_display = $standing['rank'];
+                        if ($standing['is_tied']) {
+                            $rank_display .= 'T';
+                        }
+
+                        // Add medal indicators for top ranks
+                        $rank_suffix = '';
+                        $rank_class = '';
+                        if ($standing['rank'] === 1) {
+                            $rank_suffix = ' 🥇';
+                            $rank_class = ' rank-first';
+                        } elseif ($standing['rank'] === 2) {
+                            $rank_suffix = ' 🥈';
+                            $rank_class = ' rank-second';
+                        } elseif ($standing['rank'] === 3) {
+                            $rank_suffix = ' 🥉';
+                            $rank_class = ' rank-third';
+                        }
+                        ?>
+                        <tr<?php echo $rank_class ? ' class="' . esc_attr($rank_class) . '"' : ''; ?>>
+                            <td class="rank-cell<?php echo esc_attr($rank_class); ?>">
+                                <?php echo esc_html($rank_display . $rank_suffix); ?>
+                            </td>
+                            <td>
+                                <?php if ($standing['player_url']) : ?>
+                                    <a href="<?php echo esc_url($standing['player_url']); ?>">
+                                        <?php echo esc_html($standing['player_name']); ?>
+                                    </a>
+                                <?php else : ?>
+                                    <?php echo esc_html($standing['player_name']); ?>
+                                <?php endif; ?>
+                            </td>
+                            <td class="points-cell"><?php echo number_format($standing['overall_points'], 1); ?></td>
+                            <td><?php echo number_format($standing['tournaments_played']); ?></td>
+                            <td><?php echo esc_html($standing['best_finish']); ?></td>
+                            <td><?php echo number_format($standing['avg_finish'], 1); ?></td>
+                            <td><?php echo number_format($standing['tie_breakers']['first_places']); ?></td>
+                            <td><?php echo number_format($standing['tie_breakers']['top3_finishes']); ?></td>
+                            <td><?php echo number_format($standing['tie_breakers']['top5_finishes']); ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
         </div>
         <?php
     }
