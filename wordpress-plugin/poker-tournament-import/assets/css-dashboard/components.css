@@ -258,3 +258,85 @@
         flex-direction: column;
     }
 }
+
+/* ============================================================================
+   Overall Standings Table Styling
+   ============================================================================ */
+
+/* Rank cell styling */
+.rank-cell {
+    font-weight: 700;
+    min-width: 60px;
+}
+
+.rank-first {
+    color: #d97706; /* Gold/amber */
+}
+
+.rank-second {
+    color: #64748b; /* Silver */
+}
+
+.rank-third {
+    color: #b45309; /* Bronze */
+}
+
+/* Points cell styling */
+.points-cell {
+    font-weight: 700;
+    color: var(--dashboard-primary);
+}
+
+/* Table cell links */
+.table-cell a {
+    color: inherit;
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+
+.table-cell a:hover {
+    color: var(--dashboard-primary);
+    text-decoration: underline;
+}
+
+/* Responsive standings table */
+@media (max-width: 1024px) {
+    /* Hide less important columns on medium screens */
+    .data-table-wrapper .table-cell:nth-child(7),
+    .data-table-wrapper .table-cell:nth-child(8),
+    .data-table-wrapper .table-cell:nth-child(9) {
+        display: none;
+    }
+}
+
+@media (max-width: 768px) {
+    /* Stack standings table rows on mobile */
+    .data-table-wrapper .table-row {
+        grid-template-columns: auto 1fr;
+        gap: 0.75rem;
+    }
+
+    /* Show all columns but smaller */
+    .data-table-wrapper .table-cell:nth-child(n+3) {
+        font-size: 0.75rem;
+    }
+
+    /* Keep rank and player visible */
+    .data-table-wrapper .table-cell:nth-child(1),
+    .data-table-wrapper .table-cell:nth-child(2) {
+        font-size: 0.875rem;
+    }
+}
+
+/* Ranking highlights for top positions */
+.table-row:has(.rank-first) {
+    background: rgba(217, 119, 6, 0.08);
+}
+
+.table-row:has(.rank-second) {
+    background: rgba(100, 116, 139, 0.08);
+}
+
+.table-row:has(.rank-third) {
+    background: rgba(180, 83, 9, 0.08);
+}
