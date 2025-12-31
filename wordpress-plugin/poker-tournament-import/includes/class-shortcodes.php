@@ -253,14 +253,6 @@ class Poker_Tournament_Import_Shortcodes {
             $this->render_tournament_statistics($tournament_uuid, $players_count);
         }
 
-        // Display content
-        if ($tournament->post_content) {
-            echo '<div class="tournament-description">';
-            echo '<h3>' . esc_html__('Tournament Details', 'poker-tournament-import') . '</h3>';
-            echo wp_kses_post(wpautop($tournament->post_content));
-            echo '</div>';
-        }
-
         // Display players if requested
         if ($atts['show_players'] === 'true') {
             $this->render_tournament_players($tournament->ID);
