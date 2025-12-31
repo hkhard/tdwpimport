@@ -195,6 +195,59 @@ class Poker_Tournament_Import_Shortcodes {
         echo '</div>';
         echo '</header>';
 
+        // Enhanced tournament metadata
+        echo '<div class="tournament-meta">';
+        if ($tournament_date) {
+            echo '<div class="meta-item">';
+            echo '<span class="meta-label">' . esc_html__('Date:', 'poker-tournament-import') . '</span>';
+            echo '<span class="meta-value">' . esc_html(date_i18n(get_option('date_format'), strtotime($tournament_date))) . '</span>';
+            echo '</div>';
+        }
+
+        if ($series_name) {
+            echo '<div class="meta-item">';
+            echo '<span class="meta-label">' . esc_html__('Series:', 'poker-tournament-import') . '</span>';
+            echo '<span class="meta-value"><a href="' . esc_url(get_permalink($series_id)) . '">' . esc_html($series_name) . '</a></span>';
+            echo '</div>';
+        }
+
+        if ($season_name) {
+            echo '<div class="meta-item">';
+            echo '<span class="meta-label">' . esc_html__('Season:', 'poker-tournament-import') . '</span>';
+            echo '<span class="meta-value"><a href="' . esc_url(get_permalink($season_id)) . '">' . esc_html($season_name) . '</a></span>';
+            echo '</div>';
+        }
+
+        if ($buy_in) {
+            echo '<div class="meta-item">';
+            echo '<span class="meta-label">' . esc_html__('Buy-in:', 'poker-tournament-import') . '</span>';
+            echo '<span class="meta-value">' . esc_html($currency . $buy_in) . '</span>';
+            echo '</div>';
+        }
+
+        if ($players_count) {
+            echo '<div class="meta-item">';
+            echo '<span class="meta-label">' . esc_html__('Players:', 'poker-tournament-import') . '</span>';
+            echo '<span class="meta-value">' . esc_html($players_count) . '</span>';
+            echo '</div>';
+        }
+
+        if ($prize_pool) {
+            echo '<div class="meta-item highlight">';
+            echo '<span class="meta-label">' . esc_html__('Prize Pool:', 'poker-tournament-import') . '</span>';
+            echo '<span class="meta-value">' . esc_html($currency . number_format(floatval($prize_pool ?: 0), 2)) . '</span>';
+            echo '</div>';
+        }
+
+        if ($total_winnings > 0) {
+            echo '<div class="meta-item">';
+            echo '<span class="meta-label">' . esc_html__('Total Paid:', 'poker-tournament-import') . '</span>';
+            echo '<span class="meta-value">' . esc_html($currency . number_format(floatval($total_winnings ?: 0), 2)) . '</span>';
+            echo '</div>';
+        }
+
+        echo '</div>';
+
         // Tournament statistics summary
         if ($atts['show_structure'] === 'true') {
             $this->render_tournament_statistics($tournament_uuid, $players_count);
