@@ -211,6 +211,12 @@ class CSS_Dashboard_Renderer
             case 'table':
                 $output = $this->render_table_component($component);
                 break;
+            case 'custom':
+                // Custom HTML component (for filters, etc.)
+                if (isset($component['html'])) {
+                    $output = $component['html'];
+                }
+                break;
         }
 
         return $output;

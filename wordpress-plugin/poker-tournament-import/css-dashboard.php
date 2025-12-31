@@ -14,6 +14,7 @@ if (!defined('ABSPATH')) {
 }
 
 require_once plugin_dir_path(__FILE__) . 'includes/class-dashboard-renderer.php';
+require_once plugin_dir_path(__FILE__) . 'includes/class-dashboard-filters.php';
 
 /**
  * Base CSS Dashboard class
@@ -86,6 +87,7 @@ abstract class CSS_Dashboard_Base
         $css_dir = POKER_TOURNAMENT_IMPORT_PLUGIN_URL . 'assets/css-dashboard/';
         wp_enqueue_style('css-dashboard-core', $css_dir . 'dashboard-core.css', array(), '1.0.0');
         wp_enqueue_style('css-dashboard-components', $css_dir . 'components.css', array(), '1.0.0');
+        wp_enqueue_style('css-dashboard-filters', $css_dir . 'filters.css', array('css-dashboard-components'), '1.0.0');
     }
 
     /**

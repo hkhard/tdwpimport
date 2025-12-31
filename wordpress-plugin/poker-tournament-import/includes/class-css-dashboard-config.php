@@ -39,12 +39,42 @@ class Poker_CSS_Dashboard_Config extends CSS_Dashboard_Base
         return 3;
     }
 
+    /**
+     * Filter controls section
+     *
+     * @param Poker_Dashboard_Filters $filters Filter system instance
+     * @return array Section configuration
+     */
+    private function get_filters_section($filters) {
+        $current_url = remove_query_arg(array_keys($_GET)); // Clear all params
+
+        return array(
+            'id' => 'dashboard-filters',
+            'title' => '', // No title for filter bar
+            'columns' => 1,
+            'components' => array(
+                array(
+                    'id' => 'filter-controls',
+                    'parent_section_id' => 'dashboard-filters',
+                    'type' => 'custom', // Custom HTML type
+                    'html' => $filters->render_filter_controls($current_url)
+                )
+            )
+        );
+    }
+
     public function get_dashboard_config($config)
     {
         global $wpdb;
 
+        // Initialize filter system
+        $filters = new Poker_Dashboard_Filters();
+
         $config['title'] = 'Poker Tournament Dashboard';
         $config['sections'] = array();
+
+        // Add filter controls section (first, before data)
+        $config['sections'][] = $this->get_filters_section($filters);
 
         // Overview Statistics Section
         $config['sections'][] = $this->get_overview_section();
