@@ -260,6 +260,18 @@ $archive_url = get_post_type_archive_link($post_type);
                             <div class="stat-number"><?php echo esc_html($tournament_date ? date_i18n('M j', strtotime($tournament_date)) : '--'); ?></div>
                             <div class="stat-label"><?php esc_html_e('Date', 'poker-tournament-import'); ?></div>
                         </div>
+
+                        <div class="stat-card secondary">
+                            <div class="stat-icon">🃏</div>
+                            <div class="stat-number"><?php echo esc_html($game_type); ?></div>
+                            <div class="stat-label"><?php esc_html_e('Game Type', 'poker-tournament-import'); ?></div>
+                        </div>
+
+                        <div class="stat-card secondary">
+                            <div class="stat-icon">📊</div>
+                            <div class="stat-number"><?php echo esc_html($tournament_structure); ?></div>
+                            <div class="stat-label"><?php esc_html_e('Structure', 'poker-tournament-import'); ?></div>
+                        </div>
                     </div>
                 </section>
 
@@ -433,17 +445,8 @@ $archive_url = get_post_type_archive_link($post_type);
                                     <?php if (get_the_content()) : ?>
                                         <?php the_content(); ?>
                                     <?php else: ?>
-                                        <!-- **CRITICAL FIX**: Fallback content for tournaments without detailed description -->
+                                        <!-- Fallback content for tournaments without detailed description -->
                                         <div class="tournament-fallback-content">
-                                            <div class="tournament-basic-info">
-                                                <p><strong><?php esc_html_e('Game Type:', 'poker-tournament-import'); ?></strong> <?php echo esc_html($game_type); ?></p>
-                                                <p><strong><?php esc_html_e('Structure:', 'poker-tournament-import'); ?></strong> <?php echo esc_html($tournament_structure); ?></p>
-                                                <p><strong><?php esc_html_e('Date:', 'poker-tournament-import'); ?></strong> <?php echo $tournament_date ? esc_html(date_i18n(get_option('date_format'), strtotime($tournament_date))) : esc_html__('Date not specified', 'poker-tournament-import'); ?></p>
-                                                <p><strong><?php esc_html_e('Players:', 'poker-tournament-import'); ?></strong> <?php echo esc_html($players_count); ?></p>
-                                                <p><strong><?php esc_html_e('Buy-in:', 'poker-tournament-import'); ?></strong> <?php echo esc_html($currency . number_format($buy_in, 0)); ?></p>
-                                                <p><strong><?php esc_html_e('Prize Pool:', 'poker-tournament-import'); ?></strong> <?php echo esc_html($currency . number_format($prize_pool, 0)); ?></p>
-                                            </div>
-
                                             <?php if ($points_summary): ?>
                                                 <div class="tournament-points-summary">
                                                     <h4><?php esc_html_e('Points Summary', 'poker-tournament-import'); ?></h4>
