@@ -439,6 +439,34 @@ $archive_url = get_post_type_archive_link($post_type);
 
                         <!-- Main Content -->
                         <div class="tournament-main-content">
+                            <div class="tournament-description">
+                                <h2><?php esc_html_e('Tournament Details', 'poker-tournament-import'); ?></h2>
+                                <div class="tournament-description-content">
+                                    <?php if (get_the_content()) : ?>
+                                        <?php the_content(); ?>
+                                    <?php else: ?>
+                                        <!-- Fallback content for tournaments without detailed description -->
+                                        <div class="tournament-fallback-content">
+                                            <?php if ($points_summary): ?>
+                                                <div class="tournament-points-summary">
+                                                    <h4><?php esc_html_e('Points Summary', 'poker-tournament-import'); ?></h4>
+                                                    <p><strong><?php esc_html_e('Total Points Awarded:', 'poker-tournament-import'); ?></strong> <?php echo esc_html(number_format($points_summary['total_points_awarded'], 1)); ?></p>
+                                                    <p><strong><?php esc_html_e('Highest Points:', 'poker-tournament-import'); ?></strong> <?php echo esc_html(number_format($points_summary['max_points'], 1)); ?>
+                                                    <?php if ($points_summary['top_point_scorer']): ?>
+                                                        (<?php echo esc_html($points_summary['top_point_scorer']['name']); ?> - <?php echo esc_html($points_summary['top_point_scorer']['finish_position']); ?><?php echo esc_html(get_ordinal_suffix($points_summary['top_point_scorer']['finish_position'])); ?>)
+                                                    <?php endif; ?></p>
+                                                    <p><strong><?php esc_html_e('Players with Points:', 'poker-tournament-import'); ?></strong> <?php echo esc_html($points_summary['players_with_points']); ?> / <?php echo esc_html($points_summary['total_players']); ?></p>
+                                                    <p><em><?php esc_html_e('Points calculated using Tournament Director formula with T33/T80 thresholds and knockout bonuses.', 'poker-tournament-import'); ?></em></p>
+                                                </div>
+                                            <?php endif; ?>
+
+                                            <div class="tournament-status-info">
+                                                <p><em><?php esc_html_e('This tournament was automatically imported from Tournament Director data. Complete results and statistics are shown below.', 'poker-tournament-import'); ?></em></p>
+                                            </div>
+                                        </div>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
 
                             <!-- Results Table -->
                             <div class="tournament-results-section">
