@@ -290,7 +290,7 @@ class Poker_Dashboard_Filters {
         if (isset($active['season']) && $active['season'] !== 'all') {
             $args['meta_query'] = array(
                 array(
-                    'key' => '_tournament_season_id',
+                    'key' => '_season_id',
                     'value' => intval($active['season']),
                     'compare' => '='
                 )

@@ -2472,39 +2472,15 @@ class Poker_Tournament_Import_Shortcodes {
 
         $calculator = new Poker_Series_Standings_Calculator();
 
-        // Get series associated with this season
-        $series_query = new WP_Query(array(
-            'post_type'      => 'tournament_series',
-            'posts_per_page' => 1,
-            'meta_query'     => array(
-                array(
-                    'key'     => '_season_id',
-                    'value'   => $season_id,
-                    'compare' => '='
-                )
-            )
-        ));
-
-        if (!$series_query->have_posts()) {
-            $output = '<div class="poker-leaderboard-no-data" style="padding: 20px; background: #f8d7da; border-left: 4px solid #dc3545; margin: 20px 0;">';
-            $output .= '<p>' . sprintf(esc_html__('No series found for season: %s', 'poker-tournament-import'), esc_html($season->post_title)) . '</p>';
-            $output .= '</div>';
-            wp_reset_postdata();
-            return $output;
-        }
-
-        $series_id = $series_query->posts[0]->ID;
-        wp_reset_postdata();
-
-        // Calculate standings with limit
-        $standings = $calculator->calculate_series_standings($series_id, array(
+        // Calculate season standings directly (no series query needed)
+        $standings = $calculator->calculate_season_standings($season_id, array(
             'formula_key' => $formula_key,
             'limit'       => $limit
         ));
 
         if (empty($standings)) {
-            $output = '<div class="poker-leaderboard-no-data" style="padding: 20px; background: #d1ecf1; border-left: 4px solid #0c5460; margin: 20px 0;">';
-            $output .= '<p>' . esc_html__('No standings data available for this season.', 'poker-tournament-import') . '</p>';
+            $output = '<div class="poker-leaderboard-no-data" style="padding: 20px; background: #f8d7da; border-left: 4px solid #dc3545; margin: 20px 0;">';
+            $output .= '<p>' . sprintf(esc_html__('No tournaments or standings data found for season: %s', 'poker-tournament-import'), esc_html($season->post_title)) . '</p>';
             $output .= '</div>';
             return $output;
         }

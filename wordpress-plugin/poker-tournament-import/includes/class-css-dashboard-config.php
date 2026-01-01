@@ -77,19 +77,19 @@ class Poker_CSS_Dashboard_Config extends CSS_Dashboard_Base
         $config['sections'][] = $this->get_filters_section($filters);
 
         // Overview Statistics Section
-        $config['sections'][] = $this->get_overview_section();
+        $config['sections'][] = $this->get_overview_section($filters);
 
         // Tournaments Table Section
-        $config['sections'][] = $this->get_tournaments_section();
+        $config['sections'][] = $this->get_tournaments_section($filters);
 
         // Players Table Section
-        $config['sections'][] = $this->get_players_section();
+        $config['sections'][] = $this->get_players_section($filters);
 
         // Series Table Section
-        $config['sections'][] = $this->get_series_section();
+        $config['sections'][] = $this->get_series_section($filters);
 
         // Seasons Table Section
-        $config['sections'][] = $this->get_seasons_section();
+        $config['sections'][] = $this->get_seasons_section($filters);
 
         // Overall Points Standings Section
         $config['sections'][] = $this->get_overall_standings_section($filters);
@@ -97,16 +97,61 @@ class Poker_CSS_Dashboard_Config extends CSS_Dashboard_Base
         return $config;
     }
 
-    private function get_overview_section()
+    private function get_overview_section($filters = null)
     {
-        $tournament_count = wp_count_posts('tournament')->publish;
-        $player_count = wp_count_posts('player')->publish;
+        // Get active season from filters
+        $season_id = null;
+        if ($filters) {
+            $season_id = $filters->get_active_season();
+        }
+
+        // Count tournaments (filtered by season if active)
+        $tournament_args = array(
+            'post_type' => 'tournament',
+            'posts_per_page' => -1,
+            'fields' => 'ids',
+            'post_status' => 'publish'
+        );
+
+        if ($season_id) {
+            $tournament_args['meta_query'] = array(
+                array('key' => '_season_id', 'value' => $season_id, 'compare' => '=')
+            );
+        }
+
+        $tournaments = get_posts($tournament_args);
+        $tournament_count = count($tournaments);
+
+        // Count unique players from filtered tournaments
+        $player_count = 0;
+        if (!empty($tournaments)) {
+            global $wpdb;
+            $tournament_ids = wp_list_pluck($tournaments, 'ID');
+            $table_name = $wpdb->prefix . 'poker_tournament_players';
+
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
+            $player_count = $wpdb->get_var($wpdb->prepare(
+                "SELECT COUNT(DISTINCT player_id) FROM $table_name
+                 WHERE tournament_id IN (" . implode(',', array_fill(0, count($tournament_ids), '%s')) . ")",
+                $tournament_ids
+            ));
+        }
+
         $series_count = wp_count_posts('tournament_series')->publish;
         $season_count = wp_count_posts('tournament_season')->publish;
 
-        // Get total prize pool from custom table
+        // Get total prize pool from custom table (filtered by season)
         global $wpdb;
-        $total_prize = $wpdb->get_var("SELECT SUM(total_prize_pool) FROM {$wpdb->prefix}poker_financial_summary");
+        $total_prize = 0;
+        if ($season_id) {
+            $total_prize = $wpdb->get_var($wpdb->prepare(
+                "SELECT SUM(total_prize_pool) FROM {$wpdb->prefix}poker_financial_summary
+                 WHERE season_id = %d",
+                $season_id
+            ));
+        } else {
+            $total_prize = $wpdb->get_var("SELECT SUM(total_prize_pool) FROM {$wpdb->prefix}poker_financial_summary");
+        }
 
         return array(
             'id' => 'overview-stats',
@@ -153,8 +198,14 @@ class Poker_CSS_Dashboard_Config extends CSS_Dashboard_Base
         );
     }
 
-    private function get_tournaments_section()
+    private function get_tournaments_section($filters = null)
     {
+        // Get active season from filters
+        $season_id = null;
+        if ($filters) {
+            $season_id = $filters->get_active_season();
+        }
+
         $args = array(
             'post_type' => 'tournament',
             'posts_per_page' => 50,
@@ -162,6 +213,13 @@ class Poker_CSS_Dashboard_Config extends CSS_Dashboard_Base
             'order' => 'DESC',
             'post_status' => 'publish',
         );
+
+        // Apply season filter if active
+        if ($season_id) {
+            $args['meta_query'] = array(
+                array('key' => '_season_id', 'value' => $season_id, 'compare' => '=')
+            );
+        }
 
         $tournaments = get_posts($args);
         $rows = array();
@@ -197,22 +255,51 @@ class Poker_CSS_Dashboard_Config extends CSS_Dashboard_Base
         );
     }
 
-    private function get_players_section()
+    private function get_players_section($filters = null)
     {
-        global $wpdb;
+        // Get active season from filters
+        $season_id = null;
+        if ($filters) {
+            $season_id = $filters->get_active_season();
+        }
 
-        // Get player statistics from custom table
-        $players = $wpdb->get_results("
-            SELECT p.ID, p.post_title,
-                   COALESCE(stats.total_winnings, 0) as winnings,
-                   COALESCE(stats.tournaments_played, 0) as played,
-                   COALESCE(stats.avg_finish, 0) as avg_finish
-            FROM {$wpdb->posts} p
-            LEFT JOIN {$wpdb->prefix}poker_player_roi stats ON p.ID = stats.player_id
-            WHERE p.post_type = 'player' AND p.post_status = 'publish'
-            ORDER BY winnings DESC
-            LIMIT 100
-        ");
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'poker_tournament_players';
+
+        // Get player statistics from custom table, filtered by season if active
+        if ($season_id) {
+            // Filter players who participated in tournaments from this season
+            $players = $wpdb->get_results($wpdb->prepare(
+                "SELECT DISTINCT p.ID, p.post_title,
+                        COALESCE(SUM(tp.winnings), 0) as winnings,
+                        COUNT(DISTINCT tp.tournament_id) as played,
+                        COALESCE(AVG(tp.finish_position), 0) as avg_finish
+                 FROM {$wpdb->posts} p
+                 INNER JOIN $table_name tp ON p.ID = tp.player_id
+                 INNER JOIN {$wpdb->postmeta} tm ON tp.tournament_id = tm.post_id
+                 WHERE p.post_type = 'player'
+                   AND p.post_status = 'publish'
+                   AND tm.meta_key = '_season_id'
+                   AND tm.meta_value = %d
+                 GROUP BY p.ID
+                 ORDER BY winnings DESC
+                 LIMIT 100",
+                $season_id
+            ));
+        } else {
+            // Get all players without season filter
+            $players = $wpdb->get_results("
+                SELECT p.ID, p.post_title,
+                       COALESCE(stats.total_winnings, 0) as winnings,
+                       COALESCE(stats.tournaments_played, 0) as played,
+                       COALESCE(stats.avg_finish, 0) as avg_finish
+                FROM {$wpdb->posts} p
+                LEFT JOIN {$wpdb->prefix}poker_player_roi stats ON p.ID = stats.player_id
+                WHERE p.post_type = 'player' AND p.post_status = 'publish'
+                ORDER BY winnings DESC
+                LIMIT 100
+            ");
+        }
 
         $rows = array();
 
@@ -243,16 +330,31 @@ class Poker_CSS_Dashboard_Config extends CSS_Dashboard_Base
         );
     }
 
-    private function get_series_section()
+    private function get_series_section($filters = null)
     {
+        // Get active season from filters
+        $season_id = null;
+        if ($filters) {
+            $season_id = $filters->get_active_season();
+        }
+
         global $wpdb;
 
-        $series_list = get_posts(array(
+        $series_args = array(
             'post_type' => 'tournament_series',
             'posts_per_page' => 50,
             'orderby' => 'title',
             'order' => 'ASC',
-        ));
+        );
+
+        // If season is filtered, only show series from that season
+        if ($season_id) {
+            $series_args['meta_query'] = array(
+                array('key' => '_season_id', 'value' => $season_id, 'compare' => '=')
+            );
+        }
+
+        $series_list = get_posts($series_args);
 
         $rows = array();
 
@@ -293,7 +395,7 @@ class Poker_CSS_Dashboard_Config extends CSS_Dashboard_Base
         );
     }
 
-    private function get_seasons_section()
+    private function get_seasons_section($filters = null)
     {
         global $wpdb;
 
@@ -313,7 +415,7 @@ class Poker_CSS_Dashboard_Config extends CSS_Dashboard_Base
                 AND post_status = 'publish'
                 AND ID IN (
                     SELECT post_id FROM {$wpdb->postmeta}
-                    WHERE meta_key = '_tournament_season_id'
+                    WHERE meta_key = '_season_id'
                     AND meta_value = %d
                 )",
                 $season->ID

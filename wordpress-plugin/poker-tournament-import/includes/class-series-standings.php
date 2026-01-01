@@ -67,6 +67,104 @@ class Poker_Series_Standings_Calculator {
     }
 
     /**
+     * Calculate season standings by aggregating all tournaments in the season
+     *
+     * @param int $season_id Season post ID
+     * @param array|string $formula_key Formula key to use, or array with options
+     * @return array Season standings
+     */
+    public function calculate_season_standings($season_id, $formula_key = null) {
+        global $wpdb;
+
+        // Handle array options parameter
+        $limit = null;
+        if (is_array($formula_key)) {
+            $options = $formula_key;
+            $formula_key = isset($options['formula_key']) ? $options['formula_key'] : null;
+            $limit = isset($options['limit']) ? $options['limit'] : null;
+        }
+
+        if (!$formula_key) {
+            $formula_key = get_option('tdwp_active_season_formula', 'season_total');
+        }
+
+        // Try transient cache first
+        $cache_key = 'poker_season_standings_' . $season_id . '_' . $formula_key;
+        $cached_standings = get_transient($cache_key);
+
+        if ($cached_standings !== false) {
+            // Apply limit if cached
+            if ($limit && count($cached_standings) > $limit) {
+                return array_slice($cached_standings, 0, $limit);
+            }
+            return $cached_standings;
+        }
+
+        // Get ALL tournaments in this season
+        $tournaments = $this->get_season_tournaments($season_id);
+
+        if (empty($tournaments)) {
+            return array();
+        }
+
+        // Get all players who participated in season tournaments
+        $players = $this->get_series_players($tournaments);
+
+        if (empty($players)) {
+            return array();
+        }
+
+        // Calculate standings for each player
+        $standings = array();
+        foreach ($players as $player_id) {
+            $player_data = $this->calculate_player_series_data($player_id, $tournaments, $formula_key);
+            if ($player_data) {
+                $standings[] = $player_data;
+            }
+        }
+
+        // Sort standings by points, then apply tie-breakers
+        $standings = $this->sort_standings_with_tiebreakers($standings);
+
+        // Assign final rankings
+        $standings = $this->assign_final_rankings($standings);
+
+        // Cache standings for 1 hour
+        set_transient($cache_key, $standings, HOUR_IN_SECONDS);
+
+        // Apply limit if specified
+        if ($limit && count($standings) > $limit) {
+            return array_slice($standings, 0, $limit);
+        }
+
+        return $standings;
+    }
+
+    /**
+     * Get all tournaments in a season
+     *
+     * @param int $season_id Season post ID
+     * @return array Tournament posts
+     */
+    private function get_season_tournaments($season_id) {
+        $tournaments = get_posts(array(
+            'post_type' => 'tournament',
+            'posts_per_page' => -1,
+            'meta_query' => array(
+                array(
+                    'key' => '_season_id',
+                    'value' => $season_id,
+                    'compare' => '='
+                )
+            ),
+            'orderby' => 'date',
+            'order' => 'ASC'
+        ));
+
+        return $tournaments;
+    }
+
+    /**
      * Get tournaments in a series
      */
     private function get_series_tournaments($series_id) {

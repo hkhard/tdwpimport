@@ -117,7 +117,7 @@ class Poker_Dashboard_Shortcode
         if (!empty($active_filters['season'])) {
             $tournament_args['meta_query'] = array(
                 array(
-                    'key' => '_tournament_season_id',
+                    'key' => '_season_id',
                     'value' => $active_filters['season'],
                     'compare' => '='
                 )
