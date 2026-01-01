@@ -11,12 +11,14 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-class Poker_Series_Standings_Calculator {
+class Poker_Series_Standings_Calculator
+{
 
     /**
      * Calculate series standings with tie-breakers
      */
-    public function calculate_series_standings($series_id, $formula_key = null) {
+    public function calculate_series_standings($series_id, $formula_key = null)
+    {
         global $wpdb;
 
         if (!$formula_key) {
@@ -69,7 +71,8 @@ class Poker_Series_Standings_Calculator {
     /**
      * Get tournaments in a series
      */
-    private function get_series_tournaments($series_id) {
+    private function get_series_tournaments($series_id)
+    {
         $tournaments = get_posts(array(
             'post_type' => 'tournament',
             'posts_per_page' => -1,
@@ -90,7 +93,8 @@ class Poker_Series_Standings_Calculator {
     /**
      * Get all players who participated in series tournaments
      */
-    private function get_series_players($tournaments) {
+    private function get_series_players($tournaments)
+    {
         global $wpdb;
         $players = array();
 
@@ -116,7 +120,8 @@ class Poker_Series_Standings_Calculator {
     /**
      * Calculate series data for a single player
      */
-    private function calculate_player_series_data($player_id, $tournaments, $formula_key) {
+    private function calculate_player_series_data($player_id, $tournaments, $formula_key)
+    {
         global $wpdb;
         $table_name = $wpdb->prefix . 'poker_tournament_players';
         $tournament_ids = wp_list_pluck($tournaments, 'ID');
@@ -169,9 +174,9 @@ class Poker_Series_Standings_Calculator {
             'post_type' => 'player',
             'meta_query' => array(
                 array(
-                    'key' => '_player_uuid',
+                    'key' => array('player_uuid', '_player_uuid'),
                     'value' => $player_id,
-                    'compare' => '='
+                    'compare' => 'IN'
                 )
             ),
             'posts_per_page' => 1
@@ -221,7 +226,8 @@ class Poker_Series_Standings_Calculator {
     /**
      * Apply series formula to calculate final points
      */
-    private function apply_series_formula($series_data, $formula_key) {
+    private function apply_series_formula($series_data, $formula_key)
+    {
         $formula_validator = new Poker_Tournament_Formula_Validator();
         $formula_data = $formula_validator->get_formula($formula_key);
 
@@ -250,21 +256,22 @@ class Poker_Series_Standings_Calculator {
     /**
      * Calculate tie-breaker scores for ranking
      */
-    private function calculate_tie_breakers($series_data) {
+    private function calculate_tie_breakers($series_data)
+    {
         $tie_breakers = array();
 
         // Tie-breaker 1: Most first place finishes
-        $tie_breakers['first_places'] = count(array_filter($series_data['finishes'], function($finish) {
+        $tie_breakers['first_places'] = count(array_filter($series_data['finishes'], function ($finish) {
             return $finish === 1;
         }));
 
         // Tie-breaker 2: Most top 3 finishes
-        $tie_breakers['top3_finishes'] = count(array_filter($series_data['finishes'], function($finish) {
+        $tie_breakers['top3_finishes'] = count(array_filter($series_data['finishes'], function ($finish) {
             return $finish <= 3;
         }));
 
         // Tie-breaker 3: Most top 5 finishes
-        $tie_breakers['top5_finishes'] = count(array_filter($series_data['finishes'], function($finish) {
+        $tie_breakers['top5_finishes'] = count(array_filter($series_data['finishes'], function ($finish) {
             return $finish <= 5;
         }));
 
@@ -286,8 +293,9 @@ class Poker_Series_Standings_Calculator {
     /**
      * Sort standings with tie-breaker logic
      */
-    private function sort_standings_with_tiebreakers($standings) {
-        usort($standings, function($a, $b) {
+    private function sort_standings_with_tiebreakers($standings)
+    {
+        usort($standings, function ($a, $b) {
             // Primary sort: Series points (descending)
             if ($a['series_points'] != $b['series_points']) {
                 return $b['series_points'] <=> $a['series_points'];
@@ -295,8 +303,12 @@ class Poker_Series_Standings_Calculator {
 
             // Apply tie-breakers in order
             $tie_breaker_order = array(
-                'first_places', 'top3_finishes', 'top5_finishes',
-                'best_points', 'total_winnings', 'tournaments_played'
+                'first_places',
+                'top3_finishes',
+                'top5_finishes',
+                'best_points',
+                'total_winnings',
+                'tournaments_played'
             );
 
             foreach ($tie_breaker_order as $breaker) {
@@ -320,7 +332,8 @@ class Poker_Series_Standings_Calculator {
     /**
      * Assign final rankings with tie handling
      */
-    private function assign_final_rankings($standings) {
+    private function assign_final_rankings($standings)
+    {
         $current_rank = 1;
         $previous_points = null;
         $previous_tie_breakers = null;
@@ -364,7 +377,8 @@ class Poker_Series_Standings_Calculator {
      * @param string|null $formula_key Optional formula key for calculation
      * @return array Overall standings with tie-breakers
      */
-    public function calculate_overall_standings($tournament_ids = null, $formula_key = null) {
+    public function calculate_overall_standings($tournament_ids = null, $formula_key = null)
+    {
         global $wpdb;
 
         if (!$formula_key) {
@@ -438,7 +452,8 @@ class Poker_Series_Standings_Calculator {
      * @param string $formula_key Formula key for calculation
      * @return array|null Player data or null if no results
      */
-    private function calculate_overall_player_data($player_id, $tournament_ids, $formula_key) {
+    private function calculate_overall_player_data($player_id, $tournament_ids, $formula_key)
+    {
         global $wpdb;
         $table_name = $wpdb->prefix . 'poker_tournament_players';
 
@@ -490,9 +505,9 @@ class Poker_Series_Standings_Calculator {
             'post_type' => 'player',
             'meta_query' => array(
                 array(
-                    'key' => '_player_uuid',
+                    'key' => array('player_uuid', '_player_uuid'),
                     'value' => $player_id,
-                    'compare' => '='
+                    'compare' => 'IN'
                 )
             ),
             'posts_per_page' => 1
@@ -545,7 +560,8 @@ class Poker_Series_Standings_Calculator {
      *
      * @return void
      */
-    public function clear_overall_standings_cache() {
+    public function clear_overall_standings_cache()
+    {
         global $wpdb;
 
         // Clear all overall standings transients
@@ -559,7 +575,8 @@ class Poker_Series_Standings_Calculator {
     /**
      * Get series statistics summary
      */
-    public function get_series_statistics($series_id) {
+    public function get_series_statistics($series_id)
+    {
         $standings = $this->calculate_series_standings($series_id);
 
         if (empty($standings)) {
@@ -593,7 +610,8 @@ class Poker_Series_Standings_Calculator {
     /**
      * Export series standings to CSV
      */
-    public function export_series_standings_csv($series_id, $formula_key = null) {
+    public function export_series_standings_csv($series_id, $formula_key = null)
+    {
         $standings = $this->calculate_series_standings($series_id, $formula_key);
 
         if (empty($standings)) {
@@ -603,7 +621,7 @@ class Poker_Series_Standings_Calculator {
         $filename = 'series-standings-' . sanitize_title(get_the_title($series_id)) . '.csv';
         $filepath = get_temp_dir() . $filename;
 
-            // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen -- Required for CSV export to output buffer
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen -- Required for CSV export to output buffer
         $handle = fopen($filepath, 'w');
 
         // CSV headers
@@ -649,7 +667,8 @@ class Poker_Series_Standings_Calculator {
     /**
      * Display series standings table
      */
-    public function display_series_standings_table($series_id, $formula_key = null, $show_details = false) {
+    public function display_series_standings_table($series_id, $formula_key = null, $show_details = false)
+    {
         $standings = $this->calculate_series_standings($series_id, $formula_key);
 
         if (empty($standings)) {
@@ -657,7 +676,7 @@ class Poker_Series_Standings_Calculator {
             return;
         }
 
-              echo '<div class="series-standings-table" id="series-standings-' . esc_attr($series_id) . '">';
+        echo '<div class="series-standings-table" id="series-standings-' . esc_attr($series_id) . '">';
         echo '<table class="wp-list-table widefat fixed striped">';
         echo '<thead>';
         echo '<tr>';
@@ -747,7 +766,8 @@ class Poker_Series_Standings_Calculator {
      * @param int $cache_time Cache duration in seconds (default: 1 hour)
      * @return mixed Query results
      */
-    private function cached_query($query_type, $sql, $args = null, $cache_time = HOUR_IN_SECONDS) {
+    private function cached_query($query_type, $sql, $args = null, $cache_time = HOUR_IN_SECONDS)
+    {
         global $wpdb;
 
         // Generate cache key from query

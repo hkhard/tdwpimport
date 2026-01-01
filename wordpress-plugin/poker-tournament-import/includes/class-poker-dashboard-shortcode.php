@@ -55,23 +55,16 @@ class Poker_Dashboard_Shortcode
     {
         $atts = shortcode_atts(array(
             'show_stats' => 'true',
-            'show_recent' => 'true',
             'show_health' => 'false',
-            'recent_count' => 5,
         ), $atts);
 
         // Parse boolean attributes
         $show_stats = filter_var($atts['show_stats'], FILTER_VALIDATE_BOOLEAN);
-        $show_recent = filter_var($atts['show_recent'], FILTER_VALIDATE_BOOLEAN);
         $show_health = filter_var($atts['show_health'], FILTER_VALIDATE_BOOLEAN);
-        $recent_count = intval($atts['recent_count']);
-
-        if ($recent_count < 1) $recent_count = 5;
-        if ($recent_count > 20) $recent_count = 20;
 
         ob_start();
         echo '<div id="poker-dashboard">';
-        $this->render_dashboard_content($show_stats, $show_recent, $show_health, $recent_count);
+        $this->render_dashboard_content($show_stats, $show_health);
         echo '</div>';
         return ob_get_clean();
     }
@@ -79,7 +72,7 @@ class Poker_Dashboard_Shortcode
     /**
      * Render dashboard content
      */
-    private function render_dashboard_content($show_stats, $show_recent, $show_health, $recent_count)
+    private function render_dashboard_content($show_stats, $show_health)
     {
         global $wpdb;
 
@@ -103,40 +96,12 @@ class Poker_Dashboard_Shortcode
         $season_count = wp_count_posts('tournament_season');
         $total_seasons = $season_count->publish;
 
-        // Get recent tournaments (filtered if active)
-        $tournament_args = array(
-            'post_type' => 'tournament',
-            'posts_per_page' => $recent_count,
-            'orderby' => 'date',
-            'order' => 'DESC',
-            'post_status' => 'publish',
-        );
-
-        // Apply season filter if active
-        $active_filters = $filters->get_active_filters();
-        if (!empty($active_filters['season'])) {
-            $tournament_args['meta_query'] = array(
-                array(
-                    'key' => '_tournament_season_id',
-                    'value' => $active_filters['season'],
-                    'compare' => '='
-                )
-            );
-        }
-
-        $recent_tournaments = get_posts($tournament_args);
-
         // Get data mart health info
         $datamart_last_refresh = get_option('tdwp_statistics_last_refresh', null);
 
         // Render stats cards
         if ($show_stats) {
             $this->render_stats_cards($total_tournaments, $total_players, $total_seasons);
-        }
-
-        // Render recent tournaments
-        if ($show_recent && !empty($recent_tournaments)) {
-            $this->render_recent_tournaments($recent_tournaments);
         }
 
         // Render overall standings (always show if enabled)
@@ -197,42 +162,7 @@ class Poker_Dashboard_Shortcode
         <?php
     }
 
-    /**
-     * Render recent tournaments table
-     */
-    private function render_recent_tournaments($recent_tournaments)
-    {
-        ?>
-        <div class="poker-dashboard-recent">
-            <h2><?php esc_html_e('Recent Tournaments', 'poker-tournament-import'); ?></h2>
-            <table class="poker-dashboard-table">
-                <thead>
-                    <tr>
-                        <th><?php esc_html_e('Date', 'poker-tournament-import'); ?></th>
-                        <th><?php esc_html_e('Tournament', 'poker-tournament-import'); ?></th>
-                        <th><?php esc_html_e('Players', 'poker-tournament-import'); ?></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($recent_tournaments as $tournament) :
-                        $date = get_post_meta($tournament->ID, '_tournament_date', true);
-                        $players = get_post_meta($tournament->ID, '_player_count', true);
-                        ?>
-                        <tr>
-                            <td><?php echo $date ? esc_html(date('Y-m-d', strtotime($date))) : ''; ?></td>
-                            <td>
-                                <a href="<?php echo esc_url(get_permalink($tournament->ID)); ?>">
-                                    <?php echo esc_html($tournament->post_title); ?>
-                                </a>
-                            </td>
-                            <td><?php echo $players ? number_format($players) : '0'; ?></td>
-                        </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-        </div>
-        <?php
-    }
+
 
     /**
      * Render data mart health status
@@ -242,7 +172,7 @@ class Poker_Dashboard_Shortcode
         ?>
         <div class="poker-dashboard-health">
             <h2><?php esc_html_e('Statistics Status', 'poker-tournament-import'); ?></h2>
-            <?php if ($last_refresh) : ?>
+            <?php if ($last_refresh): ?>
                 <p class="poker-health-ok">
                     <span class="dashicons dashicons-yes-alt"></span>
                     <?php
@@ -253,7 +183,7 @@ class Poker_Dashboard_Shortcode
                     );
                     ?>
                 </p>
-            <?php else : ?>
+            <?php else: ?>
                 <p class="poker-health-warning">
                     <span class="dashicons dashicons-warning"></span>
                     <?php esc_html_e('Statistics have not been refreshed yet.', 'poker-tournament-import'); ?>
@@ -310,7 +240,7 @@ class Poker_Dashboard_Shortcode
                     </tr>
                 </thead>
                 <tbody>
-                    <?php foreach ($standings as $standing) :
+                    <?php foreach ($standings as $standing):
                         $rank_display = $standing['rank'];
                         if ($standing['is_tied']) {
                             $rank_display .= 'T';
@@ -335,11 +265,11 @@ class Poker_Dashboard_Shortcode
                                 <?php echo esc_html($rank_display . $rank_suffix); ?>
                             </td>
                             <td>
-                                <?php if ($standing['player_url']) : ?>
+                                <?php if ($standing['player_url']): ?>
                                     <a href="<?php echo esc_url($standing['player_url']); ?>">
                                         <?php echo esc_html($standing['player_name']); ?>
                                     </a>
-                                <?php else : ?>
+                                <?php else: ?>
                                     <?php echo esc_html($standing['player_name']); ?>
                                 <?php endif; ?>
                             </td>
@@ -350,8 +280,8 @@ class Poker_Dashboard_Shortcode
                             <td><?php echo number_format($standing['tie_breakers']['first_places']); ?></td>
                             <td><?php echo number_format($standing['tie_breakers']['top3_finishes']); ?></td>
                             <td><?php echo number_format($standing['tie_breakers']['top5_finishes']); ?></td>
-                        </tr>
-                    <?php endforeach; ?>
+                            </tr>
+                      <?php endforeach; ?>
                 </tbody>
             </table>
         </div>

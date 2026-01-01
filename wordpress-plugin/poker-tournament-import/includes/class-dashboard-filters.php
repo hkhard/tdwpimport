@@ -13,7 +13,8 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-class Poker_Dashboard_Filters {
+class Poker_Dashboard_Filters
+{
 
     /**
      * Current user ID
@@ -32,7 +33,8 @@ class Poker_Dashboard_Filters {
      *
      * @param int|null $user_id Optional user ID, defaults to current user
      */
-    public function __construct($user_id = null) {
+    public function __construct($user_id = null)
+    {
         $this->user_id = $user_id ?: get_current_user_id();
         $this->filter_config = $this->get_filter_config();
 
@@ -46,7 +48,8 @@ class Poker_Dashboard_Filters {
      *
      * @return array Filter configuration
      */
-    private function get_filter_config() {
+    private function get_filter_config()
+    {
         // Get available seasons
         $seasons = get_posts(array(
             'post_type' => 'tournament_season',
@@ -88,7 +91,8 @@ class Poker_Dashboard_Filters {
      *
      * @return array Active filter values
      */
-    public function get_active_filters() {
+    public function get_active_filters()
+    {
         // Get saved user preferences
         $saved = get_user_meta($this->user_id, 'poker_dashboard_filters', true);
         if (!is_array($saved)) {
@@ -121,7 +125,8 @@ class Poker_Dashboard_Filters {
      * @param array $filters Filter values to save
      * @return bool Success
      */
-    public function save_user_preferences($filters) {
+    public function save_user_preferences($filters)
+    {
         return update_user_meta($this->user_id, 'poker_dashboard_filters', $filters);
     }
 
@@ -131,7 +136,8 @@ class Poker_Dashboard_Filters {
      *
      * @return void
      */
-    private function maybe_save_preferences() {
+    private function maybe_save_preferences()
+    {
         // Only save on non-AJAX, GET requests
         if (!isset($_GET) || wp_doing_ajax()) {
             return;
@@ -159,7 +165,8 @@ class Poker_Dashboard_Filters {
      * @param string $current_url Current page URL
      * @return string Filter form HTML
      */
-    public function render_filter_controls($current_url = '') {
+    public function render_filter_controls($current_url = '')
+    {
         $active = $this->get_active_filters();
         $filters = $this->filter_config;
 
@@ -176,19 +183,13 @@ class Poker_Dashboard_Filters {
                     </label>
 
                     <?php if ($config['type'] === 'select'): ?>
-                        <select
-                            name="filter_<?php echo esc_attr($filter_key); ?>"
-                            id="filter_<?php echo esc_attr($filter_key); ?>"
-                        >
+                        <select name="filter_<?php echo esc_attr($filter_key); ?>" id="filter_<?php echo esc_attr($filter_key); ?>">
                             <?php
                             $current_value = isset($active[$filter_key]) ? $active[$filter_key] : '';
                             foreach ($config['options'] as $option):
-                                $selected = $option['value'] === $current_value ? 'selected' : '';
-                            ?>
-                                <option
-                                    value="<?php echo esc_attr($option['value']); ?>"
-                                    <?php echo $selected; ?>
-                                >
+                                $selected = $option['value'] == $current_value ? 'selected' : '';
+                                ?>
+                                <option value="<?php echo esc_attr($option['value']); ?>" <?php echo $selected; ?>>
                                     <?php echo esc_html($option['label']); ?>
                                 </option>
                             <?php endforeach; ?>
@@ -224,7 +225,8 @@ class Poker_Dashboard_Filters {
                 ?>
 
                 <?php if ($has_active): ?>
-                    <a href="<?php echo esc_url(remove_query_arg(array_keys($this->get_filter_param_names()), $current_url)); ?>" class="button">
+                    <a href="<?php echo esc_url(remove_query_arg(array_keys($this->get_filter_param_names()), $current_url)); ?>"
+                        class="button">
                         <?php esc_html_e('Reset', 'poker-tournament-import'); ?>
                     </a>
                 <?php endif; ?>
@@ -240,8 +242,9 @@ class Poker_Dashboard_Filters {
      *
      * @return array Parameter names
      */
-    private function get_filter_param_names() {
-        return array_map(function($key) {
+    private function get_filter_param_names()
+    {
+        return array_map(function ($key) {
             return 'filter_' . $key;
         }, array_keys($this->filter_config));
     }
@@ -252,7 +255,8 @@ class Poker_Dashboard_Filters {
      *
      * @return array Filtered tournament IDs
      */
-    public function get_filtered_tournament_ids() {
+    public function get_filtered_tournament_ids()
+    {
         $active = $this->get_active_filters();
 
         $args = array(

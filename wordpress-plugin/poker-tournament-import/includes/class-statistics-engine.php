@@ -829,7 +829,7 @@ class Poker_Statistics_Engine {
                         ELSE 0
                     END as roi
                   FROM {$this->players_table} tp
-                  LEFT JOIN {$wpdb->postmeta} pm ON pm.meta_value = tp.player_id AND pm.meta_key = 'player_uuid'
+                  LEFT JOIN {$wpdb->postmeta} pm ON pm.meta_value = tp.player_id AND pm.meta_key IN ('player_uuid', '_player_uuid')
                   LEFT JOIN {$wpdb->posts} p ON pm.post_id = p.ID";
 
         $where_clauses = array();
@@ -909,7 +909,7 @@ class Poker_Statistics_Engine {
                     MIN(tp.finish_position) as best_finish
                   FROM {$roi_table} roi
                   LEFT JOIN {$this->players_table} tp ON roi.player_id = tp.player_id AND roi.tournament_id = tp.tournament_id
-                  LEFT JOIN {$wpdb->postmeta} pm ON pm.meta_value = roi.player_id AND pm.meta_key = 'player_uuid'
+                  LEFT JOIN {$wpdb->postmeta} pm ON pm.meta_value = roi.player_id AND pm.meta_key IN ('player_uuid', '_player_uuid')
                   LEFT JOIN {$wpdb->posts} p ON pm.post_id = p.ID";
 
         $where_clauses = array();
@@ -1182,7 +1182,7 @@ class Poker_Statistics_Engine {
                 "SELECT p.ID, p.post_title
                  FROM {$wpdb->postmeta} pm
                  LEFT JOIN {$wpdb->posts} p ON pm.post_id = p.ID
-                 WHERE pm.meta_key = 'player_uuid' AND pm.meta_value = %s
+                 WHERE pm.meta_key IN ('player_uuid', '_player_uuid') AND pm.meta_value = %s
                  LIMIT 1",
                 $player->player_id
             ));
