@@ -109,6 +109,27 @@ class Poker_Dashboard_Filters {
             // Fall back to default
             $default = isset($config['default']) ? $config['default'] : null;
 
+            // Smart fallback: if default is 'all' and nothing else set, use most recent season
+            if ($filter_key === 'season' && $default === 'all' && !$url_param && !$saved_value) {
+                // Check for site-wide default season option
+                $site_default = get_option('tdwp_default_season', 0);
+                if ($site_default > 0) {
+                    $default = $site_default;
+                } else {
+                    // No site default set - get most recent season
+                    $recent_seasons = get_posts(array(
+                        'post_type' => 'tournament_season',
+                        'posts_per_page' => 1,
+                        'orderby' => 'date',
+                        'order' => 'DESC',
+                        'fields' => 'ids'
+                    ));
+                    if (!empty($recent_seasons)) {
+                        $default = $recent_seasons[0]; // Use most recent season ID
+                    }
+                }
+            }
+
             $active[$filter_key] = $url_param ?: ($saved_value ?: $default);
         }
 
