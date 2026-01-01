@@ -51,10 +51,13 @@ class Poker_Dashboard_Filters {
         $seasons = get_posts(array(
             'post_type' => 'tournament_season',
             'posts_per_page' => -1,
-            'orderby' => 'title',
+            'orderby' => 'date',
             'order' => 'DESC',
             'post_status' => 'publish'
         ));
+
+        // Get most recent season for default selection
+        $most_recent_id = !empty($seasons) ? $seasons[0]->ID : null;
 
         // Build season options
         $season_options = array(
@@ -76,7 +79,7 @@ class Poker_Dashboard_Filters {
                 'type' => 'select',
                 'label' => __('Season', 'poker-tournament-import'),
                 'options' => $season_options,
-                'default' => 'all'
+                'default' => $most_recent_id ? $most_recent_id : 'all'
             )
             // Future filters: 'series', 'min_tournaments', 'date_range', etc.
         );
