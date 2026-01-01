@@ -33,6 +33,7 @@ class Poker_Tournament_Import_Shortcodes {
         add_shortcode('tdwp_season_statistics', array($this, 'season_statistics_shortcode'));
         add_shortcode('tdwp_season_players', array($this, 'season_players_shortcode'));
         add_shortcode('tdwp_season_standings', array($this, 'season_standings_shortcode'));
+        add_shortcode('tdwp_season_leaderboard', array($this, 'season_leaderboard_shortcode'));
         add_shortcode('tdwp_dashboard', array($this, 'poker_dashboard_shortcode'));
         add_shortcode('tdwp_player_registration', array($this, 'player_registration_shortcode'));
         add_shortcode('tdwp_tournament_import', array($this, 'tournament_import_shortcode'));
@@ -54,6 +55,7 @@ class Poker_Tournament_Import_Shortcodes {
         add_shortcode('season_statistics', array($this, 'season_statistics_shortcode'));
         add_shortcode('season_players', array($this, 'season_players_shortcode'));
         add_shortcode('season_standings', array($this, 'season_standings_shortcode'));
+        add_shortcode('season_leaderboard', array($this, 'season_leaderboard_shortcode'));
         // Removed: add_shortcode('poker_dashboard', ...) - now handled by Poker_Dashboard_Shortcode class
         add_shortcode('player_registration', array($this, 'player_registration_shortcode'));
     }
@@ -2394,6 +2396,226 @@ class Poker_Tournament_Import_Shortcodes {
                 flex-direction: column;
                 gap: 15px;
                 text-align: center;
+            }
+        }
+        </style>
+        <?php
+        return ob_get_clean();
+    }
+
+    /**
+     * Season Leaderboard shortcode
+     *
+     * Dynamic shortcode that displays standings for the CURRENTLY SELECTED season
+     * based on the dashboard filter system. Unlike season_statistics which requires
+     * an explicit id parameter, this shortcode is context-aware and auto-updates
+     * when the season filter changes.
+     *
+     * Usage:
+     *   [season_leaderboard]                    // Uses filter state
+     *   [season_leaderboard formula="custom"]   // Override formula
+     *   [season_leaderboard show_details="true"] // Show tie-breakers
+     *   [season_leaderboard limit="10"]          // Show top 10 only
+     *
+     * Attributes:
+     *   @param string $formula      Formula key (optional, uses default if empty)
+     *   @param string $show_details Show tie-breaker columns (default: false)
+     *   @param string $show_export  Show export/print buttons (default: true)
+     *   @param string $limit        Max players to show (default: 20)
+     */
+    public function season_leaderboard_shortcode($atts) {
+        $atts = shortcode_atts(
+            array(
+                'formula'      => '',           // Use default formula if empty
+                'show_details' => 'false',      // Hide tie-breaker columns by default
+                'show_export'  => 'true',       // Show export/print buttons
+                'limit'        => '20',         // Show top 20 players
+            ),
+            $atts,
+            'season_leaderboard'
+        );
+
+        // Boolean conversion
+        $show_details = filter_var($atts['show_details'], FILTER_VALIDATE_BOOLEAN);
+        $show_export  = filter_var($atts['show_export'], FILTER_VALIDATE_BOOLEAN);
+        $limit        = intval($atts['limit']);
+
+        // Load filter system and get active season
+        if (!class_exists('Poker_Dashboard_Filters')) {
+            require_once plugin_dir_path(__FILE__) . 'class-dashboard-filters.php';
+        }
+
+        $filters = new Poker_Dashboard_Filters();
+        $season_id = $filters->get_active_season();
+
+        // No season selected - show helpful message
+        if (!$season_id) {
+            $output = '<div class="poker-leaderboard-no-season" style="padding: 20px; background: #fff3cd; border-left: 4px solid #ffc107; margin: 20px 0;">';
+            $output .= '<p>' . esc_html__('No season selected. Please select a season from the filter controls above, or add filter controls to this page using the [poker_dashboard] shortcode.', 'poker-tournament-import') . '</p>';
+            $output .= '</div>';
+            return $output;
+        }
+
+        // Validate season exists
+        $season = get_post($season_id);
+        if (!$season || $season->post_type !== 'tournament_season') {
+            return '<p>' . esc_html__('Invalid season selected.', 'poker-tournament-import') . '</p>';
+        }
+
+        // Get formula key
+        $formula_key = !empty($atts['formula']) ? sanitize_text_field($atts['formula']) : get_option('tdwp_active_season_formula', 'default');
+
+        // Load standings calculator
+        if (!class_exists('Poker_Series_Standings_Calculator')) {
+            require_once plugin_dir_path(__FILE__) . 'class-series-standings.php';
+        }
+
+        $calculator = new Poker_Series_Standings_Calculator();
+
+        // Get series associated with this season
+        $series_query = new WP_Query(array(
+            'post_type'      => 'tournament_series',
+            'posts_per_page' => 1,
+            'meta_query'     => array(
+                array(
+                    'key'     => '_season_id',
+                    'value'   => $season_id,
+                    'compare' => '='
+                )
+            )
+        ));
+
+        if (!$series_query->have_posts()) {
+            $output = '<div class="poker-leaderboard-no-data" style="padding: 20px; background: #f8d7da; border-left: 4px solid #dc3545; margin: 20px 0;">';
+            $output .= '<p>' . sprintf(esc_html__('No series found for season: %s', 'poker-tournament-import'), esc_html($season->post_title)) . '</p>';
+            $output .= '</div>';
+            wp_reset_postdata();
+            return $output;
+        }
+
+        $series_id = $series_query->posts[0]->ID;
+        wp_reset_postdata();
+
+        // Calculate standings with limit
+        $standings = $calculator->calculate_series_standings($series_id, array(
+            'formula_key' => $formula_key,
+            'limit'       => $limit
+        ));
+
+        if (empty($standings)) {
+            $output = '<div class="poker-leaderboard-no-data" style="padding: 20px; background: #d1ecf1; border-left: 4px solid #0c5460; margin: 20px 0;">';
+            $output .= '<p>' . esc_html__('No standings data available for this season.', 'poker-tournament-import') . '</p>';
+            $output .= '</div>';
+            return $output;
+        }
+
+        // Build output
+        ob_start();
+        ?>
+        <div class="poker-season-leaderboard" data-season-id="<?php echo esc_attr($season_id); ?>">
+            <div class="leaderboard-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px solid #eee;">
+                <h2 style="margin: 0;"><?php echo esc_html($season->post_title); ?> - <?php esc_html_e('Leaderboard', 'poker-tournament-import'); ?></h2>
+
+                <?php if ($show_export) : ?>
+                <div class="leaderboard-actions" style="display: flex; gap: 10px;">
+                    <button class="button poker-export-csv" data-season-id="<?php echo esc_attr($season_id); ?>" data-formula="<?php echo esc_attr($formula_key); ?>">
+                        <?php esc_html_e('Export CSV', 'poker-tournament-import'); ?>
+                    </button>
+                    <button class="button poker-print-standings" onclick="window.print()">
+                        <?php esc_html_e('Print', 'poker-tournament-import'); ?>
+                    </button>
+                </div>
+                <?php endif; ?>
+            </div>
+
+            <?php if ($formula_key && $formula_key !== 'default') : ?>
+            <div class="formula-info" style="background: #f0f8ff; padding: 10px 15px; border-left: 4px solid #0073aa; margin-bottom: 20px; border-radius: 4px;">
+                <p style="margin: 0;"><strong><?php esc_html_e('Formula:', 'poker-tournament-import'); ?></strong> <?php echo esc_html($formula_key); ?></p>
+            </div>
+            <?php endif; ?>
+
+            <table class="widefat poker-standings-table" style="border-collapse: collapse; width: 100%;">
+                <thead>
+                    <tr>
+                        <th style="padding: 12px; text-align: left; border-bottom: 2px solid #ddd;"><?php esc_html_e('Rank', 'poker-tournament-import'); ?></th>
+                        <th style="padding: 12px; text-align: left; border-bottom: 2px solid #ddd;"><?php esc_html_e('Player', 'poker-tournament-import'); ?></th>
+                        <th style="padding: 12px; text-align: right; border-bottom: 2px solid #ddd;"><?php esc_html_e('Points', 'poker-tournament-import'); ?></th>
+                        <?php if ($show_details) : ?>
+                        <th style="padding: 12px; text-align: center; border-bottom: 2px solid #ddd;"><?php esc_html_e('Played', 'poker-tournament-import'); ?></th>
+                        <th style="padding: 12px; text-align: center; border-bottom: 2px solid #ddd;"><?php esc_html_e('Best', 'poker-tournament-import'); ?></th>
+                        <th style="padding: 12px; text-align: center; border-bottom: 2px solid #ddd;"><?php esc_html_e('Avg', 'poker-tournament-import'); ?></th>
+                        <th style="padding: 12px; text-align: center; border-bottom: 2px solid #ddd;"><?php esc_html_e('1st', 'poker-tournament-import'); ?></th>
+                        <th style="padding: 12px; text-align: center; border-bottom: 2px solid #ddd;"><?php esc_html_e('Top 3', 'poker-tournament-import'); ?></th>
+                        <th style="padding: 12px; text-align: center; border-bottom: 2px solid #ddd;"><?php esc_html_e('Top 5', 'poker-tournament-import'); ?></th>
+                        <?php endif; ?>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php
+                    $rank = 1;
+                    $prev_points = null;
+                    $tie_count = 0;
+
+                    foreach ($standings as $player) :
+                        // Handle ties
+                        if ($prev_points !== null && $player->total_points == $prev_points) {
+                            $tie_count++;
+                            $rank_display = 'T' . $rank;
+                        } else {
+                            $rank = $rank + $tie_count;
+                            $tie_count = 0;
+                            $rank_display = $rank;
+                        }
+                        $prev_points = $player->total_points;
+
+                        // Medal indicators
+                        $medal = '';
+                        if ($rank == 1) $medal = ' 🥇';
+                        elseif ($rank == 2) $medal = ' 🥈';
+                        elseif ($rank == 3) $medal = ' 🥉';
+                    ?>
+                    <tr>
+                        <td style="padding: 10px; border-bottom: 1px solid #eee;"><?php echo esc_html($rank_display . $medal); ?></td>
+                        <td style="padding: 10px; border-bottom: 1px solid #eee;">
+                            <?php if (!empty($player->player_id)) : ?>
+                                <a href="<?php echo esc_url(get_permalink($player->player_id)); ?>" style="text-decoration: none; color: #0073aa;">
+                                    <?php echo esc_html($player->player_name); ?>
+                                </a>
+                            <?php else : ?>
+                                <?php echo esc_html($player->player_name); ?>
+                            <?php endif; ?>
+                        </td>
+                        <td style="padding: 10px; text-align: right; border-bottom: 1px solid #eee; font-weight: bold;"><?php echo number_format($player->total_points, 1); ?></td>
+                        <?php if ($show_details) : ?>
+                        <td style="padding: 10px; text-align: center; border-bottom: 1px solid #eee;"><?php echo intval($player->tournaments_played); ?></td>
+                        <td style="padding: 10px; text-align: center; border-bottom: 1px solid #eee;"><?php echo intval($player->best_finish); ?></td>
+                        <td style="padding: 10px; text-align: center; border-bottom: 1px solid #eee;"><?php echo number_format($player->avg_finish, 1); ?></td>
+                        <td style="padding: 10px; text-align: center; border-bottom: 1px solid #eee;"><?php echo intval($player->first_places); ?></td>
+                        <td style="padding: 10px; text-align: center; border-bottom: 1px solid #eee;"><?php echo intval($player->top_3_finishes); ?></td>
+                        <td style="padding: 10px; text-align: center; border-bottom: 1px solid #eee;"><?php echo intval($player->top_5_finishes); ?></td>
+                        <?php endif; ?>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+
+        <style>
+        .poker-season-leaderboard {
+            max-width: 1200px;
+            margin: 20px auto;
+        }
+        .poker-standings-table tr:hover {
+            background-color: #f8f9fa;
+        }
+        @media (max-width: 768px) {
+            .leaderboard-header {
+                flex-direction: column !important;
+                gap: 15px;
+                text-align: center;
+            }
+            .poker-standings-table {
+                font-size: 14px;
             }
         }
         </style>

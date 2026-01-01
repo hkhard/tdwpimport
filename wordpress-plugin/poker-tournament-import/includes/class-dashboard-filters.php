@@ -278,4 +278,37 @@ class Poker_Dashboard_Filters {
         $query = new WP_Query($args);
         return $query->posts;
     }
+
+    /**
+     * Get the currently active season ID from filter state
+     *
+     * Priority order:
+     * 1. URL parameter ?filter_season=XXX (highest priority - user just changed filter)
+     * 2. User meta preference 'poker_dashboard_filters'
+     * 3. Default option 'tdwp_default_season'
+     * 4. Null (no season selected)
+     *
+     * @return int|null Season ID or null if 'all' or none selected
+     */
+    public function get_active_season() {
+        $active = $this->get_active_filters();
+
+        // Check if season filter exists
+        if (isset($active['season'])) {
+            $season_value = $active['season'];
+
+            // Return null if 'all' is selected
+            if ($season_value === 'all') {
+                return null;
+            }
+
+            // Return season ID if numeric
+            $season_id = intval($season_value);
+            if ($season_id > 0) {
+                return $season_id;
+            }
+        }
+
+        return null;
+    }
 }

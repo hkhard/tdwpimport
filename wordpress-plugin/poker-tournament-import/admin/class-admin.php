@@ -1666,6 +1666,250 @@ class Poker_Tournament_Import_Admin {
                 <?php endif; ?>
             </div>
             <?php endif; ?>
+
+            <!-- Shortcode Reference Section -->
+            <div class="shortcode-reference-section" style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #ccc;">
+                <h2><?php esc_html_e('Shortcode Reference', 'poker-tournament-import'); ?></h2>
+                <p><?php esc_html_e('Use these shortcodes to display poker tournament information on your WordPress pages and posts.', 'poker-tournament-import'); ?></p>
+
+                <div class="shortcode-categories">
+                    <!-- Tournament Shortcodes -->
+                    <h3><?php esc_html_e('Tournament Shortcodes', 'poker-tournament-import'); ?></h3>
+                    <table class="widefat">
+                        <thead>
+                            <tr>
+                                <th style="width: 30%;"><?php esc_html_e('Shortcode', 'poker-tournament-import'); ?></th>
+                                <th><?php esc_html_e('Description', 'poker-tournament-import'); ?></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>[tdwp_tournament_results]</code></td>
+                                <td><?php esc_html_e('Display results for a single tournament. Use on tournament pages or with id attribute.', 'poker-tournament-import'); ?></td>
+                            </tr>
+                            <tr>
+                                <td><code>[tournament_results]</code></td>
+                                <td><?php esc_html_e('Legacy alias for tdwp_tournament_results.', 'poker-tournament-import'); ?></td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <!-- Player Shortcodes -->
+                    <h3 style="margin-top: 20px;"><?php esc_html_e('Player Shortcodes', 'poker-tournament-import'); ?></h3>
+                    <table class="widefat">
+                        <thead>
+                            <tr>
+                                <th style="width: 30%;"><?php esc_html_e('Shortcode', 'poker-tournament-import'); ?></th>
+                                <th><?php esc_html_e('Description', 'poker-tournament-import'); ?></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>[tdwp_player_profile]</code></td>
+                                <td><?php esc_html_e('Display a player profile with statistics, tournament history, and performance metrics.', 'poker-tournament-import'); ?></td>
+                            </tr>
+                            <tr>
+                                <td><code>[player_profile]</code></td>
+                                <td><?php esc_html_e('Legacy alias for tdwp_player_profile.', 'poker-tournament-import'); ?></td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <!-- Series Shortcodes -->
+                    <h3 style="margin-top: 20px;"><?php esc_html_e('Series Shortcodes', 'poker-tournament-import'); ?></h3>
+                    <table class="widefat">
+                        <thead>
+                            <tr>
+                                <th style="width: 30%;"><?php esc_html_e('Shortcode', 'poker-tournament-import'); ?></th>
+                                <th><?php esc_html_e('Description', 'poker-tournament-import'); ?></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>[tdwp_tournament_series]</code></td>
+                                <td><?php esc_html_e('Display a single tournament series information.', 'poker-tournament-import'); ?></td>
+                            </tr>
+                            <tr>
+                                <td><code>[tournament_series]</code></td>
+                                <td><?php esc_html_e('Legacy alias for tdwp_tournament_series.', 'poker-tournament-import'); ?></td>
+                            </tr>
+                            <tr>
+                                <td><code>[tdwp_series_overview]</code></td>
+                                <td><?php esc_html_e('Display overview of a series including tournament count, total prize pool, and player statistics.', 'poker-tournament-import'); ?></td>
+                            </tr>
+                            <tr>
+                                <td><code>[series_overview]</code></td>
+                                <td><?php esc_html_e('Legacy alias for tdwp_series_overview.', 'poker-tournament-import'); ?></td>
+                            </tr>
+                            <tr>
+                                <td><code>[tdwp_series_results]</code></td>
+                                <td><?php esc_html_e('Display all tournament results within a series.', 'poker-tournament-import'); ?></td>
+                            </tr>
+                            <tr>
+                                <td><code>[series_results]</code></td>
+                                <td><?php esc_html_e('Legacy alias for tdwp_series_results.', 'poker-tournament-import'); ?></td>
+                            </tr>
+                            <tr>
+                                <td><code>[tdwp_series_statistics]</code></td>
+                                <td><?php esc_html_e('Display statistical analysis for a series including averages, trends, and distributions.', 'poker-tournament-import'); ?></td>
+                            </tr>
+                            <tr>
+                                <td><code>[series_statistics]</code></td>
+                                <td><?php esc_html_e('Legacy alias for tdwp_series_statistics.', 'poker-tournament-import'); ?></td>
+                            </tr>
+                            <tr>
+                                <td><code>[tdwp_series_players]</code></td>
+                                <td><?php esc_html_e('Display list of players who participated in a series.', 'poker-tournament-import'); ?></td>
+                            </tr>
+                            <tr>
+                                <td><code>[series_players]</code></td>
+                                <td><?php esc_html_e('Legacy alias for tdwp_series_players.', 'poker-tournament-import'); ?></td>
+                            </tr>
+                            <tr>
+                                <td><code>[tdwp_series_leaderboard]</code></td>
+                                <td><?php esc_html_e('Display series leaderboard with player rankings based on points and performance.', 'poker-tournament-import'); ?></td>
+                            </tr>
+                            <tr>
+                                <td><code>[series_leaderboard]</code></td>
+                                <td><?php esc_html_e('Legacy alias for tdwp_series_leaderboard.', 'poker-tournament-import'); ?></td>
+                            </tr>
+                            <tr>
+                                <td><code>[tdwp_series_standings]</code></td>
+                                <td><?php esc_html_e('Display current series standings similar to leaderboard.', 'poker-tournament-import'); ?></td>
+                            </tr>
+                            <tr>
+                                <td><code>[series_standings]</code></td>
+                                <td><?php esc_html_e('Legacy alias for tdwp_series_standings.', 'poker-tournament-import'); ?></td>
+                            </tr>
+                            <tr>
+                                <td><code>[tdwp_series_tabs]</code></td>
+                                <td><?php esc_html_e('Display tabbed interface for series content (overview, results, statistics, players, leaderboard).', 'poker-tournament-import'); ?></td>
+                            </tr>
+                            <tr>
+                                <td><code>[series_tabs]</code></td>
+                                <td><?php esc_html_e('Legacy alias for tdwp_series_tabs.', 'poker-tournament-import'); ?></td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <!-- Season Shortcodes -->
+                    <h3 style="margin-top: 20px;"><?php esc_html_e('Season Shortcodes', 'poker-tournament-import'); ?></h3>
+                    <table class="widefat">
+                        <thead>
+                            <tr>
+                                <th style="width: 30%;"><?php esc_html_e('Shortcode', 'poker-tournament-import'); ?></th>
+                                <th><?php esc_html_e('Description', 'poker-tournament-import'); ?></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>[tdwp_season_tabs]</code></td>
+                                <td><?php esc_html_e('Display tabbed interface for season content (overview, results, statistics, players, standings).', 'poker-tournament-import'); ?></td>
+                            </tr>
+                            <tr>
+                                <td><code>[season_tabs]</code></td>
+                                <td><?php esc_html_e('Legacy alias for tdwp_season_tabs.', 'poker-tournament-import'); ?></td>
+                            </tr>
+                            <tr>
+                                <td><code>[tdwp_season_overview]</code></td>
+                                <td><?php esc_html_e('Display overview of a season including tournament count, total prize pool, and player statistics.', 'poker-tournament-import'); ?></td>
+                            </tr>
+                            <tr>
+                                <td><code>[season_overview]</code></td>
+                                <td><?php esc_html_e('Legacy alias for tdwp_season_overview.', 'poker-tournament-import'); ?></td>
+                            </tr>
+                            <tr>
+                                <td><code>[tdwp_season_results]</code></td>
+                                <td><?php esc_html_e('Display all tournament results within a season.', 'poker-tournament-import'); ?></td>
+                            </tr>
+                            <tr>
+                                <td><code>[season_results]</code></td>
+                                <td><?php esc_html_e('Legacy alias for tdwp_season_results.', 'poker-tournament-import'); ?></td>
+                            </tr>
+                            <tr>
+                                <td><code>[tdwp_season_statistics]</code></td>
+                                <td><?php esc_html_e('Display statistical analysis for a season including averages, trends, and distributions.', 'poker-tournament-import'); ?></td>
+                            </tr>
+                            <tr>
+                                <td><code>[season_statistics]</code></td>
+                                <td><?php esc_html_e('Legacy alias for tdwp_season_statistics.', 'poker-tournament-import'); ?></td>
+                            </tr>
+                            <tr>
+                                <td><code>[tdwp_season_players]</code></td>
+                                <td><?php esc_html_e('Display list of players who participated in a season.', 'poker-tournament-import'); ?></td>
+                            </tr>
+                            <tr>
+                                <td><code>[season_players]</code></td>
+                                <td><?php esc_html_e('Legacy alias for tdwp_season_players.', 'poker-tournament-import'); ?></td>
+                            </tr>
+                            <tr>
+                                <td><code>[tdwp_season_standings]</code></td>
+                                <td><?php esc_html_e('Display current season standings with player rankings.', 'poker-tournament-import'); ?></td>
+                            </tr>
+                            <tr>
+                                <td><code>[season_standings]</code></td>
+                                <td><?php esc_html_e('Legacy alias for tdwp_season_standings.', 'poker-tournament-import'); ?></td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <!-- Dashboard & Other Shortcodes -->
+                    <h3 style="margin-top: 20px;"><?php esc_html_e('Dashboard & Other Shortcodes', 'poker-tournament-import'); ?></h3>
+                    <table class="widefat">
+                        <thead>
+                            <tr>
+                                <th style="width: 30%;"><?php esc_html_e('Shortcode', 'poker-tournament-import'); ?></th>
+                                <th><?php esc_html_e('Description', 'poker-tournament-import'); ?></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>[poker_dashboard]</code></td>
+                                <td><?php esc_html_e('Display poker statistics dashboard with overview, tournaments, players, analytics tabs.', 'poker-tournament-import'); ?></td>
+                            </tr>
+                            <tr>
+                                <td><code>[tdwp_player_registration]</code></td>
+                                <td><?php esc_html_e('Display player registration form for upcoming tournaments.', 'poker-tournament-import'); ?></td>
+                            </tr>
+                            <tr>
+                                <td><code>[player_registration]</code></td>
+                                <td><?php esc_html_e('Legacy alias for tdwp_player_registration.', 'poker-tournament-import'); ?></td>
+                            </tr>
+                            <tr>
+                                <td><code>[tdwp_tournament_import]</code></td>
+                                <td><?php esc_html_e('Display tournament import form for front-end .tdt file uploads.', 'poker-tournament-import'); ?></td>
+                            </tr>
+                            <tr>
+                                <td><code>[season_leaderboard]</code></td>
+                                <td><?php esc_html_e('Display dynamic season leaderboard that auto-updates when season filter changes. No ID required - uses dashboard filter state.', 'poker-tournament-import'); ?></td>
+                            </tr>
+                            <tr>
+                                <td><code>[tdwp_season_leaderboard]</code></td>
+                                <td><?php esc_html_e('Preferred alias for season_leaderboard with tdwp_ prefix.', 'poker-tournament-import'); ?></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div style="margin-top: 20px; padding: 15px; background: #fff3cd; border-left: 4px solid #ffc107;">
+                    <p><strong><?php esc_html_e('Note:', 'poker-tournament-import'); ?></strong> <?php esc_html_e('All shortcodes support various attributes for customization. Refer to individual shortcode documentation for specific attributes available. The "tdwp_" prefix is recommended for future compatibility.', 'poker-tournament-import'); ?></p>
+                </div>
+
+                <div style="margin-top: 20px; padding: 15px; background: #e7f3ff; border-left: 4px solid #0073aa;">
+                    <h4 style="margin-top: 0;"><?php esc_html_e('Dynamic vs Static Shortcodes', 'poker-tournament-import'); ?></h4>
+                    <p><strong><?php esc_html_e('Dynamic (auto-updating with filters):', 'poker-tournament-import'); ?></strong></p>
+                    <ul style="list-style: disc; margin-left: 20px;">
+                        <li><code>[season_leaderboard]</code> - Uses current season filter, no ID required</li>
+                        <li><code>[poker_dashboard]</code> - All widgets respond to season filter</li>
+                    </ul>
+                    <p><strong><?php esc_html_e('Static (manual ID selection required):', 'poker-tournament-import'); ?></strong></p>
+                    <ul style="list-style: disc; margin-left: 20px;">
+                        <li><code>[season_statistics id="123"]</code> - Always shows specific season</li>
+                        <li><code>[season_standings id="123"]</code> - Always shows specific season</li>
+                    </ul>
+                    <p><?php esc_html_e('Dynamic shortcodes read from the dashboard filter system and automatically update when users change the season dropdown. Static shortcodes require an explicit ID parameter and will not respond to filter changes.', 'poker-tournament-import'); ?></p>
+                </div>
+            </div>
             </form>
         </div>
         <?php
