@@ -121,7 +121,8 @@ get_header(); ?>
 
                         <?php
                         // Get tournament data
-                        $tournament_uuid = get_post_meta(get_the_ID(), 'tournament_uuid', true);
+                        $tournament_uuid = get_post_meta(get_the_ID(), 'tournament_uuid', true) ?:
+                                          get_post_meta(get_the_ID(), '_tournament_uuid', true);
                         $players_count = get_post_meta(get_the_ID(), '_players_count', true);
                         $prize_pool = get_post_meta(get_the_ID(), '_prize_pool', true);
                         $buy_in = get_post_meta(get_the_ID(), '_buy_in', true);
@@ -152,27 +153,35 @@ get_header(); ?>
                         }
                         ?>
 
+                        <?php
+                        // Quick View: Get top 5 players and stats for this tournament
+                        $qv_top_players = array();
+                        $qv_stats = (object) array('paid' => 0, 'avg_cash' => 0, 'first_prize' => 0);
+                        if ($tournament_uuid) {
+                            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+                            $qv_top_players = $wpdb->get_results($wpdb->prepare(
+                                "SELECT tp.finish_position, tp.winnings, tp.player_id, p.post_title as player_name
+                                 FROM $table_name tp
+                                 LEFT JOIN {$wpdb->postmeta} pm ON pm.meta_value = tp.player_id AND pm.meta_key = 'player_uuid'
+                                 LEFT JOIN {$wpdb->posts} p ON pm.post_id = p.ID
+                                 WHERE tp.tournament_id = %s AND tp.winnings > 0
+                                 ORDER BY tp.finish_position ASC
+                                 LIMIT 5",
+                                $tournament_uuid
+                            ));
+                            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+                            $qv_stats = $wpdb->get_row($wpdb->prepare(
+                                "SELECT COUNT(*) as paid, AVG(winnings) as avg_cash, MAX(winnings) as first_prize
+                                 FROM $table_name
+                                 WHERE tournament_id = %s AND winnings > 0",
+                                $tournament_uuid
+                            ));
+                        }
+                        ?>
+
                         <!-- Grid View Card -->
                         <div class="tournament-card grid-view-item" data-series-id="<?php echo esc_attr($series_id); ?>" data-date="<?php echo esc_attr($tournament_date); ?>" data-players="<?php echo esc_attr($players_count); ?>" data-prize="<?php echo esc_attr($prize_pool); ?>" data-title="<?php echo esc_attr(get_the_title()); ?>">
                             <div class="tournament-card-header">
-                                <?php if ($winner_name) : ?>
-                                    <div class="tournament-winner">
-                                        <div class="winner-avatar"><?php echo esc_html($winner_avatar); ?></div>
-                                        <div class="winner-info">
-                                            <span class="winner-label"><?php esc_html_e('Winner:', 'poker-tournament-import'); ?></span>
-                                            <span class="winner-name"><?php echo esc_html($winner_name); ?></span>
-                                        </div>
-                                    </div>
-                                <?php endif; ?>
-
-                                <?php if ($series_name) : ?>
-                                    <div class="tournament-series-badge">
-                                        <a href="<?php echo esc_url(get_permalink($series_id)); ?>"><?php echo esc_html($series_name); ?></a>
-                                    </div>
-                                <?php endif; ?>
-                            </div>
-
-                            <div class="tournament-card-content">
                                 <h3 class="tournament-card-title">
                                     <a href="<?php the_permalink(); ?>"><?php the_title(); ?></a>
                                 </h3>
@@ -207,9 +216,35 @@ get_header(); ?>
                                 <a href="<?php the_permalink(); ?>" class="btn btn-primary">
                                     <?php esc_html_e('View Results', 'poker-tournament-import'); ?>
                                 </a>
-                                <button class="btn btn-secondary quick-view" data-tournament-id="<?php the_ID(); ?>">
+                                <label for="quick-view-toggle" class="btn btn-secondary quick-view-trigger" data-tournament-id="<?php the_ID(); ?>">
                                     <?php esc_html_e('Quick View', 'poker-tournament-import'); ?>
-                                </button>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Hidden Quick View Data -->
+                        <div class="quick-view-data" id="qv-data-<?php the_ID(); ?>" style="display: none;">
+                            <div class="qv-title"><?php the_title(); ?></div>
+                            <div class="qv-date"><?php echo esc_html($tournament_date ? date_i18n('M j, Y', strtotime($tournament_date)) : '--'); ?></div>
+                            <div class="qv-buyin"><?php echo esc_html($currency . ($buy_in ?? 0)); ?></div>
+                            <div class="qv-players"><?php echo esc_html($players_count ?? '--'); ?></div>
+                            <div class="qv-prize"><?php echo esc_html($currency . number_format($prize_pool ?? 0, 0)); ?></div>
+                            <div class="qv-winner"><?php echo esc_html($winner_name ?: '--'); ?></div>
+                            <div class="qv-paid"><?php echo esc_html($qv_stats->paid ?? 0); ?></div>
+                            <div class="qv-cash-rate"><?php echo esc_html($players_count > 0 ? round(($qv_stats->paid ?? 0) / $players_count * 100, 1) : 0); ?>%</div>
+                            <div class="qv-first"><?php echo esc_html($currency . number_format($qv_stats->first_prize ?? 0, 0)); ?></div>
+                            <div class="qv-avg"><?php echo esc_html($currency . number_format($qv_stats->avg_cash ?? 0, 0)); ?></div>
+                            <div class="qv-link"><?php echo esc_url(get_permalink()); ?></div>
+                            <div class="qv-players-table">
+                                <?php if ($qv_top_players) : ?>
+                                    <table>
+                                        <?php foreach ($qv_top_players as $p) : ?>
+                                            <tr data-pos="<?php echo esc_attr($p->finish_position); ?>"
+                                                data-name="<?php echo esc_attr($p->player_name ?: $p->player_id); ?>"
+                                                data-winnings="<?php echo esc_attr($currency . number_format($p->winnings, 0)); ?>"></tr>
+                                        <?php endforeach; ?>
+                                    </table>
+                                <?php endif; ?>
                             </div>
                         </div>
 
@@ -259,6 +294,9 @@ get_header(); ?>
                                     <a href="<?php the_permalink(); ?>" class="btn btn-sm btn-primary">
                                         <?php esc_html_e('View Results', 'poker-tournament-import'); ?>
                                     </a>
+                                    <label for="quick-view-toggle" class="btn btn-sm btn-secondary quick-view-trigger" data-tournament-id="<?php the_ID(); ?>">
+                                        <?php esc_html_e('Quick View', 'poker-tournament-import'); ?>
+                                    </label>
                                 </div>
                             </div>
                         </div>
@@ -296,14 +334,16 @@ get_header(); ?>
         </section>
 
         <!-- Quick View Modal -->
-        <div id="quick-view-modal" class="modal" style="display: none;">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3><?php esc_html_e('Tournament Quick View', 'poker-tournament-import'); ?></h3>
-                    <button class="modal-close">&times;</button>
+        <input type="checkbox" id="quick-view-toggle" class="quick-view-checkbox">
+        <div id="quick-view-modal" class="quick-view-modal">
+            <label for="quick-view-toggle" class="quick-view-overlay"></label>
+            <div class="quick-view-content">
+                <div class="quick-view-header">
+                    <h3 id="qv-modal-title"><?php esc_html_e('Tournament Quick View', 'poker-tournament-import'); ?></h3>
+                    <label for="quick-view-toggle" class="quick-view-close">&times;</label>
                 </div>
-                <div class="modal-body">
-                    <!-- Content will be loaded dynamically -->
+                <div class="quick-view-body" id="qv-modal-body">
+                    <!-- Content injected via minimal JS -->
                 </div>
             </div>
         </div>
@@ -647,46 +687,154 @@ get_header(); ?>
     margin-bottom: 16px;
 }
 
-.modal {
+/* CSS-Only Modal Toggle */
+.quick-view-checkbox {
+    display: none;
+}
+
+.quick-view-modal {
+    display: none;
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.5);
-    z-index: 1000;
+    z-index: 9999;
 }
 
-.modal-content {
+.quick-view-checkbox:checked ~ .quick-view-modal {
+    display: block;
+}
+
+.quick-view-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+}
+
+.quick-view-content {
     position: relative;
-    background: white;
-    margin: 5% auto;
-    padding: 0;
-    width: 90%;
     max-width: 600px;
-    border-radius: 12px;
+    margin: 50px auto;
+    background: white;
+    border-radius: 8px;
     max-height: 80vh;
     overflow-y: auto;
 }
 
-.modal-header {
-    padding: 20px;
-    border-bottom: 1px solid #e0e0e0;
+.quick-view-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    padding: 15px 20px;
+    border-bottom: 1px solid #e0e0e0;
 }
 
-.modal-close {
-    background: none;
-    border: none;
-    font-size: 24px;
+.quick-view-close {
+    font-size: 28px;
     cursor: pointer;
+    line-height: 1;
+}
+
+.quick-view-body {
+    padding: 20px;
+}
+
+.qv-summary h4,
+.qv-stats h4,
+.qv-players h4 {
+    margin: 0 0 12px;
+    font-size: 16px;
+    font-weight: 600;
+    border-bottom: 2px solid #4CAF50;
+    padding-bottom: 6px;
+}
+
+.qv-meta-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+}
+
+.qv-meta-grid > div {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px;
+    background: #f8f9fa;
+    border-radius: 4px;
+}
+
+.qv-meta-grid > div.winner {
+    grid-column: 1 / -1;
+    background: linear-gradient(135deg, #fff9c4, #fff3cd);
+}
+
+.qv-meta-grid .label {
+    font-weight: 500;
     color: #666;
 }
 
-.modal-body {
-    padding: 20px;
+.mini-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+}
+
+.mini-stats-grid > div {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 12px;
+    background: #f8f9fa;
+    border-radius: 4px;
+}
+
+.mini-stats-grid > div span:first-child {
+    font-weight: 700;
+    font-size: 18px;
+}
+
+.mini-stats-grid > div span:last-child {
+    font-size: 12px;
+    color: #666;
+}
+
+.qv-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.qv-table th,
+.qv-table td {
+    padding: 10px;
+    text-align: left;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.qv-table th {
+    background: #f8f9fa;
+}
+
+.qv-footer {
+    text-align: center;
+    padding-top: 15px;
+    border-top: 1px solid #e0e0e0;
+}
+
+@media (max-width: 600px) {
+    .quick-view-content {
+        margin: 20px;
+        max-height: 85vh;
+    }
+    .qv-meta-grid {
+        grid-template-columns: 1fr;
+    }
+    .mini-stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
 }
 
 @media (max-width: 768px) {
@@ -788,7 +936,7 @@ jQuery(document).ready(function($) {
     }
 
     $('#series-filter, #date-filter, #tournament-search').on('change keyup', filterTournaments);
-    $('#search-btn').on('click', filterTournament);
+    $('#search-btn').on('click', filterTournaments);
 
     // Sort functionality
     $('#sort-filter').on('change', function() {
@@ -821,36 +969,86 @@ jQuery(document).ready(function($) {
         container.empty().append(items);
     });
 
-    // Quick view modal
-    $('.quick-view').on('click', function() {
+    // Quick view - CSS checkbox hack + data copy
+    $('.quick-view-trigger').on('click', function() {
         const tournamentId = $(this).data('tournament-id');
-        const modal = $('#quick-view-modal');
-        const modalBody = modal.find('.modal-body');
+        const source = $('#qv-data-' + tournamentId);
+        const modalTitle = $('#qv-modal-title');
+        const modalBody = $('#qv-modal-body');
 
-        // Load tournament content via AJAX
-        modalBody.html('<div class="loading">Loading...</div>');
-        modal.show();
+        // Debug logging
+        console.log('[Quick View] Tournament ID:', tournamentId);
+        console.log('[Quick View] Source element found:', source.length);
 
-        $.ajax({
-            url: ajaxurl,
-            data: {
-                action: 'poker_tournament_quick_view',
-                tournament_id: tournamentId
-            },
-            success: function(response) {
-                modalBody.html(response);
-            }
-        });
-    });
-
-    $('.modal-close').on('click', function() {
-        $('#quick-view-modal').hide();
-    });
-
-    $(window).on('click', function(e) {
-        if ($(e.target).is('.modal')) {
-            $('.modal').hide();
+        // Check if source exists
+        if (source.length === 0) {
+            console.error('[Quick View] Source element not found for ID:', tournamentId);
+            modalBody.html('<div class="qv-error"><p>Error: Tournament data not found.</p></div>');
+            return;
         }
+
+        // Check if source has content
+        const titleText = source.find('.qv-title').text();
+        console.log('[Quick View] Title:', titleText);
+        if (!titleText) {
+            console.error('[Quick View] Source element has no title content');
+            modalBody.html('<div class="qv-error"><p>Error: Tournament data is empty.</p></div>');
+            return;
+        }
+
+        // Copy data from hidden div to modal
+        modalTitle.text(titleText);
+
+        const playersTable = source.find('.qv-players-table table');
+        console.log('[Quick View] Players table found:', playersTable.length);
+        let tableHtml = '';
+        if (playersTable && playersTable.length > 0) {
+            playersTable.find('tr').each(function() {
+                const row = $(this);
+                tableHtml += '<tr><td>' + row.data('pos') + '</td><td>' + row.data('name') +
+                            '</td><td>' + row.data('winnings') + '</td></tr>';
+            });
+        }
+
+        // Build modal content
+        const bodyContent = `
+            <div class="qv-summary">
+                <h4><?php esc_html_e('Tournament Summary', 'poker-tournament-import'); ?></h4>
+                <div class="qv-meta-grid">
+                    <div><span class="label"><?php esc_html_e('Date'); ?></span><span>${source.find('.qv-date').text()}</span></div>
+                    <div><span class="label"><?php esc_html_e('Buy-in'); ?></span><span>${source.find('.qv-buyin').text()}</span></div>
+                    <div><span class="label"><?php esc_html_e('Players'); ?></span><span>${source.find('.qv-players').text()}</span></div>
+                    <div><span class="label"><?php esc_html_e('Prize Pool'); ?></span><span>${source.find('.qv-prize').text()}</span></div>
+                    <div class="winner"><span class="label"><?php esc_html_e('Winner'); ?></span><span>${source.find('.qv-winner').text()}</span></div>
+                </div>
+            </div>
+            <div class="qv-stats">
+                <h4><?php esc_html_e('Statistics', 'poker-tournament-import'); ?></h4>
+                <div class="mini-stats-grid">
+                    <div><span>${source.find('.qv-paid').text()}</span><span><?php esc_html_e('Paid'); ?></span></div>
+                    <div><span>${source.find('.qv-cash-rate').text()}</span><span><?php esc_html_e('Cash Rate'); ?></span></div>
+                    <div><span>${source.find('.qv-first').text()}</span><span><?php esc_html_e('1st Prize'); ?></span></div>
+                    <div><span>${source.find('.qv-avg').text()}</span><span><?php esc_html_e('Avg Cash'); ?></span></div>
+                </div>
+            </div>
+            ${tableHtml ? `
+            <div class="qv-players">
+                <h4><?php esc_html_e('Top Players', 'poker-tournament-import'); ?></h4>
+                <table class="qv-table">
+                    <thead><tr><th><?php esc_html_e('Pos'); ?></th><th><?php esc_html_e('Player'); ?></th><th><?php esc_html_e('Winnings'); ?></th></tr></thead>
+                    <tbody>${tableHtml}</tbody>
+                </table>
+            </div>` : ''}
+            <div class="qv-footer">
+                <a href="${source.find('.qv-link').text()}" class="btn btn-primary">
+                    <?php esc_html_e('View Full Results', 'poker-tournament-import'); ?>
+                </a>
+            </div>
+        `;
+
+        console.log('[Quick View] Body content length:', bodyContent.length);
+        modalBody.html(bodyContent);
+        console.log('[Quick View] Modal body HTML set, length:', modalBody.html().length);
     });
 });
 </script>

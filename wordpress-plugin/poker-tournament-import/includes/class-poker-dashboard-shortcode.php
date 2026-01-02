@@ -134,13 +134,13 @@ class Poker_Dashboard_Shortcode
             $this->render_stats_cards($total_tournaments, $total_players, $total_seasons);
         }
 
-        // Render recent tournaments
-        if ($show_recent && !empty($recent_tournaments)) {
-            $this->render_recent_tournaments($recent_tournaments);
-        }
+        // Recent tournaments removed
+        // if ($show_recent && !empty($recent_tournaments)) {
+        //     $this->render_recent_tournaments($recent_tournaments);
+        // }
 
-        // Render overall standings (always show if enabled)
-        $this->render_overall_standings($filtered_tournament_ids);
+        // Overall standings removed
+        // $this->render_overall_standings($filtered_tournament_ids);
 
         // Render data mart health
         if ($show_health) {
