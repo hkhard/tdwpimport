@@ -463,6 +463,13 @@ class Poker_Tournament_Formula_Validator {
             'formula' => 'assign("points", max(tournament_points))',
             'dependencies' => array(),
             'category' => 'season'
+        ),
+        'best_10' => array(
+            'name' => 'Best 10 of Season',
+            'description' => 'Sum of best 10 tournament points in season',
+            'formula' => 'assign("lp", listpoints) assign("numberOfTourneysToCount", 10) assign("countedResults", top(numberOfTourneysToCount, lp)) assign("rankingPoints", round(sum(countedResults)))',
+            'dependencies' => array(),
+            'category' => 'season'
         )
     );
 

@@ -4,6 +4,18 @@
  * @package Poker Tournament Import
  */
 
+/**
+ * Generate formula key from display name (slugify)
+ * Global function for formula key generation
+ */
+function slugify(text) {
+    return text
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '_')  // Special chars to underscore
+        .replace(/^_+|_+$/g, '')        // Trim leading/trailing underscores
+        .substring(0, 50);              // Max length
+}
+
 jQuery(document).ready(function($) {
     /**
      * Add a new dependency input field
@@ -196,8 +208,13 @@ jQuery(document).ready(function($) {
             ? $('#formula-dependencies').val().split('\n').map(s => s.trim()).filter(s => s)
             : [];
 
+        // Auto-generate key for new formulas from display name
+        var existingKey = $('#formula-name').val();
+        var isNewFormula = !existingKey || existingKey === '';
+        var formulaKey = isNewFormula ? slugify(displayName) : existingKey;
+
         var formData = {
-            key: $('#formula-name').val(),
+            key: formulaKey,
             display_name: displayName,
             description: $('#formula-description').val(),
             category: category,
