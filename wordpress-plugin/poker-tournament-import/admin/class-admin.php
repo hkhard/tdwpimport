@@ -43,9 +43,19 @@ class Poker_Tournament_Import_Admin {
             __('Poker Import', 'poker-tournament-import'),
             'manage_options',
             'poker-tournament-import',
-            array($this, 'render_import_page'),
+            array($this, 'render_dashboard'),
             $spade_icon,
             25
+        );
+
+        // Dashboard submenu (default landing page)
+        add_submenu_page(
+            'poker-tournament-import',
+            __('Dashboard', 'poker-tournament-import'),
+            __('Dashboard', 'poker-tournament-import'),
+            'manage_options',
+            'poker-tournament-import',
+            array($this, 'render_dashboard')
         );
 
         add_submenu_page(
@@ -353,6 +363,279 @@ class Poker_Tournament_Import_Admin {
     /**
      * Render main dashboard with tabbed interface
      */
+
+    /**
+     * Render dashboard overview page
+     *
+     * @since 3.5.0
+     */
+    public function render_dashboard() {
+        // Get real database counts
+        global $wpdb;
+
+        $tournament_count = wp_count_posts('tournament');
+        $total_tournaments = $tournament_count->publish + $tournament_count->draft + $tournament_count->private;
+
+        $player_count = wp_count_posts('player');
+        $total_players = $player_count->publish + $player_count->draft + $player_count->private;
+
+        $season_count = wp_count_posts('tournament_season');
+        $total_seasons = $season_count->publish + $season_count->draft + $season_count->private;
+
+        // Get formula count
+        $validator = new Poker_Tournament_Formula_Validator();
+        $formulas = $validator->get_all_formulas();
+        $total_formulas = count($formulas);
+
+        // Get data mart health
+        $table_name = $wpdb->prefix . 'poker_statistics';
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
+        $datamart_exists = ($wpdb->get_var("SHOW TABLES LIKE '{$table_name}'") === $table_name);
+        $datamart_row_count = 0;
+        $datamart_last_refresh = get_option('tdwp_statistics_last_refresh', null);
+
+        if ($datamart_exists) {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
+            $datamart_row_count = $wpdb->get_var("SELECT COUNT(*) FROM {$table_name}");
+        }
+
+        // Get recent tournaments
+        $recent_tournaments = get_posts(array(
+            'post_type' => 'tournament',
+            'posts_per_page' => 5,
+            'orderby' => 'date',
+            'order' => 'DESC',
+            'post_status' => array('publish', 'draft', 'private')
+        ));
+
+        // Get all seasons with tournament counts
+        $all_seasons = get_posts(array(
+            'post_type' => 'tournament_season',
+            'posts_per_page' => -1,
+            'orderby' => 'date',
+            'order' => 'DESC',
+            'post_status' => array('publish', 'draft', 'private')
+        ));
+
+        // Calculate tournament count for each season
+        foreach ($all_seasons as $season) {
+            $season->tournament_count = count(get_posts(array(
+                'post_type' => 'tournament',
+                'meta_key' => '_season_id',
+                'meta_value' => $season->ID,
+                'posts_per_page' => -1,
+                'post_status' => array('publish', 'draft', 'private')
+            )));
+        }
+        ?>
+        <div class="wrap">
+            <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
+
+            <!-- Stats Cards Grid -->
+            <div class="poker-stats-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin: 20px 0;">
+                <div class="poker-stat-card" style="background: #fff; border: 1px solid #c3c4c7; border-radius: 4px; padding: 20px; box-shadow: 0 1px 1px rgba(0,0,0,.04);">
+                    <div class="dashicons dashicons-list-view" style="font-size: 48px; color: #2271b1; opacity: 0.3; float: right;"></div>
+                    <h3 style="margin: 0 0 10px 0; color: #50575e; font-size: 14px; font-weight: 400;"><?php esc_html_e('Tournaments', 'poker-tournament-import'); ?></h3>
+                    <div style="font-size: 32px; font-weight: 600; color: #1d2327; margin-bottom: 10px;"><?php echo number_format($total_tournaments); ?></div>
+                    <a href="<?php echo esc_url(admin_url('edit.php?post_type=tournament')); ?>" class="button button-small"><?php esc_html_e('View All', 'poker-tournament-import'); ?></a>
+                </div>
+
+                <div class="poker-stat-card" style="background: #fff; border: 1px solid #c3c4c7; border-radius: 4px; padding: 20px; box-shadow: 0 1px 1px rgba(0,0,0,.04);">
+                    <div class="dashicons dashicons-groups" style="font-size: 48px; color: #00a32a; opacity: 0.3; float: right;"></div>
+                    <h3 style="margin: 0 0 10px 0; color: #50575e; font-size: 14px; font-weight: 400;"><?php esc_html_e('Players', 'poker-tournament-import'); ?></h3>
+                    <div style="font-size: 32px; font-weight: 600; color: #1d2327; margin-bottom: 10px;"><?php echo number_format($total_players); ?></div>
+                    <a href="<?php echo esc_url(admin_url('edit.php?post_type=player')); ?>" class="button button-small"><?php esc_html_e('View All', 'poker-tournament-import'); ?></a>
+                </div>
+
+                <div class="poker-stat-card" style="background: #fff; border: 1px solid #c3c4c7; border-radius: 4px; padding: 20px; box-shadow: 0 1px 1px rgba(0,0,0,.04);">
+                    <div class="dashicons dashicons-calendar-alt" style="font-size: 48px; color: #d63638; opacity: 0.3; float: right;"></div>
+                    <h3 style="margin: 0 0 10px 0; color: #50575e; font-size: 14px; font-weight: 400;"><?php esc_html_e('Seasons', 'poker-tournament-import'); ?></h3>
+                    <div style="font-size: 32px; font-weight: 600; color: #1d2327; margin-bottom: 10px;"><?php echo number_format($total_seasons); ?></div>
+                    <a href="<?php echo esc_url(admin_url('edit.php?post_type=tournament_season')); ?>" class="button button-small"><?php esc_html_e('View All', 'poker-tournament-import'); ?></a>
+                </div>
+
+                <div class="poker-stat-card" style="background: #fff; border: 1px solid #c3c4c7; border-radius: 4px; padding: 20px; box-shadow: 0 1px 1px rgba(0,0,0,.04);">
+                    <div class="dashicons dashicons-calculator" style="font-size: 48px; color: #8c8f94; opacity: 0.3; float: right;"></div>
+                    <h3 style="margin: 0 0 10px 0; color: #50575e; font-size: 14px; font-weight: 400;"><?php esc_html_e('Formulas', 'poker-tournament-import'); ?></h3>
+                    <div style="font-size: 32px; font-weight: 600; color: #1d2327; margin-bottom: 10px;"><?php echo number_format($total_formulas); ?></div>
+                    <a href="<?php echo esc_url(admin_url('admin.php?page=poker-formula-manager')); ?>" class="button button-small"><?php esc_html_e('Manage', 'poker-tournament-import'); ?></a>
+                </div>
+            </div>
+
+            <!-- Two Column Layout -->
+            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px; margin: 20px 0;">
+
+                <!-- Data Mart Health -->
+                <div style="background: #fff; border: 1px solid #c3c4c7; border-radius: 4px; padding: 20px; box-shadow: 0 1px 1px rgba(0,0,0,.04);">
+                    <h2 style="margin: 0 0 15px 0; padding: 0; font-size: 18px; color: #1d2327;">
+                        <span class="dashicons dashicons-database" style="color: #2271b1;"></span>
+                        <?php esc_html_e('Data Mart Health', 'poker-tournament-import'); ?>
+                    </h2>
+
+                    <table class="widefat" style="margin-top: 10px;">
+                        <tbody>
+                            <tr>
+                                <td style="padding: 8px;"><strong><?php esc_html_e('Status', 'poker-tournament-import'); ?></strong></td>
+                                <td style="padding: 8px;">
+                                    <?php if ($datamart_exists): ?>
+                                        <span style="color: #00a32a; font-weight: 600;">●</span> <?php esc_html_e('Active', 'poker-tournament-import'); ?>
+                                    <?php else: ?>
+                                        <span style="color: #d63638; font-weight: 600;">●</span> <?php esc_html_e('Not Created', 'poker-tournament-import'); ?>
+                                    <?php endif; ?>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 8px;"><strong><?php esc_html_e('Records', 'poker-tournament-import'); ?></strong></td>
+                                <td style="padding: 8px;"><?php echo number_format($datamart_row_count); ?></td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 8px;"><strong><?php esc_html_e('Last Refresh', 'poker-tournament-import'); ?></strong></td>
+                                <td style="padding: 8px;">
+                                    <?php
+                                    if ($datamart_last_refresh) {
+                                        echo esc_html(date_i18n('M j, Y g:i A', strtotime($datamart_last_refresh)));
+                                    } else {
+                                        echo '<em>' . esc_html__('Never', 'poker-tournament-import') . '</em>';
+                                    }
+                                    ?>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <p style="margin: 15px 0 0 0;">
+                        <a href="<?php echo esc_url(admin_url('admin.php?page=poker-tournament-import-settings')); ?>" class="button">
+                            <?php esc_html_e('Refresh Statistics', 'poker-tournament-import'); ?>
+                        </a>
+                    </p>
+                </div>
+
+                <!-- Quick Actions -->
+                <div style="background: #fff; border: 1px solid #c3c4c7; border-radius: 4px; padding: 20px; box-shadow: 0 1px 1px rgba(0,0,0,.04);">
+                    <h2 style="margin: 0 0 15px 0; padding: 0; font-size: 18px; color: #1d2327;">
+                        <span class="dashicons dashicons-admin-tools" style="color: #2271b1;"></span>
+                        <?php esc_html_e('Quick Actions', 'poker-tournament-import'); ?>
+                    </h2>
+
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                        <a href="<?php echo esc_url(admin_url('admin.php?page=poker-tournament-import-import')); ?>" class="button button-primary button-large" style="text-align: center;">
+                            <span class="dashicons dashicons-upload"></span>
+                            <?php esc_html_e('Import Tournament', 'poker-tournament-import'); ?>
+                        </a>
+
+                        <a href="<?php echo esc_url(admin_url('edit.php?post_type=tournament')); ?>" class="button button-large" style="text-align: center;">
+                            <span class="dashicons dashicons-list-view"></span>
+                            <?php esc_html_e('View Tournaments', 'poker-tournament-import'); ?>
+                        </a>
+
+                        <a href="<?php echo esc_url(admin_url('edit.php?post_type=player')); ?>" class="button button-large" style="text-align: center;">
+                            <span class="dashicons dashicons-groups"></span>
+                            <?php esc_html_e('View Players', 'poker-tournament-import'); ?>
+                        </a>
+
+                        <a href="<?php echo esc_url(admin_url('admin.php?page=poker-formula-manager')); ?>" class="button button-large" style="text-align: center;">
+                            <span class="dashicons dashicons-calculator"></span>
+                            <?php esc_html_e('Manage Formulas', 'poker-tournament-import'); ?>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Activity -->
+            <?php if (!empty($recent_tournaments)): ?>
+            <div style="background: #fff; border: 1px solid #c3c4c7; border-radius: 4px; padding: 20px; box-shadow: 0 1px 1px rgba(0,0,0,.04); margin: 20px 0;">
+                <h2 style="margin: 0 0 15px 0; padding: 0; font-size: 18px; color: #1d2327;">
+                    <span class="dashicons dashicons-clock" style="color: #2271b1;"></span>
+                    <?php esc_html_e('Recent Activity', 'poker-tournament-import'); ?>
+                </h2>
+
+                <table class="widefat striped">
+                    <thead>
+                        <tr>
+                            <th><?php esc_html_e('Tournament', 'poker-tournament-import'); ?></th>
+                            <th><?php esc_html_e('Date Imported', 'poker-tournament-import'); ?></th>
+                            <th><?php esc_html_e('Status', 'poker-tournament-import'); ?></th>
+                            <th><?php esc_html_e('Actions', 'poker-tournament-import'); ?></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($recent_tournaments as $tournament): ?>
+                        <tr>
+                            <td><strong><?php echo esc_html($tournament->post_title); ?></strong></td>
+                            <td><?php echo esc_html(date_i18n('M j, Y', strtotime($tournament->post_date))); ?></td>
+                            <td>
+                                <?php
+                                $status_colors = array(
+                                    'publish' => '#00a32a',
+                                    'draft' => '#996800',
+                                    'private' => '#8c8f94'
+                                );
+                                $status_color = isset($status_colors[$tournament->post_status]) ? $status_colors[$tournament->post_status] : '#8c8f94';
+                                ?>
+                                <span style="color: <?php echo esc_html($status_color); ?>; font-weight: 600;">●</span>
+                                <?php echo esc_html(ucfirst($tournament->post_status)); ?>
+                            </td>
+                            <td>
+                                <a href="<?php echo esc_url(get_permalink($tournament->ID)); ?>" class="button button-small" target="_blank"><?php esc_html_e('View', 'poker-tournament-import'); ?></a>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+            <?php endif; ?>
+
+            <!-- Seasons List -->
+            <?php if (!empty($all_seasons)): ?>
+            <div style="background: #fff; border: 1px solid #c3c4c7; border-radius: 4px; padding: 20px; box-shadow: 0 1px 1px rgba(0,0,0,.04); margin: 20px 0;">
+                <h2 style="margin: 0 0 15px 0; padding: 0; font-size: 18px; color: #1d2327;">
+                    <span class="dashicons dashicons-calendar-alt" style="color: #2271b1;"></span>
+                    <?php esc_html_e('Seasons', 'poker-tournament-import'); ?>
+                </h2>
+
+                <table class="widefat striped">
+                    <thead>
+                        <tr>
+                            <th><?php esc_html_e('Season', 'poker-tournament-import'); ?></th>
+                            <th><?php esc_html_e('Tournaments', 'poker-tournament-import'); ?></th>
+                            <th><?php esc_html_e('Status', 'poker-tournament-import'); ?></th>
+                            <th><?php esc_html_e('Actions', 'poker-tournament-import'); ?></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($all_seasons as $season): ?>
+                        <tr>
+                            <td><strong><?php echo esc_html($season->post_title); ?></strong></td>
+                            <td><?php echo number_format($season->tournament_count); ?> tournaments</td>
+                            <td>
+                                <?php
+                                $status_colors = array(
+                                    'publish' => '#00a32a',
+                                    'draft' => '#996800',
+                                    'private' => '#8c8f94'
+                                );
+                                $status_color = isset($status_colors[$season->post_status]) ? $status_colors[$season->post_status] : '#8c8f94';
+                                ?>
+                                <span style="color: <?php echo esc_html($status_color); ?>; font-weight: 600;">●</span>
+                                <?php echo esc_html(ucfirst($season->post_status)); ?>
+                            </td>
+                            <td>
+                                <a href="<?php echo esc_url(get_permalink($season->ID)); ?>" class="button button-small" target="_blank">
+                                    <?php esc_html_e('View', 'poker-tournament-import'); ?>
+                                </a>
+                                <a href="<?php echo esc_url(get_edit_post_link($season->ID)); ?>" class="button button-small">
+                                    <?php esc_html_e('Edit', 'poker-tournament-import'); ?>
+                                </a>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+            <?php endif; ?>
+        </div>
+        <?php
+    }
 
     /**
      * Render import page
