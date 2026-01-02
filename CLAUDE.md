@@ -127,6 +127,8 @@ Claude Code guidance for the Poker Tournament Import WordPress plugin.
 - AsyncStorage (offline cache), SQLite (controller database with tdwp_ prefix) (002-blind-level-crud)
 - PHP 8.0+ (8.2+ compatible) + WordPress 6.0+, WordPress Coding Standards (003-fix-tournament-import)
 - WordPress MySQL database (wp_ prefix) (003-fix-tournament-import)
+- JavaScript (ES5+ for WordPress compatibility), PHP 8.0+ (WordPress standard) + jQuery (already enqueued), WordPress admin APIs (005-formula-manager)
+- WordPress options table (via `Poker_Tournament_Formula_Validator` class) (005-formula-manager)
 
 ## Recent Changes
 - 001-td3-integration: Added PHP 8.0+ (8.2+ compatible) + WordPress 6.0+, MySQL 5.7+, jQuery, modern JavaScript (ES6+)
