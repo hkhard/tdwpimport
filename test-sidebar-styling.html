@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tournament Sidebar Styling Preview</title>
+    <style>
+        /* Reset & Base */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            padding: 40px 20px;
+        }
+                .preview-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        /* Tournament Content Section Grid Layout */
+        .tournament-content-section {
+            margin: 30px 0;
+        }
+
+        .tournament-content-grid {
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            gap: 30px;
+            align-items: start;
+        }
+
+        .tournament-main-content {
+            min-width: 0; /* Prevent grid blowout */
+        }
+        .main-content { background: white; padding: 30px; border-radius: 12px; }
+        .sidebar { display: flex; flex-direction: column; gap: 20px; }
+
+        /* ============================================
+         * Tournament Single Page Sidebar Widgets
+         * ============================================ */
+
+        /* Sidebar Widget Base Styles */
+        .sidebar-widget {
+            background: #fff;
+            border: 1px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .sidebar-widget:hover {
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+            transform: translateY(-2px);
+        }
+
+        /* Widget Headings */
+        .sidebar-widget > h3 {
+            color: #1a1a1a;
+            font-size: 20px;
+            font-weight: 700;
+            margin: 0 0 20px 0;
+            padding-bottom: 12px;
+            border-bottom: 3px solid #4CAF50;
+            text-transform: none;
+            letter-spacing: normal;
+        }
+
+        /* Tournament Statistics Widget Specifics */
+        .tournament-statistics-widget {
+            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+            border-left: 4px solid #4CAF50;
+        }
+
+        .tournament-statistics-widget > h3 {
+            border-bottom-color: #4CAF50;
+        }
+
+        /* Mini Stats Grid */
+        .mini-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin: 16px 0;
+        }
+
+        .mini-stat {
+            background: white;
+            padding: 16px;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+            text-align: center;
+            transition: all 0.2s ease;
+        }
+
+        .mini-stat:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            border-color: #4CAF50;
+        }
+
+        .mini-stat-value {
+            display: block;
+            font-size: 24px;
+            font-weight: 700;
+            color: #4CAF50;
+            margin-bottom: 6px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .mini-stat-label {
+            display: block;
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 500;
+        }
+
+        /* Prize Distribution Widget */
+        .prize-distribution-widget {
+            background: linear-gradient(135deg, #ffffff 0%, #fff9e6 100%);
+            border-left: 4px solid #d4a574;
+        }
+
+        .prize-distribution-widget > h3 {
+            border-bottom-color: #d4a574;
+        }
+
+        .prize-distribution-chart {
+            margin-top: 16px;
+        }
+
+        .prize-bar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+            padding: 8px;
+            background: white;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+        }
+
+        .prize-bar:hover {
+            background: #f8f9fa;
+            transform: translateX(4px);
+        }
+
+        .prize-position {
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+            min-width: 50px;
+            text-align: center;
+        }
+
+        .prize-bar-container {
+            flex: 1;
+            height: 24px;
+            background: #f0f0f0;
+            border-radius: 4px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .prize-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50, #66BB6A);
+            border-radius: 4px;
+            transition: width 0.5s ease;
+            position: relative;
+        }
+
+        .prize-bar-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 50%;
+            background: linear-gradient(180deg, rgba(255,255,255,0.2), transparent);
+        }
+
+        .prize-amount {
+            font-family: 'Courier New', monospace;
+            font-weight: 600;
+            color: #28a745;
+            font-size: 14px;
+            min-width: 70px;
+            text-align: right;
+        }
+
+        /* Recent Tournaments Widget */
+        .recent-tournaments-widget {
+            background: linear-gradient(135deg, #ffffff 0%, #e3f2fd 100%);
+            border-left: 4px solid #2196F3;
+        }
+
+        .recent-tournaments-widget > h3 {
+            border-bottom-color: #2196F3;
+        }
+
+        .recent-tournaments-list {
+            list-style: none;
+            padding: 0;
+            margin: 16px 0 0 0;
+        }
+
+        .recent-tournaments-list li {
+            padding: 12px;
+            margin-bottom: 8px;
+            background: white;
+            border-radius: 6px;
+            border: 1px solid #e0e0e0;
+            transition: all 0.2s ease;
+        }
+
+        .recent-tournaments-list li:hover {
+            background: #f8f9fa;
+            border-color: #2196F3;
+            transform: translateX(4px);
+        }
+
+        .recent-tournaments-list li:last-child {
+            margin-bottom: 0;
+        }
+
+        .recent-tournaments-list a {
+            color: #333;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 15px;
+            display: block;
+        }
+
+        .recent-tournaments-list a:hover {
+            color: #2196F3;
+        }
+
+        .tournament-date {
+            display: block;
+            margin-top: 4px;
+            font-size: 13px;
+            color: #666;
+            font-weight: 400;
+        }
+    </style>
+</head>
+<body>
+    <div class="preview-container">
+        <section class="tournament-content-section">
+            <div class="tournament-content-grid">
+                <!-- Main Content -->
+                <div class="tournament-main-content">
+                    <div style="background: white; padding: 30px; border-radius: 12px;">
+                        <h1>Tournament Details</h1>
+                        <p>Main content area showing tournament details, results table, etc.</p>
+                        <p>The sidebar on the right shows the new styled widgets.</p>
+                    </div>
+                </div>
+
+                <!-- Sidebar -->
+                <aside class="tournament-sidebar">
+            <!-- Tournament Statistics Widget -->
+            <div class="sidebar-widget tournament-statistics-widget">
+                <h3>Tournament Statistics</h3>
+                <div class="mini-stats-grid">
+                    <div class="mini-stat">
+                        <span class="mini-stat-value">8</span>
+                        <span class="mini-stat-label">Paid</span>
+                    </div>
+                    <div class="mini-stat">
+                        <span class="mini-stat-value">25%</span>
+                        <span class="mini-stat-label">Cash Rate</span>
+                    </div>
+                    <div class="mini-stat">
+                        <span class="mini-stat-value">$1,250</span>
+                        <span class="mini-stat-label">1st Prize</span>
+                    </div>
+                    <div class="mini-stat">
+                        <span class="mini-stat-value">$450</span>
+                        <span class="mini-stat-label">Avg Cash</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Prize Distribution Widget -->
+            <div class="sidebar-widget prize-distribution-widget">
+                <h3>Prize Distribution</h3>
+                <div class="prize-distribution-chart">
+                    <div class="prize-bar">
+                        <div class="prize-position">1st</div>
+                        <div class="prize-bar-container">
+                            <div class="prize-bar-fill" style="width: 50%"></div>
+                        </div>
+                        <div class="prize-amount">$1,250</div>
+                    </div>
+                    <div class="prize-bar">
+                        <div class="prize-position">2nd</div>
+                        <div class="prize-bar-container">
+                            <div class="prize-bar-fill" style="width: 30%"></div>
+                        </div>
+                        <div class="prize-amount">$750</div>
+                    </div>
+                    <div class="prize-bar">
+                        <div class="prize-position">3rd</div>
+                        <div class="prize-bar-container">
+                            <div class="prize-bar-fill" style="width: 20%"></div>
+                        </div>
+                        <div class="prize-amount">$500</div>
+                    </div>
+                    <div class="prize-bar">
+                        <div class="prize-position">4th</div>
+                        <div class="prize-bar-container">
+                            <div class="prize-bar-fill" style="width: 12%"></div>
+                        </div>
+                        <div class="prize-amount">$300</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Tournaments Widget -->
+            <div class="sidebar-widget recent-tournaments-widget">
+                <h3>Recent Tournaments</h3>
+                <ul class="recent-tournaments-list">
+                    <li>
+                        <a href="#">Friday Night Special</a>
+                        <span class="tournament-date">Dec 27, 2024</span>
+                    </li>
+                    <li>
+                        <a href="#">Weekend Championship</a>
+                        <span class="tournament-date">Dec 22, 2024</span>
+                    </li>
+                    <li>
+                        <a href="#">Holiday Turbo</a>
+                        <span class="tournament-date">Dec 20, 2024</span>
+                    </li>
+                </ul>
+            </div>
+                </aside>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        // Animate prize bars on load
+        document.addEventListener('DOMContentLoaded', () => {
+            const bars = document.querySelectorAll('.prize-bar-fill');
+            bars.forEach(bar => {
+                const width = bar.style.width;
+                bar.style.width = '0';
+                setTimeout(() => {
+                    bar.style.width = width;
+                }, 100);
+            });
+        });
+    </script>
+</body>
+</html>

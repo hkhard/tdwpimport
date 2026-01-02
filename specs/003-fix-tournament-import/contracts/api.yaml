@@ -1,0 +1,192 @@
+openapi: 3.0.0
+info:
+  title: TDWP Tournament Import API
+  description: API contracts for fixing tournament import functionality
+  version: 1.0.0
+
+paths:
+  /wp-admin/admin-ajax.php:
+    post:
+      summary: Import tournament from admin dashboard
+      description: AJAX endpoint for importing tournaments from WordPress admin
+      operationId: adminImportTournament
+      tags:
+        - Admin Import
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - action
+                - file
+                - nonce
+              properties:
+                action:
+                  type: string
+                  enum: [poker_import_tournament]
+                  description: AJAX action name
+                file:
+                  type: string
+                  format: binary
+                  description: Tournament Director .tdt file
+                nonce:
+                  type: string
+                  description: WordPress nonce for security verification
+      responses:
+        '200':
+          description: Import successful or error response
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ImportSuccessResponse'
+                  - $ref: '#/components/schemas/ImportErrorResponse'
+        '400':
+          description: Bad request (invalid file, missing data)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportErrorResponse'
+        '403':
+          description: Forbidden (nonce verification failed, insufficient permissions)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportErrorResponse'
+
+  /wp-admin/admin-ajax.php:
+    post:
+      summary: Import tournament from public page
+      description: AJAX endpoint for importing tournaments from public-facing statistics page
+      operationId: publicImportTournament
+      tags:
+        - Public Import
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - action
+                - file
+                - nonce
+              properties:
+                action:
+                  type: string
+                  enum: [poker_import_public_tournament]
+                  description: AJAX action name for public import
+                file:
+                  type: string
+                  format: binary
+                  description: Tournament Director .tdt file
+                nonce:
+                  type: string
+                  description: WordPress nonce for security verification
+      responses:
+        '200':
+          description: Import successful or error response
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ImportSuccessResponse'
+                  - $ref: '#/components/schemas/ImportErrorResponse'
+        '400':
+          description: Bad request (invalid file, missing data)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportErrorResponse'
+        '403':
+          description: Forbidden (nonce verification failed)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportErrorResponse'
+
+components:
+  schemas:
+    ImportSuccessResponse:
+      type: object
+      required:
+        - success
+        - tournament_id
+        - message
+      properties:
+        success:
+          type: boolean
+          example: true
+        tournament_id:
+          type: integer
+          description: WordPress post ID of created tournament
+          example: 12345
+        message:
+          type: string
+          description: Success message to display to user
+          example: Tournament imported successfully
+        data:
+          type: object
+          description: Optional tournament data
+          properties:
+            tournament_title:
+              type: string
+              example: Friday Night Poker
+            tournament_date:
+              type: string
+              format: date
+              example: 2025-12-29
+            player_count:
+              type: integer
+              example: 25
+
+    ImportErrorResponse:
+      type: object
+      required:
+        - success
+        - error
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          description: User-friendly error message
+          example: Invalid file format. Please upload a valid .tdt file.
+        code:
+          type: string
+          description: Error code for troubleshooting
+          example: INVALID_FILE_FORMAT
+        data:
+          type: object
+          description: Additional error data
+          properties:
+            file_name:
+              type: string
+              example: tournament.tdt
+            file_size:
+              type: integer
+              example: 12345
+            allowed_types:
+              type: array
+              items:
+                type: string
+              example: [".tdt"]
+
+  securitySchemes:
+    wpNonce:
+      type: apiKey
+      in: header
+      name: X-WP-Nonce
+      description: WordPress nonce for CSRF protection
+
+security:
+  - wpNonce: []
+
+tags:
+  - name: Admin Import
+    description: Operations for importing tournaments from WordPress admin dashboard
+  - name: Public Import
+    description: Operations for importing tournaments from public-facing pages
