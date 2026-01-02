@@ -192,9 +192,20 @@ class Poker_Series_Standings_Calculator {
         global $wpdb;
         $players = array();
 
-        $tournament_ids = wp_list_pluck($tournaments, 'ID');
+        if (empty($tournaments)) {
+            return $players;
+        }
 
-        if (empty($tournament_ids)) {
+        // CRITICAL: Get tournament UUIDs from postmeta (not post IDs!)
+        $tournament_uuids = array();
+        foreach ($tournaments as $tournament) {
+            $uuid = get_post_meta($tournament->ID, 'tournament_uuid', true);
+            if ($uuid) {
+                $tournament_uuids[] = $uuid;
+            }
+        }
+
+        if (empty($tournament_uuids)) {
             return $players;
         }
 
@@ -204,8 +215,8 @@ class Poker_Series_Standings_Calculator {
         $unique_players = $wpdb->get_col($wpdb->prepare(
             // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is safe, uses $wpdb->prefix
             "SELECT DISTINCT player_id FROM $table_name
-             WHERE tournament_id IN (" . implode(',', array_fill(0, count($tournament_ids), '%s')) . ")",
-            $tournament_ids
+             WHERE tournament_id IN (" . implode(',', array_fill(0, count($tournament_uuids), '%s')) . ")",
+            $tournament_uuids
         ));
 
         return array_filter($unique_players);
@@ -217,17 +228,28 @@ class Poker_Series_Standings_Calculator {
     private function calculate_player_series_data($player_id, $tournaments, $formula_key) {
         global $wpdb;
         $table_name = $wpdb->prefix . 'poker_tournament_players';
-        $tournament_ids = wp_list_pluck($tournaments, 'ID');
 
-        // Get all tournament results for this player
+        // CRITICAL: Get tournament UUIDs from postmeta (not post IDs!)
+        $tournament_uuids = array();
+        foreach ($tournaments as $tournament) {
+            $uuid = get_post_meta($tournament->ID, 'tournament_uuid', true);
+            if ($uuid) {
+                $tournament_uuids[] = $uuid;
+            }
+        }
+
+        if (empty($tournament_uuids)) {
+            return null;
+        }
+
+        // Get all tournament results for this player using UUIDs
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         $results = $wpdb->get_results($wpdb->prepare(
             "SELECT tournament_id, finish_position, winnings, points, hits
              FROM $table_name
-                // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is safe, uses $wpdb->prefix
-             WHERE player_id = %s AND tournament_id IN (" . implode(',', array_fill(0, count($tournament_ids), '%s')) . ")
+             WHERE player_id = %s AND tournament_id IN (" . implode(',', array_fill(0, count($tournament_uuids), '%s')) . ")
              ORDER BY tournament_id",
-            array_merge(array($player_id), $tournament_ids)
+            array_merge(array($player_id), $tournament_uuids)
         ));
 
         if (empty($results)) {
@@ -267,7 +289,7 @@ class Poker_Series_Standings_Calculator {
             'post_type' => 'player',
             'meta_query' => array(
                 array(
-                    'key' => '_player_uuid',
+                    'key' => 'player_uuid',
                     'value' => $player_id,
                     'compare' => '='
                 )
@@ -275,12 +297,12 @@ class Poker_Series_Standings_Calculator {
             'posts_per_page' => 1
         ));
 
-        $player_name = $player_id; // Fallback to UUID
+        $player_name = __('Unknown Player', 'poker-tournament-import');
         $player_url = '';
 
-        if (!empty($player_post)) {
+        if (!empty($player_post) && !empty($player_post[0]->post_title)) {
             $player_name = $player_post[0]->post_title;
-            $player_url = esc_url(get_permalink($player_post[0]->ID));
+            $player_url = get_permalink($player_post[0]->ID);
         }
 
         // Calculate series points using formula
@@ -491,15 +513,28 @@ class Poker_Series_Standings_Calculator {
             return array();
         }
 
-        // Get all players who participated
+        // CRITICAL: Convert integer post IDs to tournament UUIDs
+        $tournament_uuids = array();
+        foreach ($tournament_ids as $post_id) {
+            $uuid = get_post_meta($post_id, 'tournament_uuid', true);
+            if ($uuid) {
+                $tournament_uuids[] = $uuid;
+            }
+        }
+
+        if (empty($tournament_uuids)) {
+            return array();
+        }
+
+        // Get all players who participated using UUIDs
         $table_name = $wpdb->prefix . 'poker_tournament_players';
 
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
         $unique_players = $wpdb->get_col($wpdb->prepare(
             // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is safe, uses $wpdb->prefix
             "SELECT DISTINCT player_id FROM $table_name
-         WHERE tournament_id IN (" . implode(',', array_fill(0, count($tournament_ids), '%s')) . ")",
-            $tournament_ids
+         WHERE tournament_id IN (" . implode(',', array_fill(0, count($tournament_uuids), '%s')) . ")",
+            $tournament_uuids
         ));
 
         if (empty($unique_players)) {
@@ -509,7 +544,7 @@ class Poker_Series_Standings_Calculator {
         // Calculate standings for each player
         $standings = array();
         foreach ($unique_players as $player_id) {
-            $player_data = $this->calculate_overall_player_data($player_id, $tournament_ids, $formula_key);
+            $player_data = $this->calculate_overall_player_data($player_id, $tournament_uuids, $formula_key);
             if ($player_data) {
                 $standings[] = $player_data;
             }
@@ -532,7 +567,7 @@ class Poker_Series_Standings_Calculator {
      * Mirrors calculate_player_series_data but for overall/all-time
      *
      * @param string $player_id Player UUID
-     * @param array $tournament_ids Tournament IDs to include
+     * @param array $tournament_ids TOURNAMENT UUIDs (not post IDs!) - converted by caller
      * @param string $formula_key Formula key for calculation
      * @return array|null Player data or null if no results
      */
@@ -545,7 +580,6 @@ class Poker_Series_Standings_Calculator {
         $results = $wpdb->get_results($wpdb->prepare(
             "SELECT tournament_id, finish_position, winnings, points, hits
          FROM $table_name
-            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is safe, uses $wpdb->prefix
          WHERE player_id = %s AND tournament_id IN (" . implode(',', array_fill(0, count($tournament_ids), '%s')) . ")
          ORDER BY tournament_id",
             array_merge(array($player_id), $tournament_ids)
@@ -588,7 +622,7 @@ class Poker_Series_Standings_Calculator {
             'post_type' => 'player',
             'meta_query' => array(
                 array(
-                    'key' => '_player_uuid',
+                    'key' => 'player_uuid',
                     'value' => $player_id,
                     'compare' => '='
                 )
@@ -625,9 +659,11 @@ class Poker_Series_Standings_Calculator {
         if ($formula_key && $formula_key !== 'direct_sum') {
             $overall_points = $this->apply_series_formula($overall_data, $formula_key);
             $overall_data['overall_points'] = $overall_points;
+            $overall_data['series_points'] = $overall_points;  // For sort_standings_with_tiebreakers() compatibility
             $overall_data['formula_used'] = $formula_key;
         } else {
             $overall_data['overall_points'] = $total_points;
+            $overall_data['series_points'] = $total_points;  // For sort_standings_with_tiebreakers() compatibility
             $overall_data['formula_used'] = 'direct_sum';
         }
 

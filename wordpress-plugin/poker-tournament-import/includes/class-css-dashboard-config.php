@@ -126,7 +126,8 @@ class Poker_CSS_Dashboard_Config extends CSS_Dashboard_Base
         $player_count = 0;
         if (!empty($tournaments)) {
             global $wpdb;
-            $tournament_ids = wp_list_pluck($tournaments, 'ID');
+            // When 'fields' => 'ids', $tournaments IS already the array of IDs
+            $tournament_ids = $tournaments;
             $table_name = $wpdb->prefix . 'poker_tournament_players';
 
             // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
@@ -140,17 +141,15 @@ class Poker_CSS_Dashboard_Config extends CSS_Dashboard_Base
         $series_count = wp_count_posts('tournament_series')->publish;
         $season_count = wp_count_posts('tournament_season')->publish;
 
-        // Get total prize pool from custom table (filtered by season)
+        // Calculate total prize pool from filtered tournaments (poker_financial_summary table doesn't have season_id column)
         global $wpdb;
         $total_prize = 0;
-        if ($season_id) {
-            $total_prize = $wpdb->get_var($wpdb->prepare(
-                "SELECT SUM(total_prize_pool) FROM {$wpdb->prefix}poker_financial_summary
-                 WHERE season_id = %d",
-                $season_id
-            ));
-        } else {
-            $total_prize = $wpdb->get_var("SELECT SUM(total_prize_pool) FROM {$wpdb->prefix}poker_financial_summary");
+        if (!empty($tournaments)) {
+            // Sum prize pool from tournament meta directly
+            foreach ($tournaments as $tournament_id) {
+                $prize = get_post_meta($tournament_id, '_prize_pool', true);
+                $total_prize += floatval($prize);
+            }
         }
 
         return array(
@@ -268,24 +267,47 @@ class Poker_CSS_Dashboard_Config extends CSS_Dashboard_Base
 
         // Get player statistics from custom table, filtered by season if active
         if ($season_id) {
-            // Filter players who participated in tournaments from this season
-            $players = $wpdb->get_results($wpdb->prepare(
-                "SELECT DISTINCT p.ID, p.post_title,
-                        COALESCE(SUM(tp.winnings), 0) as winnings,
-                        COUNT(DISTINCT tp.tournament_id) as played,
-                        COALESCE(AVG(tp.finish_position), 0) as avg_finish
-                 FROM {$wpdb->posts} p
-                 INNER JOIN $table_name tp ON p.ID = tp.player_id
-                 INNER JOIN {$wpdb->postmeta} tm ON tp.tournament_id = tm.post_id
-                 WHERE p.post_type = 'player'
-                   AND p.post_status = 'publish'
-                   AND tm.meta_key = '_season_id'
-                   AND tm.meta_value = %d
-                 GROUP BY p.ID
-                 ORDER BY winnings DESC
-                 LIMIT 100",
-                $season_id
+            // Get tournament post IDs first
+            $season_tournaments = get_posts(array(
+                'post_type' => 'tournament',
+                'posts_per_page' => -1,
+                'fields' => 'ids',
+                'meta_query' => array(
+                    array('key' => '_season_id', 'value' => $season_id, 'compare' => '=')
+                )
             ));
+
+            if (empty($season_tournaments)) {
+                $players = array();
+            } else {
+                // CRITICAL: Get tournament UUIDs from postmeta
+                $tournament_uuids = array();
+                foreach ($season_tournaments as $post_id) {
+                    $uuid = get_post_meta($post_id, 'tournament_uuid', true);
+                    if ($uuid) {
+                        $tournament_uuids[] = $uuid;
+                    }
+                }
+
+                if (empty($tournament_uuids)) {
+                    $players = array();
+                } else {
+                    // Now get players using UUIDs
+                    $players = $wpdb->get_results($wpdb->prepare(
+                        "SELECT DISTINCT p.ID, p.post_title,
+                                COALESCE(SUM(tp.winnings), 0) as winnings,
+                                COUNT(DISTINCT tp.tournament_id) as played,
+                                COALESCE(AVG(tp.finish_position), 0) as avg_finish
+                         FROM {$wpdb->posts} p
+                         INNER JOIN $table_name tp ON p.ID = tp.player_id
+                         WHERE tp.tournament_id IN (" . implode(',', array_fill(0, count($tournament_uuids), '%s')) . ")
+                         GROUP BY p.ID
+                         ORDER BY winnings DESC
+                         LIMIT 100",
+                        $tournament_uuids
+                    ));
+                }
+            }
         } else {
             // Get all players without season filter
             $players = $wpdb->get_results("

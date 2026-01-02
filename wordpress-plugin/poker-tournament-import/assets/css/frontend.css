@@ -2002,6 +2002,258 @@
     cursor: not-allowed;
 }
 
+/* ============================================
+ * Tournament Single Page Layout
+ * ============================================ */
+
+/* Tournament Content Section Grid Layout */
+.tournament-content-section {
+    margin: 30px 0;
+}
+
+.tournament-content-grid {
+    display: grid;
+    grid-template-columns: 1fr 350px;
+    gap: 30px;
+    align-items: start;
+}
+
+.tournament-main-content {
+    min-width: 0; /* Prevent grid blowout */
+}
+
+/* Responsive - stack sidebar below on smaller screens */
+@media (max-width: 1024px) {
+    .tournament-content-grid {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+
+    .tournament-sidebar {
+        margin-top: 20px;
+    }
+}
+
+/* ============================================
+ * Tournament Single Page Sidebar Widgets
+ * ============================================ */
+
+/* Sidebar Container */
+/* Tournament Sidebar Container */
+.tournament-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* Sidebar Widget Base Styles */
+.sidebar-widget {
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+}
+
+.sidebar-widget:hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+    transform: translateY(-2px);
+}
+
+/* Widget Headings */
+.sidebar-widget > h3 {
+    color: #1a1a1a;
+    font-size: 20px;
+    font-weight: 700;
+    margin: 0 0 20px 0;
+    padding-bottom: 12px;
+    border-bottom: 3px solid #4CAF50;
+    text-transform: none;
+    letter-spacing: normal;
+}
+
+/* Tournament Statistics Widget Specifics */
+.tournament-statistics-widget {
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+    border-left: 4px solid #4CAF50;
+}
+
+.tournament-statistics-widget > h3 {
+    border-bottom-color: #4CAF50;
+}
+
+/* Mini Stats Grid */
+.mini-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin: 16px 0;
+}
+
+.mini-stat {
+    background: white;
+    padding: 16px;
+    border-radius: 8px;
+    border: 1px solid #e0e0e0;
+    text-align: center;
+    transition: all 0.2s ease;
+}
+
+.mini-stat:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    border-color: #4CAF50;
+}
+
+.mini-stat-value {
+    display: block;
+    font-size: 24px;
+    font-weight: 700;
+    color: #4CAF50;
+    margin-bottom: 6px;
+    font-family: 'Courier New', monospace;
+}
+
+.mini-stat-label {
+    display: block;
+    font-size: 12px;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 500;
+}
+
+/* Prize Distribution Widget */
+.prize-distribution-widget {
+    background: linear-gradient(135deg, #ffffff 0%, #fff9e6 100%);
+    border-left: 4px solid #d4a574;
+}
+
+.prize-distribution-widget > h3 {
+    border-bottom-color: #d4a574;
+}
+
+.prize-distribution-chart {
+    margin-top: 16px;
+}
+
+.prize-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+    padding: 8px;
+    background: white;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+.prize-bar:hover {
+    background: #f8f9fa;
+    transform: translateX(4px);
+}
+
+.prize-position {
+    font-size: 14px;
+    font-weight: 600;
+    color: #333;
+    min-width: 50px;
+    text-align: center;
+}
+
+.prize-bar-container {
+    flex: 1;
+    height: 24px;
+    background: #f0f0f0;
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+}
+
+.prize-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #4CAF50, #66BB6A);
+    border-radius: 4px;
+    transition: width 0.5s ease;
+    position: relative;
+}
+
+.prize-bar-fill::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 50%;
+    background: linear-gradient(180deg, rgba(255,255,255,0.2), transparent);
+}
+
+.prize-amount {
+    font-family: 'Courier New', monospace;
+    font-weight: 600;
+    color: #28a745;
+    font-size: 14px;
+    min-width: 70px;
+    text-align: right;
+}
+
+/* Recent Tournaments Widget */
+.recent-tournaments-widget {
+    background: linear-gradient(135deg, #ffffff 0%, #e3f2fd 100%);
+    border-left: 4px solid #2196F3;
+}
+
+.recent-tournaments-widget > h3 {
+    border-bottom-color: #2196F3;
+}
+
+.recent-tournaments-list {
+    list-style: none;
+    padding: 0;
+    margin: 16px 0 0 0;
+}
+
+.recent-tournaments-list li {
+    padding: 12px;
+    margin-bottom: 8px;
+    background: white;
+    border-radius: 6px;
+    border: 1px solid #e0e0e0;
+    transition: all 0.2s ease;
+}
+
+.recent-tournaments-list li:hover {
+    background: #f8f9fa;
+    border-color: #2196F3;
+    transform: translateX(4px);
+}
+
+.recent-tournaments-list li:last-child {
+    margin-bottom: 0;
+}
+
+.recent-tournaments-list a {
+    color: #333;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 15px;
+    display: block;
+}
+
+.recent-tournaments-list a:hover {
+    color: #2196F3;
+}
+
+.tournament-date {
+    display: block;
+    margin-top: 4px;
+    font-size: 13px;
+    color: #666;
+    font-weight: 400;
+}
+
 /* Responsive Styles */
 @media (max-width: 1024px) {
     .tournament-leaderboard-table {
@@ -2076,5 +2328,831 @@
     .poker-modal-content {
         width: 95%;
         margin: 10% auto;
+    }
+}
+
+/* ============================================
+ * Player Single Page Layout
+ * ============================================ */
+
+/* Player Single Page Wrapper */
+.poker-player-wrapper {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+/* Player Single Header */
+.player-single-header {
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+    border: 1px solid #e0e0e0;
+    border-radius: 12px;
+    padding: 30px;
+    margin-bottom: 30px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.player-profile-section {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex: 1;
+}
+
+.player-avatar-large {
+    width: 80px;
+    height: 80px;
+    background: linear-gradient(135deg, #4CAF50, #66BB6A);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    font-weight: 700;
+    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+}
+
+.player-title-section {
+    flex: 1;
+}
+
+.player-title {
+    font-size: 32px;
+    font-weight: 700;
+    color: #1a1a1a;
+    margin: 0 0 8px 0;
+}
+
+.player-subtitle {
+    font-size: 16px;
+    color: #666;
+}
+
+.player-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.print-profile,
+.export-profile {
+    background: #3498db;
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.print-profile:hover,
+.export-profile:hover {
+    background: #2980b9;
+    transform: translateY(-1px);
+}
+
+.export-profile {
+    background: #27ae60;
+}
+
+.export-profile:hover {
+    background: #229954;
+}
+
+/* Player Career Stats Section */
+.player-career-stats {
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 12px;
+    padding: 24px;
+    margin: 20px 0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.player-career-stats > h2 {
+    color: #1a1a1a;
+    font-size: 28px;
+    font-weight: 700;
+    margin: 0 0 20px 0;
+    padding-bottom: 12px;
+    border-bottom: 3px solid #4CAF50;
+}
+
+/* Player Performance Chart Section */
+.player-performance-chart {
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+    border: 1px solid #e0e0e0;
+    border-left: 4px solid #4CAF50;
+    border-radius: 12px;
+    padding: 24px;
+    margin: 20px 0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.player-performance-chart > h2 {
+    color: #1a1a1a;
+    font-size: 28px;
+    font-weight: 700;
+    margin: 0 0 20px 0;
+    padding-bottom: 12px;
+    border-bottom: 3px solid #4CAF50;
+}
+
+.player-performance-chart > h3 {
+    color: #333;
+    font-size: 20px;
+    font-weight: 600;
+    margin: 24px 0 16px 0;
+}
+
+/* Performance Grid Layout */
+.performance-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+/* Performance Cards Container */
+.performance-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+}
+
+/* Individual Performance Card */
+.perf-card {
+    background: white;
+    padding: 24px;
+    border-radius: 8px;
+    border: 1px solid #e0e0e0;
+    text-align: center;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.perf-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.perf-number {
+    font-size: 32px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    font-family: 'Courier New', monospace;
+}
+
+.perf-label {
+    font-size: 14px;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 500;
+}
+
+/* Performance Card Variants */
+.perf-card.achievement {
+    background: linear-gradient(135deg, #fff9c4, #fff3cd);
+    border-color: #ffc107;
+}
+
+.perf-card.achievement .perf-number {
+    color: #f57c00;
+}
+
+.perf-card.success {
+    background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
+    border-color: #4CAF50;
+}
+
+.perf-card.success .perf-number {
+    color: #2e7d32;
+}
+
+.perf-card.money {
+    background: linear-gradient(135deg, #e3f2fd, #bbdefb);
+    border-color: #2196F3;
+}
+
+.perf-card.money .perf-number {
+    color: #1565c0;
+}
+
+.perf-card.consistency {
+    background: linear-gradient(135deg, #f3e5f5, #e1bee7);
+    border-color: #9c27b0;
+}
+
+.perf-card.consistency .perf-number {
+    color: #6a1b9a;
+}
+
+/* Position Distribution Chart */
+.position-distribution {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    margin-top: 20px;
+}
+
+.position-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 16px;
+}
+
+.position-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px;
+    background: white;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+.position-bar:hover {
+    background: #f0f0f0;
+    transform: translateX(4px);
+}
+
+.position-label {
+    min-width: 60px;
+    font-weight: 600;
+    color: #333;
+    text-align: center;
+    font-size: 14px;
+}
+
+.position-bar-container {
+    flex: 1;
+    height: 28px;
+    background: #f0f0f0;
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+}
+
+.position-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.5s ease;
+    position: relative;
+}
+
+.position-bar-fill::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 50%;
+    background: linear-gradient(180deg, rgba(255,255,255,0.3), transparent);
+}
+
+/* Position Bar Color Variants */
+.position-bar-fill.gold {
+    background: linear-gradient(90deg, #ffd700, #ffecb3);
+}
+
+.position-bar-fill.silver {
+    background: linear-gradient(90deg, #c0c0c0, #e0e0e0);
+}
+
+.position-bar-fill.bronze {
+    background: linear-gradient(90deg, #cd7f32, #d4a574);
+}
+
+.position-bar-fill.final-table {
+    background: linear-gradient(90deg, #4CAF50, #81c784);
+}
+
+.position-bar-fill:not(.gold):not(.silver):not(.bronze):not(.final-table) {
+    background: linear-gradient(90deg, #757575, #9e9e9e);
+}
+
+.position-count {
+    min-width: 80px;
+    text-align: right;
+    font-weight: 600;
+    color: #666;
+    font-size: 13px;
+}
+
+/* Player Content Section */
+.player-content-section {
+    margin: 30px 0;
+}
+
+.player-content-grid {
+    display: grid;
+    grid-template-columns: 1fr 350px;
+    gap: 30px;
+    align-items: start;
+}
+
+.player-main-content {
+    min-width: 0;
+}
+
+/* Biography */
+.player-biography {
+    background: #fafbfc;
+    padding: 20px;
+    border-radius: 8px;
+    border-left: 4px solid #4CAF50;
+    margin: 20px 0;
+}
+
+.player-biography > h2 {
+    color: #23282d;
+    font-size: 22px;
+    font-weight: 600;
+    margin: 0 0 16px 0;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #0073aa;
+}
+
+.player-biography-content {
+    font-size: 15px;
+    line-height: 1.6;
+    color: #444;
+}
+
+/* Tournament History Section */
+.player-tournament-history-section {
+    margin-top: 30px;
+}
+
+.player-tournament-history-section > h2 {
+    color: #23282d;
+    font-size: 22px;
+    font-weight: 600;
+    margin: 0 0 16px 0;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #0073aa;
+}
+
+.tournament-history-table-wrapper {
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.tournament-history-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.tournament-history-table thead {
+    background: linear-gradient(135deg, #34495e, #2c3e50);
+    color: white;
+}
+
+.tournament-history-table th {
+    padding: 12px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.tournament-history-table td {
+    padding: 12px;
+    border-bottom: 1px solid #eee;
+    font-size: 14px;
+}
+
+.tournament-history-table tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+.tournament-history-table tbody tr.gold {
+    background: linear-gradient(135deg, #fff9c4, #fff3cd);
+}
+
+.tournament-history-table tbody tr.silver {
+    background: linear-gradient(135deg, #f5f5f5, #e0e0e0);
+}
+
+.tournament-history-table tbody tr.bronze {
+    background: linear-gradient(135deg, #fff3e0, #ffe0b2);
+}
+
+.tournament-history-table tbody tr.final-table {
+    border-left: 3px solid #4CAF50;
+}
+
+.tournament-history-table td.position {
+    font-weight: 700;
+    color: #0073aa;
+}
+
+.tournament-history-table td.winnings {
+    font-family: 'Courier New', monospace;
+    font-weight: 600;
+    color: #28a745;
+}
+
+.tournament-history-table td.points {
+    font-family: 'Courier New', monospace;
+    font-weight: 600;
+    color: #0073aa;
+}
+
+.no-tournaments {
+    padding: 40px;
+    text-align: center;
+    color: #666;
+    font-style: italic;
+}
+
+/* Player Sidebar */
+.player-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* Player Achievements Widget */
+.player-achievements {
+    background: linear-gradient(135deg, #ffffff 0%, #fff9e6 100%);
+    border-left: 4px solid #d4a574;
+}
+
+.achievement-badges {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.achievement-badge {
+    flex: 1;
+    min-width: 100px;
+    background: white;
+    padding: 16px;
+    border-radius: 8px;
+    text-align: center;
+    border: 1px solid #e0e0e0;
+    transition: all 0.2s ease;
+}
+
+.achievement-badge:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.achievement-badge.gold {
+    background: linear-gradient(135deg, #fff9c4, #fff3cd);
+    border-color: #ffc107;
+}
+
+.achievement-badge.final-table {
+    background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
+    border-color: #4CAF50;
+}
+
+.badge-icon {
+    font-size: 32px;
+    margin-bottom: 8px;
+}
+
+.badge-count {
+    font-size: 24px;
+    font-weight: 700;
+    color: #333;
+    margin-bottom: 4px;
+}
+
+.badge-label {
+    font-size: 12px;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Recent Performance Widget */
+.recent-performance {
+    background: linear-gradient(135deg, #ffffff 0%, #e3f2fd 100%);
+    border-left: 4px solid #2196F3;
+}
+
+.recent-performance-list {
+    list-style: none;
+    padding: 0;
+    margin: 16px 0 0 0;
+}
+
+.recent-performance-list li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    margin-bottom: 8px;
+    background: white;
+    border-radius: 6px;
+    border: 1px solid #e0e0e0;
+    transition: all 0.2s ease;
+}
+
+.recent-performance-list li:hover {
+    background: #f8f9fa;
+    border-color: #2196F3;
+    transform: translateX(4px);
+}
+
+.recent-performance-list li:last-child {
+    margin-bottom: 0;
+}
+
+.recent-position {
+    min-width: 40px;
+    text-align: center;
+    font-size: 18px;
+}
+
+.recent-details {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.recent-tournament {
+    font-weight: 600;
+    color: #333;
+    font-size: 14px;
+}
+
+.recent-date {
+    font-size: 12px;
+    color: #666;
+}
+
+.recent-winnings {
+    font-family: 'Courier New', monospace;
+    font-weight: 600;
+    color: #28a745;
+}
+
+/* Top Series Widget */
+.top-series {
+    background: linear-gradient(135deg, #ffffff 0%, #f3e5f5 100%);
+    border-left: 4px solid #9c27b0;
+}
+
+.top-series-list {
+    list-style: none;
+    padding: 0;
+    margin: 16px 0 0 0;
+}
+
+.top-series-list li {
+    margin-bottom: 12px;
+}
+
+.top-series-list li:last-child {
+    margin-bottom: 0;
+}
+
+.top-series-list a {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    background: white;
+    border-radius: 6px;
+    border: 1px solid #e0e0e0;
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+
+.top-series-list a:hover {
+    background: #f8f9fa;
+    border-color: #9c27b0;
+    transform: translateX(4px);
+}
+
+.series-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.series-name {
+    font-weight: 600;
+    color: #333;
+    font-size: 14px;
+}
+
+.series-stats {
+    font-size: 12px;
+    color: #666;
+}
+
+.series-winnings {
+    font-family: 'Courier New', monospace;
+    font-weight: 600;
+    color: #28a745;
+    font-size: 14px;
+}
+
+/* Related Players Section */
+.related-players-section {
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 12px;
+    padding: 24px;
+    margin: 30px 0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.related-players-section > h2 {
+    color: #1a1a1a;
+    font-size: 28px;
+    font-weight: 700;
+    margin: 0 0 20px 0;
+    padding-bottom: 12px;
+    border-bottom: 3px solid #4CAF50;
+}
+
+.related-players-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 16px;
+}
+
+.related-player-card {
+    background: #f8f9fa;
+    padding: 16px;
+    border-radius: 8px;
+    border: 1px solid #e0e0e0;
+    transition: all 0.2s ease;
+}
+
+.related-player-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.related-player-card a {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    text-decoration: none;
+    color: inherit;
+}
+
+.related-player-avatar {
+    width: 48px;
+    height: 48px;
+    background: linear-gradient(135deg, #4CAF50, #66BB6A);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 700;
+}
+
+.related-player-info {
+    flex: 1;
+}
+
+.related-player-name {
+    font-weight: 600;
+    color: #333;
+    font-size: 15px;
+    margin-bottom: 4px;
+}
+
+.shared-tournaments {
+    font-size: 13px;
+    color: #666;
+}
+
+/* Responsive Design for Player Single Page */
+@media (max-width: 1024px) {
+    .player-content-grid {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+
+    .player-sidebar {
+        margin-top: 20px;
+    }
+}
+
+@media (max-width: 768px) {
+    .poker-player-wrapper {
+        padding: 16px;
+    }
+
+    .player-single-header {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 20px;
+    }
+
+    .player-profile-section {
+        flex-direction: column;
+        text-align: center;
+    }
+
+    .player-title {
+        font-size: 24px;
+    }
+
+    .player-actions {
+        justify-content: center;
+    }
+
+    .player-career-stats,
+    .player-performance-chart,
+    .related-players-section {
+        padding: 16px;
+    }
+
+    .player-career-stats > h2,
+    .player-performance-chart > h2,
+    .related-players-section > h2 {
+        font-size: 22px;
+    }
+
+    .performance-cards {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+    }
+
+    .perf-card {
+        padding: 16px;
+    }
+
+    .perf-number {
+        font-size: 24px;
+    }
+
+    .tournament-history-table {
+        font-size: 13px;
+    }
+
+    .tournament-history-table th,
+    .tournament-history-table td {
+        padding: 8px 6px;
+    }
+
+    .related-players-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 480px) {
+    .player-single-header {
+        padding: 16px;
+    }
+
+    .player-avatar-large {
+        width: 60px;
+        height: 60px;
+        font-size: 20px;
+    }
+
+    .player-title {
+        font-size: 20px;
+    }
+
+    .player-actions {
+        flex-direction: column;
+    }
+
+    .performance-cards {
+        grid-template-columns: 1fr;
+    }
+
+    .position-bar {
+        flex-wrap: wrap;
+    }
+
+    .position-label {
+        min-width: 50px;
+        font-size: 12px;
+    }
+
+    .position-bar-container {
+        min-width: 100px;
+    }
+
+    .position-count {
+        font-size: 11px;
     }
 }

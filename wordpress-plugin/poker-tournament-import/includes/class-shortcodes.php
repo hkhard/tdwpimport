@@ -2463,7 +2463,7 @@ class Poker_Tournament_Import_Shortcodes {
         }
 
         // Get formula key
-        $formula_key = !empty($atts['formula']) ? sanitize_text_field($atts['formula']) : get_option('tdwp_active_season_formula', 'default');
+        $formula_key = !empty($atts['formula']) ? sanitize_text_field($atts['formula']) : get_option('tdwp_active_season_formula', 'season_total');
 
         // Load standings calculator
         if (!class_exists('Poker_Series_Standings_Calculator')) {
@@ -2504,12 +2504,6 @@ class Poker_Tournament_Import_Shortcodes {
                 <?php endif; ?>
             </div>
 
-            <?php if ($formula_key && $formula_key !== 'default') : ?>
-            <div class="formula-info" style="background: #f0f8ff; padding: 10px 15px; border-left: 4px solid #0073aa; margin-bottom: 20px; border-radius: 4px;">
-                <p style="margin: 0;"><strong><?php esc_html_e('Formula:', 'poker-tournament-import'); ?></strong> <?php echo esc_html($formula_key); ?></p>
-            </div>
-            <?php endif; ?>
-
             <table class="widefat poker-standings-table" style="border-collapse: collapse; width: 100%;">
                 <thead>
                     <tr>
@@ -2524,25 +2518,26 @@ class Poker_Tournament_Import_Shortcodes {
                         <th style="padding: 12px; text-align: center; border-bottom: 2px solid #ddd;"><?php esc_html_e('Top 3', 'poker-tournament-import'); ?></th>
                         <th style="padding: 12px; text-align: center; border-bottom: 2px solid #ddd;"><?php esc_html_e('Top 5', 'poker-tournament-import'); ?></th>
                         <?php endif; ?>
+                        <th style="padding: 12px; text-align: right; border-bottom: 2px solid #ddd;"><?php esc_html_e('Season Points', 'poker-tournament-import'); ?></th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php
-                    $rank = 1;
+                    $rank = 0;
                     $prev_points = null;
                     $tie_count = 0;
 
                     foreach ($standings as $player) :
                         // Handle ties
-                        if ($prev_points !== null && $player->total_points == $prev_points) {
+                        if ($prev_points !== null && $player['series_points'] == $prev_points) {
                             $tie_count++;
                             $rank_display = 'T' . $rank;
                         } else {
-                            $rank = $rank + $tie_count;
+                            $rank += $tie_count + 1;
                             $tie_count = 0;
                             $rank_display = $rank;
                         }
-                        $prev_points = $player->total_points;
+                        $prev_points = $player['series_points'];
 
                         // Medal indicators
                         $medal = '';
@@ -2553,23 +2548,24 @@ class Poker_Tournament_Import_Shortcodes {
                     <tr>
                         <td style="padding: 10px; border-bottom: 1px solid #eee;"><?php echo esc_html($rank_display . $medal); ?></td>
                         <td style="padding: 10px; border-bottom: 1px solid #eee;">
-                            <?php if (!empty($player->player_id)) : ?>
-                                <a href="<?php echo esc_url(get_permalink($player->player_id)); ?>" style="text-decoration: none; color: #0073aa;">
-                                    <?php echo esc_html($player->player_name); ?>
+                            <?php if (!empty($player['player_url'])) : ?>
+                                <a href="<?php echo esc_url($player['player_url']); ?>" style="text-decoration: none; color: #0073aa;">
+                                    <?php echo esc_html($player['player_name']); ?>
                                 </a>
                             <?php else : ?>
-                                <?php echo esc_html($player->player_name); ?>
+                                <?php echo esc_html($player['player_name']); ?>
                             <?php endif; ?>
                         </td>
-                        <td style="padding: 10px; text-align: right; border-bottom: 1px solid #eee; font-weight: bold;"><?php echo number_format($player->total_points, 1); ?></td>
+                        <td style="padding: 10px; text-align: right; border-bottom: 1px solid #eee; font-weight: bold;"><?php echo number_format($player['total_points'], 1); ?></td>
                         <?php if ($show_details) : ?>
-                        <td style="padding: 10px; text-align: center; border-bottom: 1px solid #eee;"><?php echo intval($player->tournaments_played); ?></td>
-                        <td style="padding: 10px; text-align: center; border-bottom: 1px solid #eee;"><?php echo intval($player->best_finish); ?></td>
-                        <td style="padding: 10px; text-align: center; border-bottom: 1px solid #eee;"><?php echo number_format($player->avg_finish, 1); ?></td>
-                        <td style="padding: 10px; text-align: center; border-bottom: 1px solid #eee;"><?php echo intval($player->first_places); ?></td>
-                        <td style="padding: 10px; text-align: center; border-bottom: 1px solid #eee;"><?php echo intval($player->top_3_finishes); ?></td>
-                        <td style="padding: 10px; text-align: center; border-bottom: 1px solid #eee;"><?php echo intval($player->top_5_finishes); ?></td>
+                        <td style="padding: 10px; text-align: center; border-bottom: 1px solid #eee;"><?php echo intval($player['tournaments_played']); ?></td>
+                        <td style="padding: 10px; text-align: center; border-bottom: 1px solid #eee;"><?php echo intval($player['best_finish']); ?></td>
+                        <td style="padding: 10px; text-align: center; border-bottom: 1px solid #eee;"><?php echo number_format($player['avg_finish'], 1); ?></td>
+                        <td style="padding: 10px; text-align: center; border-bottom: 1px solid #eee;"><?php echo intval($player['tie_breakers']['first_places']); ?></td>
+                        <td style="padding: 10px; text-align: center; border-bottom: 1px solid #eee;"><?php echo intval($player['tie_breakers']['top3_finishes']); ?></td>
+                        <td style="padding: 10px; text-align: center; border-bottom: 1px solid #eee;"><?php echo intval($player['tie_breakers']['top5_finishes']); ?></td>
                         <?php endif; ?>
+                        <td style="padding: 10px; text-align: right; border-bottom: 1px solid #eee; font-weight: bold; color: #006400;"><?php echo number_format($player['series_points'], 1); ?></td>
                     </tr>
                     <?php endforeach; ?>
                 </tbody>
