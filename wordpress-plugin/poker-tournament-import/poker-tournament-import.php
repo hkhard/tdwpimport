@@ -3,7 +3,7 @@
  * Plugin Name: Poker Tournament Import
  * Plugin URI: https://nikielhard.se/tdwpimport
  * Description: Import and display poker tournament results from Tournament Director (.tdt) files. Now with Tournament Manager for creating tournaments without TD software!
- * Version: 3.5.0-beta27
+ * Version: 3.5.0-beta37
  * Author: Hans Kästel Hård
  * Author URI: https://nikielhard.se
  * License: GPL v2 or later
@@ -20,7 +20,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('POKER_TOURNAMENT_IMPORT_VERSION', '3.5.0-beta27');
+define('POKER_TOURNAMENT_IMPORT_VERSION', '3.5.0-beta37');
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -1536,7 +1536,7 @@ class Poker_Tournament_Import {
                 $winner = $wpdb->get_row($wpdb->prepare(
                     "SELECT p.post_title as winner_name, tp.winnings as winner_winnings
                      FROM $table_name tp
-                     LEFT JOIN {$wpdb->postmeta} pm ON pm.meta_value = tp.player_id AND pm.meta_key = '_player_uuid'
+                     LEFT JOIN {$wpdb->postmeta} pm ON pm.meta_value = tp.player_id AND pm.meta_key = 'player_uuid'
                      LEFT JOIN {$wpdb->posts} p ON pm.post_id = p.ID
                      WHERE tp.tournament_id = %s AND tp.finish_position = 1
                      LIMIT 1",

@@ -21,8 +21,20 @@ class Poker_Formula_Manager_Page {
     }
 
     public function enqueue_formula_manager_assets($hook) {
-        if ('tournament_page_poker-formula-manager' !== $hook) return;
+        if ('poker-import_page_poker-formula-manager' !== $hook) return;
         wp_enqueue_script('jquery');
+        wp_enqueue_script('poker-formula-manager', plugins_url('assets/js/formula-manager.js', dirname(__FILE__)), array('jquery'), POKER_TOURNAMENT_IMPORT_VERSION);
+
+        // Localize script with nonce
+        wp_localize_script(
+            'poker-formula-manager',
+            'pokerFormulaManager',
+            array(
+                'nonce' => wp_create_nonce('poker_formula_manager_nonce'),
+                'ajaxUrl' => admin_url('admin-ajax.php')
+            )
+        );
+
         wp_add_inline_style('wp-admin', '.formula-manager{max-width:1200px}.formula-card{background:#fff;border:1px solid #ccd0d4;border-radius:4px;padding:20px;margin-bottom:20px}.formula-card.default{border-left:4px solid #0073aa}.formula-card h3{margin-top:0;color:#23282d}.formula-code{background:#f6f7f7;border:1px solid #ddd;border-radius:3px;padding:15px;font-family:monospace;font-size:13px;overflow-x:auto;white-space:pre;margin:10px 0}.formula-code.readonly{background:#fafafa;color:#666}.dependencies-list{margin:10px 0;padding-left:20px}.formula-actions{margin-top:15px}.formula-actions .button{margin-right:5px}.formula-description{color:#50575e;font-style:italic;margin:5px 0}.new-formula-form{background:#f9f9f9;border:1px solid #ddd;border-radius:4px;padding:20px;margin-bottom:20px}.form-row{margin-bottom:15px}.form-row label{display:block;font-weight:600;margin-bottom:5px}.form-row input[type="text"],.form-row textarea{width:100%;max-width:600px}.form-row textarea{min-height:100px;font-family:monospace}.dependencies-input{background:#fff;border:1px solid #ddd;padding:10px;border-radius:3px;margin-top:5px}.dependency-item{display:flex;gap:10px;margin-bottom:5px;align-items:center}.dependency-item input{flex:1}');
         wp_add_inline_script('jquery', 'jQuery(document).ready(function($){function addDependencyField(){var container=$("#dependencies-container");var index=container.find(".dependency-item").length;var html=\'<div class="dependency-item"><input type="text" name="dependencies[]" placeholder="Enter dependency formula"><button type="button" class="button remove-dependency">Remove</button></div>\';container.append(html)}$("#add-dependency").click(function(e){e.preventDefault();addDependencyField()});$(document).on("click",".remove-dependency",function(){$(this).closest(".dependency-item").remove()});$(".edit-formula").click(function(e){e.preventDefault();var $card=$(this).closest(".formula-card");var key=$card.data("key");var $form=$("#edit-form-"+key);if($form.is(":visible")){$form.slideUp()}else{$(".formula-edit-form").slideUp();$form.slideDown()}});$(".cancel-edit").click(function(e){e.preventDefault();$(this).closest(".formula-edit-form").slideUp()});$(".delete-formula").click(function(e){if(!confirm("Are you sure you want to delete this formula?")){e.preventDefault()}})});');
     }
@@ -445,7 +457,14 @@ assign(&quot;avgBC&quot;, monies/buyins)"></textarea>
                                 <?php endif; ?>
                             </td>
                             <td>
-                                <button type="button" class="button" onclick="openFormulaModal('<?php echo esc_js($key); ?>')">
+                                <button type="button" class="button"
+                                        data-key="<?php echo esc_attr($key); ?>"
+                                        data-display-name="<?php echo esc_attr($formula['name']); ?>"
+                                        data-description="<?php echo esc_attr($formula['description']); ?>"
+                                        data-category="<?php echo esc_attr($formula['category']); ?>"
+                                        data-dependencies="<?php echo esc_attr(json_encode($formula['dependencies'] ?? [])); ?>"
+                                        data-formula="<?php echo esc_attr($formula['formula']); ?>"
+                                        onclick="openFormulaModal('<?php echo esc_js($key); ?>')">
                                     <?php esc_html_e('Edit', 'poker-tournament-import'); ?>
                                 </button>
                                 <?php if (!isset($formula_validator->get_default_formulas()[$key])): ?>

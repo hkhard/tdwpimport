@@ -22,6 +22,10 @@ class Poker_Tournament_Import_Admin {
         add_action('admin_init', array($this, 'register_settings'));
         add_action('admin_init', array($this, 'handle_statistics_refresh'));
 
+        // AJAX handlers for Formula Manager
+        add_action('wp_ajax_save_formula', array($this, 'ajax_save_formula'));
+        add_action('wp_ajax_delete_formula', array($this, 'ajax_delete_formula'));
+
         // Add formula editor meta box for tournaments
         add_action('add_meta_boxes', array($this, 'add_formula_meta_box'));
         add_action('save_post_tournament', array($this, 'save_formula_meta_box'), 10, 2);
@@ -4138,6 +4142,116 @@ class Poker_Tournament_Import_Admin {
         }
     }
 
+    /**
+     * AJAX: Save formula
+     */
+    public function ajax_save_formula() {
+        check_ajax_referer('poker_formula_manager_nonce', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Insufficient permissions');
+        }
+
+        $key = sanitize_text_field($_POST['key'] ?? '');
+        $display_name = sanitize_text_field($_POST['display_name'] ?? '');
+        $description = sanitize_textarea_field($_POST['description'] ?? '');
+        $category = sanitize_text_field($_POST['category'] ?? 'points');
+        $expression = sanitize_textarea_field(wp_unslash($_POST['expression'] ?? ''));
+        $dependencies = isset($_POST['dependencies']) ? array_map('sanitize_text_field', wp_unslash($_POST['dependencies'])) : array();
+
+        // Validate required fields
+        if (empty($display_name)) {
+            wp_send_json_error('Display name is required');
+        }
+
+        if (empty($expression)) {
+            wp_send_json_error('Expression is required');
+        }
+
+        if (empty($key)) {
+            wp_send_json_error('Formula key is required');
+        }
+
+        // Load formula validator
+        if (!class_exists('Poker_Tournament_Formula_Validator')) {
+            require_once plugin_dir_path(__FILE__) . '../includes/class-formula-validator.php';
+        }
+
+        $validator = new Poker_Tournament_Formula_Validator();
+
+        // Prevent modifying default formulas
+        $default_formulas = $validator->get_default_formulas();
+        if (isset($default_formulas[$key])) {
+            // For default formulas, save all fields (name, description, formula, category)
+            $default_formulas[$key]['name'] = $display_name;
+            $default_formulas[$key]['description'] = $description;
+            $default_formulas[$key]['formula'] = $expression;
+            $default_formulas[$key]['category'] = $category;
+            $default_formulas[$key]['dependencies'] = is_array($dependencies) ? $dependencies : array();
+
+            // Save custom override
+            $validator->save_formula($key, $default_formulas[$key]);
+        } else {
+            // Custom formula: save everything
+            $formula_data = array(
+                'name' => $display_name,
+                'description' => $description,
+                'formula' => $expression,
+                'dependencies' => is_array($dependencies) ? $dependencies : array(),
+                'category' => $category
+            );
+
+            $validator->save_formula($key, $formula_data);
+        }
+
+        wp_send_json_success(array(
+            'message' => 'Formula saved successfully',
+            'key' => $key
+        ));
+    }
+
+    /**
+     * AJAX: Delete formula
+     */
+    public function ajax_delete_formula() {
+        check_ajax_referer('poker_formula_manager_nonce', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Insufficient permissions');
+        }
+
+        $key = sanitize_text_field($_POST['key'] ?? '');
+
+        if (empty($key)) {
+            wp_send_json_error('Formula key is required');
+        }
+
+        // Load formula validator
+        if (!class_exists('Poker_Tournament_Formula_Validator')) {
+            require_once plugin_dir_path(__FILE__) . '../includes/class-formula-validator.php';
+        }
+
+        $validator = new Poker_Tournament_Formula_Validator();
+
+        // Prevent deleting default formulas
+        $default_formulas = $validator->get_default_formulas();
+        if (isset($default_formulas[$key])) {
+            wp_send_json_error('Cannot delete default formulas');
+        }
+
+        // Delete the formula
+        $result = $validator->delete_formula($key);
+
+        if (!$result) {
+            wp_send_json_error('Formula not found');
+        }
+
+        wp_send_json_success(array(
+            'message' => 'Formula deleted successfully',
+            'key' => $key
+        ));
+    }
+
     // Helper methods for data processing
 
     /**
@@ -4482,7 +4596,7 @@ class Poker_Tournament_Import_Admin {
 
         if ($save_formula) {
             // Get formula data
-            $formula = isset($_POST['tournament_formula']) ? sanitize_textarea_field($_POST['tournament_formula']) : '';
+            $formula = isset($_POST['tournament_formula']) ? sanitize_textarea_field(wp_unslash($_POST['tournament_formula'])) : '';
             $description = isset($_POST['tournament_formula_description']) ? sanitize_text_field($_POST['tournament_formula_description']) : '';
 
             // Validate formula before saving
