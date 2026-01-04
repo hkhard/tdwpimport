@@ -3,7 +3,7 @@
  * Plugin Name: Poker Tournament Import
  * Plugin URI: https://nikielhard.se/tdwpimport
  * Description: Import and display poker tournament results from Tournament Director (.tdt) files. Now with Tournament Manager for creating tournaments without TD software!
- * Version: 3.5.0-beta39
+ * Version: 3.6.0
  * Author: Hans Kästel Hård
  * Author URI: https://nikielhard.se
  * License: GPL v2 or later
@@ -20,7 +20,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('POKER_TOURNAMENT_IMPORT_VERSION', '3.5.0-beta39');
+define('POKER_TOURNAMENT_IMPORT_VERSION', '3.6.0');
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -507,8 +507,12 @@ class Poker_Tournament_Import {
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/class-shortcodes.php';
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/class-debug.php';
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/class-formula-validator.php';
+        require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/class-active-formula-manager.php';
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/class-series-standings.php';
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/class-statistics-engine.php';
+
+        // Active Formula Manager - handles formula selection for tournaments and seasons
+        new Poker_Active_Formula_Manager();
 
         // **PHASE 1: Tournament Manager**
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-database-schema.php';
@@ -1303,18 +1307,22 @@ class Poker_Tournament_Import {
      * AJAX handler for saving formulas
      */
     public function ajax_save_formula() {
-        check_ajax_referer('poker_formula_manager', 'nonce');
+        check_ajax_referer('poker_formula_manager_nonce', 'nonce');
 
         if (!current_user_can('manage_options')) {
             wp_die(esc_html__('You do not have sufficient permissions to access this page.', 'poker-tournament-import'));
         }
 
-        $name = sanitize_text_field($_POST['formula_name']);
+        $key = sanitize_text_field($_POST['key'] ?? '');
+        if (empty($key)) {
+            wp_send_json_error(array('message' => __('Formula key cannot be empty. Display name must contain letters or numbers.', 'poker-tournament-import')));
+        }
+
         $formula_data = array(
             'name' => sanitize_text_field($_POST['display_name']),
             'description' => sanitize_textarea_field($_POST['description']),
-            'formula' => sanitize_textarea_field(wp_unslash($_POST['formula'])),
-            'dependencies' => sanitize_textarea_field(wp_unslash($_POST['dependencies'])),
+            'formula' => sanitize_textarea_field(wp_unslash($_POST['expression'])),
+            'dependencies' => array_map('sanitize_text_field', wp_unslash($_POST['dependencies'] ?? array())),
             'category' => sanitize_text_field($_POST['category'])
         );
 
@@ -1328,7 +1336,7 @@ class Poker_Tournament_Import {
             ));
         }
 
-        $validator->save_formula($name, $formula_data);
+        $validator->save_formula($key, $formula_data);
         wp_send_json_success(array(
             'message' => __('Formula saved successfully!', 'poker-tournament-import')
         ));
@@ -1338,16 +1346,16 @@ class Poker_Tournament_Import {
      * AJAX handler for deleting formulas
      */
     public function ajax_delete_formula() {
-        check_ajax_referer('poker_formula_manager', 'nonce');
+        check_ajax_referer('poker_formula_manager_nonce', 'nonce');
 
         if (!current_user_can('manage_options')) {
             wp_die(esc_html__('You do not have sufficient permissions to access this page.', 'poker-tournament-import'));
         }
 
-        $name = sanitize_text_field($_POST['formula_name']);
+        $key = sanitize_text_field($_POST['key']);
         $validator = new Poker_Tournament_Formula_Validator();
 
-        if ($validator->delete_formula($name)) {
+        if ($validator->delete_formula($key)) {
             wp_send_json_success(array(
                 'message' => __('Formula deleted successfully!', 'poker-tournament-import')
             ));
@@ -1362,13 +1370,13 @@ class Poker_Tournament_Import {
      * AJAX handler for getting formula data
      */
     public function ajax_get_formula() {
-        check_ajax_referer('poker_formula_manager', 'nonce');
+        check_ajax_referer('poker_formula_manager_nonce', 'nonce');
 
         if (!current_user_can('manage_options')) {
             wp_die(esc_html__('You do not have sufficient permissions to access this page.', 'poker-tournament-import'));
         }
 
-        $name = sanitize_text_field($_POST['formula_key']);
+        $name = sanitize_text_field($_POST['key']);
         $validator = new Poker_Tournament_Formula_Validator();
         $formula = $validator->get_formula($name);
 

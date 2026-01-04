@@ -104,3 +104,63 @@
 .dependency-item input {
     flex: 1;
 }
+
+/* Active Formula Styles */
+.formula-card.is-active-tournament {
+    border-left: 4px solid #0073aa;
+    background: #f9f9f9;
+}
+
+.formula-card.is-active-season {
+    border-right: 4px solid #00a32a;
+    background: #f0f9f0;
+}
+
+.formula-active-badge {
+    display: inline-block;
+    background: #0073aa;
+    color: #fff;
+    padding: 4px 8px;
+    border-radius: 3px;
+    font-size: 12px;
+    font-weight: 600;
+    margin-left: 8px;
+}
+
+.formula-active-control {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid #ddd;
+}
+
+.formula-active-control label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.formula-active-checkbox {
+    margin-right: 8px;
+}
+
+/* Admin Notices */
+.notice.poker-formula-notice {
+    margin: 20px 0;
+    padding: 12px;
+    border-left: 4px solid #0073aa;
+    background: #fff;
+    box-shadow: 0 1px 1px 0 rgba(0,0,0,.1);
+}
+
+.notice.poker-formula-notice.success {
+    border-left-color: #46b450;
+}
+
+.notice.poker-formula-notice.error {
+    border-left-color: #dc3232;
+}
+
+.notice.poker-formula-notice p {
+    margin: 0;
+}

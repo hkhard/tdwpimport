@@ -46,7 +46,26 @@ class Poker_Formula_Manager_Page {
         // Debug: Add timestamp to confirm code is running
         wp_add_inline_script('jquery', 'console.log("Formula Manager Loaded: ' . $version . '");');
 
-        // Localize script with nonce
+        // Enqueue active formula handler
+        wp_enqueue_script(
+            'poker-active-formula-handler',
+            plugins_url('assets/js/active-formula-handler.js', dirname(__FILE__)),
+            array('jquery'),
+            $version,
+            true
+        );
+
+        // Localize active formula handler with nonce
+        wp_localize_script(
+            'poker-active-formula-handler',
+            'pokerActiveFormulaManager',
+            array(
+                'activeFormulaNonce' => wp_create_nonce('poker_active_formula_nonce'),
+                'ajaxUrl' => admin_url('admin-ajax.php')
+            )
+        );
+
+        // Localize main formula manager script with nonce
         wp_localize_script(
             'poker-formula-manager',
             'pokerFormulaManager',
@@ -54,6 +73,14 @@ class Poker_Formula_Manager_Page {
                 'nonce' => wp_create_nonce('poker_formula_manager_nonce'),
                 'ajaxUrl' => admin_url('admin-ajax.php')
             )
+        );
+
+        // Enqueue formula manager CSS
+        wp_enqueue_style(
+            'poker-formula-manager-css',
+            plugins_url('assets/css/formula-manager.css', dirname(__FILE__)),
+            array(),
+            $version
         );
 
         // Add slugify function inline to bypass file caching
@@ -446,68 +473,133 @@ assign(&quot;avgBC&quot;, monies/buyins)"></textarea>
     private function render_formulas_tab() {
         $formula_validator = new Poker_Tournament_Formula_Validator();
         $formulas = $formula_validator->get_all_formulas();
-        $active_tournament = get_option('tdwp_active_tournament_formula', 'tournament_points');
-        $active_season = get_option('tdwp_active_season_formula', 'season_total');
+
+        // Get active formulas using the Active Formula Manager
+        $active_manager = new Poker_Active_Formula_Manager();
+        $active_tournament = $active_manager->get_active_formula('tournament');
+        $active_season = $active_manager->get_active_formula('season');
+
+        // Fallback to old options if new ones don't exist
+        if (!$active_tournament) {
+            $active_tournament = get_option('tdwp_active_tournament_formula', 'tournament_points');
+        }
+        if (!$active_season) {
+            $active_season = get_option('tdwp_active_season_formula', 'season_total');
+        }
         ?>
         <div class="formula-editor">
             <h2><?php esc_html_e('Manage Formulas', 'poker-tournament-import'); ?></h2>
+
+            <p class="description">
+                <?php esc_html_e('Formulas are used to calculate tournament points and season standings. Check the box next to a formula to make it the active formula for that category.', 'poker-tournament-import'); ?>
+                <br>
+                <strong><?php esc_html_e('Active Tournament Formula:</strong> Used when importing tournaments to calculate points. ', 'poker-tournament-import'); ?>
+                <strong><?php esc_html_e('Active Season Formula:</strong> Used to calculate season points in the leaderboard. ', 'poker-tournament-import'); ?>
+            </p>
 
             <button type="button" class="button button-primary" onclick="openFormulaModal('new')">
                 <?php esc_html_e('Add New Formula', 'poker-tournament-import'); ?>
             </button>
 
-            <table class="wp-list-table widefat fixed striped" style="margin-top: 20px;">
-                <thead>
-                    <tr>
-                        <th><?php esc_html_e('Name', 'poker-tournament-import'); ?></th>
-                        <th><?php esc_html_e('Category', 'poker-tournament-import'); ?></th>
-                        <th><?php esc_html_e('Description', 'poker-tournament-import'); ?></th>
-                        <th><?php esc_html_e('Status', 'poker-tournament-import'); ?></th>
-                        <th><?php esc_html_e('Actions', 'poker-tournament-import'); ?></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($formulas as $key => $formula): ?>
-                        <tr>
-                            <td>
-                                <strong><?php echo esc_html($formula['name']); ?></strong>
-                                <?php if (isset($formula_validator->get_default_formulas()[$key])): ?>
-                                    <span class="badge" style="background: #0073aa; color: white; padding: 2px 6px; border-radius: 3px; font-size: 11px; margin-left: 5px;">
-                                        <?php esc_html_e('Default', 'poker-tournament-import'); ?>
-                                    </span>
-                                <?php endif; ?>
-                            </td>
-                            <td><?php echo esc_html($formula['category']); ?></td>
-                            <td><?php echo esc_html($formula['description']); ?></td>
-                            <td>
-                                <?php if ($key === $active_tournament): ?>
-                                    <span style="color: #46b450;"><?php esc_html_e('Active Tournament', 'poker-tournament-import'); ?></span>
-                                <?php endif; ?>
-                                <?php if ($key === $active_season): ?>
-                                    <span style="color: #46b450;"><?php esc_html_e('Active Season', 'poker-tournament-import'); ?></span>
-                                <?php endif; ?>
-                            </td>
-                            <td>
-                                <button type="button" class="button"
-                                        data-key="<?php echo esc_attr($key); ?>"
-                                        data-display-name="<?php echo esc_attr($formula['name']); ?>"
-                                        data-description="<?php echo esc_attr($formula['description']); ?>"
-                                        data-category="<?php echo esc_attr($formula['category']); ?>"
-                                        data-dependencies="<?php echo esc_attr(json_encode($formula['dependencies'] ?? [])); ?>"
-                                        data-formula="<?php echo esc_attr($formula['formula']); ?>"
-                                        onclick="openFormulaModal('<?php echo esc_js($key); ?>')">
-                                    <?php esc_html_e('Edit', 'poker-tournament-import'); ?>
+            <div class="formula-cards-container" style="margin-top: 20px;">
+                <?php foreach ($formulas as $key => $formula):
+                    $is_active_tournament = ($key === $active_tournament);
+                    $is_active_season = ($key === $active_season);
+                    $is_default = isset($formula_validator->get_default_formulas()[$key]);
+                    ?>
+                    <div class="formula-card <?php echo $is_active_tournament ? 'is-active-tournament' : ''; ?>"
+                         data-formula-key="<?php echo esc_attr($key); ?>"
+                         data-category="<?php echo esc_attr($formula['category']); ?>">
+                        <h3>
+                            <?php echo esc_html($formula['name']); ?>
+                            <?php if ($is_default): ?>
+                                <span class="formula-active-badge" style="background: #0073aa;">
+                                    <?php esc_html_e('Default', 'poker-tournament-import'); ?>
+                                </span>
+                            <?php endif; ?>
+                            <?php if ($is_active_tournament): ?>
+                                <span class="formula-active-badge">
+                                    <?php esc_html_e('Active Tournament', 'poker-tournament-import'); ?>
+                                </span>
+                            <?php endif; ?>
+                            <?php if ($is_active_season): ?>
+                                <span class="formula-active-badge" style="background: #46b450;">
+                                    <?php esc_html_e('Active Season', 'poker-tournament-import'); ?>
+                                </span>
+                            <?php endif; ?>
+                        </h3>
+
+                        <div class="formula-description">
+                            <strong><?php esc_html_e('Description:', 'poker-tournament-import'); ?></strong>
+                            <?php echo esc_html($formula['description']); ?>
+                        </div>
+
+                        <div class="formula-meta" style="margin: 10px 0;">
+                            <strong><?php esc_html_e('Category:', 'poker-tournament-import'); ?></strong>
+                            <?php echo esc_html($formula['category']); ?>
+                        </div>
+
+                        <?php if (!empty($formula['dependencies'])): ?>
+                            <div class="dependencies-list">
+                                <strong><?php esc_html_e('Dependencies:', 'poker-tournament-import'); ?></strong>
+                                <ul>
+                                    <?php foreach ($formula['dependencies'] as $dep): ?>
+                                        <li><?php echo esc_html($dep); ?></li>
+                                    <?php endforeach; ?>
+                                </ul>
+                            </div>
+                        <?php endif; ?>
+
+                        <div class="formula-code readonly">
+                            <?php echo esc_html($formula['formula']); ?>
+                        </div>
+
+                        <?php if ($formula['category'] === 'points' || $formula['category'] === 'custom'): ?>
+                            <div class="formula-active-control">
+                                <label>
+                                    <input type="checkbox"
+                                           class="formula-active-checkbox"
+                                           data-category="tournament"
+                                           data-formula-key="<?php echo esc_attr($key); ?>"
+                                           <?php checked($is_active_tournament); ?>>
+                                    <?php esc_html_e('Active Tournament Formula', 'poker-tournament-import'); ?>
+                                </label>
+                            </div>
+                        <?php endif; ?>
+
+                        <?php if ($formula['category'] === 'season' || $formula['category'] === 'custom'): ?>
+                            <div class="formula-active-control">
+                                <label>
+                                    <input type="checkbox"
+                                           class="formula-active-checkbox"
+                                           data-category="season"
+                                           data-formula-key="<?php echo esc_attr($key); ?>"
+                                           <?php checked($is_active_season); ?>>
+                                    <?php esc_html_e('Active Season Formula', 'poker-tournament-import'); ?>
+                                </label>
+                            </div>
+                        <?php endif; ?>
+
+                        <div class="formula-actions">
+                            <button type="button" class="button"
+                                    data-key="<?php echo esc_attr($key); ?>"
+                                    data-display-name="<?php echo esc_attr($formula['name']); ?>"
+                                    data-description="<?php echo esc_attr($formula['description']); ?>"
+                                    data-category="<?php echo esc_attr($formula['category']); ?>"
+                                    data-dependencies="<?php echo esc_attr(json_encode($formula['dependencies'] ?? [])); ?>"
+                                    data-formula="<?php echo esc_attr($formula['formula']); ?>"
+                                    onclick="openFormulaModal('<?php echo esc_js($key); ?>')">
+                                <?php esc_html_e('Edit', 'poker-tournament-import'); ?>
+                            </button>
+                            <?php if (!$is_default): ?>
+                                <button type="button" class="button" onclick="deleteFormula('<?php echo esc_js($key); ?>')">
+                                    <?php esc_html_e('Delete', 'poker-tournament-import'); ?>
                                 </button>
-                                <?php if (!isset($formula_validator->get_default_formulas()[$key])): ?>
-                                    <button type="button" class="button" onclick="deleteFormula('<?php echo esc_js($key); ?>')">
-                                        <?php esc_html_e('Delete', 'poker-tournament-import'); ?>
-                                    </button>
-                                <?php endif; ?>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            </div>
         </div>
         <?php
     }

@@ -20,7 +20,7 @@ class Poker_Series_Standings_Calculator {
         global $wpdb;
 
         if (!$formula_key) {
-            $formula_key = get_option('tdwp_active_season_formula', 'season_total');
+            $formula_key = get_option('tdwp_active_season_formula', 'best_10');
         }
 
         // Try transient cache first
@@ -85,11 +85,11 @@ class Poker_Series_Standings_Calculator {
         }
 
         if (!$formula_key) {
-            $formula_key = get_option('tdwp_active_season_formula', 'season_total');
+            $formula_key = get_option('tdwp_active_season_formula', 'best_10');
         }
 
         // Try transient cache first
-        $cache_key = 'poker_season_standings_' . $season_id . '_' . $formula_key;
+        $cache_key = 'poker_season_standings_' . $season_id . '_' . $formula_key . '_v2';
         $cached_standings = get_transient($cache_key);
 
         if ($cached_standings !== false) {
@@ -265,21 +265,107 @@ class Poker_Series_Standings_Calculator {
         $tournaments_played = count($results);
         $tournament_points_list = array();
         $finishes = array();
+        $bubble_count = 0;
+        $last_place_count = 0;
+        $season_points = 0; // New field for season points calculation
 
-        foreach ($results as $result) {
-            $total_points += floatval($result->points);
-            $total_winnings += floatval($result->winnings);
-            $total_hits += intval($result->hits);
-
-            if ($result->finish_position < $best_finish) {
-                $best_finish = $result->finish_position;
+        // Pre-calculate max finish position for each tournament (for last place detection)
+        $max_positions = array();
+        foreach ($tournaments as $tournament) {
+            $uuid = get_post_meta($tournament->ID, 'tournament_uuid', true);
+            if ($uuid) {
+                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
+                $max_pos = $wpdb->get_var($wpdb->prepare(
+                    "SELECT MAX(finish_position) FROM $table_name WHERE tournament_id = %s",
+                    $uuid
+                ));
+                $max_positions[$uuid] = $max_pos ? intval($max_pos) : 0;
             }
-            if ($result->finish_position > $worst_finish) {
-                $worst_finish = $result->finish_position;
+        }
+
+        // US3: Evaluate season formula per tournament with tournament-specific variables
+        if ($formula_key && $formula_key !== 'direct_sum') {
+            foreach ($results as $result) {
+                $total_points += floatval($result->points);
+                $total_winnings += floatval($result->winnings);
+                $total_hits += intval($result->hits);
+
+                if ($result->finish_position < $best_finish) {
+                    $best_finish = $result->finish_position;
+                }
+                if ($result->finish_position > $worst_finish) {
+                    $worst_finish = $result->finish_position;
+                }
+
+                $tournament_points_list[] = floatval($result->points);
+                $finishes[] = intval($result->finish_position);
+
+                // US3: Evaluate season formula for this specific tournament
+                $tournament_season_points = $this->evaluate_season_formula_per_tournament(
+                    $formula_key,
+                    $result,
+                    $tournaments
+                );
+                $season_points += $tournament_season_points;
+
+                // Detect bubble finish (one position outside paid spots)
+                $tournament_post_id = $this->get_tournament_post_id($result->tournament_id);
+                $paid_positions = get_post_meta($tournament_post_id, 'paid_positions', true);
+
+                // US4: Log warning if paid_positions is missing for a tournament
+                if (!$paid_positions) {
+                    error_log("US4 Warning: paid_positions not set for tournament post ID $tournament_post_id (UUID: {$result->tournament_id}) - bubble calculation may be inaccurate");
+                }
+
+                if ($paid_positions && $result->finish_position == $paid_positions + 1) {
+                    $bubble_count++;
+                }
+
+                // Detect last place finish
+                if (!empty($max_positions[$result->tournament_id]) &&
+                    $result->finish_position == $max_positions[$result->tournament_id]) {
+                    $last_place_count++;
+                }
+            }
+        } else {
+            // US3: Fallback - use direct sum of tournament points
+            foreach ($results as $result) {
+                $total_points += floatval($result->points);
+                $total_winnings += floatval($result->winnings);
+                $total_hits += intval($result->hits);
+
+                if ($result->finish_position < $best_finish) {
+                    $best_finish = $result->finish_position;
+                }
+                if ($result->finish_position > $worst_finish) {
+                    $worst_finish = $result->finish_position;
+                }
+
+                $tournament_points_list[] = floatval($result->points);
+                $finishes[] = intval($result->finish_position);
+
+                // Detect bubble finish (one position outside paid spots)
+                $tournament_post_id = $this->get_tournament_post_id($result->tournament_id);
+                $paid_positions = get_post_meta($tournament_post_id, 'paid_positions', true);
+
+                // US4: Log warning if paid_positions is missing for a tournament
+                if (!$paid_positions) {
+                    error_log("US4 Warning: paid_positions not set for tournament post ID $tournament_post_id (UUID: {$result->tournament_id}) - bubble calculation may be inaccurate");
+                }
+
+                if ($paid_positions && $result->finish_position == $paid_positions + 1) {
+                    $bubble_count++;
+                }
+
+                // Detect last place finish
+                if (!empty($max_positions[$result->tournament_id]) &&
+                    $result->finish_position == $max_positions[$result->tournament_id]) {
+                    $last_place_count++;
+                }
             }
 
-            $tournament_points_list[] = floatval($result->points);
-            $finishes[] = intval($result->finish_position);
+            // US3: Fallback to direct sum
+            $season_points = $total_points;
         }
 
         $avg_finish = array_sum($finishes) / count($finishes);
@@ -314,15 +400,18 @@ class Poker_Series_Standings_Calculator {
             'total_points' => $total_points,
             'total_winnings' => $total_winnings,
             'total_hits' => $total_hits,
+            'bubble_count' => $bubble_count,
+            'last_place_count' => $last_place_count,
             'best_finish' => $best_finish === PHP_INT_MAX ? 0 : $best_finish,
             'worst_finish' => $worst_finish,
             'avg_finish' => $avg_finish,
             'tournament_points' => $tournament_points_list,
             'finishes' => $finishes,
-            'results_detail' => $results
+            'results_detail' => $results,
+            'season_points' => $season_points // US3: Add season_points field
         );
 
-        // Apply series formula if specified
+        // Apply series formula if specified (legacy support for old formulas)
         if ($formula_key && $formula_key !== 'direct_sum') {
             $series_points = $this->apply_series_formula($series_data, $formula_key);
             $series_data['series_points'] = $series_points;
@@ -365,6 +454,152 @@ class Poker_Series_Standings_Calculator {
         $result = $formula_validator->calculate_formula($formula_data['formula'], $formula_input, 'season');
 
         return $result['success'] ? $result['result'] : $series_data['total_points'];
+    }
+
+    /**
+     * US3: Get tournament variables for formula evaluation
+     *
+     * Extracts per-tournament variables (n, r, hits, monies, avgBC, T33, T80)
+     * from tournament result data for use in season formula evaluation.
+     *
+     * @param object $result Tournament result object from database
+     * @param array $tournaments Array of tournament post objects
+     * @return array Variables for formula evaluation
+     */
+    private function get_tournament_variables($result, $tournaments) {
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'poker_tournament_players';
+
+        // Find tournament post for this result
+        $tournament_post = null;
+        foreach ($tournaments as $tournament) {
+            $uuid = get_post_meta($tournament->ID, 'tournament_uuid', true);
+            if ($uuid === $result->tournament_id) {
+                $tournament_post = $tournament;
+                break;
+            }
+        }
+
+        if (!$tournament_post) {
+            // Return default/empty values if tournament not found
+            return $this->get_default_tournament_variables();
+        }
+
+        // Get total players in this tournament
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
+        $total_players = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(DISTINCT player_id) FROM $table_name WHERE tournament_id = %s",
+            $result->tournament_id
+        ));
+        $n = $total_players ? intval($total_players) : 1;
+
+        // Get total money for this tournament
+        $total_money = get_post_meta($tournament_post->ID, 'total_money', true);
+        if (!$total_money) {
+            // Calculate from buyins if not stored
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
+            $total_buyins = $wpdb->get_var($wpdb->prepare(
+                "SELECT SUM(buyin_count) FROM $table_name WHERE tournament_id = %s",
+                $result->tournament_id
+            ));
+            $buyin_amount = get_post_meta($tournament_post->ID, 'buyin_amount', true);
+            $total_money = $total_buyins * ($buyin_amount ?: 0);
+        }
+        $monies = floatval($total_money);
+
+        // Calculate average buyin cost
+        $avgBC = $n > 0 ? $monies / $n : 0;
+
+        // Calculate T33 (top 33%)
+        $T33 = $n > 0 ? (int) round($n / 3) : 0;
+
+        // Calculate T80 (top 80%)
+        $T80 = $n > 0 ? (int) floor($n * 0.8) : 0;
+
+        // US3: Return all variables for this tournament result
+        return array(
+            'n' => $n,
+            'r' => intval($result->finish_position),
+            'hits' => intval($result->hits),
+            'monies' => $monies,
+            'avgBC' => $avgBC,
+            'T33' => $T33,
+            'T80' => $T80,
+            'total_players' => $n,
+            'finish_position' => intval($result->finish_position),
+            'winnings' => floatval($result->winnings),
+            'points' => floatval($result->points)
+        );
+    }
+
+    /**
+     * US3: Get default tournament variables for error cases
+     *
+     * @return array Default variables (all zeros)
+     */
+    private function get_default_tournament_variables() {
+        return array(
+            'n' => 0,
+            'r' => 0,
+            'hits' => 0,
+            'monies' => 0,
+            'avgBC' => 0,
+            'T33' => 0,
+            'T80' => 0,
+            'total_players' => 0,
+            'finish_position' => 0,
+            'winnings' => 0,
+            'points' => 0
+        );
+    }
+
+    /**
+     * US3: Evaluate season formula for a single tournament with tournament-specific variables
+     *
+     * @param string $formula_key The formula key to evaluate
+     * @param object $result Tournament result object
+     * @param array $tournaments Array of tournament post objects
+     * @return float Calculated season points for this tournament
+     */
+    private function evaluate_season_formula_per_tournament($formula_key, $result, $tournaments) {
+        // US3: Get tournament-specific variables
+        $variables = $this->get_tournament_variables($result, $tournaments);
+
+        // US3: Get formula from validator
+        if (!class_exists('Poker_Tournament_Formula_Validator')) {
+            error_log('US3: Formula Validator class not found, using fallback');
+            return floatval($result->points);
+        }
+
+        $formula_validator = new Poker_Tournament_Formula_Validator();
+        $formula_data = $formula_validator->get_formula($formula_key);
+
+        if (!$formula_data || empty($formula_data['formula'])) {
+            error_log("US3: Formula '$formula_key' not found, using fallback");
+            return floatval($result->points);
+        }
+
+        // US3: Build complete formula with dependencies
+        $complete_formula = '';
+        if (!empty($formula_data['dependencies'])) {
+            $complete_formula = implode(';', $formula_data['dependencies']) . ';';
+        }
+        $complete_formula .= $formula_data['formula'];
+
+        // US3: Calculate with undefined variable handling (treat missing as 0)
+        $result_calc = $formula_validator->calculate_formula(
+            $complete_formula,
+            $variables,
+            'season'
+        );
+
+        if ($result_calc['success']) {
+            return floatval($result_calc['result']);
+        } else {
+            // US3: Log error but return fallback value
+            error_log('US3: Formula evaluation failed: ' . $result_calc['error']);
+            return floatval($result->points);
+        }
     }
 
     /**
@@ -488,7 +723,7 @@ class Poker_Series_Standings_Calculator {
         global $wpdb;
 
         if (!$formula_key) {
-            $formula_key = get_option('tdwp_active_season_formula', 'season_total');
+            $formula_key = get_option('tdwp_active_season_formula', 'best_10');
         }
 
         // Generate cache key including tournament IDs
@@ -744,7 +979,7 @@ class Poker_Series_Standings_Calculator {
         fputcsv($handle, array(
             'Rank',
             'Player',
-            'Series Points',
+            'Season Points',
             'Tournaments Played',
             'Total Points',
             'Total Winnings',
@@ -761,7 +996,7 @@ class Poker_Series_Standings_Calculator {
             fputcsv($handle, array(
                 $standing['rank'] . ($standing['is_tied'] ? 'T' : ''),
                 $standing['player_name'],
-                number_format($standing['series_points'], 2),
+                number_format($standing['season_points'], 2),
                 $standing['tournaments_played'],
                 number_format($standing['total_points'], 2),
                 number_format($standing['total_winnings'], 2),
@@ -797,7 +1032,7 @@ class Poker_Series_Standings_Calculator {
         echo '<tr>';
         echo '<th>' . esc_html__('Rank', 'poker-tournament-import') . '</th>';
         echo '<th>' . esc_html__('Player', 'poker-tournament-import') . '</th>';
-        echo '<th>' . esc_html__('Series Points', 'poker-tournament-import') . '</th>';
+        echo '<th>' . esc_html__('Season Points', 'poker-tournament-import') . '</th>';
         echo '<th>' . esc_html__('Tournaments', 'poker-tournament-import') . '</th>';
         echo '<th>' . esc_html__('Best Finish', 'poker-tournament-import') . '</th>';
         echo '<th>' . esc_html__('Avg Finish', 'poker-tournament-import') . '</th>';
@@ -842,7 +1077,7 @@ class Poker_Series_Standings_Calculator {
                 echo '<td class="player-cell">' . esc_html($standing['player_name']) . '</td>';
             }
 
-            echo '<td class="points-cell">' . esc_html(number_format($standing['series_points'], 1)) . '</td>';
+            echo '<td class="points-cell">' . esc_html(number_format($standing['season_points'], 1)) . '</td>';
             echo '<td class="tournaments-cell">' . esc_html($standing['tournaments_played']) . '</td>';
             echo '<td class="best-finish-cell">' . esc_html($standing['best_finish']) . '</td>';
             echo '<td class="avg-finish-cell">' . esc_html(number_format($standing['avg_finish'], 1)) . '</td>';
@@ -908,5 +1143,31 @@ class Poker_Series_Standings_Calculator {
         }
 
         return $results;
+    }
+
+    /**
+     * Get tournament post ID from tournament UUID
+     *
+     * Helper method to map tournament UUIDs to WordPress post IDs
+     * for accessing tournament metadata like paid_positions
+     *
+     * @param string $tournament_uuid Tournament UUID from database
+     * @return int Tournament post ID, or 0 if not found
+     */
+    private function get_tournament_post_id($tournament_uuid) {
+        $posts = get_posts(array(
+            'post_type' => 'tournament',
+            'meta_query' => array(
+                array(
+                    'key' => 'tournament_uuid',
+                    'value' => $tournament_uuid,
+                    'compare' => '='
+                )
+            ),
+            'posts_per_page' => 1,
+            'fields' => 'ids'
+        ));
+
+        return !empty($posts) ? $posts[0] : 0;
     }
 }

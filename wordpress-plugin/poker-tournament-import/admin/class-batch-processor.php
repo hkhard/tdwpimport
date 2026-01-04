@@ -611,6 +611,16 @@ class Poker_Tournament_Batch_Processor {
             update_post_meta($post_id, '_tournament_stats', $tournament_stats);
         }
 
+        // US4: Store paid_positions for bubble calculation
+        if (isset($tournament_stats['paid_positions']) && $tournament_stats['paid_positions'] > 0) {
+            update_post_meta($post_id, 'paid_positions', intval($tournament_stats['paid_positions']));
+        }
+
+        // US4: Store bubble_position from parser validation
+        if (isset($tournament_data['metadata']['bubble_position'])) {
+            update_post_meta($post_id, 'bubble_position', intval($tournament_data['metadata']['bubble_position']));
+        }
+
         // Apply taxonomy auto-categorization
         if (class_exists('Poker_Tournament_Import_Taxonomies')) {
             $taxonomies = new Poker_Tournament_Import_Taxonomies();

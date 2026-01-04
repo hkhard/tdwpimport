@@ -69,7 +69,7 @@ class Poker_Dashboard_Filters {
 
         foreach ($seasons as $season) {
             $season_options[] = array(
-                'value' => $season->ID,
+                'value' => (string)$season->ID,
                 'label' => $season->post_title
             );
         }
@@ -207,7 +207,7 @@ class Poker_Dashboard_Filters {
                             <?php
                             $current_value = isset($active[$filter_key]) ? $active[$filter_key] : '';
                             foreach ($config['options'] as $option):
-                                $selected = $option['value'] === $current_value ? 'selected' : '';
+                                $selected = $option['value'] == $current_value ? 'selected' : '';
                             ?>
                                 <option
                                     value="<?php echo esc_attr($option['value']); ?>"
