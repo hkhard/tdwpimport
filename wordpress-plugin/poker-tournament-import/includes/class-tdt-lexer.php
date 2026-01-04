@@ -296,6 +296,9 @@ class TDT_Lexer {
         if ($text === 'null') {
             return new TDT_Token('BOOL', null, $start);
         }
+        if ($text === 'undefined') {
+            return new TDT_Token('BOOL', null, $start);  // JavaScript undefined = null
+        }
 
         return new TDT_Token('IDENT', $text, $start);
     }
