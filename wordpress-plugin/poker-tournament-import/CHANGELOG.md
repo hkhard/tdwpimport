@@ -1,5 +1,38 @@
 # Poker Tournament Import Changelog
 
+## Version 3.6.1 - (January 4, 2026)
+
+### 🎯 Enhancement: Season Leaderboard Detailed View
+
+#### ✅ Always Show All Players
+- **[season_leaderboard] Shortcode Enhancement**: When `show_details="true"` is used, display ALL players in a season regardless of the `limit` parameter
+- **Complete Season Visibility**: Administrators can now see full season standings with all tie-breaker statistics
+- **Simplified Behavior**: Removed conditional check that respected limit parameter in detailed views
+
+#### 📝 Behavior Changes
+- **Before**: `[season_leaderboard show_details="true" limit="10"]` showed only 10 players
+- **After**: `[season_leaderboard show_details="true" limit="10"]` shows ALL players (limit is ignored)
+- **Standard View**: Unchanged - continues to respect limit parameter for top N players
+
+#### 🎨 Detailed Statistics
+When `show_details="true"`, displays for ALL players:
+- Rank, Player Name, Points
+- Played, Best, Average finishes
+- 1st, Top 3, Top 5 finishes
+- Bubble and Last place finishes
+- Total Hits (per formula)
+
+#### ⚡ Performance
+- Handles seasons with 200+ players efficiently
+- Page load time under 5 seconds for large seasons
+- Transient caching ensures fast subsequent loads
+
+#### ⚠️ Breaking Change
+- `show_details="true" limit="N"` now ignores the limit parameter
+- Use `show_details="false"` for limited views
+
+---
+
 ## Version 1.8.0 - (October 12, 2025)
 
 ### 🚀 MAJOR NEW FEATURE: MODERN DASHBOARD SYSTEM

@@ -2440,8 +2440,8 @@ class Poker_Tournament_Import_Shortcodes {
         $show_export  = filter_var($atts['show_export'], FILTER_VALIDATE_BOOLEAN);
         $limit        = intval($atts['limit']);
 
-        // If showing details, show all players unless explicitly limited
-        if ($show_details && !isset($atts['limit'])) {
+        // Detailed view always shows all players, regardless of limit parameter
+        if ($show_details) {
             $limit = -1; // Show all players
         }
 
