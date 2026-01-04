@@ -213,6 +213,13 @@ jQuery(document).ready(function($) {
         var isNewFormula = !existingKey || existingKey === '';
         var formulaKey = isNewFormula ? slugify(displayName) : existingKey;
 
+        // Validate that key was generated successfully
+        if (!formulaKey || formulaKey === '') {
+            alert('Display name must contain at least one letter or number');
+            $('#save-formula-btn').prop('disabled', false);
+            return;
+        }
+
         var formData = {
             key: formulaKey,
             display_name: displayName,
@@ -229,7 +236,7 @@ jQuery(document).ready(function($) {
             url: pokerFormulaManager.ajaxUrl,
             type: 'POST',
             data: {
-                action: 'save_formula',
+                action: 'tdwp_save_formula',
                 nonce: pokerFormulaManager.nonce,
                 key: formData.key,
                 display_name: formData.display_name,
@@ -285,7 +292,7 @@ jQuery(document).ready(function($) {
             url: pokerFormulaManager.ajaxUrl,
             type: 'POST',
             data: {
-                action: 'delete_formula',
+                action: 'tdwp_delete_formula',
                 nonce: pokerFormulaManager.nonce,
                 key: key
             },

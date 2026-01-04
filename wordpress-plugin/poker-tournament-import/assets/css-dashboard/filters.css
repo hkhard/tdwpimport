@@ -7,6 +7,20 @@
  * @package Poker_Tournament_Import
  */
 
+/* CSS Custom Properties (Variables) */
+:root {
+    --dashboard-primary: #2563eb;
+    --dashboard-bg-surface: #ffffff;
+    --dashboard-bg-body: #f8fafc;
+    --dashboard-bg-alt: #f1f5f9;
+    --dashboard-border: #e2e8f0;
+    --dashboard-text-main: #1e293b;
+    --dashboard-text-muted: #64748b;
+    --dashboard-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
+    --dashboard-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    --dashboard-radius: 8px;
+}
+
 /* Dashboard Filters Form */
 .dashboard-filters {
     display: flex;

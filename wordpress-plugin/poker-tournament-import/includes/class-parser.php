@@ -1574,9 +1574,24 @@ class Poker_Tournament_Parser {
             Poker_Tournament_Import_Debug::log_success("Using PointsForPlaying formula from .tdt file");
         }
 
-        // Priority 2: Get active tournament points formula from settings
+        // Priority 2: Get active tournament points formula from Active Formula Manager
         if (!$formula_data) {
-            $active_formula = get_option('tdwp_active_tournament_formula', 'tournament_points');
+            $active_formula = null;
+
+            // Try to use Active Formula Manager if available
+            if (class_exists('Poker_Active_Formula_Manager')) {
+                $active_manager = new Poker_Active_Formula_Manager();
+                $active_formula = $active_manager->get_active_formula('tournament');
+
+                // Fallback to old option if new one doesn't exist
+                if (!$active_formula) {
+                    $active_formula = get_option('tdwp_active_tournament_formula', 'tournament_points');
+                }
+            } else {
+                // Fallback to direct option access
+                $active_formula = get_option('tdwp_active_tournament_formula', 'tournament_points');
+            }
+
             $formula_data = $formula_validator->get_formula($active_formula);
             if ($formula_data) {
                 $formula_source = 'settings_' . $active_formula;

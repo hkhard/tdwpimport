@@ -2440,6 +2440,11 @@ class Poker_Tournament_Import_Shortcodes {
         $show_export  = filter_var($atts['show_export'], FILTER_VALIDATE_BOOLEAN);
         $limit        = intval($atts['limit']);
 
+        // If showing details, show all players unless explicitly limited
+        if ($show_details && !isset($atts['limit'])) {
+            $limit = -1; // Show all players
+        }
+
         // Load filter system and get active season
         if (!class_exists('Poker_Dashboard_Filters')) {
             require_once plugin_dir_path(__FILE__) . 'class-dashboard-filters.php';
@@ -2463,7 +2468,7 @@ class Poker_Tournament_Import_Shortcodes {
         }
 
         // Get formula key
-        $formula_key = !empty($atts['formula']) ? sanitize_text_field($atts['formula']) : get_option('tdwp_active_season_formula', 'season_total');
+        $formula_key = !empty($atts['formula']) ? sanitize_text_field($atts['formula']) : get_option('tdwp_active_season_formula', 'best_10');
 
         // Load standings calculator
         if (!class_exists('Poker_Series_Standings_Calculator')) {
@@ -2517,6 +2522,9 @@ class Poker_Tournament_Import_Shortcodes {
                         <th style="padding: 12px; text-align: center; border-bottom: 2px solid #ddd;"><?php esc_html_e('1st', 'poker-tournament-import'); ?></th>
                         <th style="padding: 12px; text-align: center; border-bottom: 2px solid #ddd;"><?php esc_html_e('Top 3', 'poker-tournament-import'); ?></th>
                         <th style="padding: 12px; text-align: center; border-bottom: 2px solid #ddd;"><?php esc_html_e('Top 5', 'poker-tournament-import'); ?></th>
+                        <th style="padding: 12px; text-align: center; border-bottom: 2px solid #ddd;"><?php esc_html_e('Bubble', 'poker-tournament-import'); ?></th>
+                        <th style="padding: 12px; text-align: center; border-bottom: 2px solid #ddd;"><?php esc_html_e('Last', 'poker-tournament-import'); ?></th>
+                        <th style="padding: 12px; text-align: center; border-bottom: 2px solid #ddd;"><?php esc_html_e('Hits', 'poker-tournament-import'); ?></th>
                         <?php endif; ?>
                         <th style="padding: 12px; text-align: right; border-bottom: 2px solid #ddd;"><?php esc_html_e('Season Points', 'poker-tournament-import'); ?></th>
                     </tr>
@@ -2564,6 +2572,9 @@ class Poker_Tournament_Import_Shortcodes {
                         <td style="padding: 10px; text-align: center; border-bottom: 1px solid #eee;"><?php echo intval($player['tie_breakers']['first_places']); ?></td>
                         <td style="padding: 10px; text-align: center; border-bottom: 1px solid #eee;"><?php echo intval($player['tie_breakers']['top3_finishes']); ?></td>
                         <td style="padding: 10px; text-align: center; border-bottom: 1px solid #eee;"><?php echo intval($player['tie_breakers']['top5_finishes']); ?></td>
+                        <td style="padding: 10px; text-align: center; border-bottom: 1px solid #eee;"><?php echo intval($player['bubble_count'] ?? 0); ?></td>
+                        <td style="padding: 10px; text-align: center; border-bottom: 1px solid #eee;"><?php echo intval($player['last_place_count'] ?? 0); ?></td>
+                        <td style="padding: 10px; text-align: center; border-bottom: 1px solid #eee;"><?php echo intval($player['total_hits']); ?></td>
                         <?php endif; ?>
                         <td style="padding: 10px; text-align: right; border-bottom: 1px solid #eee; font-weight: bold; color: #006400;"><?php echo number_format($player['series_points'], 1); ?></td>
                     </tr>
@@ -4704,17 +4715,10 @@ class Poker_Tournament_Import_Shortcodes {
                         SUM(CASE WHEN tp.finish_position = 2 THEN 1 ELSE 0 END) as second_place_count,
                         SUM(CASE WHEN tp.finish_position = 3 THEN 1 ELSE 0 END) as third_place_count,
                         SUM(tp.hits) as total_hits,
+                        0 as bubble_count,
                         SUM(CASE
                             WHEN tp.finish_position = (
-                                SELECT COUNT(*) + 1
-                            FROM $table_name tp2
-                            WHERE tp2.tournament_id = tp.tournament_id AND tp2.winnings > 0
-                        )
-                        THEN 1 ELSE 0
-                    END) as bubble_count,
-                    SUM(CASE
-                        WHEN tp.finish_position = (
-                            SELECT MAX(finish_position)
+                                SELECT MAX(finish_position)
                             FROM $table_name tp3
                             WHERE tp3.tournament_id = tp.tournament_id
                         )
@@ -4730,6 +4734,77 @@ class Poker_Tournament_Import_Shortcodes {
             ));
             wp_cache_set($cache_key, $top_players, 'poker_tournament', HOUR_IN_SECONDS);
         }
+
+        // Calculate bubble counts using paid_positions meta field
+        $bubble_counts = array();
+        foreach ($top_players as $player) {
+            if (!isset($bubble_counts[$player->player_id])) {
+                $bubble_counts[$player->player_id] = 0;
+            }
+
+            // Get all tournaments for this player in the season
+            $cache_key = 'poker_bubble_' . md5(serialize(func_get_args()) . $player->player_id);
+            $player_tournaments = wp_cache_get($cache_key, 'poker_tournament');
+            if (false === $player_tournaments) {
+                global $wpdb;
+                $table_name = $wpdb->prefix . 'poker_tournament_players';
+                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
+                $player_tournaments = $wpdb->get_results($wpdb->prepare(
+                    "SELECT tournament_id, finish_position
+                     FROM $table_name
+                     WHERE player_id = %s",
+                    $player->player_id
+                ));
+                wp_cache_set($cache_key, $player_tournaments, 'poker_tournament', HOUR_IN_SECONDS);
+
+                // DEBUG: Log query results
+                if (current_user_can('manage_options')) {
+                    error_log("Bubble Debug: Player {$player->player_id} has " . count($player_tournaments) . " tournaments");
+                }
+            }
+
+            // DEBUG: Log each tournament result
+            if (current_user_can('manage_options') && !empty($player_tournaments)) {
+                foreach ($player_tournaments as $t) {
+                    error_log("Bubble Debug: Player {$player->player_id}, Tournament {$t->tournament_id}, finish {$t->finish_position}");
+                }
+            }
+
+            // Calculate bubble count for each tournament
+            foreach ($player_tournaments as $tournament_result) {
+                $tournament_post_id = $this->get_tournament_post_id($tournament_result->tournament_id);
+
+                // DEBUG: Log tournament post ID lookup
+                if (current_user_can('manage_options')) {
+                    error_log("Bubble Debug: tournament_post_id = " . ($tournament_post_id ?: 'false') . " for UUID {$tournament_result->tournament_id}");
+                }
+
+                $paid_positions = get_post_meta($tournament_post_id, 'paid_positions', true);
+
+                // DEBUG: Log paid_positions value
+                if (current_user_can('manage_options')) {
+                    error_log("Bubble Debug: paid_positions = " . ($paid_positions ?: 'false') . " for tournament post ID $tournament_post_id");
+                }
+
+                if (!$paid_positions) {
+                    error_log("US4 Warning: paid_positions not set for tournament post ID $tournament_post_id (UUID: {$tournament_result->tournament_id}) - bubble calculation may be inaccurate");
+                }
+
+                if ($paid_positions && $tournament_result->finish_position == $paid_positions + 1) {
+                    // DEBUG: Log bubble detection
+                    if (current_user_can('manage_options')) {
+                        error_log("Bubble Debug: BUBBLE detected! Player {$player->player_id}, finish={$tournament_result->finish_position}, paid={$paid_positions}");
+                    }
+                    $bubble_counts[$player->player_id]++;
+                }
+            }
+        }
+
+        // Apply calculated bubble counts to player results
+        foreach ($top_players as &$player_ref) {
+            $player_ref->bubble_count = isset($bubble_counts[$player_ref->player_id]) ? $bubble_counts[$player_ref->player_id] : 0;
+        }
+        unset($player_ref);
 
         // DEBUG: Log query results
         if (current_user_can('manage_options')) {
@@ -4802,7 +4877,7 @@ class Poker_Tournament_Import_Shortcodes {
         global $wpdb;
 
         // Get configured season formula
-        $formula_key = get_option('tdwp_active_season_formula', 'season_total');
+        $formula_key = get_option('tdwp_active_season_formula', 'best_10');
 
         // Get individual tournament points for formula calculation
         $tournament_points = array();
@@ -5413,6 +5488,29 @@ class Poker_Tournament_Import_Shortcodes {
         </script>
         <?php
         return ob_get_clean();
+    }
+
+    /**
+     * Get tournament post ID from UUID
+     *
+     * @param string $tournament_uuid Tournament UUID
+     * @return int|false Tournament post ID or false if not found
+     */
+    private function get_tournament_post_id($tournament_uuid) {
+        $posts = get_posts(array(
+            'post_type' => 'tournament',
+            'meta_query' => array(
+                array(
+                    'key' => 'tournament_uuid',
+                    'value' => $tournament_uuid,
+                    'compare' => '='
+                )
+            ),
+            'posts_per_page' => 1,
+            'fields' => 'ids'
+        ));
+
+        return !empty($posts) ? $posts[0] : false;
     }
 }
 

@@ -22,9 +22,7 @@ class Poker_Tournament_Import_Admin {
         add_action('admin_init', array($this, 'register_settings'));
         add_action('admin_init', array($this, 'handle_statistics_refresh'));
 
-        // AJAX handlers for Formula Manager
-        add_action('wp_ajax_save_formula', array($this, 'ajax_save_formula'));
-        add_action('wp_ajax_delete_formula', array($this, 'ajax_delete_formula'));
+        // Note: Formula Manager AJAX handlers (save_formula, delete_formula) are registered in poker-tournament-import.php with tdwp_ prefix
 
         // Add formula editor meta box for tournaments
         add_action('add_meta_boxes', array($this, 'add_formula_meta_box'));
@@ -297,6 +295,7 @@ class Poker_Tournament_Import_Admin {
                 array(
                     'dashboardNonce' => wp_create_nonce('poker_dashboard_nonce'),
                     'refreshNonce' => wp_create_nonce('poker_refresh_statistics'),
+                    'activeFormulaNonce' => wp_create_nonce('poker_active_formula_nonce'),
                     'ajaxUrl' => admin_url('admin-ajax.php'),
                     'adminUrl' => admin_url(),
                     'messages' => array(
@@ -1548,6 +1547,18 @@ class Poker_Tournament_Import_Admin {
             if ($tournament_stats) {
                 update_post_meta($tournament_id, '_tournament_stats', $tournament_stats);
                 Poker_Tournament_Import_Debug::log('Stored enhanced tournament stats', $tournament_stats);
+
+                // US4: Store paid_positions for bubble calculation
+                if (isset($tournament_stats['paid_positions']) && $tournament_stats['paid_positions'] > 0) {
+                    update_post_meta($tournament_id, 'paid_positions', intval($tournament_stats['paid_positions']));
+                    Poker_Tournament_Import_Debug::log('Stored paid_positions', intval($tournament_stats['paid_positions']));
+                }
+
+                // US4: Store bubble_position from parser validation
+                if (isset($tournament_data['metadata']['bubble_position'])) {
+                    update_post_meta($tournament_id, 'bubble_position', intval($tournament_data['metadata']['bubble_position']));
+                    Poker_Tournament_Import_Debug::log('Stored bubble_position', intval($tournament_data['metadata']['bubble_position']));
+                }
             }
 
             // Apply taxonomy auto-categorization to tournament
@@ -4451,8 +4462,12 @@ class Poker_Tournament_Import_Admin {
             wp_send_json_error('Expression is required');
         }
 
+        // Auto-generate key from display name if empty (client-side may not have sent it)
         if (empty($key)) {
-            wp_send_json_error('Formula key is required');
+            $key = strtolower($display_name);
+            $key = preg_replace('/[^a-z0-9]+/', '_', $key);
+            $key = trim($key, '_');
+            $key = substr($key, 0, 50);
         }
 
         // Load formula validator
