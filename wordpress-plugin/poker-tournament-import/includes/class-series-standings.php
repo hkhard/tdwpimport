@@ -283,90 +283,44 @@ class Poker_Series_Standings_Calculator {
             }
         }
 
-        // US3: Evaluate season formula per tournament with tournament-specific variables
-        if ($formula_key && $formula_key !== 'direct_sum') {
-            foreach ($results as $result) {
-                $total_points += floatval($result->points);
-                $total_winnings += floatval($result->winnings);
-                $total_hits += intval($result->hits);
+        // Collect tournament results for later formula processing
+        foreach ($results as $result) {
+            $total_points += floatval($result->points);
+            $total_winnings += floatval($result->winnings);
+            $total_hits += intval($result->hits);
 
-                if ($result->finish_position < $best_finish) {
-                    $best_finish = $result->finish_position;
-                }
-                if ($result->finish_position > $worst_finish) {
-                    $worst_finish = $result->finish_position;
-                }
-
-                $tournament_points_list[] = floatval($result->points);
-                $finishes[] = intval($result->finish_position);
-
-                // US3: Evaluate season formula for this specific tournament
-                $tournament_season_points = $this->evaluate_season_formula_per_tournament(
-                    $formula_key,
-                    $result,
-                    $tournaments
-                );
-                $season_points += $tournament_season_points;
-
-                // Detect bubble finish (one position outside paid spots)
-                $tournament_post_id = $this->get_tournament_post_id($result->tournament_id);
-                $paid_positions = get_post_meta($tournament_post_id, 'paid_positions', true);
-
-                // US4: Log warning if paid_positions is missing for a tournament
-                if (!$paid_positions) {
-                    error_log("US4 Warning: paid_positions not set for tournament post ID $tournament_post_id (UUID: {$result->tournament_id}) - bubble calculation may be inaccurate");
-                }
-
-                if ($paid_positions && $result->finish_position == $paid_positions + 1) {
-                    $bubble_count++;
-                }
-
-                // Detect last place finish
-                if (!empty($max_positions[$result->tournament_id]) &&
-                    $result->finish_position == $max_positions[$result->tournament_id]) {
-                    $last_place_count++;
-                }
+            if ($result->finish_position < $best_finish) {
+                $best_finish = $result->finish_position;
             }
-        } else {
-            // US3: Fallback - use direct sum of tournament points
-            foreach ($results as $result) {
-                $total_points += floatval($result->points);
-                $total_winnings += floatval($result->winnings);
-                $total_hits += intval($result->hits);
-
-                if ($result->finish_position < $best_finish) {
-                    $best_finish = $result->finish_position;
-                }
-                if ($result->finish_position > $worst_finish) {
-                    $worst_finish = $result->finish_position;
-                }
-
-                $tournament_points_list[] = floatval($result->points);
-                $finishes[] = intval($result->finish_position);
-
-                // Detect bubble finish (one position outside paid spots)
-                $tournament_post_id = $this->get_tournament_post_id($result->tournament_id);
-                $paid_positions = get_post_meta($tournament_post_id, 'paid_positions', true);
-
-                // US4: Log warning if paid_positions is missing for a tournament
-                if (!$paid_positions) {
-                    error_log("US4 Warning: paid_positions not set for tournament post ID $tournament_post_id (UUID: {$result->tournament_id}) - bubble calculation may be inaccurate");
-                }
-
-                if ($paid_positions && $result->finish_position == $paid_positions + 1) {
-                    $bubble_count++;
-                }
-
-                // Detect last place finish
-                if (!empty($max_positions[$result->tournament_id]) &&
-                    $result->finish_position == $max_positions[$result->tournament_id]) {
-                    $last_place_count++;
-                }
+            if ($result->finish_position > $worst_finish) {
+                $worst_finish = $result->finish_position;
             }
 
-            // US3: Fallback to direct sum
-            $season_points = $total_points;
+            $tournament_points_list[] = floatval($result->points);
+            $finishes[] = intval($result->finish_position);
+
+            // Detect bubble finish (one position outside paid spots)
+            $tournament_post_id = $this->get_tournament_post_id($result->tournament_id);
+            $paid_positions = get_post_meta($tournament_post_id, 'paid_positions', true);
+
+            // US4: Log warning if paid_positions is missing for a tournament
+            if (!$paid_positions) {
+                error_log("US4 Warning: paid_positions not set for tournament post ID $tournament_post_id (UUID: {$result->tournament_id}) - bubble calculation may be inaccurate");
+            }
+
+            if ($paid_positions && $result->finish_position == $paid_positions + 1) {
+                $bubble_count++;
+            }
+
+            // Detect last place finish
+            if (!empty($max_positions[$result->tournament_id]) &&
+                $result->finish_position == $max_positions[$result->tournament_id]) {
+                $last_place_count++;
+            }
         }
+
+        // Season points will be calculated by apply_series_formula() below
+        $season_points = $total_points;
 
         $avg_finish = array_sum($finishes) / count($finishes);
 
@@ -415,9 +369,11 @@ class Poker_Series_Standings_Calculator {
         if ($formula_key && $formula_key !== 'direct_sum') {
             $series_points = $this->apply_series_formula($series_data, $formula_key);
             $series_data['series_points'] = $series_points;
+            $series_data['season_points'] = $series_points;
             $series_data['formula_used'] = $formula_key;
         } else {
             $series_data['series_points'] = $total_points;
+            $series_data['season_points'] = $total_points;
             $series_data['formula_used'] = 'direct_sum';
         }
 
@@ -450,8 +406,15 @@ class Poker_Series_Standings_Calculator {
             'player_id' => $series_data['player_id']
         );
 
-        // Calculate using formula
-        $result = $formula_validator->calculate_formula($formula_data['formula'], $formula_input, 'season');
+        // Combine dependencies with main formula
+        $complete_formula = '';
+        if (!empty($formula_data['dependencies'])) {
+            $complete_formula = implode("\n", $formula_data['dependencies']) . "\n";
+        }
+        $complete_formula .= $formula_data['formula'];
+
+        // Calculate using formula with dependencies
+        $result = $formula_validator->calculate_formula($complete_formula, $formula_input, 'season');
 
         return $result['success'] ? $result['result'] : $series_data['total_points'];
     }
