@@ -3,7 +3,7 @@
  * Plugin Name: Poker Tournament Import
  * Plugin URI: https://nikielhard.se/tdwpimport
  * Description: Import and display poker tournament results from Tournament Director (.tdt) files. Now with Tournament Manager for creating tournaments without TD software!
- * Version: 3.6.3
+ * Version: 3.6.5
  * Author: Hans Kästel Hård
  * Author URI: https://nikielhard.se
  * License: GPL v2 or later
