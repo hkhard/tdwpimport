@@ -129,6 +129,13 @@ Claude Code guidance for the Poker Tournament Import WordPress plugin.
 - WordPress MySQL database (wp_ prefix) (003-fix-tournament-import)
 - JavaScript (ES5+ for WordPress compatibility), PHP 8.0+ (WordPress standard) + jQuery (already enqueued), WordPress admin APIs (005-formula-manager)
 - WordPress options table (via `Poker_Tournament_Formula_Validator` class) (005-formula-manager)
+- MySQL 5.7+ / MariaDB 10.2+ (WordPress database) (007-season-leaderboard-fix)
+- PHP 8.0+ (WordPress 6.0+ environment) + WordPress hooks, jQuery (already enqueued), CSS3 (008-improve-poker-dashboard-filters)
+- WordPress database (wp_usermeta table for filter preferences) (008-improve-poker-dashboard-filters)
+- PHP 8.0+ + WordPress 6.0+, jQuery (already enqueued) (009-active-formula-selection)
+- WordPress options table (active formulas), WordPress post meta (tournament data), WordPress transients (season standings cache) (009-active-formula-selection)
+- PHP 8.0+ (8.2+ compatible) + WordPress 6.0+, WordPress Shortcode API (011-season-leaderboard-all-players)
+- WordPress MySQL database (wp_ prefix, custom wp_poker_tournament_players table) (011-season-leaderboard-all-players)
 
 ## Recent Changes
 - 001-td3-integration: Added PHP 8.0+ (8.2+ compatible) + WordPress 6.0+, MySQL 5.7+, jQuery, modern JavaScript (ES6+)

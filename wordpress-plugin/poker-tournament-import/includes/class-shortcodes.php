@@ -5333,17 +5333,26 @@ class Poker_Tournament_Import_Shortcodes {
 
     /**
      * Tournament Import Shortcode
-     * Usage: [tdwp_tournament_import]
+     * Usage: [tdwp_tournament_import modal="false"] (default inline) or [tdwp_tournament_import modal="true"] (modal popup)
      *
      * Displays a file upload form for importing tournaments from .tdt files.
      * Requires users to be logged in with 'edit_posts' capability.
      *
      * @since 3.1.0
      *
-     * @param array $atts Shortcode attributes (currently unused).
+     * @param array $atts Shortcode attributes.
      * @return string Form HTML or error message.
      */
     public function tournament_import_shortcode($atts) {
+        $atts = shortcode_atts(
+            array(
+                'modal' => 'false',
+            ),
+            $atts,
+            'tdwp_tournament_import'
+        );
+
+        $is_modal = ($atts['modal'] === 'true' || $atts['modal'] === '1');
         // Check if user is logged in
         if (!is_user_logged_in()) {
             return '<div class="notice notice-info"><p>' .
@@ -5358,105 +5367,16 @@ class Poker_Tournament_Import_Shortcodes {
                 '</p></div>';
         }
 
-        // Prepare data for JavaScript
+        // Prepare data for JavaScript (output inline to avoid script dependencies)
         $ajax_url = admin_url('admin-ajax.php');
         $nonce = wp_create_nonce('tdwp_frontend_import_tournament');
+        error_log('[TDWP Import Beta20] Shortcode - Nonce created: ' . $nonce);
         $strings = array(
             'uploading' => __('Uploading...', 'poker-tournament-import'),
             'success' => __('Tournament imported successfully!', 'poker-tournament-import'),
             'error' => __('Import failed. Please try again.', 'poker-tournament-import'),
             'invalidFile' => __('Please select a valid .tdt file.', 'poker-tournament-import'),
         );
-
-        // Enqueue custom script for tournament import functionality
-        // jQuery dependency ensures it loads before our inline script
-        wp_enqueue_script(
-            'tdwp-tournament-import-frontend',
-            '',  // Empty source - script is pure inline code
-            array('jquery'),  // jQuery dependency
-            POKER_TOURNAMENT_IMPORT_VERSION,
-            true  // Load in footer
-        );
-
-        // Pass PHP data to JavaScript
-        wp_localize_script(
-            'tdwp-tournament-import-frontend',
-            'tdwpImport',
-            array(
-                'ajaxUrl' => $ajax_url,
-                'nonce' => $nonce,
-                'action' => 'tdwp_frontend_import_tournament',
-                'strings' => $strings,
-            )
-        );
-
-        // Inline JavaScript for form handling
-        // Wrapped in jQuery(document).ready() to ensure jQuery is available
-        ob_start();
-        ?>
-        jQuery(document).ready(function($) {
-            var form = $('#tdwp-import-form');
-            var statusDiv = $('#tdwp-import-status');
-            var messageEl = $('#tdwp-import-message');
-            var fileInput = $('#tdwp-tdt-file');
-
-            if (!form.length || !fileInput.length) return;
-
-            form.on('submit', function(e) {
-                e.preventDefault();
-
-                var file = fileInput[0].files[0];
-                if (!file) {
-                    alert(tdwpImport.strings.invalidFile);
-                    return;
-                }
-
-                // Validate file extension
-                var extension = file.name.split('.').pop().toLowerCase();
-                if (extension !== 'tdt') {
-                    alert(tdwpImport.strings.invalidFile);
-                    return;
-                }
-
-                // Show uploading status
-                statusDiv.show();
-                statusDiv.find('.notice').attr('class', 'notice notice-info');
-                messageEl.text(tdwpImport.strings.uploading);
-
-                // Prepare form data
-                var formData = new FormData();
-                formData.append('tdt_file', file);
-                formData.append('publish_immediately', form.find('input[name="publish_immediately"]').is(':checked') ? '1' : '0');
-
-                // Send AJAX request
-                $.ajax({
-                    url: tdwpImport.ajaxUrl + '?action=' + tdwpImport.action + '&nonce=' + encodeURIComponent(tdwpImport.nonce),
-                    type: 'POST',
-                    data: formData,
-                    processData: false,
-                    contentType: false,
-                    success: function(data) {
-                        if (data.success) {
-                            statusDiv.find('.notice').attr('class', 'notice notice-success');
-                            messageEl.text(data.data.message || tdwpImport.strings.success);
-                            form[0].reset();
-                        } else {
-                            statusDiv.find('.notice').attr('class', 'notice notice-error');
-                            messageEl.text(data.data.message || tdwpImport.strings.error);
-                        }
-                    },
-                    error: function(xhr) {
-                        console.error('TDWP Import Error:', xhr);
-                        statusDiv.find('.notice').attr('class', 'notice notice-error');
-                        var errorMsg = xhr.responseJSON && xhr.responseJSON.data ? xhr.responseJSON.data.message : tdwpImport.strings.error;
-                        messageEl.text('Error: ' + errorMsg + ' (HTTP ' + xhr.status + ')');
-                    }
-                });
-            });
-        });
-        <?php
-        $inline_script = ob_get_clean();
-        wp_add_inline_script('tdwp-tournament-import-frontend', $inline_script, 'after');
 
         // Render the import form
         ob_start();
@@ -5499,6 +5419,82 @@ class Poker_Tournament_Import_Shortcodes {
                 </div>
             </div>
         </div>
+
+        <script>
+        (function() {
+            const form = document.getElementById('tdwp-import-form');
+            const statusDiv = document.getElementById('tdwp-import-status');
+            const messageEl = document.getElementById('tdwp-import-message');
+            const fileInput = document.getElementById('tdwp-tdt-file');
+
+            if (!form || !fileInput) return;
+
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+
+                const file = fileInput.files[0];
+                if (!file) {
+                    alert(<?php echo wp_json_encode($strings['invalidFile']); ?>);
+                    return;
+                }
+
+                // Validate file extension
+                const extension = file.name.split('.').pop().toLowerCase();
+                if (extension !== 'tdt') {
+                    alert(<?php echo wp_json_encode($strings['invalidFile']); ?>);
+                    return;
+                }
+
+                // Show uploading status
+                statusDiv.style.display = 'block';
+                statusDiv.querySelector('.notice').className = 'notice notice-info';
+                messageEl.textContent = <?php echo wp_json_encode($strings['uploading']); ?>;
+
+                // Prepare form data
+                const formData = new FormData();
+                formData.append('tdt_file', file);
+                formData.append('publish_immediately', form.querySelector('input[name="publish_immediately"]').checked ? '1' : '0');
+
+                // Beta21: Console logging for debugging
+                console.log('[TDWP Beta21] About to send AJAX');
+                console.log('[TDWP Beta21] Action: tdwp_frontend_import_tournament');
+                console.log('[TDWP Beta21] Nonce:', <?php echo wp_json_encode($nonce); ?>.substring(0, 8) + '...');
+                console.log('[TDWP Beta21] User logged in:', <?php echo is_user_logged_in() ? 'true' : 'false'; ?>);
+
+                // Send AJAX request with jQuery for WordPress compatibility
+                // Action and nonce passed as URL parameters to avoid WordPress FormData parsing issues
+                $.ajax({
+                    url: <?php echo wp_json_encode($ajax_url); ?> + '?action=tdwp_frontend_import_tournament&nonce=' + encodeURIComponent(<?php echo wp_json_encode($nonce); ?>),
+                    type: 'POST',
+                    data: formData,
+                    processData: false,  // Required for FormData
+                    contentType: false,   // Required for FormData
+                    success: function(data) {
+                        if (data.success) {
+                            statusDiv.querySelector('.notice').className = 'notice notice-success';
+                            messageEl.textContent = data.data.message || <?php echo wp_json_encode($strings['success']); ?>;
+                            form.reset();
+                        } else {
+                            statusDiv.querySelector('.notice').className = 'notice notice-error';
+                            messageEl.textContent = data.data.message || <?php echo wp_json_encode($strings['error']); ?>;
+                        }
+                    },
+                    error: function(xhr, status, errorThrown) {
+                        console.error('=== TDWP AJAX ERROR ===');
+                        console.error('Status:', xhr.status, xhr.statusText);
+                        console.error('Response Text:', xhr.responseText);
+                        console.error('Response JSON:', xhr.responseJSON);
+                        console.error('Status Code:', xhr.status);
+                        console.error('=====================');
+
+                        statusDiv.querySelector('.notice').className = 'notice notice-error';
+                        const errorMsg = xhr.responseJSON && xhr.responseJSON.data ? xhr.responseJSON.data.message : <?php echo wp_json_encode($strings['error']); ?>;
+                        messageEl.textContent = 'Error: ' + errorMsg + ' (HTTP ' + xhr.status + ')';
+                    }
+                });
+            });
+        })();
+        </script>
         <?php
         return ob_get_clean();
     }

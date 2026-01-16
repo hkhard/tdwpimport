@@ -1,4 +1,36 @@
 # Poker Tournament Import Changelog
+ 
+## Version 3.6.6 - (January 16, 2026)
+
+### 🐛 Bug Fix: Tournament Import Publish Option & Modal Support
+
+#### ✅ Fixed Publish Immediately Bug
+- **Root Cause**: `$_POST['publish_immediately'] = '1'` hardcoded in AJAX handler, ignoring user's checkbox
+- **Location**: `poker-tournament-import.php` line 2569
+- **Solution**: Removed hardcoded assignment - form checkbox now correctly controls publish vs draft
+- **Impact**: Users can now properly choose to save tournament as draft or publish immediately
+
+#### ✅ Added Modal Attribute Support
+- **New Feature**: `modal` attribute for `[tdwp_tournament_import]` shortcode
+- **Usage**:
+  - `[tdwp_tournament_import]` or `[tdwp_tournament_import modal="false"]` → inline form (default)
+  - `[tdwp_tournament_import modal="true"]` → modal popup with button trigger
+- **Benefits**: Flexible UI options for different page layouts
+
+#### 📝 Documentation Updates
+- **Dashboard**: Updated shortcode reference to document `modal` attribute
+- **Location**: `admin/class-admin.php` line 2177
+
+#### 🎯 Testing Checklist
+- [x] Verified PHP syntax with `php -l`
+- [x] Tested inline form with `modal="false"`
+- [x] Tested modal form with `modal="true"`
+- [x] Verified publish checkbox works correctly (checked = publish, unchecked = draft)
+- [x] Both admin and contributor roles can upload
+- [x] Tournament link displays on successful import
+- [x] Modal closes automatically after 2 seconds on success
+
+---
 
 ## Version 3.6.5 - (January 6, 2026)
 
