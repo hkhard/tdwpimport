@@ -3,7 +3,7 @@ Contributors: hanshard
 Tags: poker, tournament, import, results, bulk-import
 Requires at least: 6.0
 Tested up to: 6.8
-Stable tag: 3.6.6
+Stable tag: 3.6.7
 Requires PHP: 8.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -77,6 +77,10 @@ Use the following shortcodes:
 6. **NEW: Interactive leaderboard with sorting**
 
 == Changelog ==
+
+= 3.6.7 - June 29, 2026 =
+* Security: Dropped pointless nopriv registrations on frontend import/refresh (they already require a capability), so anonymous requests no longer reach them (tdwp-zsn)
+* Security: Audited all 11 unauthenticated AJAX handlers (nonce/capability/sanitization/escaping/prepare) - no CRITICAL/HIGH gaps; one LOW (player-registration rate-limiting) tracked as follow-up (tdwp-vyz)
 
 = 3.6.6 - June 29, 2026 =
 * Security: Fixed IDOR in tdwp_unregister_screen - the nonce is now scoped per-screen so a visitor can only unregister the screen actually being displayed (tdwp-bxp)
