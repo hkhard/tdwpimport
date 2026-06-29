@@ -20,7 +20,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('POKER_TOURNAMENT_IMPORT_VERSION', '3.6.3');
+define('POKER_TOURNAMENT_IMPORT_VERSION', '3.6.5');
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -179,6 +179,13 @@ class Poker_Tournament_Import {
         // Security: All REST endpoints require 'manage_options' capability
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/class-bulk-import.php';
         Poker_Tournament_Bulk_Import::get_instance();
+
+        // Stats mart bridge: project finished LIVE tournaments into the legacy
+        // statistics data-mart so leaderboards include live-run tournaments.
+        // Loaded OUTSIDE is_admin() so both the finish hook (admin-ajax) and the
+        // async refresh hook (cron) are registered. See bead tdwp-iwc (Option A).
+        require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-stats-bridge.php';
+        TDWP_Stats_Bridge::init();
 
         // AJAX handlers for tabbed interface
         add_action('wp_ajax_tdwp_series_tab_content', array($this, 'ajax_series_tab_content'));

@@ -1,0 +1,19 @@
+{
+    "name": "tdwp/poker-tournament-import",
+    "description": "Poker Tournament Import WordPress plugin",
+    "type": "wordpress-plugin",
+    "license": "GPL-2.0-or-later",
+    "require": {
+        "php": ">=8.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^12.0"
+    },
+    "scripts": {
+        "test": "phpunit -c phpunit.xml.dist --no-coverage",
+        "test:offline": "./run-tests.sh"
+    },
+    "config": {
+        "optimize-autoloader": true
+    }
+}

@@ -102,3 +102,9 @@ shared/node_modules/
 eas-build-metadata.json
 # Continuous Claude cache (local only)
 .claude/cache/
+.gitnexus
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+*.db
+.beads-credential-key
