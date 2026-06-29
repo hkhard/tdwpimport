@@ -212,6 +212,17 @@ class TDWP_Player_Registration {
 			wp_send_json_error( array( 'message' => __( 'Invalid submission.', 'poker-tournament-import' ) ) );
 		}
 
+		// Per-IP rate limit: this is a public (nopriv) form, so cap how many
+		// registrations a single IP can submit per window to blunt spam without
+		// blocking other users. (tdwp-hk3)
+		if ( class_exists( 'TDWP_Ajax_Guards' ) ) {
+			$max    = (int) apply_filters( 'tdwp_register_player_max_per_window', 5 );
+			$window = (int) apply_filters( 'tdwp_register_player_window', HOUR_IN_SECONDS );
+			if ( TDWP_Ajax_Guards::is_rate_limited( 'tdwp_register_player', $max, $window ) ) {
+				wp_send_json_error( array( 'message' => __( 'Too many registration attempts. Please try again later.', 'poker-tournament-import' ) ) );
+			}
+		}
+
 		// Sanitize and validate input.
 		$player_data = array(
 			'name'   => isset( $_POST['player_name'] ) ? sanitize_text_field( wp_unslash( $_POST['player_name'] ) ) : '',
