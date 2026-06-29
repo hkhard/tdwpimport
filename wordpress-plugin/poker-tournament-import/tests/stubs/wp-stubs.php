@@ -152,6 +152,12 @@ if ( ! function_exists( 'apply_filters' ) ) {
 	}
 }
 
+if ( ! function_exists( 'wp_unslash' ) ) {
+	function wp_unslash( $value ) {
+		return is_string( $value ) ? stripslashes( $value ) : $value;
+	}
+}
+
 if ( ! function_exists( 'get_transient' ) ) {
 	function get_transient( $key ) {
 		return $GLOBALS['tdwp_test_transients'][ $key ] ?? false;

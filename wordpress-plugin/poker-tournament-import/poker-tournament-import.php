@@ -3,7 +3,7 @@
  * Plugin Name: Poker Tournament Import
  * Plugin URI: https://nikielhard.se/tdwpimport
  * Description: Import and display poker tournament results from Tournament Director (.tdt) files. Now with Tournament Manager for creating tournaments without TD software!
- * Version: 3.6.7
+ * Version: 3.6.8
  * Author: Hans Kästel Hård
  * Author URI: https://nikielhard.se
  * License: GPL v2 or later
@@ -20,7 +20,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('POKER_TOURNAMENT_IMPORT_VERSION', '3.6.7');
+define('POKER_TOURNAMENT_IMPORT_VERSION', '3.6.8');
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -2336,6 +2336,15 @@ class Poker_Tournament_Import {
      */
     public function ajax_reconstruct_chronology() {
         check_ajax_referer('poker_series_tab_content', 'nonce');
+
+        // Authorization: chronology reconstruction rewrites tournament_players rows,
+        // a maintenance operation. The shared poker_series_tab_content nonce is
+        // public, so require a capability rather than relying on the nonce. (tdwp-0rr)
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(array(
+                'message' => __('You do not have permission to reconstruct tournament chronology.', 'poker-tournament-import')
+            ));
+        }
 
         $tournament_id = intval($_POST['tournament_id']);
 

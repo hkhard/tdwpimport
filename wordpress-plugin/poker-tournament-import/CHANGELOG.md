@@ -1,5 +1,15 @@
 # Poker Tournament Import Changelog
 
+## Version 3.6.8 - (June 29, 2026)
+
+### 🔒 Security: rate-limiting + authenticated-handler audit
+
+- **Per-IP rate-limiting on public player registration (tdwp-hk3)**: `ajax_register_player` (nopriv) now limits registrations per client IP (default 5/hour, filterable) via `TDWP_Ajax_Guards::is_rate_limited()`, keyed on a validated `REMOTE_ADDR` (proxy headers are not trusted). Blunts spam without blocking other users.
+- **Authenticated-handler audit (tdwp-0rr)**: scanned the ~100 authenticated `wp_ajax` handlers. The live-control surface is `verify_request()`-guarded (31 calls); destructive data-mart cleaners all verify nonce + `manage_options`; no user input flows into raw SQL (all interpolation is internal table names). **Fixed one gap**: `ajax_reconstruct_chronology` verified a (public, frontend-shared) nonce but no capability — now requires `manage_options` before rewriting tournament rows.
+
+### 📐 Decision
+- **ADR 0001 (tdwp-3mm, Proposed)**: recommend ratifying admin-ajax as the plugin's interface and deferring the REST API to tdwp-9pi (built with the mobile controller). See `docs/adr/0001-api-interface-ajax-vs-rest.md`.
+
 ## Version 3.6.7 - (June 29, 2026)
 
 ### 🔒 Security: nopriv AJAX surface reduction + audit

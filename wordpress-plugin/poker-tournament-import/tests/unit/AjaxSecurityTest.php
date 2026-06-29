@@ -126,6 +126,42 @@ final class AjaxSecurityTest extends TestCase {
 	}
 
 	/* -----------------------------------------------------------------------
+	 * is_rate_limited() / client_ip() — per-IP rate limit (tdwp-hk3)
+	 * --------------------------------------------------------------------- */
+
+	public function test_rate_limit_allows_up_to_max_then_blocks(): void {
+		$_SERVER['REMOTE_ADDR'] = '203.0.113.7';
+		// max=3: first three attempts proceed, fourth is blocked.
+		$this->assertFalse( TDWP_Ajax_Guards::is_rate_limited( 'tdwp_register_player', 3, 3600 ) );
+		$this->assertFalse( TDWP_Ajax_Guards::is_rate_limited( 'tdwp_register_player', 3, 3600 ) );
+		$this->assertFalse( TDWP_Ajax_Guards::is_rate_limited( 'tdwp_register_player', 3, 3600 ) );
+		$this->assertTrue( TDWP_Ajax_Guards::is_rate_limited( 'tdwp_register_player', 3, 3600 ) );
+		unset( $_SERVER['REMOTE_ADDR'] );
+	}
+
+	public function test_rate_limit_is_per_ip(): void {
+		$_SERVER['REMOTE_ADDR'] = '198.51.100.1';
+		$this->assertFalse( TDWP_Ajax_Guards::is_rate_limited( 'tdwp_register_player', 1, 3600 ) );
+		$this->assertTrue( TDWP_Ajax_Guards::is_rate_limited( 'tdwp_register_player', 1, 3600 ), 'Same IP over limit is blocked.' );
+
+		// A different IP starts fresh — one user cannot lock out another.
+		$_SERVER['REMOTE_ADDR'] = '198.51.100.2';
+		$this->assertFalse( TDWP_Ajax_Guards::is_rate_limited( 'tdwp_register_player', 1, 3600 ), 'A different IP must not be blocked.' );
+		unset( $_SERVER['REMOTE_ADDR'] );
+	}
+
+	public function test_client_ip_validates_and_falls_back(): void {
+		$_SERVER['REMOTE_ADDR'] = '192.0.2.44';
+		$this->assertSame( '192.0.2.44', TDWP_Ajax_Guards::client_ip() );
+
+		$_SERVER['REMOTE_ADDR'] = 'not-an-ip';
+		$this->assertSame( '0.0.0.0', TDWP_Ajax_Guards::client_ip(), 'Invalid REMOTE_ADDR falls back to a constant bucket.' );
+
+		unset( $_SERVER['REMOTE_ADDR'] );
+		$this->assertSame( '0.0.0.0', TDWP_Ajax_Guards::client_ip() );
+	}
+
+	/* -----------------------------------------------------------------------
 	 * Source-level regression guards on the hardened handlers.
 	 * --------------------------------------------------------------------- */
 
@@ -168,6 +204,14 @@ final class AjaxSecurityTest extends TestCase {
 		$this->assertStringContainsString( 'TDWP_Ajax_Guards::unregister_screen_nonce_action', $unreg, 'Unregister must use the screen-scoped nonce (tdwp-bxp).' );
 		// The old global display nonce must no longer guard this state change.
 		$this->assertStringNotContainsString( "check_ajax_referer('tdwp_display_nonce'", $unreg );
+	}
+
+	public function test_reconstruct_chronology_requires_capability(): void {
+		$src = $this->pluginSource();
+		$fn = $this->sliceFunction( $src, 'ajax_reconstruct_chronology' );
+
+		$this->assertStringContainsString( "check_ajax_referer('poker_series_tab_content'", $fn );
+		$this->assertStringContainsString( "current_user_can('manage_options')", $fn, 'State-changing reconstruct must require manage_options, not just a public nonce (tdwp-0rr).' );
 	}
 
 	/** Helper: return the source of a method body (best-effort brace match). */
