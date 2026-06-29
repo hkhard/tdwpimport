@@ -147,9 +147,11 @@ if ( ! function_exists( 'esc_html' ) ) {
 /* ---------------------------------------------------------------------------
  * In-memory $wpdb fake.
  *
- * Models exactly the two tables the stats bridge touches:
+ * Models exactly the tables the stats bridge touches:
  *   - {prefix}tdwp_tournament_players  (read source; preset via set_live_rows)
  *   - {prefix}poker_tournament_players (write target; insert/delete tracked)
+ *   - {prefix}poker_player_roi         (ROI write target; insert/delete tracked)
+ *   - the live buy-in lookup (live_state INNER JOIN templates) via set_buyin()
  * ------------------------------------------------------------------------- */
 
 class TDWP_Fake_WPDB {
@@ -163,21 +165,47 @@ class TDWP_Fake_WPDB {
 	/** @var bool Whether SHOW TABLES LIKE should report tables present. */
 	public $tables_exist = true;
 
+	/** @var array Fully-qualified table names to report as ABSENT (overrides $tables_exist). */
+	public $missing_tables = array();
+
 	/** @var array Rows returned for SELECT against the live players table. */
 	private $live_rows = array();
 
 	/** @var array Rows currently stored in the legacy players table. */
 	private $legacy_rows = array();
 
+	/** @var array Rows currently stored in the ROI table. */
+	private $roi_rows = array();
+
 	/** @var int Auto-increment id for legacy inserts. */
 	private $auto_id = 0;
+
+	/** @var int Auto-increment id for ROI inserts. */
+	private $auto_id_roi = 0;
+
+	/** @var mixed Buy-in returned by the live-state/template lookup; null => unknown. */
+	private $buyin = null;
 
 	public function reset() {
 		$this->live_rows    = array();
 		$this->legacy_rows  = array();
+		$this->roi_rows     = array();
 		$this->auto_id      = 0;
-		$this->last_error   = '';
-		$this->tables_exist = true;
+		$this->auto_id_roi  = 0;
+		$this->buyin          = null;
+		$this->last_error     = '';
+		$this->tables_exist   = true;
+		$this->missing_tables = array();
+	}
+
+	/** Test helper: define the live buy-in returned by the template lookup. */
+	public function set_buyin( $amount ) {
+		$this->buyin = $amount;
+	}
+
+	/** Test helper: read what is currently in the ROI table. */
+	public function get_roi_rows() {
+		return array_values( $this->roi_rows );
 	}
 
 	/** Test helper: define the live participation rows for the next projection. */
@@ -215,7 +243,15 @@ class TDWP_Fake_WPDB {
 		$args = is_array( $query ) ? $query['args'] : array();
 
 		if ( stripos( $sql, 'SHOW TABLES LIKE' ) !== false ) {
-			return $this->tables_exist ? ( $args[0] ?? '' ) : null;
+			$name = $args[0] ?? '';
+			if ( in_array( $name, $this->missing_tables, true ) ) {
+				return null;
+			}
+			return $this->tables_exist ? $name : null;
+		}
+		// Live buy-in lookup: SELECT t.buy_in FROM ...live_state... JOIN ...templates.
+		if ( stripos( $sql, 'buy_in' ) !== false && stripos( $sql, 'tdwp_tournament_templates' ) !== false ) {
+			return $this->buyin;
 		}
 		return null;
 	}
@@ -230,21 +266,35 @@ class TDWP_Fake_WPDB {
 	}
 
 	public function insert( $table, $data, $format = null ) {
-		if ( stripos( $table, 'poker_tournament_players' ) === false ) {
-			return false;
+		if ( stripos( $table, 'poker_player_roi' ) !== false ) {
+			$this->auto_id_roi++;
+			$data['id'] = $this->auto_id_roi;
+			$this->roi_rows[ $this->auto_id_roi ] = $data;
+			return 1;
 		}
-		$this->auto_id++;
-		$data['id'] = $this->auto_id;
-		$this->legacy_rows[ $this->auto_id ] = $data;
-		return 1;
+		if ( stripos( $table, 'poker_tournament_players' ) !== false ) {
+			$this->auto_id++;
+			$data['id'] = $this->auto_id;
+			$this->legacy_rows[ $this->auto_id ] = $data;
+			return 1;
+		}
+		return false;
 	}
 
 	public function delete( $table, $where, $where_format = null ) {
-		if ( stripos( $table, 'poker_tournament_players' ) === false ) {
-			return false;
+		if ( stripos( $table, 'poker_player_roi' ) !== false ) {
+			return $this->delete_from( $this->roi_rows, $where );
 		}
+		if ( stripos( $table, 'poker_tournament_players' ) !== false ) {
+			return $this->delete_from( $this->legacy_rows, $where );
+		}
+		return false;
+	}
+
+	/** Shared delete-by-where for the in-memory row stores (mutates by reference). */
+	private function delete_from( array &$store, array $where ) {
 		$removed = 0;
-		foreach ( $this->legacy_rows as $id => $row ) {
+		foreach ( $store as $id => $row ) {
 			$match = true;
 			foreach ( $where as $col => $val ) {
 				if ( ! isset( $row[ $col ] ) || (string) $row[ $col ] !== (string) $val ) {
@@ -253,7 +303,7 @@ class TDWP_Fake_WPDB {
 				}
 			}
 			if ( $match ) {
-				unset( $this->legacy_rows[ $id ] );
+				unset( $store[ $id ] );
 				$removed++;
 			}
 		}

@@ -4,8 +4,13 @@
  *
  * Projects a finished LIVE tournament (TD3 tournament manager, stored in
  * tdwp_tournament_players, keyed by WordPress post IDs) into the legacy
- * statistics data-mart (poker_tournament_players, keyed by UUID strings) so the
- * existing statistics / leaderboard engine includes live-run tournaments.
+ * statistics data-mart so the existing statistics / leaderboard engine includes
+ * live-run tournaments. It writes BOTH legacy tables the engine reads:
+ *  - poker_tournament_players: dashboard counts + per-player statistics, and
+ *  - poker_player_roi:         the ROI-based leaderboard / top-players panels,
+ * both keyed by the UUID strings (tournament_uuid / player_uuid) the engine
+ * joins on. Writing only poker_tournament_players would leave live tournaments
+ * absent from the leaderboard, which reads exclusively from poker_player_roi.
  *
  * This is the "Option A" bridge (see beads tdwp-iwc). Design goals:
  *  - ADDITIVE: a pure listener on the existing `tdwp_tournament_finished` action;
@@ -141,7 +146,7 @@ class TDWP_Stats_Bridge {
 		}
 
 		$entrant_count  = count( $players );
-		$buyin          = (float) get_post_meta( $tournament_id, '_buy_in', true );
+		$buyin          = self::get_tournament_buyin( $tournament_id );
 		$points_formula = self::get_points_formula();
 
 		// Legacy join key: the stats engine joins tournament_id -> postmeta 'tournament_uuid'.
@@ -153,7 +158,14 @@ class TDWP_Stats_Bridge {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Idempotent re-projection.
 		$wpdb->delete( $legacy_table, array( 'tournament_id' => $tournament_uuid ), array( '%s' ) );
 
-		$inserted = 0;
+		// Tournament date for ROI rows; live tournaments rarely set _tournament_date.
+		$tournament_date = get_post_meta( $tournament_id, '_tournament_date', true );
+		if ( empty( $tournament_date ) ) {
+			$tournament_date = current_time( 'Y-m-d' );
+		}
+
+		$inserted  = 0;
+		$roi_rows  = array();
 		foreach ( $players as $player_post_id => $agg ) {
 			// Legacy join key: player_id -> postmeta 'player_uuid'. Reusing an
 			// existing player_uuid is what unifies imported + live stats for the
@@ -194,7 +206,29 @@ class TDWP_Stats_Bridge {
 			if ( false !== $result ) {
 				$inserted++;
 			}
+
+			// Build the matching ROI row (the leaderboard reads only this table).
+			// total_invested = buy-in * entry count, mirroring the legacy ROI
+			// migration's per-entry model (rebuys/addons are 0 for the projection).
+			$total_invested = (float) $buyin * (int) $agg['buyins'];
+			$net_profit     = (float) $agg['winnings'] - $total_invested;
+			$roi_pct        = $total_invested > 0 ? ( $net_profit / $total_invested ) * 100 : 0.0;
+
+			$roi_rows[] = array(
+				'player_id'       => $player_uuid,
+				'tournament_id'   => $tournament_uuid,
+				'total_invested'  => $total_invested,
+				'total_winnings'  => (float) $agg['winnings'],
+				'net_profit'      => $net_profit,
+				'roi_percentage'  => $roi_pct,
+				'finish_position' => (int) $agg['finish'],
+				'tournament_date' => $tournament_date,
+			);
 		}
+
+		// Project the same players into the ROI mart so live tournaments surface
+		// in the leaderboard / top-players panels (which read poker_player_roi).
+		$roi_inserted = self::project_to_roi_mart( $tournament_uuid, $roi_rows );
 
 		if ( class_exists( 'TDWP_Debug_Logger' ) ) {
 			TDWP_Debug_Logger::log(
@@ -205,6 +239,7 @@ class TDWP_Stats_Bridge {
 					'tournament_uuid' => $tournament_uuid,
 					'players'         => $entrant_count,
 					'inserted'        => $inserted,
+					'roi_inserted'    => $roi_inserted,
 				)
 			);
 		}
@@ -226,6 +261,106 @@ class TDWP_Stats_Bridge {
 		if ( class_exists( 'Poker_Statistics_Engine' ) ) {
 			Poker_Statistics_Engine::get_instance()->calculate_all_statistics();
 		}
+	}
+
+	/**
+	 * Project the per-player ROI rows for a tournament into poker_player_roi.
+	 *
+	 * The ROI table has no unique key on (player_id, tournament_id), so
+	 * $wpdb->replace() would never actually replace; idempotency is achieved by
+	 * delete-then-insert on the tournament's UUID (every row under it is
+	 * bridge-created). Guarded independently of the legacy projection so a partial
+	 * install still records dashboard stats.
+	 *
+	 * @since 3.6.6
+	 * @param string $tournament_uuid Tournament UUID join key.
+	 * @param array  $roi_rows        Pre-computed ROI rows.
+	 * @return int Number of rows inserted.
+	 */
+	private static function project_to_roi_mart( $tournament_uuid, $roi_rows ) {
+		global $wpdb;
+
+		if ( '' === $tournament_uuid || empty( $roi_rows ) ) {
+			return 0;
+		}
+
+		$roi_table = $wpdb->prefix . 'poker_player_roi';
+		if ( ! self::table_exists( $roi_table ) ) {
+			return 0;
+		}
+
+		// Idempotent re-projection: drop this tournament's prior ROI rows first.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Idempotent re-projection.
+		$wpdb->delete( $roi_table, array( 'tournament_id' => $tournament_uuid ), array( '%s' ) );
+
+		$inserted = 0;
+		foreach ( $roi_rows as $row ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table write.
+			$result = $wpdb->insert(
+				$roi_table,
+				array(
+					'player_id'       => $row['player_id'],
+					'tournament_id'   => $row['tournament_id'],
+					'total_invested'  => (float) $row['total_invested'],
+					'total_winnings'  => (float) $row['total_winnings'],
+					'net_profit'      => (float) $row['net_profit'],
+					'roi_percentage'  => (float) $row['roi_percentage'],
+					'finish_position' => (int) $row['finish_position'],
+					'tournament_date' => $row['tournament_date'],
+				),
+				array( '%s', '%s', '%f', '%f', '%f', '%f', '%d', '%s' )
+			);
+
+			if ( false !== $result ) {
+				$inserted++;
+			}
+		}
+
+		return $inserted;
+	}
+
+	/**
+	 * Resolve the buy-in amount for a LIVE tournament.
+	 *
+	 * Live tournaments do NOT store buy-in in the '_buy_in' post meta (that key is
+	 * only written by the legacy .tdt importer). The authoritative live buy-in is
+	 * the template the live state references; fall back to the '_buy_in' meta (in
+	 * case a tournament was both imported and run live), then to 0.
+	 *
+	 * @since 3.6.6
+	 * @param int $tournament_id Tournament post ID.
+	 * @return float
+	 */
+	private static function get_tournament_buyin( $tournament_id ) {
+		global $wpdb;
+
+		$tournament_id = absint( $tournament_id );
+		if ( ! $tournament_id ) {
+			return 0.0;
+		}
+
+		$state_table    = $wpdb->prefix . 'tdwp_tournament_live_state';
+		$template_table = $wpdb->prefix . 'tdwp_tournament_templates';
+
+		if ( self::table_exists( $state_table ) && self::table_exists( $template_table ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table read.
+			$buyin = $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT t.buy_in
+					 FROM {$state_table} s
+					 INNER JOIN {$template_table} t ON t.id = s.template_id
+					 WHERE s.tournament_id = %d",
+					$tournament_id
+				)
+			);
+
+			if ( null !== $buyin && '' !== $buyin ) {
+				return (float) $buyin;
+			}
+		}
+
+		// Fallback: legacy import meta (present only if the tournament was imported).
+		return (float) get_post_meta( $tournament_id, '_buy_in', true );
 	}
 
 	/**

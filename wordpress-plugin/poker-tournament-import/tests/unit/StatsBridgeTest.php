@@ -182,6 +182,121 @@ final class StatsBridgeTest extends TestCase {
 		$this->assertCount( 0, $this->wpdb->get_legacy_rows() );
 	}
 
+	/*
+	 * ---------------------------------------------------------------------
+	 * ROI mart projection (leaderboard / top-players read poker_player_roi).
+	 * ------------------------------------------------------------------- */
+
+	public function test_projects_roi_row_per_player_for_leaderboard(): void {
+		$this->wpdb->set_buyin( 100.0 );
+		$this->wpdb->set_live_rows( array(
+			$this->liveRow( 101, 1, 500.0 ),
+			$this->liveRow( 102, 2, 300.0 ),
+			$this->liveRow( 103, 3, 0.0 ),
+		) );
+
+		TDWP_Stats_Bridge::project_to_stats_mart( 9101 );
+
+		$roi = $this->wpdb->get_roi_rows();
+		$this->assertCount( 3, $roi, 'One ROI row per player so live tournaments hit the leaderboard' );
+
+		$winner = $this->rowForFinish( $roi, 1 );
+		$this->assertSame( 100.0, (float) $winner['total_invested'], 'buy-in * 1 entry' );
+		$this->assertSame( 500.0, (float) $winner['total_winnings'] );
+		$this->assertSame( 400.0, (float) $winner['net_profit'], 'winnings - invested' );
+		$this->assertSame( 400.0, (float) $winner['roi_percentage'], '400/100 * 100' );
+	}
+
+	public function test_roi_total_invested_counts_each_reentry(): void {
+		$this->wpdb->set_buyin( 100.0 );
+		// Player 101 entered twice (re-entry).
+		$this->wpdb->set_live_rows( array(
+			$this->liveRow( 101, 8, 0.0, 1 ),
+			$this->liveRow( 101, 1, 500.0, 2 ),
+		) );
+
+		TDWP_Stats_Bridge::project_to_stats_mart( 9102 );
+
+		$roi = $this->wpdb->get_roi_rows();
+		$this->assertCount( 1, $roi );
+		$this->assertSame( 200.0, (float) $roi[0]['total_invested'], 'buy-in * 2 entries' );
+		$this->assertSame( 300.0, (float) $roi[0]['net_profit'], '500 - 200' );
+	}
+
+	public function test_roi_projection_is_idempotent(): void {
+		$this->wpdb->set_buyin( 50.0 );
+		$this->wpdb->set_live_rows( array(
+			$this->liveRow( 101, 1, 500.0 ),
+			$this->liveRow( 102, 2, 300.0 ),
+		) );
+
+		TDWP_Stats_Bridge::project_to_stats_mart( 9103 );
+		TDWP_Stats_Bridge::project_to_stats_mart( 9103 ); // both hooks / re-finish
+
+		$this->assertCount( 2, $this->wpdb->get_roi_rows(), 'Re-projection must not duplicate ROI rows' );
+	}
+
+	public function test_roi_uses_uuid_join_keys(): void {
+		$this->wpdb->set_buyin( 100.0 );
+		$this->wpdb->set_live_rows( array( $this->liveRow( 101, 1, 500.0 ) ) );
+
+		TDWP_Stats_Bridge::project_to_stats_mart( 9104 );
+
+		$row = $this->wpdb->get_roi_rows()[0];
+		$this->assertSame( get_post_meta( 9104, 'tournament_uuid', true ), $row['tournament_id'] );
+		$this->assertSame( get_post_meta( 101, 'player_uuid', true ), $row['player_id'] );
+	}
+
+	public function test_roi_skipped_when_only_roi_table_missing_but_legacy_recorded(): void {
+		// Partial install: ROI table absent, legacy table present.
+		$this->wpdb->missing_tables = array( 'wp_poker_player_roi' );
+		$this->wpdb->set_buyin( 100.0 );
+		$this->wpdb->set_live_rows( array( $this->liveRow( 101, 1, 500.0 ) ) );
+
+		TDWP_Stats_Bridge::project_to_stats_mart( 9105 );
+
+		$this->assertCount( 1, $this->wpdb->get_legacy_rows(), 'Dashboard stats still recorded' );
+		$this->assertCount( 0, $this->wpdb->get_roi_rows(), 'ROI guarded independently' );
+	}
+
+	public function test_zero_buyin_yields_zero_invested_and_roi(): void {
+		$this->wpdb->set_buyin( 0.0 );
+		$this->wpdb->set_live_rows( array( $this->liveRow( 101, 1, 500.0 ) ) );
+
+		TDWP_Stats_Bridge::project_to_stats_mart( 9106 );
+
+		$row = $this->wpdb->get_roi_rows()[0];
+		$this->assertSame( 0.0, (float) $row['total_invested'] );
+		$this->assertSame( 0.0, (float) $row['roi_percentage'], 'No divide-by-zero; ROI is 0 for free entry' );
+		$this->assertSame( 500.0, (float) $row['net_profit'] );
+	}
+
+	/*
+	 * ---------------------------------------------------------------------
+	 * Live buy-in sourcing (template lookup, with legacy meta fallback).
+	 * ------------------------------------------------------------------- */
+
+	public function test_buyin_sourced_from_template_lookup(): void {
+		// Live tournament: buy-in comes from the template, NOT '_buy_in' post meta.
+		$this->wpdb->set_buyin( 250.0 );
+		$this->wpdb->set_live_rows( array( $this->liveRow( 101, 1, 1000.0 ) ) );
+
+		TDWP_Stats_Bridge::project_to_stats_mart( 9107 );
+
+		$this->assertSame( 250.0, (float) $this->wpdb->get_roi_rows()[0]['total_invested'] );
+	}
+
+	public function test_buyin_falls_back_to_legacy_meta_when_no_template(): void {
+		// Template lookup returns null (e.g. imported tournament run with no template).
+		$this->wpdb->set_buyin( null );
+		update_post_meta( 9108, '_buy_in', 75.0 );
+		$this->wpdb->set_live_rows( array( $this->liveRow( 101, 1, 1000.0 ) ) );
+
+		TDWP_Stats_Bridge::project_to_stats_mart( 9108 );
+
+		$this->assertSame( 75.0, (float) $this->wpdb->get_roi_rows()[0]['total_invested'], 'Falls back to _buy_in meta' );
+	}
+
 	/** Find a legacy row by finish_position. */
 	private function rowForFinish( array $rows, int $finish ): array {
 		foreach ( $rows as $row ) {
