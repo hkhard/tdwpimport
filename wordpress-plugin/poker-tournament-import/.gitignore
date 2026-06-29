@@ -1,0 +1,7 @@
+# PHPUnit
+/tests/bin/phpunit.phar
+/.phpunit.cache/
+/.phpunit.result.cache
+
+# Composer (optional convenience; harness runs without it)
+/vendor/

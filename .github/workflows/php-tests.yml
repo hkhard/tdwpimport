@@ -1,0 +1,40 @@
+name: PHP Tests
+
+# Runs the plugin's no-database PHPUnit suite on a self-hosted macOS runner.
+#
+# NOTE on the runner: a personal-account self-hosted runner is registered to ONE
+# repo. The existing runner at ~/dev/actions-runner is registered to
+# hkhard/HandRecorder, so it will NOT pick up jobs here until a runner is also
+# registered to hkhard/tdwpimport. See tests/README.md ("Self-hosted runner").
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'wordpress-plugin/poker-tournament-import/**'
+      - '.github/workflows/php-tests.yml'
+  pull_request:
+    paths:
+      - 'wordpress-plugin/poker-tournament-import/**'
+      - '.github/workflows/php-tests.yml'
+  workflow_dispatch:
+
+jobs:
+  unit:
+    runs-on: [self-hosted, macOS]
+    defaults:
+      run:
+        working-directory: wordpress-plugin/poker-tournament-import
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: PHP version
+        run: php -v
+
+      - name: Lint changed PHP (syntax)
+        run: |
+          find includes admin poker-tournament-import.php -name '*.php' -print0 \
+            | xargs -0 -n1 php -l
+
+      - name: Run unit tests
+        run: ./run-tests.sh --testdox
