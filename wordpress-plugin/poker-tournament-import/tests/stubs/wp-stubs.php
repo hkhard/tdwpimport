@@ -28,10 +28,11 @@ $GLOBALS['tdwp_test_cron']     = array();
  * Reset all in-memory test state. Call from setUp().
  */
 function tdwp_test_reset() {
-	$GLOBALS['tdwp_test_meta']    = array();
-	$GLOBALS['tdwp_test_options'] = array();
-	$GLOBALS['tdwp_test_actions'] = array();
-	$GLOBALS['tdwp_test_cron']    = array();
+	$GLOBALS['tdwp_test_meta']       = array();
+	$GLOBALS['tdwp_test_options']    = array();
+	$GLOBALS['tdwp_test_actions']    = array();
+	$GLOBALS['tdwp_test_cron']       = array();
+	$GLOBALS['tdwp_test_transients'] = array();
 	if ( isset( $GLOBALS['wpdb'] ) && $GLOBALS['wpdb'] instanceof TDWP_Fake_WPDB ) {
 		$GLOBALS['wpdb']->reset();
 	}
@@ -141,6 +142,33 @@ if ( ! function_exists( 'wp_schedule_single_event' ) ) {
 if ( ! function_exists( 'esc_html' ) ) {
 	function esc_html( $s ) {
 		return htmlspecialchars( (string) $s, ENT_QUOTES );
+	}
+}
+
+if ( ! function_exists( 'apply_filters' ) ) {
+	// No registered filters in the harness; return the value unchanged.
+	function apply_filters( $hook, $value, ...$args ) {
+		return $value;
+	}
+}
+
+if ( ! function_exists( 'get_transient' ) ) {
+	function get_transient( $key ) {
+		return $GLOBALS['tdwp_test_transients'][ $key ] ?? false;
+	}
+}
+
+if ( ! function_exists( 'set_transient' ) ) {
+	function set_transient( $key, $value, $ttl = 0 ) {
+		$GLOBALS['tdwp_test_transients'][ $key ] = $value;
+		return true;
+	}
+}
+
+if ( ! function_exists( 'delete_transient' ) ) {
+	function delete_transient( $key ) {
+		unset( $GLOBALS['tdwp_test_transients'][ $key ] );
+		return true;
 	}
 }
 

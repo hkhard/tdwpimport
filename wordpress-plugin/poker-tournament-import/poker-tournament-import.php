@@ -3,7 +3,7 @@
  * Plugin Name: Poker Tournament Import
  * Plugin URI: https://nikielhard.se/tdwpimport
  * Description: Import and display poker tournament results from Tournament Director (.tdt) files. Now with Tournament Manager for creating tournaments without TD software!
- * Version: 3.6.5
+ * Version: 3.6.6
  * Author: Hans Kästel Hård
  * Author URI: https://nikielhard.se
  * License: GPL v2 or later
@@ -20,7 +20,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('POKER_TOURNAMENT_IMPORT_VERSION', '3.6.5');
+define('POKER_TOURNAMENT_IMPORT_VERSION', '3.6.6');
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -232,21 +232,6 @@ class Poker_Tournament_Import {
         add_action('wp_ajax_nopriv_tdwp_frontend_import_tournament', array($this, 'ajax_frontend_import_tournament'));
         add_action('wp_ajax_tdwp_frontend_refresh_statistics', array($this, 'ajax_frontend_refresh_statistics'));
         add_action('wp_ajax_nopriv_tdwp_frontend_refresh_statistics', array($this, 'ajax_frontend_refresh_statistics'));
-
-        // Beta21: Log handler registration confirmation
-        error_log('[TDWP Beta21] AJAX handlers registered successfully');
-
-        // Beta21: Early AJAX detection hook
-        add_action('admin_init', function() {
-            if (defined('DOING_AJAX') && DOING_AJAX && isset($_REQUEST['action'])) {
-                error_log('[TDWP Beta21] AJAX request detected, action: ' . $_REQUEST['action']);
-                error_log('[TDWP Beta21] User logged in: ' . (is_user_logged_in() ? 'yes (' . get_current_user_id() . ')' : 'no'));
-            }
-        });
-
-        // Beta21: Test handler to verify AJAX system works
-        add_action('wp_ajax_tdwp_ajax_test', 'tdwp_ajax_test_handler');
-        add_action('wp_ajax_nopriv_tdwp_ajax_test', 'tdwp_ajax_test_handler');
 
         // **PHASE 4: TD3 Display System AJAX handlers**
         add_action('wp_ajax_tdwp_get_tournament_data', array($this, 'ajax_get_tournament_data'));
@@ -504,6 +489,10 @@ class Poker_Tournament_Import {
      * Include required files
      */
     private function includes() {
+        // Security guards shared by the AJAX handlers (nonce scoping, content
+        // sniffing, throttling). Loaded early so handlers can delegate to them.
+        require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/security/class-ajax-guards.php';
+
         // v2.4.9: AST-based TDT Parser (replaces regex-based extraction)
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/class-tdt-lexer.php';
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/class-tdt-ast-parser.php';
@@ -2520,22 +2509,18 @@ class Poker_Tournament_Import {
      * AJAX handler for frontend tournament import (non-admin users)
      */
     public function ajax_frontend_import_tournament() {
-        error_log('[TDWP Import Beta20] AJAX handler called');
-        error_log('[TDWP Import Beta20] User logged in: ' . (is_user_logged_in() ? 'yes' : 'no'));
-        error_log('[TDWP Import Beta20] User ID: ' . get_current_user_id());
-        error_log('[TDWP Import Beta20] REQUEST: ' . print_r($_REQUEST, true));
-        error_log('[TDWP Import Beta20] FILES: ' . print_r($_FILES, true));
-
         check_ajax_referer('tdwp_frontend_import_tournament', 'nonce');
-        error_log('[TDWP Import Beta20] Nonce verified successfully');
 
-        if (!is_user_logged_in()) {
+        // Authorization: importing creates tournament/player posts. Require the same
+        // capability the import UI is gated on (tournament_import_shortcode), which
+        // also blocks subscribers and unauthenticated nopriv callers. (tdwp-gwp)
+        if (!current_user_can('edit_posts')) {
             wp_send_json_error(array(
-                'message' => __('You must be logged in to import tournaments.', 'poker-tournament-import')
+                'message' => __('You do not have permission to import tournaments.', 'poker-tournament-import')
             ));
         }
 
-        if (!isset($_FILES['tdt_file']) || $_FILES['tdt_file']['error'] !== UPLOAD_ERR_OK) {
+        if (!isset($_FILES['tdt_file']) || !is_array($_FILES['tdt_file']) || $_FILES['tdt_file']['error'] !== UPLOAD_ERR_OK) {
             wp_send_json_error(array(
                 'message' => __('File upload failed. Please try again.', 'poker-tournament-import')
             ));
@@ -2543,11 +2528,28 @@ class Poker_Tournament_Import {
 
         $file = $_FILES['tdt_file'];
 
-        // Validate file type
+        // Size cap: .tdt exports are small text files. Reject oversized uploads
+        // before reading them into memory. (tdwp-gwp)
+        $max_size = (int) apply_filters('tdwp_max_tdt_upload_bytes', 5 * MB_IN_BYTES);
+        if ((int) $file['size'] > $max_size) {
+            wp_send_json_error(array(
+                'message' => __('File is too large. Please upload a .tdt file under 5 MB.', 'poker-tournament-import')
+            ));
+        }
+
+        // Validate the extension server-side (never trust the browser MIME type). (tdwp-gwp)
         $file_extension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
         if ($file_extension !== 'tdt') {
             wp_send_json_error(array(
                 'message' => __('Invalid file type. Please upload a .tdt file.', 'poker-tournament-import')
+            ));
+        }
+
+        // Content sniff: .tdt is a plain-text format. Reject binary uploads
+        // (images/executables/archives renamed to .tdt) before parsing. (tdwp-gwp)
+        if (!TDWP_Ajax_Guards::is_text_upload($file['tmp_name'])) {
+            wp_send_json_error(array(
+                'message' => __('The uploaded file does not appear to be a valid .tdt text file.', 'poker-tournament-import')
             ));
         }
 
@@ -2607,19 +2609,30 @@ class Poker_Tournament_Import {
     }
 
     /**
-     * AJAX handler for frontend statistics refresh (logged-in users)
+     * AJAX handler for frontend statistics refresh (managers only)
      */
     public function ajax_frontend_refresh_statistics() {
         check_ajax_referer('poker_frontend_stats', 'nonce');
 
-        if (!is_user_logged_in()) {
+        // Authorization: a full statistics rebuild is a maintenance operation;
+        // restrict it so any logged-in subscriber cannot trigger it. (tdwp-cdq)
+        if (!current_user_can('manage_options')) {
             wp_send_json_error(array(
-                'message' => __('You must be logged in to refresh statistics.', 'poker-tournament-import')
+                'message' => __('You do not have permission to refresh statistics.', 'poker-tournament-import')
+            ));
+        }
+
+        // Throttle: refresh_statistics() rebuilds the data marts and is expensive.
+        // Allow at most one run per throttle window to prevent CPU/DB DoS. (tdwp-cdq)
+        $throttle_ttl = (int) apply_filters('tdwp_frontend_stats_refresh_ttl', 30);
+        if (TDWP_Ajax_Guards::is_throttled('tdwp_frontend_stats_refresh_lock', $throttle_ttl)) {
+            wp_send_json_error(array(
+                'message' => __('Statistics were refreshed recently. Please wait a moment and try again.', 'poker-tournament-import')
             ));
         }
 
         $season_id = isset($_POST['season_id']) ? sanitize_text_field($_POST['season_id']) : null;
-        
+
         $result = $this->statistics_engine->refresh_statistics();
 
         if ($result) {
@@ -3066,15 +3079,22 @@ class Poker_Tournament_Import {
      * @since 3.4.0
      */
     public function ajax_unregister_screen() {
-        check_ajax_referer('tdwp_display_nonce', 'nonce');
-
-        $screen_id = isset($_POST['screen_id']) ? intval($_POST['screen_id']) : 0;
+        $screen_id = isset($_POST['screen_id']) ? absint($_POST['screen_id']) : 0;
 
         if (!$screen_id) {
             wp_send_json_error(array(
                 'message' => __('Screen ID is required.', 'poker-tournament-import')
             ));
         }
+
+        // IDOR fix (tdwp-bxp): this endpoint is nopriv so kiosk displays (which have
+        // no WordPress login) can mark themselves offline on page unload. Bind the
+        // nonce to the specific screen, so a visitor can only unregister the screen
+        // whose display page they were actually served -- not arbitrary screen_ids
+        // by iteration. A bad nonce dies here before any state change. The screen_id
+        // is read first only to build the nonce action (reading an int is side-effect
+        // free); this mirrors WordPress core's object-scoped nonces (delete-post_{id}).
+        check_ajax_referer(TDWP_Ajax_Guards::unregister_screen_nonce_action($screen_id), 'nonce');
 
         // Update screen status to offline
         global $wpdb;
@@ -3221,14 +3241,6 @@ if (!function_exists('poker_cached_query')) {
     }
 
   }
-
-/**
- * Beta21: Test AJAX handler to verify AJAX system works
- */
-function tdwp_ajax_test_handler() {
-    error_log('[TDWP Beta21] TEST handler called!');
-    wp_send_json_success(array('message' => 'AJAX works!', 'time' => time()));
-}
 
 // Initialize the plugin
 Poker_Tournament_Import::get_instance();

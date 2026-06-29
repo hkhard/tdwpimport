@@ -346,10 +346,23 @@ class TDWP_Display_Manager {
 				true
 			);
 
+			// The tdwp_display query var is the screen's endpoint_url slug (rewrite
+			// rule ^tdwp-display/([^/]+)/?$), NOT its integer id, so absint() of it
+			// would always be 0. Resolve the slug to the real screen_id so the
+			// per-screen nonce truly scopes to the served screen and the kiosk's
+			// unregister-on-unload can mark its own screen offline. (tdwp-bxp)
+			$endpoint  = sanitize_text_field( (string) get_query_var( 'tdwp_display' ) );
+			$screen    = $endpoint ? $this->get_screen_by_endpoint( $endpoint ) : null;
+			$screen_id = ( $screen && isset( $screen->screen_id ) ) ? absint( $screen->screen_id ) : 0;
+			$unregister_nonce = class_exists( 'TDWP_Ajax_Guards' )
+				? wp_create_nonce( TDWP_Ajax_Guards::unregister_screen_nonce_action( $screen_id ) )
+				: wp_create_nonce( 'tdwp_unregister_screen_' . $screen_id );
 			wp_localize_script( 'tdwp-display-sync', 'tdwp_display_sync', array(
 				'ajax_url' => admin_url( 'admin-ajax.php' ),
-				'nonce' => wp_create_nonce( 'tdwp_display_nonce' ),
-				'screen_id' => get_query_var( 'tdwp_display' ),
+				// Per-screen nonce: scopes the unregister action to this screen so a
+				// kiosk can only take its own screen offline, not arbitrary ids. (tdwp-bxp)
+				'nonce' => $unregister_nonce,
+				'screen_id' => $screen_id,
 				'heartbeat_interval' => 'fast',
 			) );
 		}

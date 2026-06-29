@@ -1,5 +1,21 @@
 # Poker Tournament Import Changelog
 
+## Version 3.6.6 - (June 29, 2026)
+
+### 🔒 Security: AJAX / Userland Hardening
+
+Hardened the frontend admin-ajax surface. No change to legitimate user flows.
+
+#### Fixed
+- **IDOR in `tdwp_unregister_screen` (tdwp-bxp)**: an unauthenticated visitor could mark *any* display screen offline by iterating `screen_id` with the shared display nonce. The nonce is now **scoped to the specific screen** (`tdwp_unregister_screen_{id}`), so a kiosk can only unregister the screen it is actually displaying. The display page resolves its endpoint slug to the real `screen_id` so the per-screen nonce and the unregister-on-unload flow target the served screen.
+- **DoS in `tdwp_frontend_refresh_statistics` (tdwp-cdq)**: the endpoint ran a full synchronous data-mart rebuild gated only on being logged in. It now requires `manage_options` and is rate-limited by a throttle transient (nonce → capability → throttle → rebuild).
+- **Import authorization & validation in `tdwp_frontend_import_tournament` (tdwp-gwp)**: now requires the `edit_posts` capability (matching the import UI), enforces a 5 MB size cap, and content-sniffs the upload (rejects binary payloads renamed to `.tdt`) before parsing.
+- **Removed debug code (tdwp-uee, tdwp-kws)**: deleted the `tdwp_ajax_test` debug handler and its registrations, the `admin_init` request-logging listener, and the `error_log(print_r($_REQUEST/$_FILES))` / `[TDWP Beta]` debug dumps that leaked request data into logs.
+
+#### Internal
+- New `TDWP_Ajax_Guards` (`includes/security/class-ajax-guards.php`) centralizes the security primitives (screen-scoped nonce action, upload content sniff, throttle) so they are unit-testable.
+- Offline PHPUnit suite extended with 15 AJAX-security tests (37 tests / 81 assertions total, no database required).
+
 ## Version 3.6.5 - (January 6, 2026)
 
 ### 🐛 Bug Fix: Frontend Tournament Import jQuery Loading

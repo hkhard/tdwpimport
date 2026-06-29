@@ -3,7 +3,7 @@ Contributors: hanshard
 Tags: poker, tournament, import, results, bulk-import
 Requires at least: 6.0
 Tested up to: 6.8
-Stable tag: 3.1.0-beta13
+Stable tag: 3.6.6
 Requires PHP: 8.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -77,6 +77,13 @@ Use the following shortcodes:
 6. **NEW: Interactive leaderboard with sorting**
 
 == Changelog ==
+
+= 3.6.6 - June 29, 2026 =
+* Security: Fixed IDOR in tdwp_unregister_screen - the nonce is now scoped per-screen so a visitor can only unregister the screen actually being displayed (tdwp-bxp)
+* Security: tdwp_frontend_refresh_statistics now requires manage_options and is throttled to prevent DoS (tdwp-cdq)
+* Security: Frontend .tdt import now requires the edit_posts capability, enforces a 5 MB size cap, and content-sniffs uploads before parsing (tdwp-gwp)
+* Security: Removed the tdwp_ajax_test debug handler and error_log dumps of $_REQUEST/$_FILES that leaked request data into logs (tdwp-uee, tdwp-kws)
+* Internal: New TDWP_Ajax_Guards security helper + 15 offline AJAX-security unit tests (37 tests, 81 assertions)
 
 = 2.9.22 - October 26, 2025 =
 * Fixed: Translator comments moved to same line as sprintf() for Plugin Check compliance
