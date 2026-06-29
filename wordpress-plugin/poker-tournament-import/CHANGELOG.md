@@ -1,5 +1,12 @@
 # Poker Tournament Import Changelog
 
+## Version 3.6.7 - (June 29, 2026)
+
+### 🔒 Security: nopriv AJAX surface reduction + audit
+
+- **Dropped pointless `nopriv` registrations (tdwp-zsn)**: `tdwp_frontend_import_tournament` and `tdwp_frontend_refresh_statistics` now require `edit_posts` / `manage_options` respectively, so their unauthenticated (`nopriv`) registrations only routed anonymous traffic to a handler that rejects it. Removing them keeps unauthenticated requests from reaching these handlers at all. The genuinely public reads (series/tournament/clock/player display, screen unregister) keep `nopriv`.
+- **nopriv handler security audit (tdwp-vyz)**: audited all 11 unauthenticated handlers across `nonce / capability / input sanitization / output escaping / $wpdb->prepare`. Result: every nopriv handler verifies a nonce, parameterizes all SQL via `$wpdb->prepare`, escapes output, and validates input. No CRITICAL/HIGH gaps. One LOW (`ajax_register_player` lacks per-IP rate-limiting) tracked as follow-up.
+
 ## Version 3.6.6 - (June 29, 2026)
 
 ### 🔒 Security: AJAX / Userland Hardening
