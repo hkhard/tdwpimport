@@ -24,3 +24,4 @@ $GLOBALS['wpdb'] = new TDWP_Fake_WPDB();
  * 'ABSPATH' ) ) exit;` — safe to require directly once ABSPATH is defined.
  */
 require $plugin_dir . 'includes/tournament-manager/class-stats-bridge.php';
+require $plugin_dir . 'includes/security/class-ajax-guards.php';
