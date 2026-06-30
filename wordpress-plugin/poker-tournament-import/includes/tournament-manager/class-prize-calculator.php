@@ -127,23 +127,50 @@ class TDWP_Prize_Calculator {
 	 *    calculated from its percentage of the *original* pool and then frozen.
 	 *  - The remaining pool (original pool minus all locked/fixed amounts) is
 	 *    distributed across the unlocked, percentage-based places proportionally.
-	 *  - Rounding differences (cents) are absorbed into the first unlocked place
-	 *    (place 1 when unlocked, otherwise the lowest-numbered unlocked place).
+	 *  - Rounding differences are absorbed into the first unlocked place so the
+	 *    total still equals the pool.
 	 *  - Backward-compatible: old {place, percentage}-only structures work
 	 *    unchanged because amount defaults to null and locked defaults to false.
+	 *
+	 * Rounding denomination (tdwp-cma.16):
+	 *  Pass `$rounding_denomination` as 1, 5, or 10 to round each unlocked payout
+	 *  to the nearest whole dollar, $5, or $10. Default 0.01 preserves the
+	 *  previous cent-level rounding. After denomination rounding the first
+	 *  unlocked place absorbs whatever cents/dollars remain so totals are exact.
+	 *
+	 * Minimum payout floor (tdwp-cma.19):
+	 *  Pass `$min_floor > 0` to enforce that no paid place receives less than that
+	 *  dollar amount. Places whose proportional share (before denomination
+	 *  rounding) would fall below the floor are removed from the lowest place
+	 *  upward — deterministically, one at a time — and their weight is
+	 *  redistributed until all remaining places clear the floor, or only one place
+	 *  remains (the floor cannot be enforced on a single place; the full pool is
+	 *  paid there as-is). Locked / fixed-amount places are never subject to the
+	 *  floor check.
 	 *
 	 * Each returned payout row carries the extra metadata keys so callers and UI
 	 * can honour recipient_player_id and display without extra lookups.
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param float $prize_pool Net prize pool.
-	 * @param array $structure  Structure array with place/percentage and optional
-	 *                          amount/locked/recipient_player_id/display.
+	 * @param float $prize_pool             Net prize pool.
+	 * @param array $structure              Structure array with place/percentage and optional
+	 *                                      amount/locked/recipient_player_id/display.
+	 * @param float $rounding_denomination  Round each payout to nearest denomination.
+	 *                                      Accepted: 0.01 (default), 1, 5, 10.
+	 * @param float $min_floor              Minimum payout per place (default 0 = no floor).
 	 * @return array Payouts array: [ place => [ 'amount' => float, 'recipient_player_id' => int|null, 'display' => bool ] ]
 	 */
-	public static function calculate_payouts_from_array( $prize_pool, $structure ) {
-		$prize_pool = floatval( $prize_pool );
+	public static function calculate_payouts_from_array( $prize_pool, $structure, $rounding_denomination = 0.01, $min_floor = 0.0 ) {
+		$prize_pool            = floatval( $prize_pool );
+		$rounding_denomination = floatval( $rounding_denomination );
+		$min_floor             = floatval( $min_floor );
+
+		// Normalise denomination to a supported value; fall back to cent precision.
+		$allowed_denominations = array( 0.01, 1.0, 5.0, 10.0 );
+		if ( ! in_array( $rounding_denomination, $allowed_denominations, true ) ) {
+			$rounding_denomination = 0.01;
+		}
 
 		if ( $prize_pool <= 0 || ! is_array( $structure ) || empty( $structure ) ) {
 			return array();
@@ -195,7 +222,19 @@ class TDWP_Prize_Calculator {
 			}
 		}
 
-		// Second pass: distribute the remaining pool across unlocked places.
+		// Enforce minimum payout floor (tdwp-cma.19): repeatedly drop the
+		// lowest-weight unlocked place until all remaining places can clear the
+		// floor, or only one place remains. This is a deterministic bottom-up trim.
+		if ( $min_floor > 0 && count( $unlocked_places ) > 1 ) {
+			$remaining_pool_for_floor = $prize_pool - $locked_total;
+			$unlocked_places = self::apply_min_floor_trim(
+				$unlocked_places,
+				$remaining_pool_for_floor,
+				$min_floor
+			);
+		}
+
+		// Second pass: distribute the remaining pool across (possibly trimmed) unlocked places.
 		$remaining_pool  = $prize_pool - $locked_total;
 		$unlocked_total  = array_sum( array_column( $unlocked_places, 'percentage' ) );
 		$total_allocated = 0.0;
@@ -211,11 +250,14 @@ class TDWP_Prize_Calculator {
 			// Normalise so that partial percentage sets still distribute the
 			// remainder proportionally. When unlocked_total is 0 split evenly.
 			if ( $unlocked_total > 0 ) {
-				$share = round( $remaining_pool * ( $up['percentage'] / $unlocked_total ), 2 );
+				$raw_share = $remaining_pool * ( $up['percentage'] / $unlocked_total );
 			} else {
-				$count = count( $unlocked_places );
-				$share = 0 < $count ? round( $remaining_pool / $count, 2 ) : 0.0;
+				$count     = count( $unlocked_places );
+				$raw_share = 0 < $count ? ( $remaining_pool / $count ) : 0.0;
 			}
+
+			// Apply rounding denomination (tdwp-cma.16).
+			$share = self::round_to_denomination( $raw_share, $rounding_denomination );
 
 			$payouts[ $place ] = array(
 				'amount'              => $share,
@@ -232,11 +274,75 @@ class TDWP_Prize_Calculator {
 		if ( abs( $difference ) > 0 ) {
 			$absorb_place = $first_unlocked ?? ( isset( $payouts[1] ) ? 1 : null );
 			if ( null !== $absorb_place && isset( $payouts[ $absorb_place ] ) ) {
-				$payouts[ $absorb_place ]['amount'] += $difference;
+				$payouts[ $absorb_place ]['amount'] = round( $payouts[ $absorb_place ]['amount'] + $difference, 2 );
 			}
 		}
 
 		return $payouts;
+	}
+
+	/**
+	 * Round a dollar amount to the nearest allowed denomination (tdwp-cma.16)
+	 *
+	 * @since 3.7.0
+	 *
+	 * @param float $amount       Raw amount.
+	 * @param float $denomination Denomination: 0.01, 1, 5, or 10.
+	 * @return float Rounded amount.
+	 */
+	private static function round_to_denomination( $amount, $denomination ) {
+		if ( $denomination <= 0.01 ) {
+			return round( $amount, 2 );
+		}
+
+		return round( $amount / $denomination ) * $denomination;
+	}
+
+	/**
+	 * Trim unlocked places from the bottom until all remaining places clear the
+	 * minimum payout floor (tdwp-cma.19).
+	 *
+	 * Algorithm (deterministic, bottom-up):
+	 *  1. Compute each place's proportional share of the remaining pool.
+	 *  2. Find the last place (highest place number = smallest share) whose share
+	 *     is below `$min_floor`.
+	 *  3. Remove that place. Re-run from step 1 until no place is below the floor
+	 *     or only one place remains (can't trim further).
+	 *
+	 * @since 3.7.0
+	 *
+	 * @param array $unlocked_places  Array of unlocked-place descriptors.
+	 * @param float $remaining_pool   Pool available for unlocked places.
+	 * @param float $min_floor        Minimum per-place payout.
+	 * @return array Trimmed (possibly shorter) array of unlocked-place descriptors.
+	 */
+	private static function apply_min_floor_trim( $unlocked_places, $remaining_pool, $min_floor ) {
+		while ( count( $unlocked_places ) > 1 ) {
+			$total_weight = array_sum( array_column( $unlocked_places, 'percentage' ) );
+
+			// Find the lowest-ranked place that falls below the floor.
+			$trim_index = null;
+			foreach ( $unlocked_places as $idx => $up ) {
+				$share = ( $total_weight > 0 )
+					? $remaining_pool * ( $up['percentage'] / $total_weight )
+					: $remaining_pool / count( $unlocked_places );
+
+				if ( $share < $min_floor ) {
+					// Always record the last (smallest) below-floor place.
+					$trim_index = $idx;
+				}
+			}
+
+			if ( null === $trim_index ) {
+				// All places clear the floor — done.
+				break;
+			}
+
+			// Remove the offending place (array_splice re-indexes numerically).
+			array_splice( $unlocked_places, $trim_index, 1 );
+		}
+
+		return $unlocked_places;
 	}
 
 	/**
@@ -525,6 +631,52 @@ class TDWP_Prize_Calculator {
 		}
 
 		return $chop_amounts;
+	}
+
+	/**
+	 * Calculate custom chop — operator supplies a specific amount per player
+	 * (tdwp-cma.21).
+	 *
+	 * The supplied amounts must sum to exactly `$remaining_pool` (within a $0.02
+	 * tolerance to forgive floating-point input). Any mismatch returns WP_Error.
+	 *
+	 * @since 3.7.0
+	 *
+	 * @param float $remaining_pool Remaining prize pool.
+	 * @param array $amounts        Map of player name/id => specific dollar amount.
+	 * @return array|WP_Error Chop amounts on success; WP_Error when amounts don't match pool.
+	 */
+	public static function calculate_custom_chop( $remaining_pool, $amounts ) {
+		$remaining_pool = floatval( $remaining_pool );
+
+		if ( $remaining_pool <= 0 || ! is_array( $amounts ) || empty( $amounts ) ) {
+			return new WP_Error(
+				'invalid_input',
+				__( 'Custom chop requires a positive prize pool and at least one player amount.', 'poker-tournament-import' )
+			);
+		}
+
+		$sanitized = array();
+		foreach ( $amounts as $player => $amount ) {
+			$sanitized[ $player ] = round( floatval( $amount ), 2 );
+		}
+
+		$total = array_sum( $sanitized );
+
+		// Allow up to $0.02 tolerance for floating-point conversion from user input.
+		if ( abs( $total - $remaining_pool ) > 0.02 ) {
+			return new WP_Error(
+				'amount_mismatch',
+				sprintf(
+					/* translators: 1: supplied total, 2: expected pool */
+					__( 'Custom chop amounts total %1$s but the remaining pool is %2$s. Amounts must sum to the pool.', 'poker-tournament-import' ),
+					number_format( $total, 2 ),
+					number_format( $remaining_pool, 2 )
+				)
+			);
+		}
+
+		return $sanitized;
 	}
 
 	/**

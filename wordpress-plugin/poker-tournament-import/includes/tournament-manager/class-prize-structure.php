@@ -576,38 +576,53 @@ class TDWP_Prize_Structure {
 	}
 
 	/**
-	 * Generate a suggested prize structure for a given player count (tdwp-cma.17)
+	 * Generate a suggested prize structure for a given player count (tdwp-cma.17, .18)
 	 *
 	 * Returns an array of place entries [{ place, percentage }] whose percentages
-	 * sum to exactly 100. The distribution uses a decreasing-weight scale so that
-	 * earlier places receive a larger share. Known small-N distributions (3, 5, 9)
-	 * are hard-coded to match industry standards; larger Ns use a computed decay.
+	 * sum to exactly 100.
+	 *
+	 * Supported styles (tdwp-cma.18):
+	 *  - 'standard' (default): decreasing-weight distribution matching industry
+	 *    norms; canonical tables for 3/5/9 places, computed decay for larger fields.
+	 *  - 'top_heavy': strongly concentrates prizes at the top — approximately
+	 *    65 % / 25 % / 10 % split across the first three positions; extra places
+	 *    (when the field recommends more than 3) receive a small equal share carved
+	 *    from the bottom percentages while the top-three ratio is maintained.
+	 *  - 'flat': distributes prizes as evenly as possible; each place receives
+	 *    roughly 100/N %, with remainders absorbed into place 1.
 	 *
 	 * Pure logic — no DB access — so it is fully unit-testable offline.
 	 *
 	 * @since 3.5.0
 	 *
-	 * @param int $player_count Total players registered.
+	 * @param int    $player_count Total players registered.
+	 * @param string $style        Distribution style: 'standard', 'top_heavy', or 'flat'.
 	 * @return array Array of ['place' => int, 'percentage' => float].
 	 */
-	public function generate_suggested_structure( $player_count ) {
+	public function generate_suggested_structure( $player_count, $style = 'standard' ) {
 		$place_count = $this->recommend_place_count( $player_count );
 
 		if ( 0 === $place_count ) {
 			return array();
 		}
 
-		// Canonical distributions for the standard tiers.
-		$canonical = array(
-			3 => array( 50.00, 30.00, 20.00 ),
-			5 => array( 40.00, 25.00, 15.00, 12.00, 8.00 ),
-			9 => array( 30.00, 20.00, 14.00, 10.00, 8.00, 7.00, 5.00, 4.00, 2.00 ),
-		);
-
-		if ( isset( $canonical[ $place_count ] ) ) {
-			$percentages = $canonical[ $place_count ];
+		if ( 'top_heavy' === $style ) {
+			$percentages = $this->compute_top_heavy_percentages( $place_count );
+		} elseif ( 'flat' === $style ) {
+			$percentages = $this->compute_flat_percentages( $place_count );
 		} else {
-			$percentages = $this->compute_decay_percentages( $place_count );
+			// 'standard' — original canonical / decay logic.
+			$canonical = array(
+				3 => array( 50.00, 30.00, 20.00 ),
+				5 => array( 40.00, 25.00, 15.00, 12.00, 8.00 ),
+				9 => array( 30.00, 20.00, 14.00, 10.00, 8.00, 7.00, 5.00, 4.00, 2.00 ),
+			);
+
+			if ( isset( $canonical[ $place_count ] ) ) {
+				$percentages = $canonical[ $place_count ];
+			} else {
+				$percentages = $this->compute_decay_percentages( $place_count );
+			}
 		}
 
 		$structure = array();
@@ -619,6 +634,120 @@ class TDWP_Prize_Structure {
 		}
 
 		return $structure;
+	}
+
+	/**
+	 * Compute top-heavy percentage distribution (tdwp-cma.18)
+	 *
+	 * The top three places receive approximately 65 / 25 / 10 of the total,
+	 * scaled so that when more places are paid the extra places each receive a
+	 * small equal slice carved proportionally from the top-3 shares. The result
+	 * always sums to exactly 100.
+	 *
+	 * For 1-place fields: 100 %.
+	 * For 2-place fields: 75 % / 25 %.
+	 * For 3+ place fields: top-3 nominally 65/25/10, remaining split evenly from
+	 * the remainder after assigning the extra-place budget.
+	 *
+	 * @since 3.7.0
+	 *
+	 * @param int $place_count Number of paid places.
+	 * @return float[] Percentages (0-indexed), summing to exactly 100.
+	 */
+	private function compute_top_heavy_percentages( $place_count ) {
+		if ( 1 === $place_count ) {
+			return array( 100.00 );
+		}
+
+		if ( 2 === $place_count ) {
+			return array( 75.00, 25.00 );
+		}
+
+		// For 3+ places: allocate a small equal share per extra place, then
+		// distribute the remaining 100 in 65/25/10 ratio among the top three.
+		$extra_places = $place_count - 3;
+
+		if ( 0 === $extra_places ) {
+			$percentages = array( 65.00, 25.00, 10.00 );
+		} else {
+			// Give each extra place a fixed 3 % slice, cap so top-3 still dominates.
+			$extra_pct_each = min( 3.0, round( 20.0 / max( 1, $extra_places ), 2 ) );
+			$extra_total    = round( $extra_pct_each * $extra_places, 2 );
+			$top_budget     = 100.0 - $extra_total;
+
+			// Scale the 65/25/10 ratio into the top budget.
+			$top_ratios = array( 65, 25, 10 );
+			$ratio_sum  = 100; // they sum to 100 by definition.
+
+			$percentages = array();
+			$running     = 0.0;
+			$last_top    = 2; // index of 3rd place.
+
+			foreach ( $top_ratios as $idx => $ratio ) {
+				if ( $idx === $last_top ) {
+					$pct = round( $top_budget - $running, 2 );
+				} else {
+					$pct     = round( ( $ratio / $ratio_sum ) * $top_budget, 2 );
+					$running += $pct;
+				}
+				$percentages[] = $pct;
+			}
+
+			// Extra places — all equal, last one closes to exactly 100.
+			$running_extra = 0.0;
+			for ( $i = 0; $i < $extra_places; $i++ ) {
+				if ( $i === $extra_places - 1 ) {
+					$percentages[] = round( $extra_total - $running_extra, 2 );
+				} else {
+					$percentages[] = $extra_pct_each;
+					$running_extra += $extra_pct_each;
+				}
+			}
+		}
+
+		// Final guard: force sum to exactly 100 by adjusting place 1.
+		$total = array_sum( $percentages );
+		if ( abs( $total - 100.0 ) > 0.001 ) {
+			$percentages[0] = round( $percentages[0] + ( 100.0 - $total ), 2 );
+		}
+
+		return $percentages;
+	}
+
+	/**
+	 * Compute flat (roughly even) percentage distribution (tdwp-cma.18)
+	 *
+	 * Each place receives floor(100/N) %, and the remainder is distributed one
+	 * percentage point at a time starting from place 1. The last place's value is
+	 * calculated as 100 minus the running total to guarantee exactness.
+	 *
+	 * @since 3.7.0
+	 *
+	 * @param int $place_count Number of paid places.
+	 * @return float[] Percentages (0-indexed), summing to exactly 100.
+	 */
+	private function compute_flat_percentages( $place_count ) {
+		if ( $place_count <= 0 ) {
+			return array();
+		}
+
+		$base        = floor( ( 100 / $place_count ) * 100 ) / 100; // floor to 2dp.
+		$percentages = array_fill( 0, $place_count, $base );
+
+		// Distribute remainder (always < 1 after floor) into place 1.
+		$running = round( $base * $place_count, 2 );
+		$remainder = round( 100.0 - $running, 2 );
+
+		// Force last entry to close to exactly 100 regardless of rounding path.
+		$percentages[ $place_count - 1 ] = round( 100.0 - ( $base * ( $place_count - 1 ) ), 2 );
+
+		// Absorb any leftover into place 1 (first place).
+		$actual_total = array_sum( $percentages );
+		if ( abs( $actual_total - 100.0 ) > 0.001 ) {
+			$percentages[0] = round( $percentages[0] + ( 100.0 - $actual_total ), 2 );
+		}
+
+		return $percentages;
 	}
 
 	/**
