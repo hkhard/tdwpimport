@@ -509,6 +509,26 @@ class TDWP_Prize_Calculator_Page {
 		} elseif ( 'even' === $chop_type ) {
 			$players = array_keys( $chip_counts );
 			$chop = TDWP_Prize_Calculator::calculate_even_chop( $remaining_pool, $players );
+		} elseif ( 'custom' === $chop_type ) {
+			// Custom chop (tdwp-cma.21): operator supplies exact per-player amounts.
+			$custom_amounts_raw = isset( $_POST['custom_amounts'] )
+				? json_decode( wp_unslash( $_POST['custom_amounts'] ), true )
+				: array();
+
+			if ( ! is_array( $custom_amounts_raw ) ) {
+				wp_send_json_error( array( 'message' => __( 'Invalid custom amounts data.', 'poker-tournament-import' ) ) );
+			}
+
+			$custom_amounts = array();
+			foreach ( $custom_amounts_raw as $player => $amount ) {
+				$custom_amounts[ sanitize_text_field( wp_unslash( (string) $player ) ) ] = floatval( $amount );
+			}
+
+			$chop = TDWP_Prize_Calculator::calculate_custom_chop( $remaining_pool, $custom_amounts );
+
+			if ( is_wp_error( $chop ) ) {
+				wp_send_json_error( array( 'message' => $chop->get_error_message() ) );
+			}
 		} else {
 			$chop = TDWP_Prize_Calculator::calculate_chip_chop( $remaining_pool, $chip_counts );
 		}
@@ -531,7 +551,7 @@ class TDWP_Prize_Calculator_Page {
 	 * @param array  $remaining_prizes Optional remaining prizes for ICM calculation.
 	 * @return array|WP_Error Result array on success; WP_Error on validation failure.
 	 */
-	public function apply_chop_to_tournament( $tournament_id, $chop_type, $remaining_pool, $players_raw, $remaining_prizes = array() ) {
+	public function apply_chop_to_tournament( $tournament_id, $chop_type, $remaining_pool, $players_raw, $remaining_prizes = array(), $custom_amounts = array() ) {
 		$tournament_id  = absint( $tournament_id );
 		$chop_type      = sanitize_text_field( $chop_type );
 		$remaining_pool = floatval( $remaining_pool );
@@ -564,6 +584,12 @@ class TDWP_Prize_Calculator_Page {
 		} elseif ( 'even' === $chop_type ) {
 			$players      = array_keys( $chip_counts );
 			$chop_amounts = TDWP_Prize_Calculator::calculate_even_chop( $remaining_pool, $players );
+		} elseif ( 'custom' === $chop_type ) {
+			// Custom chop (tdwp-cma.21): validate operator-supplied amounts.
+			$chop_amounts = TDWP_Prize_Calculator::calculate_custom_chop( $remaining_pool, $custom_amounts );
+			if ( is_wp_error( $chop_amounts ) ) {
+				return $chop_amounts;
+			}
 		} else {
 			$chop_amounts = TDWP_Prize_Calculator::calculate_chip_chop( $remaining_pool, $chip_counts );
 		}
@@ -620,6 +646,17 @@ class TDWP_Prize_Calculator_Page {
 		$players_raw      = isset( $_POST['players'] ) ? json_decode( wp_unslash( $_POST['players'] ), true ) : array();
 		$remaining_prizes = isset( $_POST['remaining_prizes'] ) ? array_map( 'floatval', (array) $_POST['remaining_prizes'] ) : array();
 
+		// Custom chop amounts (tdwp-cma.21): keyed by player name.
+		$custom_amounts_raw = isset( $_POST['custom_amounts'] )
+			? json_decode( wp_unslash( $_POST['custom_amounts'] ), true )
+			: array();
+		$custom_amounts = array();
+		if ( is_array( $custom_amounts_raw ) ) {
+			foreach ( $custom_amounts_raw as $player => $amount ) {
+				$custom_amounts[ sanitize_text_field( wp_unslash( (string) $player ) ) ] = floatval( $amount );
+			}
+		}
+
 		if ( 0 === $tournament_id ) {
 			wp_send_json_error( array( 'message' => __( 'Tournament ID is required to apply a chop.', 'poker-tournament-import' ) ) );
 		}
@@ -628,7 +665,7 @@ class TDWP_Prize_Calculator_Page {
 			wp_send_json_error( array( 'message' => __( 'Invalid players data.', 'poker-tournament-import' ) ) );
 		}
 
-		$result = $this->apply_chop_to_tournament( $tournament_id, $chop_type, $remaining_pool, $players_raw, $remaining_prizes );
+		$result = $this->apply_chop_to_tournament( $tournament_id, $chop_type, $remaining_pool, $players_raw, $remaining_prizes, $custom_amounts );
 
 		if ( is_wp_error( $result ) ) {
 			wp_send_json_error( array( 'message' => $result->get_error_message() ) );
@@ -1223,6 +1260,7 @@ class TDWP_Prize_Calculator_Page {
 								<option value="chip"><?php esc_html_e( 'Chip Chop (Proportional)', 'poker-tournament-import' ); ?></option>
 								<option value="icm"><?php esc_html_e( 'ICM (Independent Chip Model)', 'poker-tournament-import' ); ?></option>
 								<option value="even"><?php esc_html_e( 'Even Chop', 'poker-tournament-import' ); ?></option>
+								<option value="custom"><?php esc_html_e( 'Custom (Enter Amounts)', 'poker-tournament-import' ); ?></option>
 							</select>
 						</td>
 					</tr>
