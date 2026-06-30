@@ -3,7 +3,8 @@
  * Player Registration Class
  *
  * Handles frontend player registration via shortcode.
- * Provides form rendering, validation, and player creation.
+ * Provides form rendering, validation, player creation, and (when a
+ * tournament_id is supplied) tournament-specific capacity / waitlist logic.
  *
  * @package Poker_Tournament_Import
  * @since 3.0.0
@@ -74,10 +75,10 @@ class TDWP_Player_Registration {
 				'ajaxUrl' => admin_url( 'admin-ajax.php' ),
 				'nonce'   => wp_create_nonce( 'tdwp_player_registration' ),
 				'i18n'    => array(
-					'requiredName'  => __( 'Please enter your name.', 'poker-tournament-import' ),
-					'requiredEmail' => __( 'Please enter a valid email address.', 'poker-tournament-import' ),
+					'requiredName'    => __( 'Please enter your name.', 'poker-tournament-import' ),
+					'requiredEmail'   => __( 'Please enter a valid email address.', 'poker-tournament-import' ),
 					'errorSubmitting' => __( 'Error submitting registration. Please try again.', 'poker-tournament-import' ),
-					'successMessage' => __( 'Registration successful! Thank you for registering.', 'poker-tournament-import' ),
+					'successMessage'  => __( 'Registration successful! Thank you for registering.', 'poker-tournament-import' ),
 				),
 			)
 		);
@@ -85,6 +86,9 @@ class TDWP_Player_Registration {
 
 	/**
 	 * Render registration form shortcode
+	 *
+	 * Accepts an optional tournament_id attribute. When supplied, remaining
+	 * capacity is displayed and over-capacity registrations are waitlisted.
 	 *
 	 * @since 3.0.0
 	 *
@@ -99,16 +103,48 @@ class TDWP_Player_Registration {
 				'require_phone'   => 'no',
 				'show_bio'        => 'no',
 				'success_message' => __( 'Thank you for registering! We will contact you soon.', 'poker-tournament-import' ),
+				'tournament_id'   => 0,
 			),
 			$atts,
 			'player_registration'
 		);
+
+		$tournament_id = absint( $atts['tournament_id'] );
+		$capacity_info = $this->get_capacity_info( $tournament_id );
 
 		ob_start();
 		?>
 		<div class="tdwp-player-registration-form">
 			<?php if ( ! empty( $atts['title'] ) ) : ?>
 				<h2 class="registration-title"><?php echo esc_html( $atts['title'] ); ?></h2>
+			<?php endif; ?>
+
+			<?php if ( $tournament_id > 0 ) : ?>
+				<div class="tdwp-capacity-notice">
+					<?php if ( $capacity_info['is_unlimited'] ) : ?>
+						<?php /* unlimited — show nothing */ ?>
+					<?php elseif ( $capacity_info['is_full'] ) : ?>
+						<p class="capacity-waitlist">
+							<?php esc_html_e( 'This tournament is full — you will be added to the waiting list.', 'poker-tournament-import' ); ?>
+						</p>
+					<?php elseif ( 1 === $capacity_info['remaining'] ) : ?>
+						<p class="capacity-low">
+							<?php esc_html_e( '1 seat remaining', 'poker-tournament-import' ); ?>
+						</p>
+					<?php else : ?>
+						<p class="capacity-available">
+							<?php
+							echo esc_html(
+								sprintf(
+									/* translators: %d: number of available seats */
+									_n( '%d seat remaining', '%d seats remaining', $capacity_info['remaining'], 'poker-tournament-import' ),
+									$capacity_info['remaining']
+								)
+							);
+							?>
+						</p>
+					<?php endif; ?>
+				</div>
 			<?php endif; ?>
 
 			<div class="registration-messages">
@@ -122,6 +158,10 @@ class TDWP_Player_Registration {
 
 			<form class="player-registration-form" method="post">
 				<?php wp_nonce_field( 'tdwp_player_registration', 'player_registration_nonce' ); ?>
+
+				<?php if ( $tournament_id > 0 ) : ?>
+					<input type="hidden" name="tournament_id" value="<?php echo esc_attr( $tournament_id ); ?>">
+				<?php endif; ?>
 
 				<div class="form-row">
 					<label for="player_name">
@@ -232,26 +272,136 @@ class TDWP_Player_Registration {
 			'status' => 'pending', // Pending review by default.
 		);
 
+		$tournament_id = isset( $_POST['tournament_id'] ) ? absint( $_POST['tournament_id'] ) : 0;
+
 		// Validate required fields.
 		if ( empty( $player_data['name'] ) ) {
 			wp_send_json_error( array( 'message' => __( 'Name is required.', 'poker-tournament-import' ) ) );
 		}
 
-		// Create player.
+		// Create player profile.
 		$result = $this->player_manager->create( $player_data );
 
 		if ( is_wp_error( $result ) ) {
 			wp_send_json_error( array( 'message' => $result->get_error_message() ) );
 		}
 
-		// Send notification email to admin (optional).
+		// Determine registration status and optionally link to a tournament.
+		$registration_status = 'confirmed';
+		$waitlist_position   = 0;
+
+		if ( $tournament_id > 0 && class_exists( 'TDWP_Tournament_Player_Manager' ) ) {
+			$capacity_info = $this->get_capacity_info( $tournament_id );
+
+			if ( $capacity_info['is_full'] ) {
+				$registration_status = 'waitlisted';
+				$waitlist_position   = TDWP_Tournament_Player_Manager::get_next_waitlist_position( $tournament_id );
+
+				TDWP_Tournament_Player_Manager::add_player(
+					$tournament_id,
+					$result,
+					array(
+						'status'           => 'waitlisted',
+						'waitlist_position' => $waitlist_position,
+					)
+				);
+			} else {
+				TDWP_Tournament_Player_Manager::add_player(
+					$tournament_id,
+					$result,
+					array( 'status' => 'registered' )
+				);
+			}
+		}
+
+		// Retrieve tournament name (if applicable) for emails.
+		$tournament_name = '';
+		if ( $tournament_id > 0 ) {
+			$tournament_post = get_post( $tournament_id );
+			if ( $tournament_post ) {
+				$tournament_name = $tournament_post->post_title;
+			}
+		}
+
+		// Send notification email to admin.
 		$this->send_admin_notification( $player_data, $result );
+
+		// Send confirmation email to the registrant (cma.2).
+		if ( ! empty( $player_data['email'] ) ) {
+			$this->send_registrant_confirmation( $player_data, $registration_status, $tournament_name, $waitlist_position );
+		}
+
+		$success_message = 'waitlisted' === $registration_status
+			? __( 'You have been added to the waiting list. We will contact you if a spot opens up.', 'poker-tournament-import' )
+			: __( 'Registration successful! Thank you for registering.', 'poker-tournament-import' );
 
 		wp_send_json_success(
 			array(
-				'message'   => __( 'Registration successful! Thank you for registering.', 'poker-tournament-import' ),
-				'player_id' => $result,
+				'message'              => $success_message,
+				'player_id'            => $result,
+				'registration_status'  => $registration_status,
+				'waitlist_position'    => $waitlist_position,
 			)
+		);
+	}
+
+	/**
+	 * Get capacity information for a tournament
+	 *
+	 * When no tournament_id is provided (0) or no max_players is configured,
+	 * the tournament is treated as unlimited. This preserves backward
+	 * compatibility with tournaments that predate the capacity feature.
+	 *
+	 * @since 3.5.0
+	 *
+	 * @param int $tournament_id Tournament post ID (0 = no tournament).
+	 * @return array {
+	 *     @type bool $is_unlimited True when capacity is unconfigured.
+	 *     @type int  $max         Maximum players (0 = unlimited).
+	 *     @type int  $confirmed   Current confirmed registration count.
+	 *     @type int  $remaining   Available seats (0 when full or unlimited).
+	 *     @type bool $is_full     True when confirmed >= max and max > 0.
+	 * }
+	 */
+	public function get_capacity_info( $tournament_id ) {
+		$tournament_id = absint( $tournament_id );
+
+		if ( 0 === $tournament_id ) {
+			return array(
+				'is_unlimited' => true,
+				'max'          => 0,
+				'confirmed'    => 0,
+				'remaining'    => 0,
+				'is_full'      => false,
+			);
+		}
+
+		$max_players = absint( get_post_meta( $tournament_id, '_max_players', true ) );
+
+		if ( 0 === $max_players ) {
+			return array(
+				'is_unlimited' => true,
+				'max'          => 0,
+				'confirmed'    => 0,
+				'remaining'    => 0,
+				'is_full'      => false,
+			);
+		}
+
+		if ( class_exists( 'TDWP_Tournament_Player_Manager' ) ) {
+			$confirmed = TDWP_Tournament_Player_Manager::get_confirmed_count( $tournament_id );
+		} else {
+			$confirmed = 0;
+		}
+
+		$remaining = max( 0, $max_players - $confirmed );
+
+		return array(
+			'is_unlimited' => false,
+			'max'          => $max_players,
+			'confirmed'    => $confirmed,
+			'remaining'    => $remaining,
+			'is_full'      => $confirmed >= $max_players,
 		);
 	}
 
@@ -281,5 +431,81 @@ class TDWP_Player_Registration {
 		);
 
 		wp_mail( $admin_email, $subject, $message );
+	}
+
+	/**
+	 * Send confirmation email to the registrant (cma.2)
+	 *
+	 * Sends a translatable, escaped email to the address the player supplied,
+	 * reflecting whether they are confirmed or waitlisted.
+	 *
+	 * @since 3.5.0
+	 *
+	 * @param array  $player_data         Player data (name, email).
+	 * @param string $registration_status 'confirmed' or 'waitlisted'.
+	 * @param string $tournament_name     Tournament name, empty when not tournament-linked.
+	 * @param int    $waitlist_position   Waitlist position (only meaningful when waitlisted).
+	 */
+	public function send_registrant_confirmation( $player_data, $registration_status, $tournament_name = '', $waitlist_position = 0 ) {
+		$to   = sanitize_email( $player_data['email'] );
+		$name = sanitize_text_field( $player_data['name'] );
+
+		if ( empty( $to ) ) {
+			return;
+		}
+
+		$site_name = get_bloginfo( 'name' );
+
+		if ( 'waitlisted' === $registration_status ) {
+			$subject = sprintf(
+				/* translators: %s: site name */
+				__( '[%s] You are on the waiting list', 'poker-tournament-import' ),
+				$site_name
+			);
+
+			if ( ! empty( $tournament_name ) ) {
+				$body = sprintf(
+					/* translators: 1: player name, 2: tournament name, 3: waitlist position, 4: site name */
+					__( "Hi %1\$s,\n\nThank you for registering for %2\$s.\n\nThe tournament is currently full. You have been added to the waiting list at position #%3\$d.\n\nWe will contact you if a spot becomes available.\n\n%4\$s", 'poker-tournament-import' ),
+					$name,
+					$tournament_name,
+					(int) $waitlist_position,
+					$site_name
+				);
+			} else {
+				$body = sprintf(
+					/* translators: 1: player name, 2: waitlist position, 3: site name */
+					__( "Hi %1\$s,\n\nThank you for registering. The tournament is currently full. You have been added to the waiting list at position #%2\$d.\n\nWe will contact you if a spot becomes available.\n\n%3\$s", 'poker-tournament-import' ),
+					$name,
+					(int) $waitlist_position,
+					$site_name
+				);
+			}
+		} else {
+			$subject = sprintf(
+				/* translators: %s: site name */
+				__( '[%s] Registration confirmed', 'poker-tournament-import' ),
+				$site_name
+			);
+
+			if ( ! empty( $tournament_name ) ) {
+				$body = sprintf(
+					/* translators: 1: player name, 2: tournament name, 3: site name */
+					__( "Hi %1\$s,\n\nYour registration for %2\$s has been confirmed.\n\nWe look forward to seeing you!\n\n%3\$s", 'poker-tournament-import' ),
+					$name,
+					$tournament_name,
+					$site_name
+				);
+			} else {
+				$body = sprintf(
+					/* translators: 1: player name, 2: site name */
+					__( "Hi %1\$s,\n\nYour registration has been confirmed. Thank you!\n\n%2\$s", 'poker-tournament-import' ),
+					$name,
+					$site_name
+				);
+			}
+		}
+
+		wp_mail( $to, $subject, $body );
 	}
 }

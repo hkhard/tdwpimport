@@ -44,7 +44,7 @@ class TDWP_Database_Schema {
 	 *
 	 * @var string
 	 */
-	const DB_VERSION = '3.4.1';
+	const DB_VERSION = '3.5.0';
 
 	/**
 	 * Option name for storing database version
@@ -250,6 +250,11 @@ class TDWP_Database_Schema {
 		// Run v3.4.1 Display System Enhancement migrations
 		if ( version_compare( $from_version, '3.4.1', '<' ) ) {
 			self::migrate_display_screens_v341();
+		}
+
+		// Run v3.5.0 Player Registration — waitlist position column
+		if ( version_compare( $from_version, '3.5.0', '<' ) ) {
+			self::migrate_waitlist_position_v350();
 		}
 	}
 
@@ -706,6 +711,7 @@ class TDWP_Database_Schema {
 			chip_count int DEFAULT 0,
 			notes text,
 			bustout_timestamp datetime DEFAULT NULL,
+			waitlist_position int DEFAULT NULL,
 			withdrawal_status varchar(20) DEFAULT 'active',
 			withdrawal_timestamp datetime DEFAULT NULL,
 			elimination_reason varchar(20) DEFAULT NULL,
@@ -1534,6 +1540,37 @@ class TDWP_Database_Schema {
 		$indexes = $wpdb->get_results( "SHOW INDEX FROM `{$table}` WHERE Key_name = '{$index_name}'" );
 
 		return ! empty( $indexes );
+	}
+
+	/**
+	 * Add waitlist_position column to tdwp_tournament_players (v3.5.0)
+	 *
+	 * Idempotent: checks column existence before altering.
+	 *
+	 * @since 3.5.0
+	 * @return bool True on success
+	 */
+	private static function migrate_waitlist_position_v350() {
+		global $wpdb;
+		$table = $wpdb->prefix . 'tdwp_tournament_players';
+
+		// Bail early if table doesn't exist yet — create_tables() will handle it.
+		if ( $wpdb->get_var( "SHOW TABLES LIKE '{$table}'" ) !== $table ) {
+			return true;
+		}
+
+		// Check if column already exists.
+		$col_exists = $wpdb->get_var(
+			"SHOW COLUMNS FROM {$table} LIKE 'waitlist_position'"
+		);
+
+		if ( ! $col_exists ) {
+			$wpdb->query(
+				"ALTER TABLE {$table} ADD COLUMN waitlist_position INT DEFAULT NULL AFTER bustout_timestamp"
+			);
+		}
+
+		return true;
 	}
 
 	/**

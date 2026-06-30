@@ -13,6 +13,8 @@ define( 'POKER_TOURNAMENT_IMPORT_TESTING', true );
 
 $plugin_dir = dirname( __DIR__ ) . '/';
 define( 'POKER_TOURNAMENT_IMPORT_PLUGIN_DIR', $plugin_dir );
+define( 'POKER_TOURNAMENT_IMPORT_PLUGIN_URL', 'https://example.com/wp-content/plugins/poker-tournament-import/' );
+define( 'POKER_TOURNAMENT_IMPORT_VERSION', '3.5.0-test' );
 
 // Route explicit error_log() calls to a file instead of the SAPI logger so the
 // (pre-existing) diagnostic error_log() spam in the parser/formula code is not
@@ -44,3 +46,5 @@ require $plugin_dir . 'includes/class-tdt-domain-mapper.php';
 require $plugin_dir . 'includes/class-parser.php';
 require $plugin_dir . 'includes/class-statistics-engine.php';
 require $plugin_dir . 'includes/tournament-manager/class-blind-schedule.php';
+require $plugin_dir . 'includes/tournament-manager/class-tournament-player-manager.php';
+require $plugin_dir . 'includes/class-player-registration.php';

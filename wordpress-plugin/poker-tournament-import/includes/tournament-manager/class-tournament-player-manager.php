@@ -1369,6 +1369,55 @@ class TDWP_Tournament_Player_Manager {
 	}
 
 	/**
+	 * Get count of confirmed (non-waitlisted, non-eliminated) registrations
+	 *
+	 * Used for capacity checks on the frontend registration form.
+	 * Counts statuses that occupy a real seat: registered, paid, active, checked_in.
+	 *
+	 * @since 3.5.0
+	 * @param int $tournament_id Tournament ID.
+	 * @return int Number of confirmed registrations.
+	 */
+	public static function get_confirmed_count( $tournament_id ) {
+		global $wpdb;
+		$table = $wpdb->prefix . 'tdwp_tournament_players';
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
+		$count = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$table} WHERE tournament_id = %d AND status IN ('registered','paid','active','checked_in')",
+				(int) $tournament_id
+			)
+		);
+
+		return (int) $count;
+	}
+
+	/**
+	 * Get next waitlist position for a tournament
+	 *
+	 * Returns the next sequential position a waitlisted registrant should receive.
+	 *
+	 * @since 3.5.0
+	 * @param int $tournament_id Tournament ID.
+	 * @return int Next waitlist position (1-based).
+	 */
+	public static function get_next_waitlist_position( $tournament_id ) {
+		global $wpdb;
+		$table = $wpdb->prefix . 'tdwp_tournament_players';
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
+		$max = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COALESCE(MAX(waitlist_position), 0) FROM {$table} WHERE tournament_id = %d AND status = 'waitlisted'",
+				(int) $tournament_id
+			)
+		);
+
+		return (int) $max + 1;
+	}
+
+	/**
 	 * Get bustout timeline for tournament
 	 *
 	 * Returns detailed timeline of eliminations with timestamps and positions
