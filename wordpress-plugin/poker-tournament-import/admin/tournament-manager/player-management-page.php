@@ -54,6 +54,8 @@ class TDWP_Player_Management_Page {
 		add_action( 'wp_ajax_tdwp_quick_edit_player', array( $this, 'ajax_quick_edit_player' ) );
 		add_action( 'wp_ajax_tdwp_search_players', array( $this, 'ajax_search_players' ) );
 		add_action( 'wp_ajax_tdwp_import_players', array( $this, 'ajax_import_players' ) );
+		add_action( 'wp_ajax_tdwp_merge_players', array( $this, 'ajax_merge_players' ) );
+		add_action( 'wp_ajax_tdwp_export_players_db', array( $this, 'ajax_export_players_db' ) );
 	}
 
 	/**
@@ -144,6 +146,9 @@ class TDWP_Player_Management_Page {
 				break;
 			case 'delete':
 				$this->handle_delete_player();
+				break;
+			case 'merge':
+				$this->handle_merge_player();
 				break;
 		}
 	}
@@ -283,6 +288,44 @@ class TDWP_Player_Management_Page {
 	}
 
 	/**
+	 * Handle merge player (form POST).
+	 *
+	 * @since 3.6.1
+	 */
+	private function handle_merge_player() {
+		$source_id = isset( $_POST['merge_source_id'] ) ? absint( $_POST['merge_source_id'] ) : 0;
+		$target_id = isset( $_POST['merge_target_id'] ) ? absint( $_POST['merge_target_id'] ) : 0;
+
+		$result = $this->player_manager->merge_players( $source_id, $target_id );
+
+		if ( is_wp_error( $result ) ) {
+			wp_redirect(
+				add_query_arg(
+					array(
+						'page'  => 'tdwp-player-management',
+						'tab'   => 'list',
+						'error' => urlencode( $result->get_error_message() ),
+					),
+					admin_url( 'edit.php?post_type=tournament' )
+				)
+			);
+			exit;
+		}
+
+		wp_redirect(
+			add_query_arg(
+				array(
+					'page'    => 'tdwp-player-management',
+					'tab'     => 'list',
+					'message' => 'merged',
+				),
+				admin_url( 'edit.php?post_type=tournament' )
+			)
+		);
+		exit;
+	}
+
+	/**
 	 * Render admin page
 	 *
 	 * @since 3.0.0
@@ -359,6 +402,10 @@ class TDWP_Player_Management_Page {
 					<a href="<?php echo esc_url( $this->get_tab_url( 'add-edit' ) ); ?>" class="button button-primary">
 						<span class="dashicons dashicons-plus-alt"></span>
 						<?php esc_html_e( 'Add New Player', 'poker-tournament-import' ); ?>
+					</a>
+					<a href="<?php echo esc_url( $this->get_export_db_url() ); ?>" class="button">
+						<span class="dashicons dashicons-download"></span>
+						<?php esc_html_e( 'Export Player Database (CSV)', 'poker-tournament-import' ); ?>
 					</a>
 				</div>
 
@@ -471,6 +518,68 @@ class TDWP_Player_Management_Page {
 			<input type="hidden" name="tdwp_player_action" value="delete">
 			<input type="hidden" name="player_id" id="delete-player-id">
 		</form>
+
+		<?php $this->render_merge_panel(); ?>
+		<?php
+	}
+
+	/**
+	 * Render the duplicate-merge panel.
+	 *
+	 * Lets an admin merge one player (source) into another (target). The source's
+	 * participation and ROI rows are re-pointed to the target, then the source
+	 * record is removed.
+	 *
+	 * @since 3.6.1
+	 */
+	private function render_merge_panel() {
+		// Build a roster for the selectors (single page large enough for typical sites).
+		$roster = $this->player_manager->get_all(
+			array(
+				'page'     => 1,
+				'per_page' => 500,
+				'orderby'  => 'title',
+				'order'    => 'ASC',
+			)
+		);
+
+		if ( empty( $roster['players'] ) ) {
+			return;
+		}
+		?>
+		<div class="tdwp-merge-players">
+			<h2><?php esc_html_e( 'Merge Duplicate Players', 'poker-tournament-import' ); ?></h2>
+			<p class="description">
+				<?php esc_html_e( 'Re-points the source player\'s tournament and ROI records to the target player, then deletes the source. This cannot be undone.', 'poker-tournament-import' ); ?>
+			</p>
+			<form method="post" action="" onsubmit="return confirm('<?php echo esc_js( __( 'Merge the source player into the target player? This deletes the source and cannot be undone.', 'poker-tournament-import' ) ); ?>');">
+				<?php wp_nonce_field( 'tdwp_player_form', 'tdwp_player_nonce' ); ?>
+				<input type="hidden" name="tdwp_player_action" value="merge">
+				<label for="merge_source_id"><?php esc_html_e( 'Merge this player (source):', 'poker-tournament-import' ); ?></label>
+				<select name="merge_source_id" id="merge_source_id" required>
+					<option value=""><?php esc_html_e( '— Select —', 'poker-tournament-import' ); ?></option>
+					<?php foreach ( $roster['players'] as $roster_player ) : ?>
+						<option value="<?php echo esc_attr( $roster_player['id'] ); ?>">
+							<?php echo esc_html( $roster_player['name'] ); ?>
+							<?php echo $roster_player['email'] ? ' (' . esc_html( $roster_player['email'] ) . ')' : ''; ?>
+						</option>
+					<?php endforeach; ?>
+				</select>
+				<label for="merge_target_id"><?php esc_html_e( 'into (target):', 'poker-tournament-import' ); ?></label>
+				<select name="merge_target_id" id="merge_target_id" required>
+					<option value=""><?php esc_html_e( '— Select —', 'poker-tournament-import' ); ?></option>
+					<?php foreach ( $roster['players'] as $roster_player ) : ?>
+						<option value="<?php echo esc_attr( $roster_player['id'] ); ?>">
+							<?php echo esc_html( $roster_player['name'] ); ?>
+							<?php echo $roster_player['email'] ? ' (' . esc_html( $roster_player['email'] ) . ')' : ''; ?>
+						</option>
+					<?php endforeach; ?>
+				</select>
+				<button type="submit" class="button button-secondary">
+					<?php esc_html_e( 'Merge Players', 'poker-tournament-import' ); ?>
+				</button>
+			</form>
+		</div>
 		<?php
 	}
 
@@ -686,6 +795,8 @@ class TDWP_Player_Management_Page {
 						<li><strong><?php esc_html_e( 'email', 'poker-tournament-import' ); ?></strong> - <?php esc_html_e( 'Email address (optional)', 'poker-tournament-import' ); ?></li>
 						<li><strong><?php esc_html_e( 'phone', 'poker-tournament-import' ); ?></strong> - <?php esc_html_e( 'Phone number (optional)', 'poker-tournament-import' ); ?></li>
 						<li><strong><?php esc_html_e( 'uuid', 'poker-tournament-import' ); ?></strong> - <?php esc_html_e( 'Unique ID (optional, auto-generated if blank)', 'poker-tournament-import' ); ?></li>
+						<li><strong><?php esc_html_e( 'Buy-in Status', 'poker-tournament-import' ); ?></strong> - <?php esc_html_e( 'Buy-in status, e.g. Paid/Unpaid (optional)', 'poker-tournament-import' ); ?></li>
+						<li><strong><?php esc_html_e( 'Seat Number', 'poker-tournament-import' ); ?></strong> - <?php esc_html_e( 'Assigned seat number (optional)', 'poker-tournament-import' ); ?></li>
 					</ul>
 					<li><?php esc_html_e( 'Select your file and configure import options below.', 'poker-tournament-import' ); ?></li>
 					<li><?php esc_html_e( 'Click "Preview Import" to validate data before importing.', 'poker-tournament-import' ); ?></li>
@@ -882,6 +993,65 @@ class TDWP_Player_Management_Page {
 	}
 
 	/**
+	 * AJAX: Merge a source player into a target player.
+	 *
+	 * @since 3.6.1
+	 */
+	public function ajax_merge_players() {
+		check_ajax_referer( 'tdwp_player_management', 'nonce' );
+
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( array( 'message' => __( 'Permission denied.', 'poker-tournament-import' ) ) );
+		}
+
+		$source_id = isset( $_POST['source_id'] ) ? absint( $_POST['source_id'] ) : 0;
+		$target_id = isset( $_POST['target_id'] ) ? absint( $_POST['target_id'] ) : 0;
+
+		if ( ! $source_id || ! $target_id ) {
+			wp_send_json_error( array( 'message' => __( 'Both source and target players are required.', 'poker-tournament-import' ) ) );
+		}
+
+		$result = $this->player_manager->merge_players( $source_id, $target_id );
+
+		if ( is_wp_error( $result ) ) {
+			wp_send_json_error( array( 'message' => $result->get_error_message() ) );
+		}
+
+		wp_send_json_success(
+			array(
+				'message'   => __( 'Players merged successfully.', 'poker-tournament-import' ),
+				'repointed' => $result['repointed'],
+			)
+		);
+	}
+
+	/**
+	 * AJAX: Stream the player database as a CSV download.
+	 *
+	 * Linked from the list view as a GET download; nonce and capability are both
+	 * verified before any data is emitted.
+	 *
+	 * @since 3.6.1
+	 */
+	public function ajax_export_players_db() {
+		check_ajax_referer( 'tdwp_player_management', 'nonce' );
+
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You do not have permission to perform this action.', 'poker-tournament-import' ) );
+		}
+
+		$csv      = TDWP_Player_DB_Exporter::generate();
+		$filename = 'player-database-' . gmdate( 'Ymd-His' ) . '.csv';
+
+		nocache_headers();
+		header( 'Content-Type: text/csv; charset=utf-8' );
+		header( 'Content-Disposition: attachment; filename="' . $filename . '"' );
+
+		echo $csv; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- CSV body, not HTML.
+		exit;
+	}
+
+	/**
 	 * Handle import preview
 	 *
 	 * @since 3.0.0
@@ -942,6 +1112,7 @@ class TDWP_Player_Management_Page {
 				'created' => __( 'Player created successfully.', 'poker-tournament-import' ),
 				'updated' => __( 'Player updated successfully.', 'poker-tournament-import' ),
 				'deleted' => __( 'Player deleted successfully.', 'poker-tournament-import' ),
+				'merged'  => __( 'Players merged successfully.', 'poker-tournament-import' ),
 			);
 
 			if ( isset( $messages[ $message ] ) ) {
@@ -971,6 +1142,24 @@ class TDWP_Player_Management_Page {
 				'tab'       => $tab,
 			),
 			admin_url( 'edit.php' )
+		);
+	}
+
+	/**
+	 * Get the nonced player-database CSV export URL.
+	 *
+	 * @since 3.6.1
+	 *
+	 * @return string Export download URL.
+	 */
+	private function get_export_db_url() {
+		return wp_nonce_url(
+			add_query_arg(
+				array( 'action' => 'tdwp_export_players_db' ),
+				admin_url( 'admin-ajax.php' )
+			),
+			'tdwp_player_management',
+			'nonce'
 		);
 	}
 

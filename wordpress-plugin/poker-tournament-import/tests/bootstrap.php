@@ -48,3 +48,8 @@ require $plugin_dir . 'includes/class-statistics-engine.php';
 require $plugin_dir . 'includes/tournament-manager/class-blind-schedule.php';
 require $plugin_dir . 'includes/tournament-manager/class-tournament-player-manager.php';
 require $plugin_dir . 'includes/class-player-registration.php';
+
+// Player CRUD, CSV importer, and player-database exporter (cma.1 / .6 / .7).
+require $plugin_dir . 'includes/tournament-manager/class-player-manager.php';
+require $plugin_dir . 'admin/tournament-manager/class-player-importer.php';
+require $plugin_dir . 'includes/tournament-manager/class-player-db-exporter.php';

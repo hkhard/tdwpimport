@@ -107,7 +107,7 @@ class TDWP_Player_Importer {
 				continue;
 			}
 
-			$row = str_getcsv( $line );
+			$row = str_getcsv( $line, ',', '"', '\\' );
 			$data[] = $row;
 		}
 
@@ -193,6 +193,16 @@ class TDWP_Player_Importer {
 				$player_data['uuid'] = trim( $row[ $column_map['uuid'] ] );
 			}
 
+			// Buy-in Status (optional).
+			if ( isset( $column_map['buyin_status'] ) && isset( $row[ $column_map['buyin_status'] ] ) ) {
+				$player_data['buyin_status'] = trim( $row[ $column_map['buyin_status'] ] );
+			}
+
+			// Seat Number (optional).
+			if ( isset( $column_map['seat_number'] ) && isset( $row[ $column_map['seat_number'] ] ) ) {
+				$player_data['seat_number'] = trim( $row[ $column_map['seat_number'] ] );
+			}
+
 			// Validate row.
 			$validation = $this->validate_import_row( $player_data, $row_number );
 
@@ -243,6 +253,10 @@ class TDWP_Player_Importer {
 				$map['phone'] = $index;
 			} elseif ( in_array( $normalized, array( 'uuid', 'id', 'player_uuid', 'player_id' ), true ) ) {
 				$map['uuid'] = $index;
+			} elseif ( in_array( $normalized, array( 'buy-in status', 'buyin status', 'buy_in_status', 'buyin_status', 'buy-in', 'buyin' ), true ) ) {
+				$map['buyin_status'] = $index;
+			} elseif ( in_array( $normalized, array( 'seat number', 'seat_number', 'seat', 'seat no', 'seat #' ), true ) ) {
+				$map['seat_number'] = $index;
 			}
 		}
 

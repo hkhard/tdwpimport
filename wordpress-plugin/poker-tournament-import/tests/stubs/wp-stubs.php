@@ -24,6 +24,7 @@ $GLOBALS['tdwp_test_options']  = array();
 $GLOBALS['tdwp_test_actions']  = array();
 $GLOBALS['tdwp_test_cron']     = array();
 $GLOBALS['tdwp_test_mail']     = array();
+$GLOBALS['tdwp_test_posts']    = array();
 
 /**
  * Reset all in-memory test state. Call from setUp().
@@ -36,6 +37,7 @@ function tdwp_test_reset() {
 	$GLOBALS['tdwp_test_transients'] = array();
 	$GLOBALS['tdwp_test_cache']      = array();
 	$GLOBALS['tdwp_test_mail']       = array();
+	$GLOBALS['tdwp_test_posts']      = array();
 	if ( isset( $GLOBALS['wpdb'] ) && $GLOBALS['wpdb'] instanceof TDWP_Fake_WPDB ) {
 		$GLOBALS['wpdb']->reset();
 	}
@@ -83,6 +85,48 @@ if ( ! function_exists( 'update_post_meta' ) ) {
 	function update_post_meta( $post_id, $key, $value ) {
 		$GLOBALS['tdwp_test_meta'][ $post_id ][ $key ] = $value;
 		return true;
+	}
+}
+
+if ( ! function_exists( 'get_post' ) ) {
+	function get_post( $post_id ) {
+		return $GLOBALS['tdwp_test_posts'][ $post_id ] ?? null;
+	}
+}
+
+if ( ! function_exists( 'wp_delete_post' ) ) {
+	function wp_delete_post( $post_id, $force_delete = false ) {
+		if ( ! isset( $GLOBALS['tdwp_test_posts'][ $post_id ] ) ) {
+			return false;
+		}
+		$post = $GLOBALS['tdwp_test_posts'][ $post_id ];
+		unset( $GLOBALS['tdwp_test_posts'][ $post_id ] );
+		return $post;
+	}
+}
+
+if ( ! function_exists( 'get_posts' ) ) {
+	// No fixtures wired for meta_query lookups in the harness; report "none found".
+	function get_posts( $args = array() ) {
+		return array();
+	}
+}
+
+if ( ! function_exists( 'wp_strip_all_tags' ) ) {
+	function wp_strip_all_tags( $string, $remove_breaks = false ) {
+		return trim( strip_tags( (string) $string ) );
+	}
+}
+
+/** Test helper: register a fake 'player' post the manager can resolve. */
+function tdwp_test_register_player( $post_id, $uuid = '', $name = 'Player', $type = 'player' ) {
+	$GLOBALS['tdwp_test_posts'][ $post_id ] = (object) array(
+		'ID'        => $post_id,
+		'post_type' => $type,
+		'post_title' => $name,
+	);
+	if ( '' !== $uuid ) {
+		update_post_meta( $post_id, 'player_uuid', $uuid );
 	}
 }
 
@@ -176,6 +220,12 @@ if ( ! function_exists( 'sanitize_email' ) ) {
 	function sanitize_email( $email ) {
 		$email = (string) $email;
 		return filter_var( $email, FILTER_VALIDATE_EMAIL ) ? $email : '';
+	}
+}
+
+if ( ! function_exists( 'is_email' ) ) {
+	function is_email( $email ) {
+		return (bool) filter_var( (string) $email, FILTER_VALIDATE_EMAIL );
 	}
 }
 
@@ -646,6 +696,54 @@ class TDWP_Fake_WPDB {
 			return $this->delete_from( $this->legacy_rows, $where );
 		}
 		return false;
+	}
+
+	/**
+	 * Emulate $wpdb->update for the data-mart tables the merge re-points.
+	 * Returns the number of rows whose columns were changed.
+	 */
+	public function update( $table, $data, $where, $format = null, $where_format = null ) {
+		if ( stripos( $table, 'poker_player_roi' ) !== false ) {
+			return $this->update_in( $this->roi_rows, $data, $where );
+		}
+		// poker_tournament_players (must be checked after the more specific ROI table).
+		if ( stripos( $table, 'poker_tournament_players' ) !== false ) {
+			return $this->update_in( $this->legacy_rows, $data, $where );
+		}
+		return false;
+	}
+
+	/** Shared update-by-where for the in-memory row stores (mutates by reference). */
+	private function update_in( array &$store, array $data, array $where ) {
+		$changed = 0;
+		foreach ( $store as $id => $row ) {
+			$match = true;
+			foreach ( $where as $col => $val ) {
+				if ( ! isset( $row[ $col ] ) || (string) $row[ $col ] !== (string) $val ) {
+					$match = false;
+					break;
+				}
+			}
+			if ( $match ) {
+				$store[ $id ] = array_merge( $row, $data );
+				$changed++;
+			}
+		}
+		return $changed;
+	}
+
+	/** Test helper: seed a row in the legacy participation table. */
+	public function seed_legacy_row( array $row ) {
+		$this->auto_id++;
+		$row['id']                           = $this->auto_id;
+		$this->legacy_rows[ $this->auto_id ] = $row;
+	}
+
+	/** Test helper: seed a row in the ROI table. */
+	public function seed_roi_row( array $row ) {
+		$this->auto_id_roi++;
+		$row['id']                            = $this->auto_id_roi;
+		$this->roi_rows[ $this->auto_id_roi ] = $row;
 	}
 
 	/**
