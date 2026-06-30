@@ -33,6 +33,10 @@ class Poker_Tournament_Import_Admin {
         add_action('wp_ajax_tdwp_pv_preview_formula', array($this, 'ajax_pv_preview_formula'));
         add_action('wp_ajax_tdwp_pv_apply_formula', array($this, 'ajax_pv_apply_formula'));
         add_action('wp_ajax_tdwp_pv_get_tournament_health', array($this, 'ajax_pv_get_tournament_health'));
+
+        // Points adjustments (tdwp-31i): manual per-player override + audit log.
+        add_action('wp_ajax_tdwp_save_points_adjustment', array($this, 'ajax_save_points_adjustment'));
+        add_action('wp_ajax_tdwp_get_tournament_players_for_adjustment', array($this, 'ajax_get_tournament_players_for_adjustment'));
     }
 
     /**
@@ -117,6 +121,15 @@ class Poker_Tournament_Import_Admin {
             'manage_options',
             'poker-points-verification',
             array($this, 'render_points_verification_page')
+        );
+
+        add_submenu_page(
+            'poker-tournament-import',
+            __('Points Adjustments', 'poker-tournament-import'),
+            __('Points Adjustments', 'poker-tournament-import'),
+            'manage_options',
+            'poker-points-adjustments',
+            array($this, 'render_points_adjustments_page')
         );
     }
 
@@ -364,6 +377,39 @@ class Poker_Tournament_Import_Admin {
                         'estimated'    => __('Monies are estimated from buy-in × players.', 'poker-tournament-import'),
                         'error'        => __('Could not calculate. Please try again.', 'poker-tournament-import'),
                         'confirmApply' => __('Apply this formula and overwrite stored points? This recomputes season standings.', 'poker-tournament-import'),
+                    ),
+                )
+            );
+        }
+
+        // Points adjustments page assets (tdwp-31i).
+        if (strpos($hook, 'poker-points-adjustments') !== false) {
+            wp_enqueue_style(
+                'tdwp-points-verifier',
+                POKER_TOURNAMENT_IMPORT_PLUGIN_URL . 'admin/assets/css/points-verifier.css',
+                array(),
+                POKER_TOURNAMENT_IMPORT_VERSION
+            );
+            wp_enqueue_script(
+                'tdwp-points-adjustments',
+                POKER_TOURNAMENT_IMPORT_PLUGIN_URL . 'admin/assets/js/points-adjustments.js',
+                array('jquery'),
+                POKER_TOURNAMENT_IMPORT_VERSION,
+                true
+            );
+            wp_localize_script(
+                'tdwp-points-adjustments',
+                'tdwpPA',
+                array(
+                    'ajaxUrl' => admin_url('admin-ajax.php'),
+                    'nonce'   => wp_create_nonce('tdwp_points_adjust'),
+                    'strings' => array(
+                        'selectPlayer' => __('Select a player', 'poker-tournament-import'),
+                        'current'      => __('current', 'poker-tournament-import'),
+                        'override'     => __('override', 'poker-tournament-import'),
+                        'needReason'   => __('A reason is required.', 'poker-tournament-import'),
+                        'confirm'      => __('Save this points override? Season standings will be recomputed.', 'poker-tournament-import'),
+                        'error'        => __('Request failed. Please try again.', 'poker-tournament-import'),
                     ),
                 )
             );
@@ -4938,6 +4984,113 @@ class Poker_Tournament_Import_Admin {
             )) . '</p>';
         }
         echo '<p><a class="button button-small" href="' . esc_url(admin_url('admin.php?page=poker-points-verification&tournament_id=' . $post->ID)) . '">' . esc_html__('Review Points', 'poker-tournament-import') . '</a></p>';
+    }
+
+    /**
+     * Render the points adjustments admin page.
+     */
+    public function render_points_adjustments_page() {
+        if (!current_user_can('manage_options')) {
+            wp_die(esc_html__('You do not have permission to access this page.', 'poker-tournament-import'));
+        }
+        require POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/class-points-adjustments-page.php';
+    }
+
+    /**
+     * AJAX: list a tournament's players with current points for the override form.
+     */
+    public function ajax_get_tournament_players_for_adjustment() {
+        check_ajax_referer('tdwp_points_adjust', 'nonce');
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(array('message' => __('Permission denied.', 'poker-tournament-import')), 403);
+        }
+        $post_id = isset($_POST['post_id']) ? absint($_POST['post_id']) : 0;
+        if (!$post_id) {
+            wp_send_json_error(array('message' => __('Invalid request.', 'poker-tournament-import')), 400);
+        }
+
+        global $wpdb;
+        $uuid = get_post_meta($post_id, 'tournament_uuid', true);
+        if (empty($uuid)) {
+            wp_send_json_error(array('message' => __('Tournament has no UUID.', 'poker-tournament-import')), 400);
+        }
+        $table = $wpdb->prefix . 'poker_tournament_players';
+        $rows = $wpdb->get_results($wpdb->prepare(
+            "SELECT player_id, finish_position, points FROM {$table} WHERE tournament_id = %s ORDER BY finish_position ASC",
+            $uuid
+        ), ARRAY_A);
+
+        $adjustment_manager = new Poker_Points_Adjustment_Manager();
+        $players = array();
+        foreach ((array) $rows as $row) {
+            $override = $adjustment_manager->get_adjustment($uuid, $row['player_id']);
+            $player_post = get_posts(array(
+                'post_type' => 'player',
+                'posts_per_page' => 1,
+                'meta_query' => array(array('key' => 'player_uuid', 'value' => $row['player_id'], 'compare' => '=')),
+            ));
+            $name = (!empty($player_post) && !empty($player_post[0]->post_title)) ? $player_post[0]->post_title : $row['player_id'];
+            $players[] = array(
+                'player_uuid' => $row['player_id'],
+                'name' => $name,
+                'finish_position' => intval($row['finish_position']),
+                'current_points' => floatval($row['points']),
+                'override' => $override ? floatval($override->adjusted_points) : null,
+            );
+        }
+
+        wp_send_json_success(array('tournament_uuid' => $uuid, 'players' => $players));
+    }
+
+    /**
+     * AJAX: record a manual points adjustment.
+     */
+    public function ajax_save_points_adjustment() {
+        check_ajax_referer('tdwp_points_adjust', 'nonce');
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(array('message' => __('Permission denied.', 'poker-tournament-import')), 403);
+        }
+
+        $post_id = isset($_POST['post_id']) ? absint($_POST['post_id']) : 0;
+        $player_uuid = isset($_POST['player_uuid']) ? sanitize_text_field(wp_unslash($_POST['player_uuid'])) : '';
+        $reason = isset($_POST['reason']) ? sanitize_text_field(wp_unslash($_POST['reason'])) : '';
+        $new_points = isset($_POST['new_points']) ? floatval(wp_unslash($_POST['new_points'])) : null;
+
+        if (!$post_id || empty($player_uuid) || null === $new_points || '' === trim($reason)) {
+            wp_send_json_error(array('message' => __('Tournament, player, new points and a reason are all required.', 'poker-tournament-import')), 400);
+        }
+
+        global $wpdb;
+        $uuid = get_post_meta($post_id, 'tournament_uuid', true);
+        if (empty($uuid)) {
+            wp_send_json_error(array('message' => __('Tournament has no UUID.', 'poker-tournament-import')), 400);
+        }
+        $table = $wpdb->prefix . 'poker_tournament_players';
+        // Snapshot the current effective value as the "original" for the audit row.
+        $current = $wpdb->get_var($wpdb->prepare(
+            "SELECT points FROM {$table} WHERE tournament_id = %s AND player_id = %s",
+            $uuid,
+            $player_uuid
+        ));
+        if (null === $current) {
+            wp_send_json_error(array('message' => __('Player is not part of this tournament.', 'poker-tournament-import')), 400);
+        }
+
+        $adjustment_manager = new Poker_Points_Adjustment_Manager();
+        $insert_id = $adjustment_manager->apply_adjustment($uuid, $player_uuid, floatval($current), $new_points, $reason, get_current_user_id());
+        if (false === $insert_id) {
+            wp_send_json_error(array('message' => __('Could not save the adjustment.', 'poker-tournament-import')), 500);
+        }
+
+        wp_send_json_success(array(
+            'id' => $insert_id,
+            'message' => sprintf(
+                /* translators: 1: old points, 2: new points */
+                __('Override saved: %1$s &rarr; %2$s. Season standings recomputed.', 'poker-tournament-import'),
+                floatval($current),
+                $new_points
+            ),
+        ));
     }
 
     /**

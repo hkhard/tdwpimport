@@ -256,6 +256,15 @@ class Poker_Series_Standings_Calculator {
             return null;
         }
 
+        // Manual points overrides (tdwp-31i): the latest adjustment per
+        // (tournament_uuid, player_uuid) replaces the stored points at
+        // aggregation time, so an override is honored even after a re-import.
+        $adjustment_map = array();
+        if (class_exists('Poker_Points_Adjustment_Manager')) {
+            $adjustment_manager = new Poker_Points_Adjustment_Manager();
+            $adjustment_map = $adjustment_manager->get_adjustment_map($tournament_uuids);
+        }
+
         // Calculate cumulative statistics
         $total_points = 0;
         $total_winnings = 0;
@@ -285,7 +294,12 @@ class Poker_Series_Standings_Calculator {
 
         // Collect tournament results for later formula processing
         foreach ($results as $result) {
-            $total_points += floatval($result->points);
+            $adjustment_key = $result->tournament_id . '|' . $player_id;
+            $effective_points = isset($adjustment_map[$adjustment_key])
+                ? $adjustment_map[$adjustment_key]
+                : floatval($result->points);
+
+            $total_points += $effective_points;
             $total_winnings += floatval($result->winnings);
             $total_hits += intval($result->hits);
 
@@ -296,7 +310,7 @@ class Poker_Series_Standings_Calculator {
                 $worst_finish = $result->finish_position;
             }
 
-            $tournament_points_list[] = floatval($result->points);
+            $tournament_points_list[] = $effective_points;
             $finishes[] = intval($result->finish_position);
 
             // Detect bubble finish (one position outside paid spots)
@@ -787,6 +801,14 @@ class Poker_Series_Standings_Calculator {
             return null;
         }
 
+        // Manual points overrides (tdwp-31i): honor the latest adjustment per
+        // (tournament_uuid, player_uuid) at aggregation time.
+        $adjustment_map = array();
+        if (class_exists('Poker_Points_Adjustment_Manager')) {
+            $adjustment_manager = new Poker_Points_Adjustment_Manager();
+            $adjustment_map = $adjustment_manager->get_adjustment_map($tournament_ids);
+        }
+
         // Calculate cumulative statistics (same logic as series)
         $total_points = 0;
         $total_winnings = 0;
@@ -798,7 +820,12 @@ class Poker_Series_Standings_Calculator {
         $finishes = array();
 
         foreach ($results as $result) {
-            $total_points += floatval($result->points);
+            $adjustment_key = $result->tournament_id . '|' . $player_id;
+            $effective_points = isset($adjustment_map[$adjustment_key])
+                ? $adjustment_map[$adjustment_key]
+                : floatval($result->points);
+
+            $total_points += $effective_points;
             $total_winnings += floatval($result->winnings);
             $total_hits += intval($result->hits);
 
@@ -809,7 +836,7 @@ class Poker_Series_Standings_Calculator {
                 $worst_finish = $result->finish_position;
             }
 
-            $tournament_points_list[] = floatval($result->points);
+            $tournament_points_list[] = $effective_points;
             $finishes[] = intval($result->finish_position);
         }
 
