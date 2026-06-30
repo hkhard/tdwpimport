@@ -53,6 +53,7 @@ class TDWP_Blind_Builder_Page {
 		add_action( 'admin_init', array( $this, 'handle_actions' ) );
 		add_action( 'wp_ajax_tdwp_save_blind_levels', array( $this, 'ajax_save_levels' ) );
 		add_action( 'wp_ajax_tdwp_get_blind_levels', array( $this, 'ajax_get_levels' ) );
+		add_action( 'wp_ajax_tdwp_suggest_blind_schedule', array( $this, 'ajax_suggest_schedule' ) );
 	}
 
 	/**
@@ -112,6 +113,8 @@ class TDWP_Blind_Builder_Page {
 					'errorSaving'        => __( 'Error saving levels. Please try again.', 'poker-tournament-import' ),
 					'errorLoading'       => __( 'Error loading levels. Please refresh the page.', 'poker-tournament-import' ),
 					'levelsSaved'        => __( 'Blind levels saved successfully.', 'poker-tournament-import' ),
+					'errorSuggesting'    => __( 'Error generating suggestion. Please try again.', 'poker-tournament-import' ),
+					'confirmLoadSuggest' => __( 'This will replace your current levels with the generated schedule. Continue?', 'poker-tournament-import' ),
 				),
 			)
 		);
@@ -321,6 +324,37 @@ class TDWP_Blind_Builder_Page {
 			)
 		);
 		exit;
+	}
+
+	/**
+	 * AJAX handler for suggesting a blind schedule
+	 *
+	 * Accepts starting_chips, player_count, desired_duration, and style from
+	 * $_POST and returns a draft schedule (levels array + summary) as JSON.
+	 * The caller (blind-builder-admin.js) loads the draft into the level builder
+	 * for review and editing before the user saves.
+	 *
+	 * @since 3.6.1
+	 */
+	public function ajax_suggest_schedule() {
+		// Verify nonce.
+		check_ajax_referer( 'tdwp_blind_builder', 'nonce' );
+
+		// Check permissions.
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( array( 'message' => __( 'Insufficient permissions.', 'poker-tournament-import' ) ) );
+		}
+
+		$params = array(
+			'starting_chips'   => isset( $_POST['starting_chips'] ) ? absint( $_POST['starting_chips'] ) : 10000,
+			'player_count'     => isset( $_POST['player_count'] ) ? absint( $_POST['player_count'] ) : 9,
+			'desired_duration' => isset( $_POST['desired_duration'] ) ? absint( $_POST['desired_duration'] ) : 180,
+			'style'            => isset( $_POST['style'] ) ? sanitize_key( $_POST['style'] ) : 'standard',
+		);
+
+		$result = TDWP_Blind_Schedule::suggest_schedule( $params );
+
+		wp_send_json_success( $result );
 	}
 
 	/**
@@ -785,6 +819,37 @@ class TDWP_Blind_Builder_Page {
 	private function render_level_builder( $schedule_id, $levels ) {
 		?>
 		<div class="tdwp-level-builder" data-schedule-id="<?php echo esc_attr( $schedule_id ); ?>">
+			<div class="tdwp-suggest-schedule-panel">
+				<h3><?php esc_html_e( 'Suggest Schedule', 'poker-tournament-import' ); ?></h3>
+				<p class="description"><?php esc_html_e( 'Generate a draft blind schedule from your tournament parameters. You can edit or discard it afterwards.', 'poker-tournament-import' ); ?></p>
+				<div class="tdwp-suggest-fields">
+					<label>
+						<?php esc_html_e( 'Starting Chips', 'poker-tournament-import' ); ?>
+						<input type="number" id="suggest-starting-chips" value="10000" min="500" step="500" class="small-text">
+					</label>
+					<label>
+						<?php esc_html_e( 'Players', 'poker-tournament-import' ); ?>
+						<input type="number" id="suggest-player-count" value="9" min="2" max="500" class="small-text">
+					</label>
+					<label>
+						<?php esc_html_e( 'Target Duration (min)', 'poker-tournament-import' ); ?>
+						<input type="number" id="suggest-duration" value="180" min="20" max="1440" class="small-text">
+					</label>
+					<label>
+						<?php esc_html_e( 'Style', 'poker-tournament-import' ); ?>
+						<select id="suggest-style">
+							<option value="turbo"><?php esc_html_e( 'Turbo (~10 min/level)', 'poker-tournament-import' ); ?></option>
+							<option value="standard" selected><?php esc_html_e( 'Standard (~15 min/level)', 'poker-tournament-import' ); ?></option>
+							<option value="deep"><?php esc_html_e( 'Deep Stack (~25 min/level)', 'poker-tournament-import' ); ?></option>
+						</select>
+					</label>
+					<button type="button" class="button button-secondary" id="generate-schedule">
+						<?php esc_html_e( 'Generate', 'poker-tournament-import' ); ?>
+					</button>
+				</div>
+				<p id="suggest-summary" class="tdwp-suggest-summary" style="display:none;"></p>
+			</div>
+
 			<div class="level-builder-controls">
 				<button type="button" class="button button-secondary" id="add-blind-level">
 					<?php esc_html_e( 'Add Blind Level', 'poker-tournament-import' ); ?>
