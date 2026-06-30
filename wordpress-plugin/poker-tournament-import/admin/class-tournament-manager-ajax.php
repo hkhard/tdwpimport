@@ -77,6 +77,9 @@ class TDWP_Tournament_Manager_AJAX {
 		// Player photo upload (tdwp-ee1.15).
 		add_action( 'wp_ajax_tdwp_tm_upload_player_photo', array( __CLASS__, 'upload_player_photo' ) );
 
+		// Seating diagram (tdwp-871.13).
+		add_action( 'wp_ajax_tdwp_tm_get_seating_diagram', array( __CLASS__, 'get_seating_diagram' ) );
+
 		// League management (tdwp-ee1.14).
 		add_action( 'wp_ajax_tdwp_tm_get_leagues', array( __CLASS__, 'get_leagues' ) );
 		add_action( 'wp_ajax_tdwp_tm_save_league', array( __CLASS__, 'save_league' ) );
@@ -937,6 +940,21 @@ class TDWP_Tournament_Manager_AJAX {
 		}
 
 		wp_send_json_success( $result );
+	}
+
+	/**
+	 * Return the seating-diagram layout for a tournament (tdwp-871.13).
+	 */
+	public static function get_seating_diagram() {
+		self::verify_request();
+
+		$tournament_id = isset( $_POST['tournament_id'] ) ? absint( $_POST['tournament_id'] ) : 0;
+		if ( ! $tournament_id ) {
+			wp_send_json_error( array( 'message' => __( 'Invalid tournament', 'poker-tournament-import' ) ) );
+		}
+
+		$layout = TDWP_Seating_Diagram::get_diagram( $tournament_id );
+		wp_send_json_success( array( 'tables' => $layout ) );
 	}
 
 	/**
