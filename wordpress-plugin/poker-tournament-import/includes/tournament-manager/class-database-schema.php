@@ -808,6 +808,15 @@ class TDWP_Database_Schema {
 			update_option( 'tdwp_prd_prize_templates_v1_inserted', true );
 		}
 
+		// Supplemental seed: Hyper Turbo blind template (PRD §2.2, tdwp-cma.11).
+		// Existing installs already have tdwp_default_templates_inserted = true so
+		// the primary seed path is skipped for them — this guard handles that case.
+		if ( ! get_option( 'tdwp_hyper_turbo_v1_inserted', false ) ) {
+			global $wpdb;
+			self::insert_hyper_turbo_blind_schedule( $wpdb );
+			update_option( 'tdwp_hyper_turbo_v1_inserted', true );
+		}
+
 		return true;
 	}
 
@@ -926,6 +935,77 @@ class TDWP_Database_Schema {
 		foreach ( $deep_levels as $level ) {
 			$level['schedule_id'] = $deep_id;
 			$wpdb->insert( $levels_table, $level, array( '%d', '%d', '%d', '%d', '%d', '%d', '%d', '%d' ) );
+		}
+	}
+
+	/**
+	 * Insert the Hyper Turbo built-in blind schedule (PRD §2.2, tdwp-cma.11).
+	 *
+	 * Idempotent: skips insertion if a schedule named "Hyper Turbo" already
+	 * exists so that re-activation or direct re-calls do not create duplicates.
+	 *
+	 * @since 3.6.2
+	 * @param wpdb $wpdb WordPress database object.
+	 */
+	private static function insert_hyper_turbo_blind_schedule( $wpdb ) {
+		$schedules_table = $wpdb->prefix . 'tdwp_blind_schedules';
+		$levels_table    = $wpdb->prefix . 'tdwp_blind_levels';
+
+		// Idempotency guard: skip if already present.
+		$existing = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT id FROM {$schedules_table} WHERE name = %s LIMIT 1",
+				__( 'Hyper Turbo', 'poker-tournament-import' )
+			)
+		);
+
+		if ( null !== $existing ) {
+			return;
+		}
+
+		// Hyper Turbo: 5-minute levels, fast escalation.
+		$wpdb->insert(
+			$schedules_table,
+			array(
+				'name'             => __( 'Hyper Turbo', 'poker-tournament-import' ),
+				'description'      => __( 'Ultra-fast structure with 5-minute levels', 'poker-tournament-import' ),
+				'level_duration'   => 5,
+				'break_frequency'  => 6,
+				'break_duration'   => 5,
+				'is_default_turbo' => 0,
+				'is_template'      => 1,
+			),
+			array( '%s', '%s', '%d', '%d', '%d', '%d', '%d' )
+		);
+
+		$hyper_id = $wpdb->insert_id;
+
+		if ( ! $hyper_id ) {
+			return;
+		}
+
+		$hyper_levels = array(
+			array( 'level_order' => 1,  'small_blind' => 25,   'big_blind' => 50,   'ante' => 0,   'duration_minutes' => 5, 'is_break' => 0, 'break_duration_minutes' => 0 ),
+			array( 'level_order' => 2,  'small_blind' => 50,   'big_blind' => 100,  'ante' => 0,   'duration_minutes' => 5, 'is_break' => 0, 'break_duration_minutes' => 0 ),
+			array( 'level_order' => 3,  'small_blind' => 75,   'big_blind' => 150,  'ante' => 0,   'duration_minutes' => 5, 'is_break' => 0, 'break_duration_minutes' => 0 ),
+			array( 'level_order' => 4,  'small_blind' => 100,  'big_blind' => 200,  'ante' => 25,  'duration_minutes' => 5, 'is_break' => 0, 'break_duration_minutes' => 0 ),
+			array( 'level_order' => 5,  'small_blind' => 150,  'big_blind' => 300,  'ante' => 25,  'duration_minutes' => 5, 'is_break' => 0, 'break_duration_minutes' => 0 ),
+			array( 'level_order' => 6,  'small_blind' => 200,  'big_blind' => 400,  'ante' => 50,  'duration_minutes' => 5, 'is_break' => 0, 'break_duration_minutes' => 0 ),
+			array( 'level_order' => 7,  'small_blind' => 0,    'big_blind' => 0,    'ante' => 0,   'duration_minutes' => 0, 'is_break' => 1, 'break_duration_minutes' => 5 ),
+			array( 'level_order' => 8,  'small_blind' => 300,  'big_blind' => 600,  'ante' => 75,  'duration_minutes' => 5, 'is_break' => 0, 'break_duration_minutes' => 0 ),
+			array( 'level_order' => 9,  'small_blind' => 400,  'big_blind' => 800,  'ante' => 100, 'duration_minutes' => 5, 'is_break' => 0, 'break_duration_minutes' => 0 ),
+			array( 'level_order' => 10, 'small_blind' => 500,  'big_blind' => 1000, 'ante' => 100, 'duration_minutes' => 5, 'is_break' => 0, 'break_duration_minutes' => 0 ),
+			array( 'level_order' => 11, 'small_blind' => 600,  'big_blind' => 1200, 'ante' => 150, 'duration_minutes' => 5, 'is_break' => 0, 'break_duration_minutes' => 0 ),
+			array( 'level_order' => 12, 'small_blind' => 800,  'big_blind' => 1600, 'ante' => 200, 'duration_minutes' => 5, 'is_break' => 0, 'break_duration_minutes' => 0 ),
+		);
+
+		foreach ( $hyper_levels as $level ) {
+			$level['schedule_id'] = $hyper_id;
+			$wpdb->insert(
+				$levels_table,
+				$level,
+				array( '%d', '%d', '%d', '%d', '%d', '%d', '%d', '%d', '%d' )
+			);
 		}
 	}
 

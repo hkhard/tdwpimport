@@ -54,6 +54,7 @@ class TDWP_Blind_Builder_Page {
 		add_action( 'wp_ajax_tdwp_save_blind_levels', array( $this, 'ajax_save_levels' ) );
 		add_action( 'wp_ajax_tdwp_get_blind_levels', array( $this, 'ajax_get_levels' ) );
 		add_action( 'wp_ajax_tdwp_suggest_blind_schedule', array( $this, 'ajax_suggest_schedule' ) );
+		add_action( 'wp_ajax_tdwp_apply_blind_template_to_tournament', array( $this, 'ajax_apply_template_to_tournament' ) );
 	}
 
 	/**
@@ -113,8 +114,11 @@ class TDWP_Blind_Builder_Page {
 					'errorSaving'        => __( 'Error saving levels. Please try again.', 'poker-tournament-import' ),
 					'errorLoading'       => __( 'Error loading levels. Please refresh the page.', 'poker-tournament-import' ),
 					'levelsSaved'        => __( 'Blind levels saved successfully.', 'poker-tournament-import' ),
-					'errorSuggesting'    => __( 'Error generating suggestion. Please try again.', 'poker-tournament-import' ),
-					'confirmLoadSuggest' => __( 'This will replace your current levels with the generated schedule. Continue?', 'poker-tournament-import' ),
+					'errorSuggesting'          => __( 'Error generating suggestion. Please try again.', 'poker-tournament-import' ),
+					'confirmLoadSuggest'       => __( 'This will replace your current levels with the generated schedule. Continue?', 'poker-tournament-import' ),
+					'applyTemplateSuccess'     => __( 'Blind schedule applied to tournament successfully.', 'poker-tournament-import' ),
+					'applyTemplateError'       => __( 'Error applying schedule to tournament. Please check the tournament ID and try again.', 'poker-tournament-import' ),
+					'applyTemplateConfirm'     => __( 'This will replace the blind schedule currently assigned to that tournament. Continue?', 'poker-tournament-import' ),
 				),
 			)
 		);
@@ -355,6 +359,108 @@ class TDWP_Blind_Builder_Page {
 		$result = TDWP_Blind_Schedule::suggest_schedule( $params );
 
 		wp_send_json_success( $result );
+	}
+
+	/**
+	 * AJAX handler: apply a blind schedule/template to a specific tournament.
+	 *
+	 * Clones the source schedule's levels into a new schedule and stores the
+	 * resulting schedule ID on the tournament post via post meta
+	 * (_tdwp_blind_schedule_id). If the tournament already has a previously
+	 * applied schedule stored in that meta key, its levels are replaced.
+	 *
+	 * Expected POST params:
+	 *   source_schedule_id (int) — the blind schedule to copy from.
+	 *   tournament_id      (int) — the tournament post ID to apply it to.
+	 *   nonce              (str) — tdwp_blind_builder nonce.
+	 *
+	 * @since 3.6.2
+	 */
+	public function ajax_apply_template_to_tournament() {
+		// Verify nonce.
+		check_ajax_referer( 'tdwp_blind_builder', 'nonce' );
+
+		// Check permissions.
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( array( 'message' => __( 'Insufficient permissions.', 'poker-tournament-import' ) ) );
+		}
+
+		$source_id     = isset( $_POST['source_schedule_id'] ) ? absint( $_POST['source_schedule_id'] ) : 0;
+		$tournament_id = isset( $_POST['tournament_id'] ) ? absint( $_POST['tournament_id'] ) : 0;
+
+		if ( 0 === $source_id ) {
+			wp_send_json_error( array( 'message' => __( 'Invalid source schedule ID.', 'poker-tournament-import' ) ) );
+		}
+
+		if ( 0 === $tournament_id ) {
+			wp_send_json_error( array( 'message' => __( 'Invalid tournament ID.', 'poker-tournament-import' ) ) );
+		}
+
+		// Verify the source schedule exists.
+		$source = $this->schedule_manager->get( $source_id, true );
+		if ( null === $source || is_wp_error( $source ) ) {
+			wp_send_json_error( array( 'message' => __( 'Source schedule not found.', 'poker-tournament-import' ) ) );
+		}
+
+		// Verify the tournament post exists and is the correct post type.
+		$post = get_post( $tournament_id );
+		if ( null === $post ) {
+			wp_send_json_error( array( 'message' => __( 'Tournament not found.', 'poker-tournament-import' ) ) );
+		}
+
+		// Reuse the existing schedule if the tournament already has one applied;
+		// otherwise create a clone of the source.
+		$existing_schedule_id = absint( get_post_meta( $tournament_id, '_tdwp_blind_schedule_id', true ) );
+
+		if ( $existing_schedule_id > 0 ) {
+			// Delete existing levels so we can replace them.
+			$this->level_manager->delete_by_schedule( $existing_schedule_id );
+			$target_schedule_id = $existing_schedule_id;
+		} else {
+			// Clone the source schedule (creates a new schedule row).
+			$target_schedule_id = $this->schedule_manager->clone_schedule( $source_id );
+
+			if ( is_wp_error( $target_schedule_id ) ) {
+				wp_send_json_error( array( 'message' => $target_schedule_id->get_error_message() ) );
+			}
+
+			// Link to the tournament.
+			update_post_meta( $tournament_id, '_tdwp_blind_schedule_id', $target_schedule_id );
+		}
+
+		// Copy levels from source into target schedule.
+		if ( ! empty( $source->levels ) ) {
+			$order = 1;
+			foreach ( $source->levels as $level ) {
+				$level_data = array(
+					'schedule_id'            => $target_schedule_id,
+					'level_order'            => $order,
+					'small_blind'            => (int) $level->small_blind,
+					'big_blind'              => (int) $level->big_blind,
+					'ante'                   => (int) $level->ante,
+					'duration_minutes'       => (int) $level->duration_minutes,
+					'is_break'               => (int) $level->is_break,
+					'break_duration_minutes' => (int) $level->break_duration_minutes,
+				);
+
+				$result = $this->level_manager->create( $level_data );
+
+				if ( is_wp_error( $result ) ) {
+					wp_send_json_error( array( 'message' => $result->get_error_message() ) );
+				}
+
+				$order++;
+			}
+		}
+
+		wp_send_json_success(
+			array(
+				'message'            => __( 'Blind schedule applied to tournament successfully.', 'poker-tournament-import' ),
+				'schedule_id'        => $target_schedule_id,
+				'tournament_id'      => $tournament_id,
+				'levels_applied'     => isset( $source->levels ) ? count( $source->levels ) : 0,
+			)
+		);
 	}
 
 	/**
@@ -893,6 +999,24 @@ class TDWP_Blind_Builder_Page {
 				<h3><?php esc_html_e( 'Schedule Preview', 'poker-tournament-import' ); ?></h3>
 				<div id="schedule-preview"></div>
 			</div>
+
+			<div class="tdwp-apply-template-panel">
+				<h3><?php esc_html_e( 'Apply to Tournament', 'poker-tournament-import' ); ?></h3>
+				<p class="description">
+					<?php esc_html_e( 'Copy this schedule\'s levels into a specific tournament. The tournament will receive its own editable copy of the levels.', 'poker-tournament-import' ); ?>
+				</p>
+				<div class="tdwp-apply-fields">
+					<label for="apply-tournament-id">
+						<?php esc_html_e( 'Tournament ID', 'poker-tournament-import' ); ?>
+						<input type="number" id="apply-tournament-id" min="1" class="small-text" placeholder="<?php esc_attr_e( 'e.g. 42', 'poker-tournament-import' ); ?>">
+					</label>
+					<button type="button" id="apply-template-to-tournament" class="button button-secondary"
+						data-schedule-id="<?php echo esc_attr( $schedule_id ); ?>">
+						<?php esc_html_e( 'Apply Schedule', 'poker-tournament-import' ); ?>
+					</button>
+				</div>
+				<p id="apply-template-result" class="tdwp-apply-result" style="display:none;"></p>
+			</div>
 		</div>
 
 		<!-- Level row template -->
@@ -942,7 +1066,7 @@ class TDWP_Blind_Builder_Page {
 				<td class="column-order"><span class="level-number"><?php echo esc_html( $level->level_order ); ?></span></td>
 				<td class="column-sb" colspan="3">
 					<strong><?php esc_html_e( 'BREAK', 'poker-tournament-import' ); ?></strong> -
-					<input type="number" class="break-length" value="<?php echo esc_attr( $level->break_length ); ?>" min="1" max="60"> <?php esc_html_e( 'minutes', 'poker-tournament-import' ); ?>
+					<input type="number" class="break-length" value="<?php echo esc_attr( $level->break_duration_minutes ); ?>" min="1" max="60"> <?php esc_html_e( 'minutes', 'poker-tournament-import' ); ?>
 				</td>
 				<td class="column-type"><?php esc_html_e( 'Break', 'poker-tournament-import' ); ?></td>
 				<td class="column-actions">

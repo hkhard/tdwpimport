@@ -55,6 +55,9 @@
       // Suggest schedule
       $('#generate-schedule').on('click', this.suggestSchedule.bind(this));
 
+      // Apply schedule to tournament
+      $('#apply-template-to-tournament').on('click', this.applyTemplateToTournament.bind(this));
+
       // Update preview on input change
       $(document).on('input', '.level-row input', this.updatePreview.bind(this));
     },
@@ -315,9 +318,20 @@
     },
 
     /**
-     * Update schedule preview
+     * Update schedule preview.
      *
-     * @since 3.0.0
+     * Renders each level row plus a summary line showing total tournament
+     * duration and the average starting stack (assuming no eliminations).
+     *
+     * Total duration = sum of all level durations including breaks.
+     * Play-level duration defaults to the schedule's "Level Duration" field
+     * (#level-duration) so it stays consistent with the schedule header.
+     *
+     * Average stack assumption: all chips remain in play (no eliminations),
+     * so avg stack = starting chips per the "Starting Chips" suggest field.
+     * This is labeled clearly so users understand the assumption.
+     *
+     * @since 3.0.0 (extended 3.6.2)
      */
     updatePreview: function () {
       var $preview = $('#schedule-preview');
@@ -330,8 +344,50 @@
         return;
       }
 
+      // Read schedule-level defaults for the summary calculations.
+      var defaultLevelMins = parseInt($('#level-duration').val(), 10) || 15;
+      var startingChips = parseInt($('#suggest-starting-chips').val(), 10) || 0;
+
+      // Compute total duration and play/break counts.
+      var totalMins = 0;
+      var playCount = 0;
+      var breakCount = 0;
+
+      for (var j = 0; j < levels.length; j++) {
+        if (levels[j].is_break === 1) {
+          totalMins += levels[j].break_duration_minutes || 0;
+          breakCount++;
+        } else {
+          totalMins += defaultLevelMins;
+          playCount++;
+        }
+      }
+
       var html = '';
 
+      // Summary bar.
+      var hours = Math.floor(totalMins / 60);
+      var mins = totalMins % 60;
+      var timeStr = hours > 0 ? hours + 'h ' + mins + 'm' : mins + ' min';
+
+      html += '<div class="preview-summary">';
+      html +=
+        '<span class="preview-summary-item"><strong>Total duration:</strong> ' +
+        timeStr +
+        '</span>';
+      html +=
+        '<span class="preview-summary-item"><strong>Play levels:</strong> ' + playCount + '</span>';
+      html +=
+        '<span class="preview-summary-item"><strong>Breaks:</strong> ' + breakCount + '</span>';
+      if (startingChips > 0) {
+        html +=
+          '<span class="preview-summary-item"><strong>Avg stack at start:</strong> ' +
+          this.formatNumber(startingChips) +
+          ' <em>(full field, no eliminations assumed)</em></span>';
+      }
+      html += '</div>';
+
+      // Per-level rows.
       for (var i = 0; i < levels.length; i++) {
         var level = levels[i];
 
@@ -488,6 +544,78 @@
             timeStr
         )
         .show();
+    },
+
+    /**
+     * Apply the current schedule to a specific tournament via AJAX.
+     *
+     * Reads the tournament ID from #apply-tournament-id, confirms with the
+     * user, then POSTs to the tdwp_apply_blind_template_to_tournament action.
+     * The server clones the schedule levels into the tournament's own copy.
+     *
+     * @since 3.6.2
+     */
+    applyTemplateToTournament: function () {
+      var tournamentId = parseInt($('#apply-tournament-id').val(), 10) || 0;
+
+      if (tournamentId <= 0) {
+        alert('Please enter a valid tournament ID.');
+        return;
+      }
+
+      if (!confirm(tdwpBlindBuilder.i18n.applyTemplateConfirm)) {
+        return;
+      }
+
+      var scheduleId = parseInt($('#apply-template-to-tournament').data('schedule-id'), 10) || 0;
+
+      if (scheduleId <= 0) {
+        alert(tdwpBlindBuilder.i18n.applyTemplateError);
+        return;
+      }
+
+      var $btn = $('#apply-template-to-tournament');
+      var $result = $('#apply-template-result');
+      $btn.addClass('is-busy').prop('disabled', true);
+      $result.hide();
+
+      $.ajax({
+        url: tdwpBlindBuilder.ajaxUrl,
+        type: 'POST',
+        data: {
+          action: 'tdwp_apply_blind_template_to_tournament',
+          nonce: tdwpBlindBuilder.nonce,
+          source_schedule_id: scheduleId,
+          tournament_id: tournamentId,
+        },
+        success: function (response) {
+          if (response.success) {
+            $result
+              .text(tdwpBlindBuilder.i18n.applyTemplateSuccess)
+              .removeClass('notice-error')
+              .addClass('notice-success')
+              .show();
+          } else {
+            $result
+              .text(
+                (response.data && response.data.message) || tdwpBlindBuilder.i18n.applyTemplateError
+              )
+              .removeClass('notice-success')
+              .addClass('notice-error')
+              .show();
+          }
+        },
+        error: function () {
+          $result
+            .text(tdwpBlindBuilder.i18n.applyTemplateError)
+            .removeClass('notice-success')
+            .addClass('notice-error')
+            .show();
+        },
+        complete: function () {
+          $btn.removeClass('is-busy').prop('disabled', false);
+        },
+      });
     },
   };
 
