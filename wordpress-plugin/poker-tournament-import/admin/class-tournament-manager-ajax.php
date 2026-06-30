@@ -113,6 +113,16 @@ class TDWP_Tournament_Manager_AJAX {
 		$success = TDWP_Live_State_Manager::start( $tournament_id, $level_duration );
 
 		if ( $success ) {
+			// Log tournament_started history event.
+			$events = new TDWP_Tournament_Events();
+			$events->log(
+				$tournament_id,
+				'tournament_started',
+				array(
+					'level_duration' => $level_duration,
+				)
+			);
+
 			wp_send_json_success( array(
 				'message' => __( 'Tournament started', 'poker-tournament-import' ),
 				'state'   => TDWP_Live_State_Manager::get_state( $tournament_id ),
@@ -329,6 +339,16 @@ class TDWP_Tournament_Manager_AJAX {
 		$success = TDWP_Live_State_Manager::finish( $tournament_id );
 
 		if ( $success ) {
+			// Log tournament_completed history event.
+			$events = new TDWP_Tournament_Events();
+			$events->log(
+				$tournament_id,
+				'tournament_completed',
+				array(
+					'status' => 'finished',
+				)
+			);
+
 			wp_send_json_success( array(
 				'message' => __( 'Tournament finished', 'poker-tournament-import' ),
 				'state'   => TDWP_Live_State_Manager::get_state( $tournament_id ),
