@@ -1,0 +1,72 @@
+<?xml version="1.0"?>
+<ruleset name="Poker Tournament Import">
+	<description>WordPress Coding Standards for the Poker Tournament Import plugin.</description>
+
+	<!-- What to scan: plugin PHP only. -->
+	<file>poker-tournament-import.php</file>
+	<file>includes</file>
+	<file>admin</file>
+	<file>templates</file>
+
+	<!-- What to skip. -->
+	<exclude-pattern>*/tests/*</exclude-pattern>
+	<exclude-pattern>*/vendor/*</exclude-pattern>
+	<exclude-pattern>*/node_modules/*</exclude-pattern>
+	<exclude-pattern>*/.phpunit.cache/*</exclude-pattern>
+	<exclude-pattern>*/assets/*</exclude-pattern>
+
+	<!-- Run only on PHP. -->
+	<arg name="extensions" value="php"/>
+	<!-- Show sniff codes and progress; colour output. -->
+	<arg name="colors"/>
+	<arg value="ps"/>
+	<!-- Use a sensible parallelism if PHPCS supports it. -->
+	<arg name="parallel" value="8"/>
+
+	<!--
+		Core style + the high-value correctness/security sniffs. We deliberately
+		do NOT pull the entire "WordPress" meta-standard yet: the legacy codebase
+		would produce thousands of style violations and drown the signal. This
+		curated set front-loads the sniffs that catch real bugs (SQL injection,
+		missing nonces, unescaped output) plus baseline WordPress style.
+		Broadening to full "WordPress" + a baseline is tracked as a follow-up.
+	-->
+	<rule ref="WordPress-Core"/>
+	<rule ref="WordPress.Security.EscapeOutput"/>
+	<rule ref="WordPress.Security.NonceVerification"/>
+	<rule ref="WordPress.Security.ValidatedSanitizedInput"/>
+	<rule ref="WordPress.DB.PreparedSQL"/>
+	<rule ref="WordPress.DB.PreparedSQLPlaceholders"/>
+
+	<!-- Project conventions so naming/i18n sniffs don't false-positive. -->
+	<config name="minimum_supported_wp_version" value="6.0"/>
+
+	<rule ref="WordPress.WP.I18n">
+		<properties>
+			<property name="text_domain" type="array">
+				<element value="poker-tournament-import"/>
+			</property>
+		</properties>
+	</rule>
+
+	<rule ref="WordPress.NamingConventions.PrefixAllGlobals">
+		<properties>
+			<property name="prefixes" type="array">
+				<element value="poker"/>
+				<element value="tdwp"/>
+				<element value="POKER_TOURNAMENT_IMPORT"/>
+				<element value="Poker_Tournament"/>
+				<element value="TDWP"/>
+			</property>
+		</properties>
+	</rule>
+
+	<!--
+		Tabs-for-indentation is WordPress style; some legacy files use spaces.
+		Keep the sniff but allow it to be the most common churn source to be
+		addressed incrementally rather than blocking.
+	-->
+	<rule ref="Generic.WhiteSpace.DisallowSpaceIndent">
+		<severity>3</severity>
+	</rule>
+</ruleset>

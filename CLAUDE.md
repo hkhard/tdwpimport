@@ -35,7 +35,10 @@ Claude Code guidance for the Poker Tournament Import WordPress plugin.
 - **admin/class-admin.php**: Admin interface
 - **admin/class-data-mart-cleaner.php**: Data maintenance tools
 
-### Database Tables (wp_ prefix)
+### Database Tables (import / statistics subsystem — `poker_*`)
+> Note: the plugin uses **two** prefixes — `poker_*` (below) and `tdwp_*` (live
+> tournament manager). See "Database Table Prefixes (canonical)" below for the
+> full rule. These are prefixed onto WordPress's `$wpdb->prefix` (usually `wp_`).
 - `poker_tournament_players`: Tournament participation records
 - `poker_statistics`: Dashboard statistics (data mart)
 - `poker_tournament_costs`: Tournament cost tracking
@@ -132,12 +135,34 @@ Claude Code guidance for the Poker Tournament Import WordPress plugin.
 
 ## Recent Changes
 - 001-td3-integration: Added PHP 8.0+ (8.2+ compatible) + WordPress 6.0+, MySQL 5.7+, jQuery, modern JavaScript (ES6+)
-- our database prefix is tdwp_ always, nothing else
+
+## Database Table Prefixes (canonical)
+
+The plugin uses **two** custom-table prefixes (in addition to WordPress's own
+`$wpdb->prefix`, usually `wp_`). This is by history, not by mistake — do not
+assume a single prefix:
+
+- **`poker_*`** — the original **import / statistics** subsystem: dashboard and
+  leaderboard data marts read by the stats engine and shortcodes. Examples:
+  `poker_tournament_players`, `poker_player_roi`, `poker_statistics`,
+  `poker_financial_summary`, `poker_revenue_analytics`, `poker_tournament_costs`,
+  and the display tables `poker_display_screens` / `poker_display_templates` /
+  `poker_display_layouts`.
+- **`tdwp_*`** — the **TD3 live tournament-manager** subsystem: live state and
+  configuration. Examples: `tdwp_tournament_players`, `tdwp_tournament_templates`,
+  `tdwp_tournament_live_state`, and related live tables.
+
+When writing a new query, check which subsystem the data belongs to and use the
+matching prefix via `$wpdb->prefix`. The live → legacy bridge that lets live
+tournaments surface in the `poker_*` marts is `TDWP_Stats_Bridge`
+(see closed bead `tdwp-iwc`). Consolidating onto a single canonical store is
+tracked as a future task (`tdwp-ayg`, "Option C"); until then, **both prefixes
+are correct** for their respective subsystems.
 
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **tdwpimport** (11305 symbols, 19054 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **tdwpimport** (11403 symbols, 21129 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 

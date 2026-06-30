@@ -3,5 +3,8 @@
 /.phpunit.cache/
 /.phpunit.result.cache
 
+# PHPCS + WPCS tooling (installed on demand by run-phpcs.sh)
+/tests/tools/
+
 # Composer (optional convenience; harness runs without it)
 /vendor/

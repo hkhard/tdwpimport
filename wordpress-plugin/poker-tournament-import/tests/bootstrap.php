@@ -14,6 +14,13 @@ define( 'POKER_TOURNAMENT_IMPORT_TESTING', true );
 $plugin_dir = dirname( __DIR__ ) . '/';
 define( 'POKER_TOURNAMENT_IMPORT_PLUGIN_DIR', $plugin_dir );
 
+// Route explicit error_log() calls to a file instead of the SAPI logger so the
+// (pre-existing) diagnostic error_log() spam in the parser/formula code is not
+// captured as "unexpected output" by PHPUnit's strict-output checks. Cleaning up
+// that spam in production code is tracked separately. Genuine errors remain
+// inspectable in the temp log.
+ini_set( 'error_log', sys_get_temp_dir() . '/tdwp-phpunit-error.log' );
+
 require __DIR__ . '/stubs/wp-stubs.php';
 
 // Install the fake database.
@@ -25,3 +32,14 @@ $GLOBALS['wpdb'] = new TDWP_Fake_WPDB();
  */
 require $plugin_dir . 'includes/tournament-manager/class-stats-bridge.php';
 require $plugin_dir . 'includes/security/class-ajax-guards.php';
+
+// Formula validator (standalone), and the .tdt parser chain (debug -> formula ->
+// lexer -> ast -> domain-mapper -> parser), and the statistics engine. Load order
+// matters: the parser depends on the debug class and the formula validator.
+require $plugin_dir . 'includes/class-debug.php';
+require $plugin_dir . 'includes/class-formula-validator.php';
+require $plugin_dir . 'includes/class-tdt-lexer.php';
+require $plugin_dir . 'includes/class-tdt-ast-parser.php';
+require $plugin_dir . 'includes/class-tdt-domain-mapper.php';
+require $plugin_dir . 'includes/class-parser.php';
+require $plugin_dir . 'includes/class-statistics-engine.php';

@@ -1702,11 +1702,6 @@ class Poker_Tournament_Parser {
      * Calculate winnings by rank and prize distribution
      */
     private function calculate_winnings_by_rank($players, $prizes) {
-        // ALWAYS log to error_log (even when debug mode is off)
-        error_log("Poker Import - === WINNINGS CALCULATION START ===");
-        error_log("Poker Import - Total prizes to distribute: " . count($prizes));
-        error_log("Poker Import - Total players to check: " . count($players));
-
         Poker_Tournament_Import_Debug::log("=== WINNINGS CALCULATION DEBUG ===");
         Poker_Tournament_Import_Debug::log("Total prizes to distribute: " . count($prizes));
         Poker_Tournament_Import_Debug::log("Total players to check: " . count($players));
@@ -1715,7 +1710,6 @@ class Poker_Tournament_Parser {
         foreach ($prizes as $i => $prize) {
             $pos = $prize['position'] ?? 'NULL';
             $amt = $prize['calculated_amount'] ?? 0;
-            error_log("Poker Import - Prize " . ($i+1) . ": Position={$pos} (type: " . gettype($pos) . "), Amount=\${$amt}");
             Poker_Tournament_Import_Debug::log("  Prize " . ($i+1) . ": Position={$pos} (type: " . gettype($pos) . "), Amount=\${$amt}");
         }
 
@@ -1742,26 +1736,20 @@ class Poker_Tournament_Parser {
                         $match_found = true;
                         $matches_found++;
                         Poker_Tournament_Import_Debug::log_success("MATCH: {$player['nickname']} at position {$position} wins \${$prize['calculated_amount']}");
-                        // Always log to error_log for debugging (even when debug mode is off)
-                        error_log("Poker Import - WINNINGS MATCH: {$player['nickname']} at position {$position} wins \${$prize['calculated_amount']}");
                         break;
                     }
                 }
 
                 if (!$match_found) {
-                    error_log("Poker Import - WARNING: NO MATCH for prize at position {$position} (\${$prize['calculated_amount']})");
                     Poker_Tournament_Import_Debug::log_warning("NO MATCH for prize at position {$position} (\${$prize['calculated_amount']})");
                 }
             } else {
                 $pos_status = isset($prize['position']) ? "position={$prize['position']}" : "NO POSITION";
                 $amt_status = isset($prize['calculated_amount']) ? "amount={$prize['calculated_amount']}" : "NO AMOUNT";
-                error_log("Poker Import - WARNING: Prize skipped: {$pos_status}, {$amt_status}");
                 Poker_Tournament_Import_Debug::log_warning("Prize skipped: {$pos_status}, {$amt_status}");
             }
         }
 
-        error_log("Poker Import - Winnings calculation complete: {$matches_found} matches found");
-        error_log("Poker Import - === WINNINGS CALCULATION END ===");
         Poker_Tournament_Import_Debug::log_success("Winnings calculation complete: {$matches_found} matches found");
         Poker_Tournament_Import_Debug::log("===================================");
 
