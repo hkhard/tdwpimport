@@ -182,6 +182,15 @@ $archive_url = get_post_type_archive_link($post_type);
                 <header class="tournament-single-header">
                     <div class="tournament-title-section">
                         <h1 class="tournament-title"><?php the_title(); ?></h1>
+                        <?php
+                        // Render "Chopped" badge when a chop deal has been applied (tdwp-cma.25).
+                        $chop_meta = get_post_meta( get_the_ID(), '_tdwp_chop_applied', true );
+                        if ( ! empty( $chop_meta ) && ! empty( $chop_meta['chopped'] ) ) :
+                        ?>
+                            <span class="tdwp-chopped-badge" title="<?php esc_attr_e( 'Prize pool was settled by a chop deal', 'poker-tournament-import' ); ?>">
+                                <?php esc_html_e( 'Chopped', 'poker-tournament-import' ); ?>
+                            </span>
+                        <?php endif; ?>
                         <div class="tournament-meta-breadcrumb">
                             <?php
                             $series_id = get_post_meta(get_the_ID(), '_series_id', true);

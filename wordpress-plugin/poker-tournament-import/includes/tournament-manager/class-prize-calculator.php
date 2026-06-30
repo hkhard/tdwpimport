@@ -25,6 +25,18 @@ if ( ! defined( 'ABSPATH' ) ) {
 class TDWP_Prize_Calculator {
 
 	/**
+	 * Whether the last call to calculate_payouts_from_array() detected an
+	 * over-allocation (locked + fixed amounts exceeded the prize pool).
+	 *
+	 * Callers may inspect this after the call; it is reset at the start of each
+	 * call so stale values from a previous invocation are never observed.
+	 *
+	 * @since 3.7.1 (tdwp-cma.24)
+	 * @var bool
+	 */
+	public static $last_over_allocated = false;
+
+	/**
 	 * Calculate financial summary supporting fee split and flat/percentage rake (tdwp-vf9)
 	 *
 	 * @since 3.6.0
@@ -286,11 +298,18 @@ class TDWP_Prize_Calculator {
 			}
 		}
 
+		// Over-allocation guard (tdwp-cma.24): locked + fixed amounts must not
+		// exceed the prize pool. If they do, clamp the remaining pool to zero so
+		// unlocked places receive 0 (never a negative payout), and set the static
+		// flag so callers can surface a notice to the operator.
+		$raw_remaining        = $prize_pool - $locked_total;
+		self::$last_over_allocated = $raw_remaining < -0.005;
+
 		// Enforce minimum payout floor (tdwp-cma.19): repeatedly drop the
 		// lowest-weight unlocked place until all remaining places can clear the
 		// floor, or only one place remains. This is a deterministic bottom-up trim.
 		if ( $min_floor > 0 && count( $unlocked_places ) > 1 ) {
-			$remaining_pool_for_floor = $prize_pool - $locked_total;
+			$remaining_pool_for_floor = max( 0.0, $raw_remaining );
 			$unlocked_places = self::apply_min_floor_trim(
 				$unlocked_places,
 				$remaining_pool_for_floor,
@@ -299,7 +318,7 @@ class TDWP_Prize_Calculator {
 		}
 
 		// Second pass: distribute the remaining pool across (possibly trimmed) unlocked places.
-		$remaining_pool  = $prize_pool - $locked_total;
+		$remaining_pool  = max( 0.0, $raw_remaining );
 		$unlocked_total  = array_sum( array_column( $unlocked_places, 'percentage' ) );
 		$total_allocated = 0.0;
 		$first_unlocked  = null;
@@ -333,7 +352,9 @@ class TDWP_Prize_Calculator {
 
 		// Absorb rounding remainder into the first unlocked place (or place 1 if
 		// all places are locked, which is an unusual but valid configuration).
-		$difference = round( $prize_pool - $locked_total - $total_allocated, 2 );
+		// When over-allocated, $remaining_pool was clamped to 0, so $total_allocated
+		// is 0 and there is no rounding remainder to absorb.
+		$difference = round( $remaining_pool - $total_allocated, 2 );
 
 		if ( abs( $difference ) > 0 ) {
 			$absorb_place = $first_unlocked ?? ( isset( $payouts[1] ) ? 1 : null );
