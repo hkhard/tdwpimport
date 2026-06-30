@@ -77,11 +77,53 @@ Likely files: `class-player-manager.php`, `class-player-registration.php`, `admi
 | Feature area | Status | Audit bead |
 |--------------|--------|-----------|
 | Table mgmt + auto-seat + balance + break | ⬜ pending audit | `tdwp-194` |
-| Clock + real-time heartbeat sync | ⬜ pending audit | `tdwp-bo7` |
 | Live player ops (bustout / rebuy / add-on / late-reg / chip) | ⬜ pending audit | `tdwp-tnq` |
 | Stats + export (.TDT/CSV/PDF/JSON) + email results | ⬜ pending audit | `tdwp-sjy` |
 
-Likely files: `class-table-manager.php`, `class-table-balancer.php`, `class-seat-manager.php`, `class-tournament-clock.php`, `class-live-state-manager.php`, `class-player-operations.php`, `class-export-manager.php`, `class-csv-exporter.php`, `class-tdt-exporter.php`.
+Likely files: `class-table-manager.php`, `class-table-balancer.php`, `class-seat-manager.php`, `class-player-operations.php`, `class-export-manager.php`, `class-csv-exporter.php`, `class-tdt-exporter.php`.
+
+### 2.x Clock + real-time heartbeat sync — ✅ audited (`tdwp-bo7`, 2026-06-30)
+
+PRD ref: `docs/prd-phase-2-live-operations.md` §1.1–1.3. Verified by adversarial
+re-check (18/20 done|partial claims held; end-tournament downgraded done→partial).
+
+| Criterion | Status | Evidence | Gap bead |
+|-----------|--------|----------|----------|
+| §1.1 Clock display — current level SB/BB/Ante | partial | only level number on public clock `class-tournament-clock-shortcode.php:160-169`; no blind values in payload (admin-only in `timer-tab.php`) | `tdwp-7u1` |
+| §1.1 Clock display — time remaining | done | `class-tournament-clock-shortcode.php:155-156`; local countdown `tournament-clock-frontend.js:130-137` | — |
+| §1.1 Clock display — next level preview | missing | no next-level blind data fetched/rendered | `tdwp-7u1` |
+| §1.1 Clock display — players remaining | done | `class-tournament-clock-shortcode.php:181-184`; live `tournament-clock-frontend.js:278-281` | — |
+| §1.1 Clock display — avg chip stack | missing | absent from state payload `ajax_get_clock_state:254-266` | `tdwp-ekz` |
+| §1.1 Clock display — current pot | missing | only `prize_pool` shown (≠ current pot) | `tdwp-ekz` |
+| §1.1 Controls — start / pause / resume | done | `class-tournament-clock.php:63,155,235`; binds `live-control-admin.js:51-58` | — |
+| §1.1 Controls — skip next level | done | `advance_level()` `class-tournament-clock.php:307`; `timer-tab.php:111` | — |
+| §1.1 Controls — skip to specific level | missing | only advance-by-one implemented | `tdwp-zh6` |
+| §1.1 Controls — add time | done | `class-live-state-manager.php:340`; `timer-tab.php:112` | — |
+| §1.1 Controls — end tournament | partial | `complete()` `class-tournament-clock.php:369` but JS binds `.tdwp-complete-btn` while template renders `#btn-finish` (`timer-tab.php:109`) — selector mismatch | `tdwp-h0r` |
+| §1.1 Break — auto-start at configured levels | partial | `start_break()` exists `class-live-state-manager.php:267`; `advance_level()` does not detect break levels | `tdwp-nja` |
+| §1.1 Break — countdown + "back at HH:MM" | missing | `break_until` stored `:278` but excluded from heartbeat/AJAX payloads `:326-337` | `tdwp-nja` |
+| §1.1 Sound notifications | missing | no Web Audio / assets / triggers in any clock JS | `tdwp-blc` |
+| §1.1 Clock survives page refresh | done | server state `tdwp_tournament_live_state` `class-live-state-manager.php:63-76`; refetched on load `:128-139` | — |
+| §1.2 WP Heartbeat integration, 15s sync | done | `tournament-clock-frontend.js:95-111`; filter `class-tournament-clock-shortcode.php:57-58` | — |
+| §1.2 Optimistic UI | done | 1s local countdown `tournament-clock-frontend.js:121-138` | — |
+| §1.2 Server-side time authority | done | server overwrites local on tick `tournament-clock-frontend.js:197-199` | — |
+| §1.2 Multi-tab sync ±1s | partial | per-tab independent 15s sync (±15s); no BroadcastChannel/SSE | `tdwp-32g` |
+| §1.2 Connection-lost warning overlay | missing | no disconnect detection/overlay in clock JS | `tdwp-o12` |
+| §1.2 Auto reconnection w/ state recovery | partial | 3s status-poll fallback `:147-180`; no lost-conn state machine / feedback | `tdwp-o12` |
+| §1.2 No drift over 4+ hours | partial | `tick()` `class-tournament-clock.php:428` uses client/default elapsed, not wall-clock | `tdwp-rhp` |
+| §1.3 Full-screen mode (F11/button) | missing | no Fullscreen API anywhere | `tdwp-558` |
+| §1.3 Clean public interface | partial | shortcode renders no admin controls `:149-208`; no mode hiding WP chrome | `tdwp-558` |
+| §1.3 Customizable elements (blinds/prizes/rankings/logo) | partial | only show_stats/show_level/theme/size `:113-124` | `tdwp-wp7` |
+| §1.3 Auto screen wake (prevent sleep) | missing | no Wake Lock / NoSleep | `tdwp-558` |
+| §1.3 URL param `?screen=clock` | missing | no such routing | `tdwp-558` |
+| §1.3 Responsive design | partial | size CSS classes `:145`; media queries unverified (CSS not inspected) | `tdwp-wp7` |
+| §1.3 Optional dark mode | partial | `theme=dark` class `:119,144`; CSS defs unverified | `tdwp-wp7` |
+
+**Files of record:** `includes/tournament-manager/class-tournament-clock.php`,
+`includes/class-tournament-clock-shortcode.php`,
+`includes/tournament-manager/class-live-state-manager.php`,
+`assets/js/tournament-clock-frontend.js`, `assets/js/tdwp-global-tournament-heartbeat.js`,
+`admin/tournament-manager/tabs/timer-tab.php`, `assets/js/live-control-admin.js`.
 
 ---
 
@@ -89,13 +131,48 @@ Likely files: `class-table-manager.php`, `class-table-balancer.php`, `class-seat
 
 | Feature area | Status | Audit bead |
 |--------------|--------|-----------|
-| Token display + layout builder | ⬜ pending audit | `tdwp-7qe` |
 | Events & notifications (sounds, email/SMS, triggers) | ⬜ pending audit | `tdwp-38u` |
 | Rules display (templates, multi-language) | ⬜ pending audit | `tdwp-efh` |
 | Chip management (chipset, denominations, capacity) | ⬜ pending audit | `tdwp-g28` |
 | League mgmt + player photos/badges | ⬜ pending audit | `tdwp-hgp` |
 
-Likely files: `class-display-manager.php`, `class-layout-builder.php`, `class-template-engine.php`, `class-tournament-events.php`, `admin/tournament-manager/layout-builder-page.php`, `screen-management-page.php`.
+Likely files: `class-tournament-events.php` and others per feature area.
+
+### 3.x Token display + layout builder — ✅ audited (`tdwp-7qe`, 2026-06-30)
+
+PRD ref: `docs/prd-phase-3-professional-features.md` §1 Display & Layout System.
+Verified by adversarial re-check (all 12 done|partial claims held).
+
+| Criterion | Status | Evidence | Gap bead |
+|-----------|--------|----------|----------|
+| Token `{{tournament_name}}` | done | `class-template-engine.php:128-133`, resolver `:559` | — |
+| Token `{{current_level}}` | done | `class-template-engine.php:164-170`, resolver `:649` | — |
+| Token `{{small_blind}}` | partial | registered as `small_blind_amount` `:205-210` — PRD name unresolved | `tdwp-9qm` |
+| Token `{{big_blind}}` | partial | registered as `big_blind_amount` `:200-205` | `tdwp-9qm` |
+| Token `{{ante}}` | partial | registered as `ante_amount` `:211-217` | `tdwp-9qm` |
+| Token `{{time_remaining}}` | done | `class-template-engine.php:148-153`, resolver `:603` | — |
+| Token `{{players_remaining}}` | done | `class-template-engine.php:155-160`, resolver `:619` | — |
+| Token `{{total_pot}}` | missing | only `prize_pool` exists | `tdwp-5fo` |
+| Token `{{next_sb}}` | missing | only generic `next_blind` `:140` | `tdwp-5fo` |
+| Token `{{next_bb}}` | missing | only generic `next_blind` | `tdwp-5fo` |
+| Token `{{avg_stack}}` | partial | registered as `average_stack` `:190-196` | `tdwp-9qm` |
+| Token `{{venue_name}}` | missing | no registry entry / resolver | `tdwp-5fo` |
+| Token `{{venue_logo}}` | missing | no registry entry / resolver | `tdwp-5fo` |
+| Layout builder drag-drop interface | done | jQuery UI draggable/droppable `admin/assets/js/layout-builder.js:86-105`; `handleComponentDrop():316` | — |
+| Multiple screen templates (Clock/Rankings/Blinds/Prizes/Tables) | partial | ENUM `class-database-schema.php:1370` = clock/rankings/prizes/seating/rules/custom; no `blinds`, `tables`→`seating` | `tdwp-6wq` |
+| HTML/CSS customization | done | `html_template`/`css_styles` LONGTEXT cols; saved via `class-display-manager.php:780` | — |
+| Banner image support | missing | no banner field/upload/renderer in display system | `tdwp-3lv` |
+| Multiple screen sets | partial | individual screens only `poker_display_screens`; no set grouping | `tdwp-323` |
+| Screen transition effects | missing | no transition field/logic in renderer | `tdwp-6tg` |
+| Conditional display rules | missing | no condition field/eval (formula validator not wired) | `tdwp-5fs` |
+| Layout JSON schema (`screen_sets[].screens[].cells[]`, `{x,y,w,h}`) | wrong | stored `component_positions` uses `{column_start,row_start,width,height}`, no `screen_sets`/`cells` nesting | `tdwp-71e` |
+| Layout builder undo/redo | — (defect) | Ctrl+Z/Y bound to undefined `undo()`/`redo()` `admin/assets/js/layout-builder.js:136-140` | `tdwp-ebc` |
+
+**Files of record:** `includes/tournament-manager/class-template-engine.php`,
+`includes/tournament-manager/class-layout-builder.php`,
+`includes/tournament-manager/class-display-manager.php`,
+`includes/tournament-manager/class-database-schema.php`,
+`admin/assets/js/layout-builder.js`.
 
 ---
 
