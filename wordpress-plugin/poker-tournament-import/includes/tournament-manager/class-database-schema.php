@@ -44,7 +44,7 @@ class TDWP_Database_Schema {
 	 *
 	 * @var string
 	 */
-	const DB_VERSION = '3.5.0';
+	const DB_VERSION = '3.6.0';
 
 	/**
 	 * Option name for storing database version
@@ -256,6 +256,11 @@ class TDWP_Database_Schema {
 		if ( version_compare( $from_version, '3.5.0', '<' ) ) {
 			self::migrate_waitlist_position_v350();
 		}
+
+		// Run v3.6.0 financial config migrations (tdwp-vf9)
+		if ( version_compare( $from_version, '3.6.0', '<' ) ) {
+			self::migrate_financial_config_v360();
+		}
 	}
 
 	/**
@@ -379,6 +384,10 @@ class TDWP_Database_Schema {
 			addon_chips int DEFAULT 0,
 			starting_chips int DEFAULT 10000,
 			rake_percentage decimal(5,2) DEFAULT 0,
+			entry_fee decimal(10,2) DEFAULT 0,
+			prize_pool_contribution decimal(10,2) DEFAULT 0,
+			rake_mode varchar(20) DEFAULT 'percentage',
+			rake_flat_amount decimal(10,2) DEFAULT 0,
 			blind_schedule_id bigint(20) UNSIGNED,
 			prize_structure_id bigint(20) UNSIGNED,
 			allow_reentry tinyint(1) DEFAULT 0,
@@ -1569,6 +1578,56 @@ class TDWP_Database_Schema {
 				"ALTER TABLE {$table} ADD COLUMN waitlist_position INT DEFAULT NULL AFTER bustout_timestamp"
 			);
 		}
+
+		return true;
+	}
+
+	/**
+	 * Migrate financial config columns to tdwp_tournament_templates (v3.6.0, tdwp-vf9)
+	 *
+	 * Adds entry_fee, prize_pool_contribution, rake_mode, and rake_flat_amount columns
+	 * to existing installations. Idempotent: checks column existence before altering.
+	 *
+	 * @since 3.6.0
+	 * @return bool True on success
+	 */
+	private static function migrate_financial_config_v360() {
+		global $wpdb;
+
+		// Check if migration already done
+		$migration_done = get_option( 'tdwp_financial_config_migration_v360', false );
+		if ( $migration_done ) {
+			return true;
+		}
+
+		$templates_table = $wpdb->prefix . 'tdwp_tournament_templates';
+
+		// Bail early if table doesn't exist yet — create_tables() will handle it.
+		if ( $wpdb->get_var( "SHOW TABLES LIKE '{$templates_table}'" ) !== $templates_table ) {
+			return true;
+		}
+
+		$columns_to_add = array(
+			'entry_fee'               => 'ADD COLUMN entry_fee decimal(10,2) DEFAULT 0 AFTER rake_percentage',
+			'prize_pool_contribution' => 'ADD COLUMN prize_pool_contribution decimal(10,2) DEFAULT 0 AFTER entry_fee',
+			'rake_mode'               => "ADD COLUMN rake_mode varchar(20) DEFAULT 'percentage' AFTER prize_pool_contribution",
+			'rake_flat_amount'        => 'ADD COLUMN rake_flat_amount decimal(10,2) DEFAULT 0 AFTER rake_mode',
+		);
+
+		foreach ( $columns_to_add as $column => $sql ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$column_exists = $wpdb->get_results( $wpdb->prepare( 'SHOW COLUMNS FROM `' . $templates_table . '` LIKE %s', $column ) );
+
+			if ( empty( $column_exists ) ) {
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				$wpdb->query( "ALTER TABLE `{$templates_table}` {$sql}" );
+				error_log( "Financial Config Migration v360: Added column {$column} to {$templates_table}" );
+			}
+		}
+
+		// Mark migration as complete
+		update_option( 'tdwp_financial_config_migration_v360', true );
+		error_log( 'Financial Config Migration v360: Schema migration completed successfully' );
 
 		return true;
 	}

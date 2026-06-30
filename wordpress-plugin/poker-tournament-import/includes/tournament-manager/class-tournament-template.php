@@ -71,20 +71,29 @@ class TDWP_Tournament_Template {
 		$result = $this->wpdb->insert(
 			$this->table_name,
 			array(
-				'name'                => $sanitized_data['name'],
-				'description'         => $sanitized_data['description'],
-				'buy_in'              => $sanitized_data['buy_in'],
-				'rebuy_cost'          => $sanitized_data['rebuy_cost'],
-				'rebuy_chips'         => $sanitized_data['rebuy_chips'],
-				'addon_cost'          => $sanitized_data['addon_cost'],
-				'addon_chips'         => $sanitized_data['addon_chips'],
-				'starting_chips'      => $sanitized_data['starting_chips'],
-				'rake_percentage'     => $sanitized_data['rake_percentage'],
-				'blind_schedule_id'   => $sanitized_data['blind_schedule_id'],
-				'prize_structure_id'  => $sanitized_data['prize_structure_id'],
-				'created_by'          => $user_id,
+				'name'                    => $sanitized_data['name'],
+				'description'             => $sanitized_data['description'],
+				'buy_in'                  => $sanitized_data['buy_in'],
+				'entry_fee'               => $sanitized_data['entry_fee'],
+				'prize_pool_contribution' => $sanitized_data['prize_pool_contribution'],
+				'rebuy_cost'              => $sanitized_data['rebuy_cost'],
+				'rebuy_chips'             => $sanitized_data['rebuy_chips'],
+				'addon_cost'              => $sanitized_data['addon_cost'],
+				'addon_chips'             => $sanitized_data['addon_chips'],
+				'starting_chips'          => $sanitized_data['starting_chips'],
+				'rake_percentage'         => $sanitized_data['rake_percentage'],
+				'rake_mode'               => $sanitized_data['rake_mode'],
+				'rake_flat_amount'        => $sanitized_data['rake_flat_amount'],
+				'rebuy_until_level'       => $sanitized_data['rebuy_until_level'],
+				'rebuy_chip_threshold'    => $sanitized_data['rebuy_chip_threshold'],
+				'rebuy_limit_per_player'  => $sanitized_data['rebuy_limit_per_player'],
+				'addon_at_level'          => $sanitized_data['addon_at_level'],
+				'addon_until_level'       => $sanitized_data['addon_until_level'],
+				'blind_schedule_id'       => $sanitized_data['blind_schedule_id'],
+				'prize_structure_id'      => $sanitized_data['prize_structure_id'],
+				'created_by'              => $user_id,
 			),
-			array( '%s', '%s', '%f', '%f', '%d', '%f', '%d', '%d', '%f', '%d', '%d', '%d' )
+			array( '%s', '%s', '%f', '%f', '%f', '%f', '%d', '%f', '%d', '%d', '%f', '%s', '%f', '%d', '%d', '%d', '%d', '%d', '%d', '%d', '%d' )
 		);
 
 		if ( false === $result ) {
@@ -175,20 +184,29 @@ class TDWP_Tournament_Template {
 		$result = $this->wpdb->update(
 			$this->table_name,
 			array(
-				'name'                => $sanitized_data['name'],
-				'description'         => $sanitized_data['description'],
-				'buy_in'              => $sanitized_data['buy_in'],
-				'rebuy_cost'          => $sanitized_data['rebuy_cost'],
-				'rebuy_chips'         => $sanitized_data['rebuy_chips'],
-				'addon_cost'          => $sanitized_data['addon_cost'],
-				'addon_chips'         => $sanitized_data['addon_chips'],
-				'starting_chips'      => $sanitized_data['starting_chips'],
-				'rake_percentage'     => $sanitized_data['rake_percentage'],
-				'blind_schedule_id'   => $sanitized_data['blind_schedule_id'],
-				'prize_structure_id'  => $sanitized_data['prize_structure_id'],
+				'name'                    => $sanitized_data['name'],
+				'description'             => $sanitized_data['description'],
+				'buy_in'                  => $sanitized_data['buy_in'],
+				'entry_fee'               => $sanitized_data['entry_fee'],
+				'prize_pool_contribution' => $sanitized_data['prize_pool_contribution'],
+				'rebuy_cost'              => $sanitized_data['rebuy_cost'],
+				'rebuy_chips'             => $sanitized_data['rebuy_chips'],
+				'addon_cost'              => $sanitized_data['addon_cost'],
+				'addon_chips'             => $sanitized_data['addon_chips'],
+				'starting_chips'          => $sanitized_data['starting_chips'],
+				'rake_percentage'         => $sanitized_data['rake_percentage'],
+				'rake_mode'               => $sanitized_data['rake_mode'],
+				'rake_flat_amount'        => $sanitized_data['rake_flat_amount'],
+				'rebuy_until_level'       => $sanitized_data['rebuy_until_level'],
+				'rebuy_chip_threshold'    => $sanitized_data['rebuy_chip_threshold'],
+				'rebuy_limit_per_player'  => $sanitized_data['rebuy_limit_per_player'],
+				'addon_at_level'          => $sanitized_data['addon_at_level'],
+				'addon_until_level'       => $sanitized_data['addon_until_level'],
+				'blind_schedule_id'       => $sanitized_data['blind_schedule_id'],
+				'prize_structure_id'      => $sanitized_data['prize_structure_id'],
 			),
 			array( 'id' => $template_id ),
-			array( '%s', '%s', '%f', '%f', '%d', '%f', '%d', '%d', '%f', '%d', '%d' ),
+			array( '%s', '%s', '%f', '%f', '%f', '%f', '%d', '%f', '%d', '%d', '%f', '%s', '%f', '%d', '%d', '%d', '%d', '%d', '%d', '%d' ),
 			array( '%d' )
 		);
 
@@ -367,8 +385,17 @@ class TDWP_Tournament_Template {
 			'addon_chips'        => $existing->addon_chips,
 			'starting_chips'     => $existing->starting_chips,
 			'rake_percentage'    => $existing->rake_percentage,
-			'blind_schedule_id'  => $existing->blind_schedule_id,
-			'prize_structure_id' => $existing->prize_structure_id,
+			'blind_schedule_id'       => $existing->blind_schedule_id,
+			'prize_structure_id'      => $existing->prize_structure_id,
+			'entry_fee'               => $existing->entry_fee ?? 0,
+			'prize_pool_contribution' => $existing->prize_pool_contribution ?? 0,
+			'rake_mode'               => $existing->rake_mode ?? 'percentage',
+			'rake_flat_amount'        => $existing->rake_flat_amount ?? 0,
+			'rebuy_until_level'       => $existing->rebuy_until_level ?? 0,
+			'rebuy_chip_threshold'    => $existing->rebuy_chip_threshold ?? 0,
+			'rebuy_limit_per_player'  => $existing->rebuy_limit_per_player ?? 0,
+			'addon_at_level'          => $existing->addon_at_level ?? 0,
+			'addon_until_level'       => $existing->addon_until_level ?? 0,
 		);
 
 		// Create new template
@@ -440,6 +467,28 @@ class TDWP_Tournament_Template {
 		$sanitized['rebuy_cost']      = isset( $data['rebuy_cost'] ) ? floatval( $data['rebuy_cost'] ) : 0;
 		$sanitized['addon_cost']      = isset( $data['addon_cost'] ) ? floatval( $data['addon_cost'] ) : 0;
 		$sanitized['rake_percentage'] = isset( $data['rake_percentage'] ) ? floatval( $data['rake_percentage'] ) : 0;
+
+		// Fee split (tdwp-vf9): entry_fee + prize_pool_contribution
+		$sanitized['entry_fee']               = isset( $data['entry_fee'] ) ? floatval( $data['entry_fee'] ) : 0;
+		$sanitized['prize_pool_contribution'] = isset( $data['prize_pool_contribution'] ) ? floatval( $data['prize_pool_contribution'] ) : 0;
+
+		// Derive buy_in from fee split when split fields are supplied.
+		// Backward-compat: if both split fields are zero, leave buy_in as-is (old data).
+		if ( $sanitized['entry_fee'] > 0 || $sanitized['prize_pool_contribution'] > 0 ) {
+			$sanitized['buy_in'] = $sanitized['entry_fee'] + $sanitized['prize_pool_contribution'];
+		}
+
+		// Rake mode (tdwp-vf9): 'percentage' (default) or 'flat'
+		$rake_mode                  = isset( $data['rake_mode'] ) ? sanitize_key( $data['rake_mode'] ) : 'percentage';
+		$sanitized['rake_mode']     = in_array( $rake_mode, array( 'percentage', 'flat' ), true ) ? $rake_mode : 'percentage';
+		$sanitized['rake_flat_amount'] = isset( $data['rake_flat_amount'] ) ? floatval( $data['rake_flat_amount'] ) : 0;
+
+		// Rebuy / add-on timing fields (tdwp-vf9): surfacing existing DB columns
+		$sanitized['rebuy_until_level']      = isset( $data['rebuy_until_level'] ) ? absint( $data['rebuy_until_level'] ) : 0;
+		$sanitized['rebuy_chip_threshold']   = isset( $data['rebuy_chip_threshold'] ) ? absint( $data['rebuy_chip_threshold'] ) : 0;
+		$sanitized['rebuy_limit_per_player'] = isset( $data['rebuy_limit_per_player'] ) ? absint( $data['rebuy_limit_per_player'] ) : 0;
+		$sanitized['addon_at_level']         = isset( $data['addon_at_level'] ) ? absint( $data['addon_at_level'] ) : 0;
+		$sanitized['addon_until_level']      = isset( $data['addon_until_level'] ) ? absint( $data['addon_until_level'] ) : 0;
 
 		// Chip values
 		$sanitized['rebuy_chips']    = isset( $data['rebuy_chips'] ) ? absint( $data['rebuy_chips'] ) : 0;

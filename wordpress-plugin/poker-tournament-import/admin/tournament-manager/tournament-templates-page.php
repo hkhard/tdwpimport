@@ -459,25 +459,69 @@ class TDWP_Tournament_Templates_Page {
 							</td>
 						</tr>
 
-						<!-- Buy-in Amount -->
+						<!-- Financial Configuration: Fee Split (tdwp-vf9) -->
 						<tr>
 							<th scope="row">
-								<label for="template_buyin">
-									<?php esc_html_e( 'Buy-in Amount', 'poker-tournament-import' ); ?>
+								<label for="template_entry_fee">
+									<?php esc_html_e( 'Entry Fee (House)', 'poker-tournament-import' ); ?>
 								</label>
 							</th>
 							<td>
 								<input
 									type="number"
-									id="template_buyin"
-									name="buy_in"
-									value="<?php echo $is_edit ? esc_attr( $template->buy_in ) : '0'; ?>"
+									id="template_entry_fee"
+									name="entry_fee"
+									value="<?php echo $is_edit ? esc_attr( $template->entry_fee ?? 0 ) : '0'; ?>"
 									step="0.01"
 									min="0"
-									class="small-text"
+									class="small-text tdwp-financial-field"
 								>
 								<p class="description">
-									<?php esc_html_e( 'Tournament buy-in cost', 'poker-tournament-import' ); ?>
+									<?php esc_html_e( 'Portion of buy-in retained by the house (admin/operational fee)', 'poker-tournament-import' ); ?>
+								</p>
+							</td>
+						</tr>
+
+						<tr>
+							<th scope="row">
+								<label for="template_prize_pool_contribution">
+									<?php esc_html_e( 'Prize Pool Contribution', 'poker-tournament-import' ); ?>
+								</label>
+							</th>
+							<td>
+								<input
+									type="number"
+									id="template_prize_pool_contribution"
+									name="prize_pool_contribution"
+									value="<?php echo $is_edit ? esc_attr( $template->prize_pool_contribution ?? $template->buy_in ) : '0'; ?>"
+									step="0.01"
+									min="0"
+									class="small-text tdwp-financial-field"
+								>
+								<p class="description">
+									<?php esc_html_e( 'Portion of buy-in that goes into the prize pool', 'poker-tournament-import' ); ?>
+								</p>
+							</td>
+						</tr>
+
+						<!-- Derived total buy-in (read-only display) -->
+						<tr>
+							<th scope="row">
+								<?php esc_html_e( 'Total Buy-in', 'poker-tournament-import' ); ?>
+							</th>
+							<td>
+								<strong id="tdwp-total-buyin-display">
+									<?php
+									$display_buyin = $is_edit
+										? ( ( ( $template->entry_fee ?? 0 ) + ( $template->prize_pool_contribution ?? 0 ) ) > 0
+											? ( $template->entry_fee ?? 0 ) + ( $template->prize_pool_contribution ?? 0 )
+											: $template->buy_in )
+										: 0;
+									echo esc_html( $this->format_currency( $display_buyin ) );
+									?>
+								</strong>
+								<p class="description">
+									<?php esc_html_e( 'Entry fee + prize pool contribution (computed automatically)', 'poker-tournament-import' ); ?>
 								</p>
 							</td>
 						</tr>
@@ -597,8 +641,153 @@ class TDWP_Tournament_Templates_Page {
 							</td>
 						</tr>
 
-						<!-- Rake Percentage -->
+						<!-- Rebuy / Add-on Timing (tdwp-vf9) -->
 						<tr>
+							<th scope="row">
+								<label for="template_rebuy_until_level">
+									<?php esc_html_e( 'Rebuys Until Level', 'poker-tournament-import' ); ?>
+								</label>
+							</th>
+							<td>
+								<input
+									type="number"
+									id="template_rebuy_until_level"
+									name="rebuy_until_level"
+									value="<?php echo $is_edit ? esc_attr( $template->rebuy_until_level ?? 0 ) : '0'; ?>"
+									step="1"
+									min="0"
+									class="small-text"
+								>
+								<p class="description">
+									<?php esc_html_e( 'Players may rebuy through end of this blind level (0 = any level)', 'poker-tournament-import' ); ?>
+								</p>
+							</td>
+						</tr>
+
+						<tr>
+							<th scope="row">
+								<label for="template_rebuy_chip_threshold">
+									<?php esc_html_e( 'Rebuy Chip Threshold', 'poker-tournament-import' ); ?>
+								</label>
+							</th>
+							<td>
+								<input
+									type="number"
+									id="template_rebuy_chip_threshold"
+									name="rebuy_chip_threshold"
+									value="<?php echo $is_edit ? esc_attr( $template->rebuy_chip_threshold ?? 0 ) : '0'; ?>"
+									step="100"
+									min="0"
+									class="small-text"
+								>
+								<p class="description">
+									<?php esc_html_e( 'Players must be at or below this chip count to rebuy (0 = no chip restriction)', 'poker-tournament-import' ); ?>
+								</p>
+							</td>
+						</tr>
+
+						<tr>
+							<th scope="row">
+								<label for="template_rebuy_limit_per_player">
+									<?php esc_html_e( 'Rebuy Limit Per Player', 'poker-tournament-import' ); ?>
+								</label>
+							</th>
+							<td>
+								<input
+									type="number"
+									id="template_rebuy_limit_per_player"
+									name="rebuy_limit_per_player"
+									value="<?php echo $is_edit ? esc_attr( $template->rebuy_limit_per_player ?? 0 ) : '0'; ?>"
+									step="1"
+									min="0"
+									class="small-text"
+								>
+								<p class="description">
+									<?php esc_html_e( 'Maximum rebuys per player (0 = unlimited)', 'poker-tournament-import' ); ?>
+								</p>
+							</td>
+						</tr>
+
+						<tr>
+							<th scope="row">
+								<label for="template_addon_at_level">
+									<?php esc_html_e( 'Add-on Available at Level', 'poker-tournament-import' ); ?>
+								</label>
+							</th>
+							<td>
+								<input
+									type="number"
+									id="template_addon_at_level"
+									name="addon_at_level"
+									value="<?php echo $is_edit ? esc_attr( $template->addon_at_level ?? 0 ) : '0'; ?>"
+									step="1"
+									min="0"
+									class="small-text"
+								>
+								<p class="description">
+									<?php esc_html_e( 'Blind level at which the add-on becomes available (0 = immediate)', 'poker-tournament-import' ); ?>
+								</p>
+							</td>
+						</tr>
+
+						<tr>
+							<th scope="row">
+								<label for="template_addon_until_level">
+									<?php esc_html_e( 'Add-on Until Level', 'poker-tournament-import' ); ?>
+								</label>
+							</th>
+							<td>
+								<input
+									type="number"
+									id="template_addon_until_level"
+									name="addon_until_level"
+									value="<?php echo $is_edit ? esc_attr( $template->addon_until_level ?? 0 ) : '0'; ?>"
+									step="1"
+									min="0"
+									class="small-text"
+								>
+								<p class="description">
+									<?php esc_html_e( 'Add-on allowed through end of this blind level (0 = any level)', 'poker-tournament-import' ); ?>
+								</p>
+							</td>
+						</tr>
+
+						<!-- Rake Mode (tdwp-vf9) -->
+						<tr>
+							<th scope="row">
+								<?php esc_html_e( 'Rake Mode', 'poker-tournament-import' ); ?>
+							</th>
+							<td>
+								<label>
+									<input
+										type="radio"
+										name="rake_mode"
+										value="percentage"
+										<?php checked( ! $is_edit || 'flat' !== ( $template->rake_mode ?? 'percentage' ) ); ?>
+										id="rake_mode_percentage"
+										class="tdwp-rake-mode"
+									>
+									<?php esc_html_e( 'Percentage', 'poker-tournament-import' ); ?>
+								</label>
+								&nbsp;&nbsp;
+								<label>
+									<input
+										type="radio"
+										name="rake_mode"
+										value="flat"
+										<?php checked( $is_edit && 'flat' === ( $template->rake_mode ?? '' ) ); ?>
+										id="rake_mode_flat"
+										class="tdwp-rake-mode"
+									>
+									<?php esc_html_e( 'Flat Amount', 'poker-tournament-import' ); ?>
+								</label>
+								<p class="description">
+									<?php esc_html_e( 'Choose whether rake is a percentage of the prize pool or a fixed flat fee', 'poker-tournament-import' ); ?>
+								</p>
+							</td>
+						</tr>
+
+						<tr id="tdwp-rake-percentage-row" class="tdwp-rake-row">
 							<th scope="row">
 								<label for="template_rake">
 									<?php esc_html_e( 'Rake Percentage', 'poker-tournament-import' ); ?>
@@ -613,11 +802,33 @@ class TDWP_Tournament_Templates_Page {
 									step="0.1"
 									min="0"
 									max="100"
-									class="small-text"
+									class="small-text tdwp-financial-field"
 								>
 								<span>%</span>
 								<p class="description">
-									<?php esc_html_e( 'House rake as percentage (0-100)', 'poker-tournament-import' ); ?>
+									<?php esc_html_e( 'House rake as percentage of gross prize pool (0-100)', 'poker-tournament-import' ); ?>
+								</p>
+							</td>
+						</tr>
+
+						<tr id="tdwp-rake-flat-row" class="tdwp-rake-row">
+							<th scope="row">
+								<label for="template_rake_flat_amount">
+									<?php esc_html_e( 'Flat Rake Amount', 'poker-tournament-import' ); ?>
+								</label>
+							</th>
+							<td>
+								<input
+									type="number"
+									id="template_rake_flat_amount"
+									name="rake_flat_amount"
+									value="<?php echo $is_edit ? esc_attr( $template->rake_flat_amount ?? 0 ) : '0'; ?>"
+									step="0.01"
+									min="0"
+									class="small-text tdwp-financial-field"
+								>
+								<p class="description">
+									<?php esc_html_e( 'Fixed rake amount deducted from the gross prize pool', 'poker-tournament-import' ); ?>
 								</p>
 							</td>
 						</tr>
@@ -674,6 +885,53 @@ class TDWP_Tournament_Templates_Page {
 					</tbody>
 				</table>
 
+				<!-- Financial Summary Panel (tdwp-vf9) -->
+				<div id="tdwp-financial-summary" class="card" style="max-width: 600px; margin: 20px 0; padding: 15px;">
+					<h2 class="title"><?php esc_html_e( 'Estimated Financial Summary', 'poker-tournament-import' ); ?></h2>
+					<p class="description" style="margin-bottom: 12px;">
+						<?php esc_html_e( 'Live estimate based on current form values. Assumes the expected number of entries, rebuys, and add-ons below.', 'poker-tournament-import' ); ?>
+					</p>
+					<table class="form-table" role="presentation" style="margin: 0;">
+						<tr>
+							<th><?php esc_html_e( 'Expected Entries', 'poker-tournament-import' ); ?></th>
+							<td>
+								<input type="number" id="tdwp-est-entries" value="10" min="1" step="1" class="small-text">
+							</td>
+						</tr>
+						<tr>
+							<th><?php esc_html_e( 'Expected Rebuys', 'poker-tournament-import' ); ?></th>
+							<td>
+								<input type="number" id="tdwp-est-rebuys" value="0" min="0" step="1" class="small-text">
+							</td>
+						</tr>
+						<tr>
+							<th><?php esc_html_e( 'Expected Add-ons', 'poker-tournament-import' ); ?></th>
+							<td>
+								<input type="number" id="tdwp-est-addons" value="0" min="0" step="1" class="small-text">
+							</td>
+						</tr>
+					</table>
+					<hr>
+					<table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+						<tr>
+							<td><?php esc_html_e( 'Total Buy-in', 'poker-tournament-import' ); ?></td>
+							<td style="text-align: right;"><span id="tdwp-sum-buyin">—</span></td>
+						</tr>
+						<tr>
+							<td><?php esc_html_e( 'Gross Prize Pool', 'poker-tournament-import' ); ?></td>
+							<td style="text-align: right;"><span id="tdwp-sum-gross">—</span></td>
+						</tr>
+						<tr>
+							<td><?php esc_html_e( 'Rake', 'poker-tournament-import' ); ?></td>
+							<td style="text-align: right;"><span id="tdwp-sum-rake">—</span></td>
+						</tr>
+						<tr style="font-weight: bold; border-top: 2px solid #ccc;">
+							<td><?php esc_html_e( 'Net Prize Pool', 'poker-tournament-import' ); ?></td>
+							<td style="text-align: right;"><span id="tdwp-sum-net">—</span></td>
+						</tr>
+					</table>
+				</div>
+
 				<p class="submit">
 					<input
 						type="submit"
@@ -720,7 +978,16 @@ class TDWP_Tournament_Templates_Page {
 			'starting_chips'     => isset( $_POST['starting_chips'] ) ? $_POST['starting_chips'] : 10000,
 			'rake_percentage'    => isset( $_POST['rake_percentage'] ) ? $_POST['rake_percentage'] : 0,
 			'blind_schedule_id'  => isset( $_POST['blind_schedule_id'] ) ? $_POST['blind_schedule_id'] : 0,
-			'prize_structure_id' => isset( $_POST['prize_structure_id'] ) ? $_POST['prize_structure_id'] : 0,
+			'prize_structure_id'      => isset( $_POST['prize_structure_id'] ) ? $_POST['prize_structure_id'] : 0,
+			'entry_fee'               => isset( $_POST['entry_fee'] ) ? $_POST['entry_fee'] : 0,
+			'prize_pool_contribution' => isset( $_POST['prize_pool_contribution'] ) ? $_POST['prize_pool_contribution'] : 0,
+			'rake_mode'               => isset( $_POST['rake_mode'] ) ? $_POST['rake_mode'] : 'percentage',
+			'rake_flat_amount'        => isset( $_POST['rake_flat_amount'] ) ? $_POST['rake_flat_amount'] : 0,
+			'rebuy_until_level'       => isset( $_POST['rebuy_until_level'] ) ? $_POST['rebuy_until_level'] : 0,
+			'rebuy_chip_threshold'    => isset( $_POST['rebuy_chip_threshold'] ) ? $_POST['rebuy_chip_threshold'] : 0,
+			'rebuy_limit_per_player'  => isset( $_POST['rebuy_limit_per_player'] ) ? $_POST['rebuy_limit_per_player'] : 0,
+			'addon_at_level'          => isset( $_POST['addon_at_level'] ) ? $_POST['addon_at_level'] : 0,
+			'addon_until_level'       => isset( $_POST['addon_until_level'] ) ? $_POST['addon_until_level'] : 0,
 		);
 
 		// Create or update
