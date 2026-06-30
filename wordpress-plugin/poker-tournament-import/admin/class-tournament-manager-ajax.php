@@ -80,6 +80,9 @@ class TDWP_Tournament_Manager_AJAX {
 		// Seating diagram (tdwp-871.13).
 		add_action( 'wp_ajax_tdwp_tm_get_seating_diagram', array( __CLASS__, 'get_seating_diagram' ) );
 
+		// Event sound map (tdwp-ee1.1).
+		add_action( 'wp_ajax_tdwp_tm_get_sound_map', array( __CLASS__, 'get_sound_map' ) );
+
 		// League management (tdwp-ee1.14).
 		add_action( 'wp_ajax_tdwp_tm_get_leagues', array( __CLASS__, 'get_leagues' ) );
 		add_action( 'wp_ajax_tdwp_tm_save_league', array( __CLASS__, 'save_league' ) );
@@ -940,6 +943,14 @@ class TDWP_Tournament_Manager_AJAX {
 		}
 
 		wp_send_json_success( $result );
+	}
+
+	/**
+	 * Return the event→sound URL map (tdwp-ee1.1).
+	 */
+	public static function get_sound_map() {
+		self::verify_request();
+		wp_send_json_success( array( 'map' => TDWP_Sound_Manager::get_event_sound_map() ) );
 	}
 
 	/**
