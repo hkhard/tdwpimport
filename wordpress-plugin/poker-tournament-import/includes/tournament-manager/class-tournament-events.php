@@ -60,6 +60,7 @@ class TDWP_Tournament_Events {
 		'table_broken'         => 'Table Broken',
 		'chip_adjustment'      => 'Chip Adjustment',
 		'prize_awarded'        => 'Prize Awarded',
+		'prize_chop'           => 'Prize Chop Applied',
 	);
 
 	/**

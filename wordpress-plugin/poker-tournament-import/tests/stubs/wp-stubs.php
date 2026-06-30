@@ -283,6 +283,9 @@ class TDWP_Fake_WPDB {
 	/** @var string */
 	public $last_error = '';
 
+	/** @var int ID of the most recently inserted row (mirrors real $wpdb->insert_id). */
+	public $insert_id = 0;
+
 	/** @var bool Whether SHOW TABLES LIKE should report tables present. */
 	public $tables_exist = true;
 
@@ -313,6 +316,12 @@ class TDWP_Fake_WPDB {
 	/** @var array Participation rows backing poker_tournament_players aggregates. */
 	private $player_rows = array();
 
+	/** @var array Rows inserted into tdwp_tournament_events. */
+	private $event_rows = array();
+
+	/** @var int Auto-increment id for event inserts. */
+	private $auto_id_events = 0;
+
 	public function reset() {
 		$this->live_rows    = array();
 		$this->legacy_rows  = array();
@@ -325,6 +334,9 @@ class TDWP_Fake_WPDB {
 		$this->missing_tables = array();
 		$this->stats          = array();
 		$this->player_rows    = array();
+		$this->event_rows     = array();
+		$this->auto_id_events = 0;
+		$this->insert_id      = 0;
 	}
 
 	/** Test helper: define the poker_tournament_players rows the stats engine aggregates over. */
@@ -365,6 +377,11 @@ class TDWP_Fake_WPDB {
 	/** Test helper: read what is currently in the legacy table. */
 	public function get_legacy_rows() {
 		return array_values( $this->legacy_rows );
+	}
+
+	/** Test helper: read rows inserted into the tournament events table. */
+	public function get_event_rows() {
+		return array_values( $this->event_rows );
 	}
 
 	/**
@@ -478,14 +495,23 @@ class TDWP_Fake_WPDB {
 	public function insert( $table, $data, $format = null ) {
 		if ( stripos( $table, 'poker_player_roi' ) !== false ) {
 			$this->auto_id_roi++;
-			$data['id'] = $this->auto_id_roi;
+			$data['id']      = $this->auto_id_roi;
+			$this->insert_id = $this->auto_id_roi;
 			$this->roi_rows[ $this->auto_id_roi ] = $data;
 			return 1;
 		}
 		if ( stripos( $table, 'poker_tournament_players' ) !== false ) {
 			$this->auto_id++;
-			$data['id'] = $this->auto_id;
+			$data['id']      = $this->auto_id;
+			$this->insert_id = $this->auto_id;
 			$this->legacy_rows[ $this->auto_id ] = $data;
+			return 1;
+		}
+		if ( stripos( $table, 'tdwp_tournament_events' ) !== false ) {
+			$this->auto_id_events++;
+			$data['id']      = $this->auto_id_events;
+			$this->insert_id = $this->auto_id_events;
+			$this->event_rows[ $this->auto_id_events ] = $data;
 			return 1;
 		}
 		return false;
