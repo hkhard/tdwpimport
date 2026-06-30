@@ -59,6 +59,7 @@ class TDWP_Tournament_Manager_AJAX {
 
 		// Live player operations endpoints (Phase 2 Beta22+)
 		add_action( 'wp_ajax_tdwp_tm_bust_player', array( __CLASS__, 'bust_player' ) );
+		add_action( 'wp_ajax_tdwp_tm_undo_bustout', array( __CLASS__, 'undo_bustout' ) );
 		add_action( 'wp_ajax_tdwp_tm_reentry_player', array( __CLASS__, 'reentry_player' ) );
 		add_action( 'wp_ajax_tdwp_tm_process_declined_reentry', array( __CLASS__, 'process_declined_reentry' ) );
 		add_action( 'wp_ajax_tdwp_tm_process_rebuy', array( __CLASS__, 'process_rebuy' ) );
@@ -908,6 +909,30 @@ class TDWP_Tournament_Manager_AJAX {
 
 		// Use new Player Operations class with transaction logging and multi-hitman support
 		$result = TDWP_Player_Operations::process_bustout( $tournament_id, $player_id, $eliminated_by );
+
+		if ( is_wp_error( $result ) ) {
+			wp_send_json_error( array( 'message' => $result->get_error_message() ) );
+		}
+
+		wp_send_json_success( $result );
+	}
+
+	/**
+	 * Undo a player's bust-out (tdwp-871.16).
+	 *
+	 * @since 3.6.1
+	 */
+	public static function undo_bustout() {
+		self::verify_request();
+
+		$tournament_id = isset( $_POST['tournament_id'] ) ? intval( $_POST['tournament_id'] ) : 0;
+		$player_id     = isset( $_POST['player_id'] ) ? intval( $_POST['player_id'] ) : 0;
+
+		if ( ! $tournament_id || ! $player_id ) {
+			wp_send_json_error( array( 'message' => __( 'Invalid parameters', 'poker-tournament-import' ) ) );
+		}
+
+		$result = TDWP_Player_Operations::undo_bustout( $tournament_id, $player_id );
 
 		if ( is_wp_error( $result ) ) {
 			wp_send_json_error( array( 'message' => $result->get_error_message() ) );

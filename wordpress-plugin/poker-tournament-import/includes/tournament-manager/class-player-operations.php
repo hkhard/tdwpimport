@@ -297,6 +297,176 @@ class TDWP_Player_Operations {
 	}
 
 	/**
+	 * Compute renumbered finish positions after a bust-out is undone.
+	 *
+	 * When an eliminated player is restored, their finish position is vacated.
+	 * Every still-eliminated player who finished better (a lower position
+	 * number) shifts one place worse (+1) to keep positions contiguous.
+	 * Players who finished worse (a higher number) are unaffected.
+	 *
+	 * Pure function (no DB) so the renumbering rule is unit-testable.
+	 *
+	 * @param int[] $positions          Finish positions of the OTHER eliminated players.
+	 * @param int   $restored_position  The restored player's vacated position.
+	 * @return array<int,int> Map of old position => new position (only changed rows).
+	 */
+	public static function shift_positions_below( $positions, $restored_position ) {
+		$restored_position = (int) $restored_position;
+		$shifts            = array();
+
+		foreach ( $positions as $position ) {
+			$position = (int) $position;
+			if ( $position > 0 && $position < $restored_position ) {
+				$shifts[ $position ] = $position + 1;
+			}
+		}
+
+		return $shifts;
+	}
+
+	/**
+	 * Undo a player's bust-out (PRD 3.1).
+	 *
+	 * Restores the player to active status with their pre-bust chip count,
+	 * clears their finish position, renumbers the rankings below, and corrects
+	 * the live-state remaining/busted counts. Insert-only audit trail preserved.
+	 *
+	 * @param int $tournament_id Tournament ID.
+	 * @param int $player_id     Tournament-player row ID (tdwp_tournament_players.id).
+	 * @return array|WP_Error Success array or WP_Error.
+	 */
+	public static function undo_bustout( $tournament_id, $player_id ) {
+		global $wpdb;
+
+		$tournament_id = absint( $tournament_id );
+		$player_id     = absint( $player_id );
+
+		if ( ! $tournament_id || ! $player_id ) {
+			return new WP_Error( 'invalid_params', __( 'Invalid tournament or player ID', 'poker-tournament-import' ) );
+		}
+
+		$player_table = $wpdb->prefix . 'tdwp_tournament_players';
+		$player       = $wpdb->get_row(
+			$wpdb->prepare( "SELECT * FROM {$player_table} WHERE id = %d AND tournament_id = %d", $player_id, $tournament_id )
+		);
+
+		if ( ! $player ) {
+			return new WP_Error( 'player_not_found', __( 'Player not found in tournament', 'poker-tournament-import' ) );
+		}
+
+		if ( 'eliminated' !== $player->status ) {
+			return new WP_Error( 'not_eliminated', __( 'Player is not eliminated; nothing to undo', 'poker-tournament-import' ) );
+		}
+
+		// Guard: refuse to undo into a completed tournament (a winner has been
+		// declared). The operator must reopen the tournament first.
+		$live_status = $wpdb->get_var(
+			$wpdb->prepare( "SELECT status FROM {$wpdb->prefix}tdwp_tournament_live_state WHERE tournament_id = %d", $tournament_id )
+		);
+		if ( 'completed' === $live_status ) {
+			return new WP_Error( 'tournament_completed', __( 'Tournament already completed; reopen it before undoing a bust-out', 'poker-tournament-import' ) );
+		}
+
+		$old_position = isset( $player->finish_position ) ? (int) $player->finish_position : 0;
+
+		// Restore the chip count from the most recent bust-out transaction
+		// (logged as a negative chip delta). Fall back to 0 if not found.
+		$transactions_table = $wpdb->prefix . 'tdwp_transactions';
+		$bust_chips         = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT chips FROM {$transactions_table}
+				 WHERE tournament_id = %d AND player_id = %d AND transaction_type = %s
+				 ORDER BY id DESC LIMIT 1",
+				$tournament_id,
+				$player->player_id,
+				'bust_out'
+			)
+		);
+		if ( null === $bust_chips ) {
+			return new WP_Error( 'bust_not_found', __( 'No bust-out transaction found; cannot restore chip count', 'poker-tournament-import' ) );
+		}
+		$restored_chips = abs( (int) $bust_chips );
+
+		// Restore the player to active.
+		$restored = $wpdb->update(
+			$player_table,
+			array(
+				'status'             => 'active',
+				'chip_count'         => $restored_chips,
+				'finish_position'    => null,
+				'bustout_timestamp'  => null,
+				'elimination_reason' => null,
+				'updated_at'         => current_time( 'mysql' ),
+			),
+			array( 'id' => $player_id ),
+			array( '%s', '%d', '%s', '%s', '%s', '%s' ),
+			array( '%d' )
+		);
+
+		if ( false === $restored ) {
+			return new WP_Error( 'update_failed', __( 'Failed to restore player status', 'poker-tournament-import' ) );
+		}
+
+		// Renumber rankings below the vacated position.
+		if ( $old_position > 0 ) {
+			$wpdb->query(
+				$wpdb->prepare(
+					"UPDATE {$player_table}
+					 SET finish_position = finish_position + 1, updated_at = %s
+					 WHERE tournament_id = %d AND status = 'eliminated'
+					   AND finish_position IS NOT NULL AND finish_position > 0 AND finish_position < %d",
+					current_time( 'mysql' ),
+					$tournament_id,
+					$old_position
+				)
+			);
+		}
+
+		// Correct live-state counts.
+		$live_state_table = $wpdb->prefix . 'tdwp_tournament_live_state';
+		$wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$live_state_table}
+				 SET remaining_players = remaining_players + 1,
+				     busted_players_count = GREATEST(busted_players_count - 1, 0),
+				     updated_at = %s
+				 WHERE tournament_id = %d",
+				current_time( 'mysql' ),
+				$tournament_id
+			)
+		);
+
+		// Audit trail (insert-only): restore chips.
+		TDWP_Transaction_Logger::log_transaction(
+			$tournament_id,
+			$player->player_id,
+			'undo_bustout',
+			0,
+			$restored_chips,
+			$old_position
+				? sprintf( 'Bust-out undone (was position %d)', $old_position )
+				: 'Bust-out undone (re-entry eligible)',
+			array( 'restored_position' => $old_position )
+		);
+
+		/**
+		 * Fires after a player's bust-out is undone.
+		 *
+		 * @param int $tournament_id Tournament ID.
+		 * @param int $player_id     Tournament-player row ID.
+		 * @param int $old_position  The finish position that was vacated (0 if none).
+		 */
+		do_action( 'tdwp_player_bustout_undone', $tournament_id, $player_id, $old_position );
+
+		return array(
+			'success'        => true,
+			'restored_chips' => $restored_chips,
+			'old_position'   => $old_position,
+			'message'        => __( 'Bust-out undone; player restored to active', 'poker-tournament-import' ),
+		);
+	}
+
+	/**
 	 * Process player rebuy
 	 *
 	 * - Validates rebuy period is active
