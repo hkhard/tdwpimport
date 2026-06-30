@@ -12,7 +12,6 @@ if (!defined('ABSPATH')) {
 }
 
 class Poker_Tournament_Parser {
-    // phpcs:disable WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Debug/diagnostic class
 
     /**
      * File path
@@ -146,22 +145,6 @@ class Poker_Tournament_Parser {
         // CRITICAL FIX: Enhance players with elimination data from GameHistory
         $data['players'] = $this->enhance_players_with_elimination_data($data['players'], $data['game_history']);
 
-        // v2.8.4: DEBUG - Log game_history before ranking calculation
-        error_log("=== v2.8.4: ABOUT TO CALL calculate_player_rankings ===");
-        error_log("Players count: " . count($data['players']));
-        error_log("GameHistory count: " . count($data['game_history']));
-        if (!empty($data['game_history'])) {
-            error_log("v2.8.4: GameHistory first 2 items:");
-            for ($i = 0; $i < min(2, count($data['game_history'])); $i++) {
-                error_log("  [{$i}] text: " . ($data['game_history'][$i]['text'] ?? 'NO TEXT'));
-                error_log("  [{$i}] timestamp: " . ($data['game_history'][$i]['timestamp'] ?? 'NO TIMESTAMP'));
-            }
-            $last_idx = count($data['game_history']) - 1;
-            error_log("v2.8.4: GameHistory LAST item:");
-            error_log("  [{$last_idx}] text: " . ($data['game_history'][$last_idx]['text'] ?? 'NO TEXT'));
-        } else {
-            error_log("⚠️ v2.8.4: GameHistory is STILL EMPTY!");
-        }
 
         // v2.8.0: Calculate rankings (handles rebuys correctly via LATEST elimination timestamp)
         $data['players'] = $this->calculate_player_rankings($data['players'], $data['game_history']);
@@ -1037,24 +1020,6 @@ class Poker_Tournament_Parser {
      * @return array Players with finish_position assigned
      */
     private function calculate_player_rankings($players, $game_history = array()) {
-        error_log("=== v2.8.0 calculate_player_rankings START ===");
-        error_log("Players count: " . count($players));
-        error_log("GameHistory count: " . count($game_history));
-        
-        // DEBUG: Dump first few game_history items to see format
-        if (count($game_history) > 0) {
-            error_log("GameHistory sample (first 3 items):");
-            for ($i = 0; $i < min(3, count($game_history)); $i++) {
-                error_log("  Item {$i}: " . print_r($game_history[$i], true));
-            }
-            // Also check last item (should be "Tournament ended" or "X won the tournament")
-            $last_idx = count($game_history) - 1;
-            error_log("GameHistory LAST item:");
-            error_log("  Item {$last_idx}: " . print_r($game_history[$last_idx], true));
-        } else {
-            error_log("⚠️ CRITICAL: game_history array is EMPTY!");
-        }
-        
         Poker_Tournament_Import_Debug::log_success("v2.8.0: GameHistoryItem ranking with rebuy support");
 
         // 1. Find winner from "X won the tournament"
@@ -1065,23 +1030,12 @@ class Poker_Tournament_Parser {
                 $winner_uuid = $this->map_player_name_to_uuid($winner_name, $players);
                 if ($winner_uuid && isset($players[$winner_uuid])) {
                     $players[$winner_uuid]['finish_position'] = 1;
-                    error_log("✓ WINNER: {$players[$winner_uuid]['nickname']} = rank 1");
                     Poker_Tournament_Import_Debug::log("Rank 1: {$players[$winner_uuid]['nickname']}");
                 }
                 break;
             }
         }
         
-        if (!$winner_uuid) {
-            error_log("⚠️ NO WINNER DETECTED - checking why...");
-            // Try to find any item with "won" in it
-            foreach ($game_history as $idx => $item) {
-                if (isset($item['text']) && stripos($item['text'], 'won') !== false) {
-                    error_log("  Found item #{$idx} with 'won': " . $item['text']);
-                }
-            }
-        }
-
         // 2. Extract ALL eliminations, keep LATEST per unique player
         $final_eliminations = array();  // uuid => latest_timestamp
 
@@ -1106,17 +1060,6 @@ class Poker_Tournament_Parser {
             }
         }
         
-        if (count($final_eliminations) === 0) {
-            error_log("⚠️ NO ELIMINATIONS EXTRACTED - checking why...");
-            // Try to find any item with "busted" in it
-            foreach ($game_history as $idx => $item) {
-                if (isset($item['text']) && stripos($item['text'], 'busted') !== false) {
-                    error_log("  Found item #{$idx} with 'busted': " . $item['text']);
-                }
-            }
-        }
-
-        error_log("Unique players eliminated: " . count($final_eliminations));
         Poker_Tournament_Import_Debug::log(
             "Unique players eliminated: " . count($final_eliminations) .
             " (total eliminations in history may be higher due to rebuys)"
@@ -1130,7 +1073,6 @@ class Poker_Tournament_Parser {
         foreach ($final_eliminations as $uuid => $timestamp) {
             if ($uuid !== $winner_uuid && isset($players[$uuid])) {
                 $players[$uuid]['finish_position'] = $rank;
-                error_log("✓ RANK {$rank}: {$players[$uuid]['nickname']} (eliminated @ " . gmdate('H:i:s', (int)($timestamp/1000)) . ")");
                 Poker_Tournament_Import_Debug::log(
                     "Rank {$rank}: {$players[$uuid]['nickname']} " .
                     "(final elimination @ " . gmdate('H:i:s', (int)($timestamp/1000)) . ")"
@@ -1144,7 +1086,6 @@ class Poker_Tournament_Parser {
         foreach ($players as $uuid => $player) {
             if (!isset($player['finish_position'])) {
                 $players[$uuid]['finish_position'] = $rank;
-                error_log("⚠ RANK {$rank}: {$player['nickname']} (no elimination found - edge case)");
                 Poker_Tournament_Import_Debug::log_warning(
                     "Rank {$rank}: {$player['nickname']} (no elimination found)"
                 );
@@ -1155,18 +1096,15 @@ class Poker_Tournament_Parser {
         // Verify: unique players = unique ranks
         $ranked_count = $rank - 1;
         if ($ranked_count !== $total_players) {
-            error_log("⚠ MISMATCH: {$ranked_count} ranks assigned, {$total_players} players total");
             Poker_Tournament_Import_Debug::log_warning(
                 "Rank count mismatch: {$ranked_count} ranks assigned, {$total_players} players total"
             );
         } else {
-            error_log("✓ SUCCESS: {$total_players} unique players = {$ranked_count} unique ranks");
             Poker_Tournament_Import_Debug::log_success(
                 "✅ {$total_players} unique players = {$ranked_count} unique ranks"
             );
         }
 
-        error_log("=== v2.8.0 calculate_player_rankings END ===");
         return $players;
     }
 
