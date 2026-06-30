@@ -27,6 +27,12 @@ class Poker_Tournament_Import_Admin {
         // Add formula editor meta box for tournaments
         add_action('add_meta_boxes', array($this, 'add_formula_meta_box'));
         add_action('save_post_tournament', array($this, 'save_formula_meta_box'), 10, 2);
+
+        // Points verification (tdwp-h6o): health meta box + AJAX preview/apply.
+        add_action('add_meta_boxes', array($this, 'add_points_health_meta_box'));
+        add_action('wp_ajax_tdwp_pv_preview_formula', array($this, 'ajax_pv_preview_formula'));
+        add_action('wp_ajax_tdwp_pv_apply_formula', array($this, 'ajax_pv_apply_formula'));
+        add_action('wp_ajax_tdwp_pv_get_tournament_health', array($this, 'ajax_pv_get_tournament_health'));
     }
 
     /**
@@ -102,6 +108,15 @@ class Poker_Tournament_Import_Admin {
             'manage_options',
             'poker-tournament-debug-log',
             array($this, 'render_debug_log_page')
+        );
+
+        add_submenu_page(
+            'poker-tournament-import',
+            __('Points Verification', 'poker-tournament-import'),
+            __('Points Verification', 'poker-tournament-import'),
+            'manage_options',
+            'poker-points-verification',
+            array($this, 'render_points_verification_page')
         );
     }
 
@@ -316,6 +331,42 @@ class Poker_Tournament_Import_Admin {
                     POKER_TOURNAMENT_IMPORT_VERSION
                 );
             }
+        }
+
+        // Points verification page assets (tdwp-h6o).
+        if (strpos($hook, 'poker-points-verification') !== false) {
+            wp_enqueue_style(
+                'tdwp-points-verifier',
+                POKER_TOURNAMENT_IMPORT_PLUGIN_URL . 'admin/assets/css/points-verifier.css',
+                array(),
+                POKER_TOURNAMENT_IMPORT_VERSION
+            );
+            wp_enqueue_script(
+                'tdwp-points-verifier',
+                POKER_TOURNAMENT_IMPORT_PLUGIN_URL . 'admin/assets/js/points-verifier.js',
+                array('jquery'),
+                POKER_TOURNAMENT_IMPORT_VERSION,
+                true
+            );
+            wp_localize_script(
+                'tdwp-points-verifier',
+                'tdwpPV',
+                array(
+                    'ajaxUrl' => admin_url('admin-ajax.php'),
+                    'nonce'   => wp_create_nonce('tdwp_pv_action'),
+                    'strings' => array(
+                        'pos'          => __('Pos', 'poker-tournament-import'),
+                        'player'       => __('Player', 'poker-tournament-import'),
+                        'current'      => __('Current', 'poker-tournament-import'),
+                        'preview'      => __('Preview', 'poker-tournament-import'),
+                        'delta'        => __('Delta', 'poker-tournament-import'),
+                        'previewSum'   => __('Preview points sum:', 'poker-tournament-import'),
+                        'estimated'    => __('Monies are estimated from buy-in × players.', 'poker-tournament-import'),
+                        'error'        => __('Could not calculate. Please try again.', 'poker-tournament-import'),
+                        'confirmApply' => __('Apply this formula and overwrite stored points? This recomputes season standings.', 'poker-tournament-import'),
+                    ),
+                )
+            );
         }
 
         // Enqueue formula editor assets on tournament edit screen
@@ -4734,6 +4785,159 @@ class Poker_Tournament_Import_Admin {
             'average_size_growth' => $stats_engine->get_average_tournament_size_growth(),
             'prize_pool_growth' => $stats_engine->get_prize_pool_growth_trends()
         );
+    }
+
+    /**
+     * Lazily build a points verifier instance.
+     *
+     * @return Poker_Tournament_Points_Verifier
+     */
+    private function get_points_verifier() {
+        return new Poker_Tournament_Points_Verifier();
+    }
+
+    /**
+     * Validate a formula_key from a request against the selectable set.
+     *
+     * @param int    $post_id     Tournament post ID.
+     * @param string $formula_key Raw formula key.
+     * @return string|false Sanitised key, or false if invalid.
+     */
+    private function validate_pv_formula_key($post_id, $formula_key) {
+        // formula_key may contain underscores ('__embedded__'), so use
+        // sanitize_text_field rather than sanitize_key.
+        $formula_key = sanitize_text_field($formula_key);
+        $verifier = $this->get_points_verifier();
+        $allowed = array_keys($verifier->get_selectable_formulas($post_id));
+        return in_array($formula_key, $allowed, true) ? $formula_key : false;
+    }
+
+    /**
+     * Render the points verification admin page.
+     */
+    public function render_points_verification_page() {
+        if (!current_user_can('manage_options')) {
+            wp_die(esc_html__('You do not have permission to access this page.', 'poker-tournament-import'));
+        }
+        $verifier = $this->get_points_verifier();
+        require POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/points-verification-page.php';
+    }
+
+    /**
+     * AJAX: preview points under a candidate formula (no write).
+     */
+    public function ajax_pv_preview_formula() {
+        check_ajax_referer('tdwp_pv_action', 'nonce');
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(array('message' => __('Permission denied.', 'poker-tournament-import')), 403);
+        }
+        $post_id = isset($_POST['post_id']) ? absint($_POST['post_id']) : 0;
+        $formula_key = $this->validate_pv_formula_key($post_id, isset($_POST['formula_key']) ? wp_unslash($_POST['formula_key']) : '');
+        if (!$post_id || false === $formula_key) {
+            wp_send_json_error(array('message' => __('Invalid request.', 'poker-tournament-import')), 400);
+        }
+        $result = $this->get_points_verifier()->preview_formula($post_id, $formula_key);
+        if (is_wp_error($result)) {
+            wp_send_json_error(array('message' => $result->get_error_message()), 400);
+        }
+        wp_send_json_success($result);
+    }
+
+    /**
+     * AJAX: apply a formula's points and recompute statistics.
+     */
+    public function ajax_pv_apply_formula() {
+        check_ajax_referer('tdwp_pv_action', 'nonce');
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(array('message' => __('Permission denied.', 'poker-tournament-import')), 403);
+        }
+        $post_id = isset($_POST['post_id']) ? absint($_POST['post_id']) : 0;
+        $formula_key = $this->validate_pv_formula_key($post_id, isset($_POST['formula_key']) ? wp_unslash($_POST['formula_key']) : '');
+        if (!$post_id || false === $formula_key) {
+            wp_send_json_error(array('message' => __('Invalid request.', 'poker-tournament-import')), 400);
+        }
+        $result = $this->get_points_verifier()->apply_formula($post_id, $formula_key);
+        if (is_wp_error($result)) {
+            wp_send_json_error(array('message' => $result->get_error_message()), 400);
+        }
+        $message = sprintf(
+            /* translators: 1: number of players updated, 2: formula label */
+            __('Applied "%2$s" to %1$d players. Season standings recomputed.', 'poker-tournament-import'),
+            $result['updated'],
+            $result['label']
+        );
+        if ($result['negatives'] > 0) {
+            $message .= ' ' . sprintf(
+                /* translators: %d: number of negative values clamped */
+                __('(%d negative value(s) clamped to 0.)', 'poker-tournament-import'),
+                $result['negatives']
+            );
+        }
+        wp_send_json_success(array('message' => $message));
+    }
+
+    /**
+     * AJAX: return the health descriptor for a tournament.
+     */
+    public function ajax_pv_get_tournament_health() {
+        check_ajax_referer('tdwp_pv_action', 'nonce');
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(array('message' => __('Permission denied.', 'poker-tournament-import')), 403);
+        }
+        $post_id = isset($_POST['post_id']) ? absint($_POST['post_id']) : 0;
+        if (!$post_id) {
+            wp_send_json_error(array('message' => __('Invalid request.', 'poker-tournament-import')), 400);
+        }
+        $summary = $this->get_points_verifier()->get_tournament_summary($post_id);
+        if (is_wp_error($summary)) {
+            wp_send_json_error(array('message' => $summary->get_error_message()), 400);
+        }
+        wp_send_json_success($summary['health']);
+    }
+
+    /**
+     * Register the points-health meta box on the tournament edit screen.
+     */
+    public function add_points_health_meta_box() {
+        add_meta_box(
+            'tdwp_points_health',
+            __('Points Health', 'poker-tournament-import'),
+            array($this, 'render_points_health_meta_box'),
+            'tournament',
+            'side',
+            'default'
+        );
+    }
+
+    /**
+     * Render the points-health meta box content.
+     *
+     * @param WP_Post $post Tournament post.
+     */
+    public function render_points_health_meta_box($post) {
+        $summary = $this->get_points_verifier()->get_tournament_summary($post->ID);
+        if (is_wp_error($summary)) {
+            echo '<p>' . esc_html($summary->get_error_message()) . '</p>';
+            return;
+        }
+        $health = $summary['health'];
+        $labels = array(
+            'ok'       => __('OK', 'poker-tournament-import'),
+            'warning'  => __('Warning', 'poker-tournament-import'),
+            'critical' => __('Critical', 'poker-tournament-import'),
+        );
+        $label = isset($labels[$health['severity']]) ? $labels[$health['severity']] : $health['severity'];
+        echo '<p class="tdwp-points-health-line">' . esc_html__('Status:', 'poker-tournament-import') . ' ';
+        echo '<span class="tdwp-pv-badge tdwp-pv-badge-' . esc_attr($health['severity']) . '">' . esc_html($label) . '</span></p>';
+        echo '<p>' . esc_html__('Points sum:', 'poker-tournament-import') . ' <strong>' . esc_html($health['sum']) . '</strong></p>';
+        if ($health['anomaly_count'] > 0) {
+            echo '<p>' . esc_html(sprintf(
+                /* translators: %d: anomaly count */
+                __('Anomalies: %d', 'poker-tournament-import'),
+                $health['anomaly_count']
+            )) . '</p>';
+        }
+        echo '<p><a class="button button-small" href="' . esc_url(admin_url('admin.php?page=poker-points-verification&tournament_id=' . $post->ID)) . '">' . esc_html__('Review Points', 'poker-tournament-import') . '</a></p>';
     }
 
     /**

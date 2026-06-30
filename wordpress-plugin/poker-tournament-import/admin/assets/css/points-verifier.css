@@ -1,0 +1,107 @@
+/* Points verification page styles. */
+
+.tdwp-pv-badge {
+	display: inline-block;
+	padding: 2px 8px;
+	border-radius: 3px;
+	font-size: 12px;
+	font-weight: 600;
+	color: #fff;
+	vertical-align: middle;
+}
+.tdwp-pv-badge-ok {
+	background: #2e7d32;
+}
+.tdwp-pv-badge-warning {
+	background: #b26a00;
+}
+.tdwp-pv-badge-critical {
+	background: #b32d2e;
+}
+
+.tdwp-pv-anomaly-banner ul {
+	margin: 6px 0 6px 18px;
+	list-style: disc;
+}
+
+.tdwp-pv-financials ul {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 18px;
+	margin: 8px 0;
+	padding: 0;
+	list-style: none;
+}
+.tdwp-pv-financials li {
+	margin: 0;
+}
+
+.tdwp-pv-negative {
+	color: #b32d2e;
+	font-weight: 700;
+}
+
+.tdwp-pv-current {
+	margin: 16px 0;
+}
+.tdwp-pv-current summary {
+	cursor: pointer;
+	font-weight: 600;
+	margin-bottom: 8px;
+}
+
+.tdwp-pv-selector {
+	margin-top: 20px;
+	padding: 16px;
+	background: #fff;
+	border: 1px solid #ccd0d4;
+	border-radius: 4px;
+}
+.tdwp-pv-formula-list label {
+	display: block;
+	margin: 4px 0;
+}
+
+.tdwp-pv-spinner {
+	float: none;
+	visibility: hidden;
+}
+.tdwp-pv-spinner.is-active {
+	visibility: visible;
+}
+
+.tdwp-pv-preview-panel {
+	margin-top: 14px;
+}
+.tdwp-pv-up {
+	color: #2e7d32;
+}
+.tdwp-pv-down {
+	color: #b32d2e;
+}
+.tdwp-pv-preview-health {
+	padding: 8px 12px;
+	border-left: 4px solid #b32d2e;
+	background: #fcf0f1;
+	margin-bottom: 10px;
+}
+.tdwp-pv-preview-health.tdwp-pv-badge-warning {
+	border-left-color: #b26a00;
+	background: #fdf6ec;
+}
+.tdwp-pv-preview-health.tdwp-pv-badge-ok {
+	border-left-color: #2e7d32;
+	background: #edf7ee;
+}
+.tdwp-pv-preview-health ul {
+	margin: 0 0 0 18px;
+	list-style: disc;
+}
+.tdwp-pv-estimated {
+	color: #b26a00;
+}
+
+/* Tournament-edit meta box health line. */
+.tdwp-points-health-line {
+	font-weight: 600;
+}
