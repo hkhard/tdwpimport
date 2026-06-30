@@ -73,6 +73,13 @@ class TDWP_Tournament_Manager_AJAX {
 
 		// Results emailer (tdwp-871.29) — operator-triggered send.
 		add_action( 'wp_ajax_tdwp_tm_email_results', array( __CLASS__, 'email_results' ) );
+
+		// League management (tdwp-ee1.14).
+		add_action( 'wp_ajax_tdwp_tm_get_leagues', array( __CLASS__, 'get_leagues' ) );
+		add_action( 'wp_ajax_tdwp_tm_save_league', array( __CLASS__, 'save_league' ) );
+		add_action( 'wp_ajax_tdwp_tm_delete_league', array( __CLASS__, 'delete_league' ) );
+		add_action( 'wp_ajax_tdwp_tm_add_league_member', array( __CLASS__, 'add_league_member' ) );
+		add_action( 'wp_ajax_tdwp_tm_remove_league_member', array( __CLASS__, 'remove_league_member' ) );
 		add_action( 'wp_ajax_tdwp_tm_process_declined_reentry', array( __CLASS__, 'process_declined_reentry' ) );
 		add_action( 'wp_ajax_tdwp_tm_process_rebuy', array( __CLASS__, 'process_rebuy' ) );
 		add_action( 'wp_ajax_tdwp_tm_process_addon', array( __CLASS__, 'process_addon' ) );
@@ -927,6 +934,108 @@ class TDWP_Tournament_Manager_AJAX {
 		}
 
 		wp_send_json_success( $result );
+	}
+
+	/**
+	 * List leagues with their seasons (tdwp-ee1.14).
+	 */
+	public static function get_leagues() {
+		self::verify_request();
+
+		$leagues = TDWP_League_Manager::get_leagues();
+		foreach ( $leagues as &$league ) {
+			$league['seasons'] = TDWP_League_Manager::get_seasons( $league['id'] );
+		}
+		unset( $league );
+
+		wp_send_json_success( array( 'leagues' => $leagues ) );
+	}
+
+	/**
+	 * Create or update a league (tdwp-ee1.14).
+	 */
+	public static function save_league() {
+		self::verify_request();
+
+		$league_id = isset( $_POST['league_id'] ) ? absint( $_POST['league_id'] ) : 0;
+		$data      = array(
+			'name'        => isset( $_POST['name'] ) ? sanitize_text_field( wp_unslash( $_POST['name'] ) ) : '',
+			'description' => isset( $_POST['description'] ) ? sanitize_textarea_field( wp_unslash( $_POST['description'] ) ) : '',
+			'league_type' => isset( $_POST['league_type'] ) ? sanitize_text_field( wp_unslash( $_POST['league_type'] ) ) : 'points',
+			'is_active'   => ! empty( $_POST['is_active'] ),
+			'is_private'  => ! empty( $_POST['is_private'] ),
+			'max_players' => isset( $_POST['max_players'] ) ? absint( $_POST['max_players'] ) : 0,
+		);
+
+		if ( $league_id ) {
+			$result = TDWP_League_Manager::update_league( $league_id, $data );
+		} else {
+			$result = TDWP_League_Manager::create_league( $data );
+		}
+
+		if ( is_wp_error( $result ) ) {
+			wp_send_json_error( array( 'message' => $result->get_error_message() ) );
+		}
+
+		wp_send_json_success(
+			array(
+				'league_id' => $league_id ? $league_id : $result,
+				'message'   => __( 'League saved', 'poker-tournament-import' ),
+			)
+		);
+	}
+
+	/**
+	 * Delete a league (tdwp-ee1.14).
+	 */
+	public static function delete_league() {
+		self::verify_request();
+
+		$league_id = isset( $_POST['league_id'] ) ? absint( $_POST['league_id'] ) : 0;
+		if ( ! $league_id ) {
+			wp_send_json_error( array( 'message' => __( 'Invalid league', 'poker-tournament-import' ) ) );
+		}
+
+		TDWP_League_Manager::delete_league( $league_id );
+		wp_send_json_success( array( 'message' => __( 'League deleted', 'poker-tournament-import' ) ) );
+	}
+
+	/**
+	 * Add a player to a league (tdwp-ee1.14).
+	 */
+	public static function add_league_member() {
+		self::verify_request();
+
+		$league_id = isset( $_POST['league_id'] ) ? absint( $_POST['league_id'] ) : 0;
+		$player_id = isset( $_POST['player_id'] ) ? absint( $_POST['player_id'] ) : 0;
+		$season_id = isset( $_POST['season_id'] ) ? absint( $_POST['season_id'] ) : 0;
+
+		$result = TDWP_League_Manager::add_member( $league_id, $player_id, $season_id );
+		if ( is_wp_error( $result ) ) {
+			wp_send_json_error( array( 'message' => $result->get_error_message() ) );
+		}
+
+		wp_send_json_success(
+			array(
+				'membership_id' => $result,
+				'message'       => __( 'Member added', 'poker-tournament-import' ),
+			)
+		);
+	}
+
+	/**
+	 * Remove a league membership (tdwp-ee1.14).
+	 */
+	public static function remove_league_member() {
+		self::verify_request();
+
+		$membership_id = isset( $_POST['membership_id'] ) ? absint( $_POST['membership_id'] ) : 0;
+		if ( ! $membership_id ) {
+			wp_send_json_error( array( 'message' => __( 'Invalid membership', 'poker-tournament-import' ) ) );
+		}
+
+		TDWP_League_Manager::remove_member( $membership_id );
+		wp_send_json_success( array( 'message' => __( 'Member removed', 'poker-tournament-import' ) ) );
 	}
 
 	/**
