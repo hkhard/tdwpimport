@@ -61,6 +61,11 @@ class TDWP_Tournament_Manager_AJAX {
 		add_action( 'wp_ajax_tdwp_tm_bust_player', array( __CLASS__, 'bust_player' ) );
 		add_action( 'wp_ajax_tdwp_tm_undo_bustout', array( __CLASS__, 'undo_bustout' ) );
 		add_action( 'wp_ajax_tdwp_tm_reentry_player', array( __CLASS__, 'reentry_player' ) );
+
+		// Chipset designer (tdwp-ee1.9).
+		add_action( 'wp_ajax_tdwp_tm_get_chipsets', array( __CLASS__, 'get_chipsets' ) );
+		add_action( 'wp_ajax_tdwp_tm_save_chipset', array( __CLASS__, 'save_chipset' ) );
+		add_action( 'wp_ajax_tdwp_tm_delete_chipset', array( __CLASS__, 'delete_chipset' ) );
 		add_action( 'wp_ajax_tdwp_tm_process_declined_reentry', array( __CLASS__, 'process_declined_reentry' ) );
 		add_action( 'wp_ajax_tdwp_tm_process_rebuy', array( __CLASS__, 'process_rebuy' ) );
 		add_action( 'wp_ajax_tdwp_tm_process_addon', array( __CLASS__, 'process_addon' ) );
@@ -915,6 +920,85 @@ class TDWP_Tournament_Manager_AJAX {
 		}
 
 		wp_send_json_success( $result );
+	}
+
+	/**
+	 * List all chipsets with their denominations (tdwp-ee1.9).
+	 */
+	public static function get_chipsets() {
+		self::verify_request();
+
+		$chipsets = TDWP_Chipset_Manager::get_chipsets();
+		foreach ( $chipsets as &$chipset ) {
+			$chipset['denominations'] = TDWP_Chipset_Manager::get_denominations( $chipset['id'] );
+		}
+		unset( $chipset );
+
+		wp_send_json_success( array( 'chipsets' => $chipsets ) );
+	}
+
+	/**
+	 * Create or update a chipset and its denominations (tdwp-ee1.9).
+	 */
+	public static function save_chipset() {
+		self::verify_request();
+
+		$chipset_id  = isset( $_POST['chipset_id'] ) ? absint( $_POST['chipset_id'] ) : 0;
+		$name        = isset( $_POST['name'] ) ? sanitize_text_field( wp_unslash( $_POST['name'] ) ) : '';
+		$description = isset( $_POST['description'] ) ? sanitize_text_field( wp_unslash( $_POST['description'] ) ) : '';
+
+		// Denominations arrive as a JSON array of {value,color,quantity}.
+		$denominations = array();
+		if ( isset( $_POST['denominations'] ) ) {
+			$decoded = json_decode( stripslashes( $_POST['denominations'] ), true );
+			if ( is_array( $decoded ) ) {
+				$denominations = $decoded;
+			}
+		}
+
+		$valid = TDWP_Chipset_Manager::validate_denominations( $denominations );
+		if ( is_wp_error( $valid ) ) {
+			wp_send_json_error( array( 'message' => $valid->get_error_message() ) );
+		}
+
+		if ( $chipset_id ) {
+			$result = TDWP_Chipset_Manager::update_chipset( $chipset_id, $name, $description );
+			if ( is_wp_error( $result ) ) {
+				wp_send_json_error( array( 'message' => $result->get_error_message() ) );
+			}
+		} else {
+			$chipset_id = TDWP_Chipset_Manager::create_chipset( $name, $description );
+			if ( is_wp_error( $chipset_id ) ) {
+				wp_send_json_error( array( 'message' => $chipset_id->get_error_message() ) );
+			}
+		}
+
+		$set = TDWP_Chipset_Manager::set_denominations( $chipset_id, $denominations );
+		if ( is_wp_error( $set ) ) {
+			wp_send_json_error( array( 'message' => $set->get_error_message() ) );
+		}
+
+		wp_send_json_success(
+			array(
+				'chipset_id' => $chipset_id,
+				'message'    => __( 'Chipset saved', 'poker-tournament-import' ),
+			)
+		);
+	}
+
+	/**
+	 * Delete a chipset (tdwp-ee1.9).
+	 */
+	public static function delete_chipset() {
+		self::verify_request();
+
+		$chipset_id = isset( $_POST['chipset_id'] ) ? absint( $_POST['chipset_id'] ) : 0;
+		if ( ! $chipset_id ) {
+			wp_send_json_error( array( 'message' => __( 'Invalid chipset', 'poker-tournament-import' ) ) );
+		}
+
+		TDWP_Chipset_Manager::delete_chipset( $chipset_id );
+		wp_send_json_success( array( 'message' => __( 'Chipset deleted', 'poker-tournament-import' ) ) );
 	}
 
 	/**

@@ -533,6 +533,8 @@ class Poker_Tournament_Import {
         // Event dispatch pipeline: bridge the event log to the queue + drain it on cron.
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-event-dispatcher.php';
         TDWP_Event_Dispatcher::register();
+        // Chipset / denomination management (tdwp-ee1.9).
+        require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-chipset-manager.php';
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/class-tournament-clock-shortcode.php';
 
         // **PHASE 2 Week 2-3: Table Management**

@@ -44,7 +44,7 @@ class TDWP_Database_Schema {
 	 *
 	 * @var string
 	 */
-	const DB_VERSION = '3.6.1';
+	const DB_VERSION = '3.6.2';
 
 	/**
 	 * Option name for storing database version
@@ -125,6 +125,10 @@ class TDWP_Database_Schema {
 
 		// Points adjustments audit log (tdwp-31i)
 		$tables_created[] = self::create_points_adjustments_table( $wpdb, $charset_collate );
+
+		// Chipset designer / denomination management (tdwp-ee1.9)
+		$tables_created[] = self::create_chipsets_table( $wpdb, $charset_collate );
+		$tables_created[] = self::create_chip_denominations_table( $wpdb, $charset_collate );
 
 		// Check if all tables created successfully
 		$success = ! in_array( false, $tables_created, true );
@@ -712,6 +716,62 @@ class TDWP_Database_Schema {
 			KEY tournament_player (tournament_uuid, player_uuid),
 			KEY tournament_uuid (tournament_uuid),
 			KEY created_at (created_at)
+		) {$charset_collate};";
+
+		dbDelta( $sql );
+
+		return $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name;
+	}
+
+	/**
+	 * Create chipsets table (tdwp-ee1.9).
+	 *
+	 * A named, reusable set of physical chip denominations.
+	 *
+	 * @param wpdb   $wpdb             WordPress database object.
+	 * @param string $charset_collate  Database charset collate.
+	 * @return bool True on success.
+	 */
+	private static function create_chipsets_table( $wpdb, $charset_collate ) {
+		$table_name = $wpdb->prefix . 'tdwp_chipsets';
+
+		$sql = "CREATE TABLE {$table_name} (
+			id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+			name varchar(191) NOT NULL,
+			description varchar(500) NOT NULL DEFAULT '',
+			created_at datetime DEFAULT CURRENT_TIMESTAMP,
+			updated_at datetime DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY  (id),
+			KEY name (name)
+		) {$charset_collate};";
+
+		dbDelta( $sql );
+
+		return $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name;
+	}
+
+	/**
+	 * Create chip denominations table (tdwp-ee1.9).
+	 *
+	 * The individual chip values that make up a chipset.
+	 *
+	 * @param wpdb   $wpdb             WordPress database object.
+	 * @param string $charset_collate  Database charset collate.
+	 * @return bool True on success.
+	 */
+	private static function create_chip_denominations_table( $wpdb, $charset_collate ) {
+		$table_name = $wpdb->prefix . 'tdwp_chip_denominations';
+
+		$sql = "CREATE TABLE {$table_name} (
+			id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+			chipset_id bigint(20) UNSIGNED NOT NULL,
+			value bigint(20) UNSIGNED NOT NULL,
+			color varchar(40) NOT NULL DEFAULT '',
+			quantity int UNSIGNED NOT NULL DEFAULT 0,
+			sort_order int NOT NULL DEFAULT 0,
+			PRIMARY KEY  (id),
+			KEY chipset_id (chipset_id),
+			KEY chipset_value (chipset_id, value)
 		) {$charset_collate};";
 
 		dbDelta( $sql );
