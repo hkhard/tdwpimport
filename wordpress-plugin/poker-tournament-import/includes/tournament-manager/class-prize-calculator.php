@@ -25,6 +25,70 @@ if ( ! defined( 'ABSPATH' ) ) {
 class TDWP_Prize_Calculator {
 
 	/**
+	 * Calculate financial summary supporting fee split and flat/percentage rake (tdwp-vf9)
+	 *
+	 * @since 3.6.0
+	 *
+	 * @param float  $entry_fee               Entry fee portion per player (house/admin fee).
+	 * @param float  $prize_pool_contribution Prize pool contribution per player.
+	 * @param int    $entries                 Number of entries.
+	 * @param int    $rebuys                  Number of rebuys.
+	 * @param int    $addons                  Number of add-ons.
+	 * @param float  $rebuy_cost              Cost per rebuy.
+	 * @param float  $addon_cost              Cost per add-on.
+	 * @param string $rake_mode               'percentage' or 'flat'.
+	 * @param float  $rake_percentage         Rake percentage (0-100), used when rake_mode='percentage'.
+	 * @param float  $rake_flat_amount        Flat rake amount, used when rake_mode='flat'.
+	 * @return array Summary with keys: entry_fee, prize_pool_contribution, buy_in, entries,
+	 *               rebuys, addons, entry_pool, rebuy_pool, addon_pool, gross_pool,
+	 *               rake_mode, rake_percentage, rake_flat_amount, rake_amount, net_pool.
+	 */
+	public static function calculate_financial_summary( $entry_fee, $prize_pool_contribution, $entries, $rebuys = 0, $addons = 0, $rebuy_cost = 0, $addon_cost = 0, $rake_mode = 'percentage', $rake_percentage = 0, $rake_flat_amount = 0 ) {
+		$entry_fee               = floatval( $entry_fee );
+		$prize_pool_contribution = floatval( $prize_pool_contribution );
+		$entries                 = absint( $entries );
+		$rebuys                  = absint( $rebuys );
+		$addons                  = absint( $addons );
+		$rebuy_cost              = floatval( $rebuy_cost );
+		$addon_cost              = floatval( $addon_cost );
+		$rake_mode               = in_array( $rake_mode, array( 'percentage', 'flat' ), true ) ? $rake_mode : 'percentage';
+		$rake_percentage         = max( 0.0, min( 100.0, floatval( $rake_percentage ) ) );
+		$rake_flat_amount        = max( 0.0, floatval( $rake_flat_amount ) );
+
+		$buy_in     = $entry_fee + $prize_pool_contribution;
+		$entry_pool = $prize_pool_contribution * $entries;
+		$rebuy_pool = $rebuy_cost * $rebuys;
+		$addon_pool = $addon_cost * $addons;
+		$gross_pool = $entry_pool + $rebuy_pool + $addon_pool;
+
+		if ( 'flat' === $rake_mode ) {
+			$rake_amount = $rake_flat_amount;
+		} else {
+			$rake_amount = $gross_pool * ( $rake_percentage / 100 );
+		}
+
+		$net_pool = max( 0.0, $gross_pool - $rake_amount );
+
+		return array(
+			'entry_fee'               => round( $entry_fee, 2 ),
+			'prize_pool_contribution' => round( $prize_pool_contribution, 2 ),
+			'buy_in'                  => round( $buy_in, 2 ),
+			'entries'                 => $entries,
+			'rebuys'                  => $rebuys,
+			'addons'                  => $addons,
+			'entry_pool'              => round( $entry_pool, 2 ),
+			'rebuy_pool'              => round( $rebuy_pool, 2 ),
+			'addon_pool'              => round( $addon_pool, 2 ),
+			'gross_pool'              => round( $gross_pool, 2 ),
+			'rake_mode'               => $rake_mode,
+			'rake_percentage'         => $rake_percentage,
+			'rake_flat_amount'        => round( $rake_flat_amount, 2 ),
+			'rake_amount'             => round( $rake_amount, 2 ),
+			'net_pool'                => round( $net_pool, 2 ),
+		);
+	}
+
+	/**
 	 * Calculate net prize pool after rake
 	 *
 	 * @since 3.0.0
