@@ -74,6 +74,9 @@ class TDWP_Tournament_Manager_AJAX {
 		// Results emailer (tdwp-871.29) — operator-triggered send.
 		add_action( 'wp_ajax_tdwp_tm_email_results', array( __CLASS__, 'email_results' ) );
 
+		// Player photo upload (tdwp-ee1.15).
+		add_action( 'wp_ajax_tdwp_tm_upload_player_photo', array( __CLASS__, 'upload_player_photo' ) );
+
 		// League management (tdwp-ee1.14).
 		add_action( 'wp_ajax_tdwp_tm_get_leagues', array( __CLASS__, 'get_leagues' ) );
 		add_action( 'wp_ajax_tdwp_tm_save_league', array( __CLASS__, 'save_league' ) );
@@ -929,6 +932,32 @@ class TDWP_Tournament_Manager_AJAX {
 		// Use new Player Operations class with transaction logging and multi-hitman support
 		$result = TDWP_Player_Operations::process_bustout( $tournament_id, $player_id, $eliminated_by );
 
+		if ( is_wp_error( $result ) ) {
+			wp_send_json_error( array( 'message' => $result->get_error_message() ) );
+		}
+
+		wp_send_json_success( $result );
+	}
+
+	/**
+	 * Upload a player profile photo (tdwp-ee1.15).
+	 *
+	 * Server-side validation only — the browser-supplied MIME is not trusted.
+	 */
+	public static function upload_player_photo() {
+		self::verify_request();
+
+		$player_id = isset( $_POST['player_id'] ) ? absint( $_POST['player_id'] ) : 0;
+		if ( ! $player_id ) {
+			wp_send_json_error( array( 'message' => __( 'Invalid player', 'poker-tournament-import' ) ) );
+		}
+
+		if ( empty( $_FILES['photo'] ) ) {
+			wp_send_json_error( array( 'message' => __( 'No file was uploaded', 'poker-tournament-import' ) ) );
+		}
+
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput -- $_FILES entry validated inside the manager (size/type/error) and by wp_handle_upload.
+		$result = TDWP_Player_Photo_Manager::handle_upload( $player_id, $_FILES['photo'] );
 		if ( is_wp_error( $result ) ) {
 			wp_send_json_error( array( 'message' => $result->get_error_message() ) );
 		}
