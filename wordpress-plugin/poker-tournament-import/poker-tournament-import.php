@@ -542,6 +542,8 @@ class Poker_Tournament_Import {
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-results-emailer.php';
         // League management (tdwp-ee1.14).
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-league-manager.php';
+        // Player photo upload (tdwp-ee1.15).
+        require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-player-photo-manager.php';
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/class-tournament-clock-shortcode.php';
 
         // **PHASE 2 Week 2-3: Table Management**
