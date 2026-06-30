@@ -130,6 +130,7 @@ class Poker_Tournament_Import {
         
         // Admin hooks
         if (is_admin()) {
+            require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/class-points-verifier.php';
             require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/class-admin.php';
             new Poker_Tournament_Import_Admin();
 
