@@ -103,8 +103,10 @@ class Poker_Statistics_Engine {
         // requires the template-aware buy-in resolution tracked in tdwp-eil.
 
         // Log performance
-        $calculation_time = round((microtime(true) - $start_time) * 1000, 2);
-        error_log("Poker Statistics: All statistics calculated in {$calculation_time}ms");
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            $calculation_time = round((microtime(true) - $start_time) * 1000, 2);
+            error_log("Poker Statistics: All statistics calculated in {$calculation_time}ms");
+        }
 
         return true;
     }
@@ -308,7 +310,9 @@ class Poker_Statistics_Engine {
     public function get_dashboard_statistics($season_id = null) {
         // Auto-calculate if statistics table is empty (only when no season filter)
         if (!$season_id && !$this->has_statistics()) {
-            error_log("Poker Statistics: No statistics found, calculating initial statistics");
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                error_log("Poker Statistics: No statistics found, calculating initial statistics");
+            }
             $this->calculate_all_statistics();
         }
 
