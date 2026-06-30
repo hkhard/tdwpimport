@@ -26,7 +26,6 @@ if (!defined('ABSPATH')) {
  * @since 2.4.9
  */
 class Poker_Tournament_Domain_Mapper {
-    // phpcs:disable WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Debug/diagnostic class
 
     /**
      * Map root AST node to tournament data structure
@@ -417,70 +416,45 @@ class Poker_Tournament_Domain_Mapper {
      * @return array Game history items
      */
     private function extract_game_history($entries) {
-        error_log("=== v2.8.4 extract_game_history START ===");
-        error_log("Total entries keys: " . count($entries));
-        
         $history = array();
 
         if (!isset($entries['History'])) {
-            error_log("⚠️ v2.8.4: 'History' key NOT FOUND in entries!");
             return $history;
         }
 
-        error_log("✓ v2.8.4: Found 'History' key");
         $history_wrapper = $entries['History'];
-        
+
         // v2.8.4: Check if wrapped in GameHistory constructor (like GamePrizes)
         if ($this->is_new_with_ctor($history_wrapper, 'GameHistory')) {
-            error_log("✓ v2.8.4: Found GameHistory wrapper, unwrapping...");
             // Extract the inner GameHistory object
             $game_history_obj = $this->expect_object($history_wrapper['arg']);
             $gh_entries = $game_history_obj['entries'];
 
             // Get the inner History field (the actual array)
             if (!isset($gh_entries['History'])) {
-                error_log("⚠️ v2.8.4: No History field inside GameHistory wrapper");
                 return $history;
             }
 
             $history_node = $gh_entries['History'];
-            error_log("✓ v2.8.4: Unwrapped GameHistory, found inner History array");
         } else {
             // Direct array format (older files or different structure)
-            error_log("ℹ️ v2.8.4: No GameHistory wrapper, using direct format");
             $history_node = $history_wrapper;
         }
-        
+
         // Now check if the unwrapped node is an Array
         if (!$this->is_type($history_node, 'Array')) {
-            error_log("⚠️ v2.8.4: History node is NOT an Array type after unwrapping");
             return $history;
         }
-
-        $items_count = count($history_node['items'] ?? []);
-        error_log("✓ v2.8.4: Found History array with {$items_count} items");
-        
-        $extracted_count = 0;
-        $filtered_count = 0;
 
         foreach ($history_node['items'] as $idx => $history_item) {
             if ($this->is_new_with_ctor($history_item, 'GameHistoryItem')) {
                 $item = $this->extract_game_history_item($history_item);
                 if ($item) {
                     $history[] = $item;
-                    $extracted_count++;
-                    if ($extracted_count <= 3 || $extracted_count === $items_count) {
-                        error_log("  [{$idx}] ✓ v2.8.4: " . substr($item['text'], 0, 60));
-                    }
-                } else {
-                    $filtered_count++;
                 }
             }
         }
 
-        error_log("=== v2.8.4 extract_game_history END ===");
-        error_log("✓ v2.8.4: Extracted {$extracted_count} items, Filtered {$filtered_count}, Total {$items_count}");
-        
         return $history;
     }
 
@@ -591,7 +565,6 @@ class Poker_Tournament_Domain_Mapper {
         $prizes = array();
 
         if (!isset($entries['Prizes'])) {
-            error_log("Poker Import - WARNING: No Prizes field found in tournament entries");
             Poker_Tournament_Import_Debug::log_warning("No Prizes field found in tournament entries");
             return $prizes;
         }
@@ -600,14 +573,14 @@ class Poker_Tournament_Domain_Mapper {
 
         // v2.4.39: Check if wrapped in GamePrizes constructor (modern format)
         if ($this->is_new_with_ctor($prizes_wrapper, 'GamePrizes')) {
-            error_log("Poker Import - Found GamePrizes wrapper, unwrapping...");
+            Poker_Tournament_Import_Debug::log("Found GamePrizes wrapper, unwrapping...");
             // Extract the inner GamePrizes object
             $game_prizes_obj = $this->expect_object($prizes_wrapper['arg']);
             $gp_entries = $game_prizes_obj['entries'];
 
             // Get the inner Prizes field
             if (!isset($gp_entries['Prizes'])) {
-                error_log("Poker Import - WARNING: No Prizes field inside GamePrizes wrapper");
+                Poker_Tournament_Import_Debug::log_warning("No Prizes field inside GamePrizes wrapper");
                 return $prizes;
             }
 
@@ -619,12 +592,10 @@ class Poker_Tournament_Domain_Mapper {
 
         // Now check if the unwrapped node is an Array
         if (!$this->is_type($prizes_node, 'Array')) {
-            error_log("Poker Import - WARNING: Prizes node is not an Array type");
             Poker_Tournament_Import_Debug::log_warning("Prizes node is not an Array type");
             return $prizes;
         }
 
-        error_log("Poker Import - Found Prizes array with " . count($prizes_node['items']) . " items");
         Poker_Tournament_Import_Debug::log("Found Prizes array with " . count($prizes_node['items']) . " items");
 
         foreach ($prizes_node['items'] as $i => $prize_item) {
@@ -632,13 +603,11 @@ class Poker_Tournament_Domain_Mapper {
                 $prize = $this->extract_game_prize($prize_item);
                 if ($prize) {
                     $prizes[] = $prize;
-                    error_log("Poker Import - Prize #" . ($i+1) . ": Position {$prize['position']}, Amount \${$prize['calculated_amount']}, Description: {$prize['description']}");
                     Poker_Tournament_Import_Debug::log("  Prize #" . ($i+1) . ": Position {$prize['position']}, Amount \${$prize['calculated_amount']}, Description: {$prize['description']}");
                 }
             }
         }
 
-        error_log("Poker Import - Extracted " . count($prizes) . " prizes from AST");
         Poker_Tournament_Import_Debug::log_success("Extracted " . count($prizes) . " prizes from AST");
         return $prizes;
     }
