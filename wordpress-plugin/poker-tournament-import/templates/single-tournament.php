@@ -519,7 +519,7 @@ $archive_url = get_post_type_archive_link($post_type);
                                                 <span class="mini-stat-label"><?php esc_html_e('Paid', 'poker-tournament-import'); ?></span>
                                             </div>
                                             <div class="mini-stat">
-                                                <span class="mini-stat-value"><?php echo esc_html(round(($stats->paid_positions / $players_count) * 100, 1)); ?>%</span>
+                                                <span class="mini-stat-value"><?php echo esc_html($players_count > 0 ? round(($stats->paid_positions / $players_count) * 100, 1) : 0); ?>%</span>
                                                 <span class="mini-stat-label"><?php esc_html_e('Cash Rate', 'poker-tournament-import'); ?></span>
                                             </div>
                                             <div class="mini-stat">
@@ -571,7 +571,7 @@ $archive_url = get_post_type_archive_link($post_type);
                                             <span class="mini-stat-label"><?php esc_html_e('Est. Paid', 'poker-tournament-import'); ?></span>
                                         </div>
                                         <div class="mini-stat">
-                                            <span class="mini-stat-value"><?php echo esc_html(round(($paid_positions / $players_count) * 100, 1)); ?>%</span>
+                                            <span class="mini-stat-value"><?php echo esc_html($players_count > 0 ? round(($paid_positions / $players_count) * 100, 1) : 0); ?>%</span>
                                             <span class="mini-stat-label"><?php esc_html_e('Est. Cash Rate', 'poker-tournament-import'); ?></span>
                                         </div>
                                         <div class="mini-stat">
