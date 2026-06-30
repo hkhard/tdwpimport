@@ -61,9 +61,12 @@ class Poker_Active_Formula_Manager {
      * @return bool|WP_Error True on success, WP_Error on validation failure
      */
     public function set_active_formula($formula_key, $category) {
-        // Validate formula exists
-        $formulas = get_option('tdwp_tournament_formulas', array());
-        if (!isset($formulas[$formula_key])) {
+        // Validate the formula exists. Check against the validator (which knows
+        // BOTH built-in default formulas and user-saved ones) rather than only
+        // the saved-formulas option — otherwise the built-in defaults (best_10,
+        // tournament_points, ...) can never be selected as active.
+        $validator = new Poker_Tournament_Formula_Validator();
+        if (null === $validator->get_formula($formula_key)) {
             return new WP_Error('formula_not_found', 'Formula does not exist');
         }
 
