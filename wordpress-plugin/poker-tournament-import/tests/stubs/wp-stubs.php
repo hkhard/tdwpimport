@@ -140,6 +140,13 @@ if ( ! function_exists( 'get_post' ) ) {
 	}
 }
 
+if ( ! function_exists( 'get_post_type' ) ) {
+	function get_post_type( $post_id ) {
+		$post = $GLOBALS['tdwp_test_posts'][ $post_id ] ?? null;
+		return $post ? $post->post_type : false;
+	}
+}
+
 if ( ! function_exists( 'wp_delete_post' ) ) {
 	function wp_delete_post( $post_id, $force_delete = false ) {
 		if ( ! isset( $GLOBALS['tdwp_test_posts'][ $post_id ] ) ) {
@@ -300,18 +307,34 @@ if ( ! function_exists( 'is_wp_error' ) ) {
 
 if ( ! class_exists( 'WP_Error' ) ) {
 	class WP_Error {
-		private $code;
-		private $message;
+		/** @var array List of [code, message] pairs. */
+		private $errors = array();
 		public function __construct( $code = '', $message = '' ) {
-			$this->code    = $code;
-			$this->message = $message;
+			if ( '' !== $code ) {
+				$this->add( $code, $message );
+			}
+		}
+		public function add( $code, $message = '' ) {
+			$this->errors[] = array(
+				'code'    => $code,
+				'message' => $message,
+			);
+		}
+		public function has_errors() {
+			return ! empty( $this->errors );
 		}
 		public function get_error_message() {
-			return $this->message;
+			return empty( $this->errors ) ? '' : $this->errors[0]['message'];
 		}
 		public function get_error_code() {
-			return $this->code;
+			return empty( $this->errors ) ? '' : $this->errors[0]['code'];
 		}
+	}
+}
+
+if ( ! function_exists( 'wp_kses_post' ) ) {
+	function wp_kses_post( $data ) {
+		return $data;
 	}
 }
 
@@ -506,6 +529,16 @@ class TDWP_Fake_WPDB {
 	 */
 	private $max_waitlist_positions = array();
 
+	/**
+	 * Seedable tdwp_tournament_players rows for waitlist/promote/copy-roster tests.
+	 *
+	 * @var array id => row array (tournament_id, player_id, status, waitlist_position, player_name)
+	 */
+	private $tdwp_players = array();
+
+	/** @var int Auto-increment id for seeded tdwp_players rows. */
+	private $auto_id_tdwp_seeded = 0;
+
 	public function reset() {
 		$this->live_rows              = array();
 		$this->legacy_rows            = array();
@@ -526,6 +559,8 @@ class TDWP_Fake_WPDB {
 		$this->auto_id_tdwp_players   = 0;
 		$this->confirmed_counts       = array();
 		$this->max_waitlist_positions = array();
+		$this->tdwp_players           = array();
+		$this->auto_id_tdwp_seeded    = 0;
 		$this->template_row           = null;
 		$this->blind_schedule_row     = null;
 		$this->prize_structure_row    = null;
@@ -540,6 +575,29 @@ class TDWP_Fake_WPDB {
 	/** Test helper: preset the max waitlist position for a tournament. */
 	public function set_max_waitlist_position( $tournament_id, $position ) {
 		$this->max_waitlist_positions[ (int) $tournament_id ] = (int) $position;
+	}
+
+	/**
+	 * Test helper: seed a tdwp_tournament_players row for waitlist/promote/copy tests.
+	 *
+	 * @param array $row tournament_id, player_id, status, waitlist_position, player_name.
+	 */
+	public function seed_tdwp_player_row( array $row ) {
+		$this->auto_id_tdwp_seeded++;
+		$defaults                                        = array(
+			'id'                => $this->auto_id_tdwp_seeded,
+			'tournament_id'     => 0,
+			'player_id'         => 0,
+			'status'            => 'registered',
+			'waitlist_position' => 0,
+			'player_name'       => 'Player',
+		);
+		$this->tdwp_players[ $this->auto_id_tdwp_seeded ] = array_merge( $defaults, $row );
+	}
+
+	/** Test helper: read current seeded tdwp_tournament_players rows. */
+	public function get_tdwp_players() {
+		return array_values( $this->tdwp_players );
 	}
 
 	/** Test helper: return rows inserted into tdwp_tournament_players. */
@@ -627,6 +685,38 @@ class TDWP_Fake_WPDB {
 		) {
 			$tid = isset( $args[0] ) ? (int) $args[0] : 0;
 			return $this->max_waitlist_positions[ $tid ] ?? 0;
+		}
+
+		// is_player_registered(): COUNT with tournament_id + player_id on tdwp_tournament_players.
+		if (
+			stripos( $sql, 'tdwp_tournament_players' ) !== false &&
+			stripos( $sql, 'COUNT(*)' ) !== false &&
+			stripos( $sql, 'player_id = %d' ) !== false
+		) {
+			$tid   = isset( $args[0] ) ? (int) $args[0] : 0;
+			$pid   = isset( $args[1] ) ? (int) $args[1] : 0;
+			$count = 0;
+			foreach ( $this->tdwp_players as $row ) {
+				if ( (int) $row['tournament_id'] === $tid && (int) $row['player_id'] === $pid ) {
+					$count++;
+				}
+			}
+			return (string) $count;
+		}
+
+		// promote_waitlisted_player(): SELECT status ... tournament_id + player_id.
+		if (
+			stripos( $sql, 'tdwp_tournament_players' ) !== false &&
+			stripos( $sql, 'SELECT status' ) !== false
+		) {
+			$tid = isset( $args[0] ) ? (int) $args[0] : 0;
+			$pid = isset( $args[1] ) ? (int) $args[1] : 0;
+			foreach ( $this->tdwp_players as $row ) {
+				if ( (int) $row['tournament_id'] === $tid && (int) $row['player_id'] === $pid ) {
+					return $row['status'];
+				}
+			}
+			return null;
 		}
 
 		// Foreign-key COUNT checks in TDWP_Tournament_Template::validate_template_data().
@@ -718,7 +808,35 @@ class TDWP_Fake_WPDB {
 	}
 
 	public function get_results( $query ) {
-		$sql = is_array( $query ) ? $query['sql'] : $query;
+		$sql  = is_array( $query ) ? $query['sql'] : $query;
+		$args = is_array( $query ) ? $query['args'] : array();
+
+		// get_waitlist() / repack: waitlisted rows for a tournament, ordered by position.
+		if (
+			stripos( $sql, 'tdwp_tournament_players' ) !== false &&
+			stripos( $sql, "status = 'waitlisted'" ) !== false
+		) {
+			$tid  = isset( $args[0] ) ? (int) $args[0] : 0;
+			$rows = array();
+			foreach ( $this->tdwp_players as $row ) {
+				if ( (int) $row['tournament_id'] === $tid && 'waitlisted' === $row['status'] ) {
+					$rows[] = $row;
+				}
+			}
+			usort(
+				$rows,
+				static function ( $a, $b ) {
+					return ( (int) $a['waitlist_position'] <=> (int) $b['waitlist_position'] )
+						?: ( (int) $a['id'] <=> (int) $b['id'] );
+				}
+			);
+			return array_map(
+				static function ( $r ) {
+					return (object) $r;
+				},
+				$rows
+			);
+		}
 
 		if ( stripos( $sql, 'tdwp_tournament_players' ) !== false ) {
 			return $this->live_rows;
@@ -793,6 +911,10 @@ class TDWP_Fake_WPDB {
 		// poker_tournament_players (must be checked after the more specific ROI table).
 		if ( stripos( $table, 'poker_tournament_players' ) !== false ) {
 			return $this->update_in( $this->legacy_rows, $data, $where );
+		}
+		// tdwp_tournament_players seeded store (waitlist promote / repack).
+		if ( stripos( $table, 'tdwp_tournament_players' ) !== false ) {
+			return $this->update_in( $this->tdwp_players, $data, $where );
 		}
 		return false;
 	}

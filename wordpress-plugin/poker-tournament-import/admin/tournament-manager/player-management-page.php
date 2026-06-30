@@ -56,6 +56,8 @@ class TDWP_Player_Management_Page {
 		add_action( 'wp_ajax_tdwp_import_players', array( $this, 'ajax_import_players' ) );
 		add_action( 'wp_ajax_tdwp_merge_players', array( $this, 'ajax_merge_players' ) );
 		add_action( 'wp_ajax_tdwp_export_players_db', array( $this, 'ajax_export_players_db' ) );
+		add_action( 'wp_ajax_tdwp_promote_waitlisted_player', array( $this, 'ajax_promote_waitlisted_player' ) );
+		add_action( 'wp_ajax_tdwp_copy_player_roster', array( $this, 'ajax_copy_player_roster' ) );
 	}
 
 	/**
@@ -114,6 +116,7 @@ class TDWP_Player_Management_Page {
 					'errorImporting'  => __( 'Error importing players. Please try again.', 'poker-tournament-import' ),
 					'importSuccess'   => __( 'Players imported successfully!', 'poker-tournament-import' ),
 					'noFileSelected'  => __( 'Please select a file to import.', 'poker-tournament-import' ),
+					'selectSource'    => __( 'Please select a source tournament.', 'poker-tournament-import' ),
 				),
 			)
 		);
@@ -352,6 +355,10 @@ class TDWP_Player_Management_Page {
 				   class="nav-tab <?php echo 'import' === $current_tab ? 'nav-tab-active' : ''; ?>">
 					<?php esc_html_e( 'Import Players', 'poker-tournament-import' ); ?>
 				</a>
+				<a href="<?php echo esc_url( $this->get_tab_url( 'waitlist' ) ); ?>"
+				   class="nav-tab <?php echo 'waitlist' === $current_tab ? 'nav-tab-active' : ''; ?>">
+					<?php esc_html_e( 'Waitlist & Roster', 'poker-tournament-import' ); ?>
+				</a>
 			</nav>
 
 			<div class="tdwp-tab-content">
@@ -362,6 +369,9 @@ class TDWP_Player_Management_Page {
 						break;
 					case 'import':
 						$this->render_import_tab();
+						break;
+					case 'waitlist':
+						$this->render_waitlist_tab();
 						break;
 					case 'list':
 					default:
@@ -990,6 +1000,207 @@ class TDWP_Player_Management_Page {
 		} elseif ( 'import' === $action ) {
 			$this->handle_import();
 		}
+	}
+
+	/**
+	 * Render the waitlist management and copy-roster tab.
+	 *
+	 * Lets an administrator pick a tournament, review its waitlist queue, promote
+	 * waitlisted players to confirmed (tdwp-cma.27), and bulk-copy a roster from a
+	 * previous tournament (tdwp-cma.8). All state changes run through nonce- and
+	 * capability-checked AJAX handlers.
+	 *
+	 * @since 3.7.0
+	 */
+	private function render_waitlist_tab() {
+		$tournament_id = isset( $_GET['tournament_id'] ) ? absint( $_GET['tournament_id'] ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only tournament selector.
+
+		$tournaments = get_posts(
+			array(
+				'post_type'      => 'live_tournament',
+				'post_status'    => 'any',
+				'numberposts'    => -1,
+				'orderby'        => 'date',
+				'order'          => 'DESC',
+				'suppress_filters' => false,
+			)
+		);
+		?>
+		<div class="tdwp-waitlist-tab">
+			<h2><?php esc_html_e( 'Waitlist & Roster Management', 'poker-tournament-import' ); ?></h2>
+
+			<form method="get" action="">
+				<input type="hidden" name="page" value="tdwp-player-management">
+				<input type="hidden" name="tab" value="waitlist">
+				<label for="tdwp-waitlist-tournament">
+					<?php esc_html_e( 'Tournament:', 'poker-tournament-import' ); ?>
+				</label>
+				<select id="tdwp-waitlist-tournament" name="tournament_id">
+					<option value="0"><?php esc_html_e( '— Select a tournament —', 'poker-tournament-import' ); ?></option>
+					<?php foreach ( $tournaments as $tournament ) : ?>
+						<option value="<?php echo absint( $tournament->ID ); ?>" <?php selected( $tournament_id, $tournament->ID ); ?>>
+							<?php echo esc_html( $tournament->post_title ); ?>
+						</option>
+					<?php endforeach; ?>
+				</select>
+				<button type="submit" class="button"><?php esc_html_e( 'View', 'poker-tournament-import' ); ?></button>
+			</form>
+
+			<?php if ( $tournament_id > 0 ) : ?>
+				<?php $this->render_waitlist_queue( $tournament_id ); ?>
+				<?php $this->render_copy_roster_panel( $tournament_id, $tournaments ); ?>
+			<?php endif; ?>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Render the waitlist queue table for a tournament.
+	 *
+	 * @since 3.7.0
+	 * @param int $tournament_id Tournament ID.
+	 */
+	private function render_waitlist_queue( $tournament_id ) {
+		$waitlist = TDWP_Tournament_Player_Manager::get_waitlist( $tournament_id );
+		?>
+		<h3><?php esc_html_e( 'Waiting List', 'poker-tournament-import' ); ?></h3>
+		<?php if ( empty( $waitlist ) ) : ?>
+			<p><?php esc_html_e( 'No players are currently on the waiting list.', 'poker-tournament-import' ); ?></p>
+		<?php else : ?>
+			<table class="wp-list-table widefat fixed striped tdwp-waitlist-table" data-tournament-id="<?php echo absint( $tournament_id ); ?>">
+				<thead>
+					<tr>
+						<th><?php esc_html_e( 'Position', 'poker-tournament-import' ); ?></th>
+						<th><?php esc_html_e( 'Player', 'poker-tournament-import' ); ?></th>
+						<th><?php esc_html_e( 'Action', 'poker-tournament-import' ); ?></th>
+					</tr>
+				</thead>
+				<tbody>
+					<?php foreach ( $waitlist as $entry ) : ?>
+						<tr data-player-id="<?php echo absint( $entry->player_id ); ?>">
+							<td><?php echo absint( $entry->waitlist_position ); ?></td>
+							<td><?php echo esc_html( $entry->player_name ); ?></td>
+							<td>
+								<button
+									type="button"
+									class="button button-primary tdwp-promote-waitlisted"
+									data-tournament-id="<?php echo absint( $tournament_id ); ?>"
+									data-player-id="<?php echo absint( $entry->player_id ); ?>">
+									<?php esc_html_e( 'Promote to Confirmed', 'poker-tournament-import' ); ?>
+								</button>
+							</td>
+						</tr>
+					<?php endforeach; ?>
+				</tbody>
+			</table>
+		<?php endif; ?>
+		<?php
+	}
+
+	/**
+	 * Render the copy-roster-from-previous-tournament panel.
+	 *
+	 * @since 3.7.0
+	 * @param int   $tournament_id The destination tournament.
+	 * @param array $tournaments   All tournaments (reused for the source dropdown).
+	 */
+	private function render_copy_roster_panel( $tournament_id, $tournaments ) {
+		?>
+		<h3><?php esc_html_e( 'Copy Roster From Previous Tournament', 'poker-tournament-import' ); ?></h3>
+		<p class="description">
+			<?php esc_html_e( 'Re-register every player from a chosen tournament into this one. Players already registered are skipped.', 'poker-tournament-import' ); ?>
+		</p>
+		<div class="tdwp-copy-roster-panel" data-target-id="<?php echo absint( $tournament_id ); ?>">
+			<label for="tdwp-copy-roster-source">
+				<?php esc_html_e( 'Source tournament:', 'poker-tournament-import' ); ?>
+			</label>
+			<select id="tdwp-copy-roster-source" class="tdwp-copy-roster-source">
+				<option value="0"><?php esc_html_e( '— Select a source tournament —', 'poker-tournament-import' ); ?></option>
+				<?php foreach ( $tournaments as $tournament ) : ?>
+					<?php if ( (int) $tournament->ID === (int) $tournament_id ) { continue; } ?>
+					<option value="<?php echo absint( $tournament->ID ); ?>">
+						<?php echo esc_html( $tournament->post_title ); ?>
+					</option>
+				<?php endforeach; ?>
+			</select>
+			<button type="button" class="button tdwp-copy-roster-button" data-target-id="<?php echo absint( $tournament_id ); ?>">
+				<?php esc_html_e( 'Copy Roster', 'poker-tournament-import' ); ?>
+			</button>
+			<span class="tdwp-copy-roster-result" aria-live="polite"></span>
+		</div>
+		<?php
+	}
+
+	/**
+	 * AJAX: Promote a waitlisted player to confirmed.
+	 *
+	 * @since 3.7.0
+	 */
+	public function ajax_promote_waitlisted_player() {
+		check_ajax_referer( 'tdwp_player_management', 'nonce' );
+
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( array( 'message' => __( 'Permission denied.', 'poker-tournament-import' ) ) );
+		}
+
+		$tournament_id = isset( $_POST['tournament_id'] ) ? absint( $_POST['tournament_id'] ) : 0;
+		$player_id     = isset( $_POST['player_id'] ) ? absint( $_POST['player_id'] ) : 0;
+
+		if ( ! $tournament_id || ! $player_id ) {
+			wp_send_json_error( array( 'message' => __( 'Tournament and player are both required.', 'poker-tournament-import' ) ) );
+		}
+
+		$result = TDWP_Tournament_Player_Manager::promote_waitlisted_player( $tournament_id, $player_id );
+
+		if ( is_wp_error( $result ) ) {
+			wp_send_json_error( array( 'message' => $result->get_error_message() ) );
+		}
+
+		wp_send_json_success(
+			array(
+				'message'   => __( 'Player promoted to confirmed.', 'poker-tournament-import' ),
+				'player_id' => $player_id,
+			)
+		);
+	}
+
+	/**
+	 * AJAX: Copy (re-register) a roster from a previous tournament.
+	 *
+	 * @since 3.7.0
+	 */
+	public function ajax_copy_player_roster() {
+		check_ajax_referer( 'tdwp_player_management', 'nonce' );
+
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( array( 'message' => __( 'Permission denied.', 'poker-tournament-import' ) ) );
+		}
+
+		$source_id = isset( $_POST['source_id'] ) ? absint( $_POST['source_id'] ) : 0;
+		$target_id = isset( $_POST['target_id'] ) ? absint( $_POST['target_id'] ) : 0;
+
+		if ( ! $source_id || ! $target_id ) {
+			wp_send_json_error( array( 'message' => __( 'Both source and target tournaments are required.', 'poker-tournament-import' ) ) );
+		}
+
+		$result = TDWP_Tournament_Player_Manager::copy_roster( $source_id, $target_id );
+
+		if ( is_wp_error( $result ) ) {
+			wp_send_json_error( array( 'message' => $result->get_error_message() ) );
+		}
+
+		wp_send_json_success(
+			array(
+				/* translators: 1: number copied, 2: number skipped */
+				'message' => sprintf(
+					__( 'Copied %1$d player(s); skipped %2$d already-registered or invalid.', 'poker-tournament-import' ),
+					$result['copied'],
+					$result['skipped']
+				),
+				'copied'  => $result['copied'],
+				'skipped' => $result['skipped'],
+			)
+		);
 	}
 
 	/**
