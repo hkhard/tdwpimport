@@ -97,6 +97,16 @@ class Poker_Tournament_Parser {
      * @throws Exception If parsing fails
      */
     private function extract_tournament_data($content) {
+        // Normalize encoding: Tournament Director .tdt files saved on Windows
+        // (especially pre-2020 versions) are often Windows-1252 / Latin-1, not
+        // UTF-8. Detect this and convert once here so the lexer and all
+        // downstream code always sees valid UTF-8. If the file is already valid
+        // UTF-8 (e.g. TD 3.7.2+ exports) we leave it untouched to avoid
+        // double-conversion / mojibake.
+        if ( ! mb_check_encoding( $content, 'UTF-8' ) ) {
+            $content = mb_convert_encoding( $content, 'UTF-8', 'Windows-1252' );
+        }
+
         Poker_Tournament_Import_Debug::log_success("=== v2.4.9: Using AST-based TDT Parser (not regex) ===");
 
         try {
