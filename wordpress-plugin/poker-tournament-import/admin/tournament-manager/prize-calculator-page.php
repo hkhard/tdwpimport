@@ -45,6 +45,7 @@ class TDWP_Prize_Calculator_Page {
 		add_action( 'wp_ajax_tdwp_save_prize_structure', array( $this, 'ajax_save_structure' ) );
 		add_action( 'wp_ajax_tdwp_calculate_prize_pool', array( $this, 'ajax_calculate_pool' ) );
 		add_action( 'wp_ajax_tdwp_calculate_chop', array( $this, 'ajax_calculate_chop' ) );
+		add_action( 'wp_ajax_tdwp_apply_chop', array( $this, 'ajax_apply_chop' ) );
 	}
 
 	/**
@@ -513,6 +514,132 @@ class TDWP_Prize_Calculator_Page {
 		}
 
 		wp_send_json_success( array( 'chop' => $chop ) );
+	}
+
+	/**
+	 * Apply a chop to a specific tournament: persist to event log and post meta.
+	 *
+	 * This is the core business-logic method for cma.22 / cma.23. It is intentionally
+	 * separated from the AJAX wrapper so it can be called and unit-tested independently.
+	 *
+	 * @since 3.7.0
+	 *
+	 * @param int    $tournament_id    WordPress post ID of the tournament.
+	 * @param string $chop_type        'chip', 'icm', or 'even'.
+	 * @param float  $remaining_pool   Remaining prize pool to distribute.
+	 * @param array  $players_raw      Array of player data: each entry has 'name' and 'chips'.
+	 * @param array  $remaining_prizes Optional remaining prizes for ICM calculation.
+	 * @return array|WP_Error Result array on success; WP_Error on validation failure.
+	 */
+	public function apply_chop_to_tournament( $tournament_id, $chop_type, $remaining_pool, $players_raw, $remaining_prizes = array() ) {
+		$tournament_id  = absint( $tournament_id );
+		$chop_type      = sanitize_text_field( $chop_type );
+		$remaining_pool = floatval( $remaining_pool );
+
+		// Gate: at least 2 players are required for any chop deal.
+		if ( count( $players_raw ) < 2 ) {
+			return new WP_Error(
+				'insufficient_players',
+				__( 'At least 2 players are required to apply a chop.', 'poker-tournament-import' )
+			);
+		}
+
+		// Build chip-count map (name => chips).
+		$chip_counts = array();
+		foreach ( $players_raw as $player_data ) {
+			$name              = sanitize_text_field( wp_unslash( $player_data['name'] ) );
+			$chips             = absint( $player_data['chips'] );
+			$chip_counts[$name] = $chips;
+		}
+
+		// Dispatch to the appropriate chop calculator.
+		if ( 'icm' === $chop_type ) {
+			if ( empty( $remaining_prizes ) ) {
+				$player_count = count( $chip_counts );
+				for ( $i = 0; $i < $player_count; $i++ ) {
+					$remaining_prizes[] = $remaining_pool / $player_count;
+				}
+			}
+			$chop_amounts = TDWP_Prize_Calculator::calculate_icm_chop( $remaining_prizes, $chip_counts );
+		} elseif ( 'even' === $chop_type ) {
+			$players      = array_keys( $chip_counts );
+			$chop_amounts = TDWP_Prize_Calculator::calculate_even_chop( $remaining_pool, $players );
+		} else {
+			$chop_amounts = TDWP_Prize_Calculator::calculate_chip_chop( $remaining_pool, $chip_counts );
+		}
+
+		$result = array(
+			'chop_type'  => $chop_type,
+			'amounts'    => $chop_amounts,
+			'total'      => $remaining_pool,
+			'applied_at' => current_time( 'mysql' ),
+			'chopped'    => true,
+		);
+
+		// Persist: store as post meta so prize display layers can render the
+		// 'chopped' marker badge without re-reading the event log.
+		update_post_meta( $tournament_id, '_tdwp_chop_applied', $result );
+
+		// Persist: write to the tournament event audit trail (cma.22).
+		$events = new TDWP_Tournament_Events();
+		$events->log(
+			$tournament_id,
+			'prize_chop',
+			array(
+				'chop_type' => $chop_type,
+				'amounts'   => $chop_amounts,
+				'total'     => $remaining_pool,
+				'chopped'   => true,
+			)
+		);
+
+		return $result;
+	}
+
+	/**
+	 * AJAX handler for applying a chop to a specific tournament (cma.23).
+	 *
+	 * Requires nonce 'tdwp_prize_calculator' and 'manage_options' capability.
+	 * Returns the applied chop result or a JSON error.
+	 *
+	 * @since 3.7.0
+	 */
+	public function ajax_apply_chop() {
+		// Verify nonce.
+		check_ajax_referer( 'tdwp_prize_calculator', 'nonce' );
+
+		// Check permissions.
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( array( 'message' => __( 'Insufficient permissions.', 'poker-tournament-import' ) ) );
+		}
+
+		// Sanitize inputs.
+		$tournament_id    = isset( $_POST['tournament_id'] ) ? absint( $_POST['tournament_id'] ) : 0;
+		$chop_type        = isset( $_POST['chop_type'] ) ? sanitize_text_field( wp_unslash( $_POST['chop_type'] ) ) : 'chip';
+		$remaining_pool   = isset( $_POST['remaining_pool'] ) ? floatval( $_POST['remaining_pool'] ) : 0;
+		$players_raw      = isset( $_POST['players'] ) ? json_decode( wp_unslash( $_POST['players'] ), true ) : array();
+		$remaining_prizes = isset( $_POST['remaining_prizes'] ) ? array_map( 'floatval', (array) $_POST['remaining_prizes'] ) : array();
+
+		if ( 0 === $tournament_id ) {
+			wp_send_json_error( array( 'message' => __( 'Tournament ID is required to apply a chop.', 'poker-tournament-import' ) ) );
+		}
+
+		if ( ! is_array( $players_raw ) ) {
+			wp_send_json_error( array( 'message' => __( 'Invalid players data.', 'poker-tournament-import' ) ) );
+		}
+
+		$result = $this->apply_chop_to_tournament( $tournament_id, $chop_type, $remaining_pool, $players_raw, $remaining_prizes );
+
+		if ( is_wp_error( $result ) ) {
+			wp_send_json_error( array( 'message' => $result->get_error_message() ) );
+		}
+
+		wp_send_json_success(
+			array(
+				'message' => __( 'Chop applied and recorded to tournament log.', 'poker-tournament-import' ),
+				'chop'    => $result,
+			)
+		);
 	}
 
 	/**
@@ -1129,6 +1256,28 @@ class TDWP_Prize_Calculator_Page {
 			<div class="chop-results" id="chop-results" style="display:none;">
 				<h3><?php esc_html_e( 'Recommended Deal', 'poker-tournament-import' ); ?></h3>
 				<div id="chop-distribution"></div>
+			</div>
+
+			<div class="tdwp-apply-chop-section">
+				<h3><?php esc_html_e( 'Apply Chop to Tournament', 'poker-tournament-import' ); ?></h3>
+				<p class="description">
+					<?php esc_html_e( 'Enter the tournament ID to record this chop deal in the tournament log and mark prizes as chopped. Requires 2 or more remaining players.', 'poker-tournament-import' ); ?>
+				</p>
+				<table class="form-table">
+					<tr>
+						<th><label for="apply-chop-tournament-id"><?php esc_html_e( 'Tournament ID', 'poker-tournament-import' ); ?></label></th>
+						<td>
+							<input type="number" id="apply-chop-tournament-id" class="regular-text" min="1" placeholder="<?php esc_attr_e( 'e.g. 123', 'poker-tournament-import' ); ?>">
+							<p class="description"><?php esc_html_e( 'The WordPress post ID of the live or completed tournament.', 'poker-tournament-import' ); ?></p>
+						</td>
+					</tr>
+				</table>
+				<p>
+					<button type="button" id="apply-chop-button" class="button button-primary">
+						<?php esc_html_e( 'Apply Chop to Tournament', 'poker-tournament-import' ); ?>
+					</button>
+				</p>
+				<div id="apply-chop-message" style="display:none;"></div>
 			</div>
 		</div>
 		<?php
