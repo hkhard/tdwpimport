@@ -23,6 +23,7 @@ $GLOBALS['tdwp_test_meta']     = array();
 $GLOBALS['tdwp_test_options']  = array();
 $GLOBALS['tdwp_test_actions']  = array();
 $GLOBALS['tdwp_test_cron']     = array();
+$GLOBALS['tdwp_test_mail']     = array();
 
 /**
  * Reset all in-memory test state. Call from setUp().
@@ -34,6 +35,7 @@ function tdwp_test_reset() {
 	$GLOBALS['tdwp_test_cron']       = array();
 	$GLOBALS['tdwp_test_transients'] = array();
 	$GLOBALS['tdwp_test_cache']      = array();
+	$GLOBALS['tdwp_test_mail']       = array();
 	if ( isset( $GLOBALS['wpdb'] ) && $GLOBALS['wpdb'] instanceof TDWP_Fake_WPDB ) {
 		$GLOBALS['wpdb']->reset();
 	}
@@ -161,6 +163,59 @@ if ( ! function_exists( 'apply_filters' ) ) {
 	// No registered filters in the harness; return the value unchanged.
 	function apply_filters( $hook, $value, ...$args ) {
 		return $value;
+	}
+}
+
+if ( ! function_exists( 'get_bloginfo' ) ) {
+	function get_bloginfo( $show = '' ) {
+		return 'Test Site';
+	}
+}
+
+if ( ! function_exists( 'sanitize_email' ) ) {
+	function sanitize_email( $email ) {
+		$email = (string) $email;
+		return filter_var( $email, FILTER_VALIDATE_EMAIL ) ? $email : '';
+	}
+}
+
+if ( ! function_exists( 'admin_url' ) ) {
+	function admin_url( $path = '' ) {
+		return 'https://example.com/wp-admin/' . ltrim( $path, '/' );
+	}
+}
+
+if ( ! function_exists( 'wp_mail' ) ) {
+	/**
+	 * Captures outbound mail for assertions.
+	 * Read via $GLOBALS['tdwp_test_mail'] after each send.
+	 */
+	function wp_mail( $to, $subject, $message, $headers = '', $attachments = array() ) {
+		$GLOBALS['tdwp_test_mail'][] = compact( 'to', 'subject', 'message' );
+		return true;
+	}
+}
+
+if ( ! function_exists( 'is_wp_error' ) ) {
+	function is_wp_error( $thing ) {
+		return $thing instanceof WP_Error;
+	}
+}
+
+if ( ! class_exists( 'WP_Error' ) ) {
+	class WP_Error {
+		private $code;
+		private $message;
+		public function __construct( $code = '', $message = '' ) {
+			$this->code    = $code;
+			$this->message = $message;
+		}
+		public function get_error_message() {
+			return $this->message;
+		}
+		public function get_error_code() {
+			return $this->code;
+		}
 	}
 }
 
@@ -322,21 +377,62 @@ class TDWP_Fake_WPDB {
 	/** @var int Auto-increment id for event inserts. */
 	private $auto_id_events = 0;
 
+	/** @var array Rows inserted into tdwp_tournament_players (live table). */
+	private $tdwp_player_inserts = array();
+
+	/** @var int Auto-increment id for tdwp_tournament_players inserts. */
+	private $auto_id_tdwp_players = 0;
+
+	/**
+	 * Test helper: set confirmed player count for a tournament.
+	 * Used to make get_confirmed_count() return a predictable value.
+	 *
+	 * @var array tournament_id => count
+	 */
+	private $confirmed_counts = array();
+
+	/**
+	 * Test helper: set max waitlist position for a tournament.
+	 *
+	 * @var array tournament_id => max_position
+	 */
+	private $max_waitlist_positions = array();
+
 	public function reset() {
-		$this->live_rows    = array();
-		$this->legacy_rows  = array();
-		$this->roi_rows     = array();
-		$this->auto_id      = 0;
-		$this->auto_id_roi  = 0;
-		$this->buyin          = null;
-		$this->last_error     = '';
-		$this->tables_exist   = true;
-		$this->missing_tables = array();
-		$this->stats          = array();
-		$this->player_rows    = array();
-		$this->event_rows     = array();
-		$this->auto_id_events = 0;
-		$this->insert_id      = 0;
+		$this->live_rows              = array();
+		$this->legacy_rows            = array();
+		$this->roi_rows               = array();
+		$this->auto_id                = 0;
+		$this->auto_id_roi            = 0;
+		$this->buyin                  = null;
+		$this->last_error             = '';
+		$this->tables_exist           = true;
+		$this->missing_tables         = array();
+		$this->stats                  = array();
+		$this->player_rows            = array();
+		$this->event_rows             = array();
+		$this->auto_id_events         = 0;
+		$this->insert_id              = 0;
+		$this->tdwp_player_inserts    = array();
+		$this->auto_id_tdwp_players   = 0;
+		$this->confirmed_counts       = array();
+		$this->max_waitlist_positions = array();
+		$GLOBALS['tdwp_test_mail']    = array();
+	}
+
+	/** Test helper: preset the confirmed player count for a tournament. */
+	public function set_confirmed_count( $tournament_id, $count ) {
+		$this->confirmed_counts[ (int) $tournament_id ] = (int) $count;
+	}
+
+	/** Test helper: preset the max waitlist position for a tournament. */
+	public function set_max_waitlist_position( $tournament_id, $position ) {
+		$this->max_waitlist_positions[ (int) $tournament_id ] = (int) $position;
+	}
+
+	/** Test helper: return rows inserted into tdwp_tournament_players. */
+	public function get_tdwp_player_inserts() {
+		return array_values( $this->tdwp_player_inserts );
 	}
 
 	/** Test helper: define the poker_tournament_players rows the stats engine aggregates over. */
@@ -402,6 +498,24 @@ class TDWP_Fake_WPDB {
 	public function get_var( $query ) {
 		$sql  = is_array( $query ) ? $query['sql'] : $query;
 		$args = is_array( $query ) ? $query['args'] : array();
+
+		// get_confirmed_count(): COUNT with status IN (...) on tdwp_tournament_players.
+		if (
+			stripos( $sql, 'tdwp_tournament_players' ) !== false &&
+			stripos( $sql, "status IN ('registered','paid','active','checked_in')" ) !== false
+		) {
+			$tid = isset( $args[0] ) ? (int) $args[0] : 0;
+			return $this->confirmed_counts[ $tid ] ?? 0;
+		}
+
+		// get_next_waitlist_position(): MAX(waitlist_position) on tdwp_tournament_players.
+		if (
+			stripos( $sql, 'tdwp_tournament_players' ) !== false &&
+			stripos( $sql, 'MAX(waitlist_position)' ) !== false
+		) {
+			$tid = isset( $args[0] ) ? (int) $args[0] : 0;
+			return $this->max_waitlist_positions[ $tid ] ?? 0;
+		}
 
 		if ( stripos( $sql, 'SHOW TABLES LIKE' ) !== false ) {
 			$name = $args[0] ?? '';
@@ -505,6 +619,13 @@ class TDWP_Fake_WPDB {
 			$data['id']      = $this->auto_id;
 			$this->insert_id = $this->auto_id;
 			$this->legacy_rows[ $this->auto_id ] = $data;
+			return 1;
+		}
+		if ( stripos( $table, 'tdwp_tournament_players' ) !== false ) {
+			$this->auto_id_tdwp_players++;
+			$data['id']      = $this->auto_id_tdwp_players;
+			$this->insert_id = $this->auto_id_tdwp_players;
+			$this->tdwp_player_inserts[ $this->auto_id_tdwp_players ] = $data;
 			return 1;
 		}
 		if ( stripos( $table, 'tdwp_tournament_events' ) !== false ) {
