@@ -1,5 +1,31 @@
 # Poker Tournament Import Changelog
 
+## Version 3.8.0 - (June 30, 2026)
+
+### 🏁 Phase 1 Foundation gap closure complete (epic tdwp-cma)
+
+Closes the remaining P2/P3 gaps from the PRD reconciliation (PRs #36–#46), building on the P1 work shipped in 3.7.0.
+
+**Prizes**
+- Rounding denominations ($1/$5/$10) on payouts; top-heavy (65/25/10) and flat suggestion styles; configurable minimum payout floor (deterministic bottom-up trim); custom per-player chop with sum validation (tdwp-cma.16/.18/.19/.21).
+- Over-allocation guard (locked+fixed never produce negative payouts) + live remaining-pool display; "Chopped" badge on public prize display (tdwp-cma.24/.25).
+
+**Blinds**
+- Schedule preview total duration + average-stack-at-start; Hyper Turbo built-in template; apply-template-to-tournament; blind-schedule CSV import; print-friendly schedule view (tdwp-cma.10/.11/.12/.14).
+- Blind-schedule linkage written to both meta and the canonical template column (tdwp-cma.26). Fixed break-duration render field mismatch (tdwp-3lg.3).
+
+**Players**
+- Registrant confirmation email, capacity waiting list (`waitlist_position`) with admin promote, available-seats display (tdwp-cma.2/.3/.4).
+- Duplicate-player merge (UUID-keyed re-pointing) + admin UI, player-database CSV export, buy-in/seat CSV import columns (tdwp-cma.1/.6/.7).
+- Late-registration config, copy roster from a previous tournament, print-friendly roster (tdwp-cma.5/.8/.9).
+
+**Wizard / Templates**
+- Fee split (entry fee / prize-pool contribution), flat-rake mode, rebuy/add-on timing fields, live pot estimator + financial summary panel (tdwp-vf9; DB_VERSION 3.6.0).
+- Use-Template flow into the creation wizard (tdwp-l2l).
+- 30s auto-save with drafts + crash recovery; tournament history log (reusing `tdwp_tournament_events`) with a details-view history panel and created/modified/started/completed events (tdwp-67j, tdwp-cma.28).
+
+**Quality**: full offline PHPUnit suite green at 322 tests / 1072 assertions; every PR CI-verified before merge.
+
 ## Version 3.7.0 - (June 30, 2026)
 
 ### 🏗️ Phase 1 gap closure (epic tdwp-cma) — Prizes & Blinds
