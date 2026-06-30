@@ -650,6 +650,55 @@ class TDWP_Blind_Schedule {
 	}
 
 	/**
+	 * Calculate total duration and level counts from an ordered level array.
+	 *
+	 * Pure static helper — no database access. Mirrors the JS updatePreview()
+	 * math so server-side tests can validate the same logic.
+	 *
+	 * @since 3.6.2
+	 *
+	 * @param array $levels               Ordered level rows. Each entry may have:
+	 *                                    is_break (int 0|1), duration_minutes (int),
+	 *                                    break_duration_minutes (int).
+	 * @param int   $default_level_minutes Fallback duration per play level when
+	 *                                    duration_minutes is absent. Default 15.
+	 * @return array {
+	 *     @type int $total_minutes Total tournament duration in minutes.
+	 *     @type int $play_minutes  Total playing time (non-break) in minutes.
+	 *     @type int $play_count    Number of non-break levels.
+	 *     @type int $break_count   Number of break levels.
+	 * }
+	 */
+	public static function calculate_schedule_summary( array $levels, int $default_level_minutes = 15 ): array {
+		$total_minutes = 0;
+		$play_minutes  = 0;
+		$play_count    = 0;
+		$break_count   = 0;
+
+		foreach ( $levels as $level ) {
+			$is_break = isset( $level['is_break'] ) ? (int) $level['is_break'] : 0;
+
+			if ( $is_break ) {
+				$dur            = isset( $level['break_duration_minutes'] ) ? max( 0, (int) $level['break_duration_minutes'] ) : 0;
+				$total_minutes += $dur;
+				$break_count++;
+			} else {
+				$dur            = isset( $level['duration_minutes'] ) ? max( 0, (int) $level['duration_minutes'] ) : $default_level_minutes;
+				$total_minutes += $dur;
+				$play_minutes  += $dur;
+				$play_count++;
+			}
+		}
+
+		return array(
+			'total_minutes' => $total_minutes,
+			'play_minutes'  => $play_minutes,
+			'play_count'    => $play_count,
+			'break_count'   => $break_count,
+		);
+	}
+
+	/**
 	 * Round a raw blind value to the nearest "nice" number used in poker.
 	 *
 	 * Snaps to common multiples of the nearest power-of-ten magnitude so the
