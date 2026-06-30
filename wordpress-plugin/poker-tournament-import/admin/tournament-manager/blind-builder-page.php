@@ -55,6 +55,8 @@ class TDWP_Blind_Builder_Page {
 		add_action( 'wp_ajax_tdwp_get_blind_levels', array( $this, 'ajax_get_levels' ) );
 		add_action( 'wp_ajax_tdwp_suggest_blind_schedule', array( $this, 'ajax_suggest_schedule' ) );
 		add_action( 'wp_ajax_tdwp_apply_blind_template_to_tournament', array( $this, 'ajax_apply_template_to_tournament' ) );
+		add_action( 'wp_ajax_tdwp_print_blind_schedule', array( $this, 'ajax_print_blind_schedule' ) );
+		add_action( 'wp_ajax_tdwp_import_blind_csv', array( $this, 'ajax_import_blind_csv' ) );
 	}
 
 	/**
@@ -736,6 +738,17 @@ class TDWP_Blind_Builder_Page {
 							),
 							'tdwp_clone_schedule_' . $schedule->id
 						);
+						$print_url = wp_nonce_url(
+							add_query_arg(
+								array(
+									'action'      => 'tdwp_print_blind_schedule',
+									'schedule_id' => $schedule->id,
+								),
+								admin_url( 'admin-ajax.php' )
+							),
+							'tdwp_print_blind_schedule',
+							'nonce'
+						);
 						?>
 						<tr>
 							<td class="column-name">
@@ -750,6 +763,9 @@ class TDWP_Blind_Builder_Page {
 									</span>
 									<span class="clone">
 										<a href="<?php echo esc_url( $clone_url ); ?>"><?php esc_html_e( 'Clone', 'poker-tournament-import' ); ?></a> |
+									</span>
+									<span class="print">
+										<a href="<?php echo esc_url( $print_url ); ?>" target="_blank" rel="noopener"><?php esc_html_e( 'Print', 'poker-tournament-import' ); ?></a> |
 									</span>
 									<span class="delete">
 										<a href="<?php echo esc_url( $delete_url ); ?>" class="submitdelete"><?php esc_html_e( 'Delete', 'poker-tournament-import' ); ?></a>
@@ -783,6 +799,8 @@ class TDWP_Blind_Builder_Page {
 				<?php endif; ?>
 			</tbody>
 		</table>
+
+		<?php $this->render_csv_import_form(); ?>
 
 		<?php
 		// Pagination.
@@ -1117,6 +1135,344 @@ class TDWP_Blind_Builder_Page {
 			</tr>
 			<?php
 		}
+	}
+	/**
+	 * Render the CSV import form for blind schedules.
+	 *
+	 * Displayed inline on the schedule list page.
+	 *
+	 * @since 3.7.0
+	 */
+	private function render_csv_import_form() {
+		?>
+		<div class="tdwp-blind-csv-import" style="margin-top:2em;">
+			<h2><?php esc_html_e( 'Import Blind Schedule from CSV', 'poker-tournament-import' ); ?></h2>
+			<p class="description">
+				<?php
+				esc_html_e(
+					'Upload a CSV with columns: small_blind, big_blind, ante, duration_minutes, is_break, break_duration_minutes. The first row must be a header.',
+					'poker-tournament-import'
+				);
+				?>
+			</p>
+			<form method="post" enctype="multipart/form-data" id="tdwp-blind-csv-import-form">
+				<?php wp_nonce_field( 'tdwp_import_blind_csv', 'tdwp_import_blind_nonce' ); ?>
+				<input type="hidden" name="action" value="tdwp_import_blind_csv">
+				<table class="form-table">
+					<tr>
+						<th scope="row">
+							<label for="tdwp-blind-csv-schedule-name"><?php esc_html_e( 'Schedule Name', 'poker-tournament-import' ); ?></label>
+						</th>
+						<td>
+							<input type="text"
+								id="tdwp-blind-csv-schedule-name"
+								name="schedule_name"
+								class="regular-text"
+								required
+								placeholder="<?php esc_attr_e( 'e.g. Friday Night 20-min Levels', 'poker-tournament-import' ); ?>">
+						</td>
+					</tr>
+					<tr>
+						<th scope="row">
+							<label for="tdwp-blind-csv-file"><?php esc_html_e( 'CSV File', 'poker-tournament-import' ); ?></label>
+						</th>
+						<td>
+							<input type="file" id="tdwp-blind-csv-file" name="blind_csv" accept=".csv">
+						</td>
+					</tr>
+				</table>
+				<?php submit_button( __( 'Import Schedule', 'poker-tournament-import' ), 'secondary', 'tdwp_blind_csv_submit' ); ?>
+			</form>
+		</div>
+		<?php
+	}
+
+	/**
+	 * AJAX: output a print-friendly blind schedule HTML page.
+	 *
+	 * Opens as a standalone page the user can print or save-as-PDF via the browser.
+	 *
+	 * @since 3.7.0
+	 */
+	public function ajax_print_blind_schedule() {
+		check_ajax_referer( 'tdwp_print_blind_schedule', 'nonce' );
+
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You do not have permission to perform this action.', 'poker-tournament-import' ) );
+		}
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$schedule_id = isset( $_GET['schedule_id'] ) ? absint( $_GET['schedule_id'] ) : 0;
+
+		if ( 0 === $schedule_id ) {
+			wp_die( esc_html__( 'Invalid schedule ID.', 'poker-tournament-import' ) );
+		}
+
+		$schedule = $this->schedule_manager->get( $schedule_id );
+
+		if ( null === $schedule || is_wp_error( $schedule ) ) {
+			wp_die( esc_html__( 'Schedule not found.', 'poker-tournament-import' ) );
+		}
+
+		$levels     = $this->schedule_manager->get_levels( $schedule_id );
+		$print_date = date_i18n( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ) );
+		$css_url    = esc_url( POKER_TOURNAMENT_IMPORT_PLUGIN_URL . 'assets/css/tdwp-print.css' );
+		$site_name  = esc_html( get_bloginfo( 'name' ) );
+
+		// Calculate totals.
+		$total_minutes = 0;
+		foreach ( $levels as $level ) {
+			$total_minutes += absint( $level->duration_minutes );
+		}
+		$total_time = sprintf(
+			/* translators: 1: hours, 2: minutes */
+			__( '%1$dh %2$dm', 'poker-tournament-import' ),
+			floor( $total_minutes / 60 ),
+			$total_minutes % 60
+		);
+
+		header( 'Content-Type: text/html; charset=UTF-8' );
+		?>
+<!DOCTYPE html>
+<html lang="<?php echo esc_attr( get_bloginfo( 'language' ) ); ?>">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title><?php echo $site_name; ?> &mdash; <?php echo esc_html( $schedule->name ); ?></title>
+<link rel="stylesheet" href="<?php echo $css_url; ?>">
+</head>
+<body>
+<h1><?php echo esc_html( $schedule->name ); ?></h1>
+<p class="tdwp-print-meta">
+	<?php echo $site_name; ?> &mdash;
+	<?php
+	echo esc_html(
+		sprintf(
+			/* translators: 1: level count, 2: total time, 3: print date */
+			__( '%1$d levels &bull; Total time: %2$s &bull; Printed %3$s', 'poker-tournament-import' ),
+			count( $levels ),
+			$total_time,
+			$print_date
+		)
+	);
+	?>
+</p>
+
+<div class="tdwp-print-actions">
+	<button class="tdwp-print-btn" onclick="window.print()">
+		<?php esc_html_e( 'Print / Save as PDF', 'poker-tournament-import' ); ?>
+	</button>
+</div>
+
+<?php if ( empty( $levels ) ) : ?>
+	<p><?php esc_html_e( 'No levels found for this schedule.', 'poker-tournament-import' ); ?></p>
+<?php else : ?>
+<table>
+	<thead>
+		<tr>
+			<th><?php esc_html_e( '#', 'poker-tournament-import' ); ?></th>
+			<th><?php esc_html_e( 'Small Blind', 'poker-tournament-import' ); ?></th>
+			<th><?php esc_html_e( 'Big Blind', 'poker-tournament-import' ); ?></th>
+			<th><?php esc_html_e( 'Ante', 'poker-tournament-import' ); ?></th>
+			<th><?php esc_html_e( 'Duration', 'poker-tournament-import' ); ?></th>
+			<th><?php esc_html_e( 'Type', 'poker-tournament-import' ); ?></th>
+		</tr>
+	</thead>
+	<tbody>
+		<?php foreach ( $levels as $level ) : ?>
+		<?php $is_break = 1 === absint( $level->is_break ); ?>
+		<tr<?php echo $is_break ? ' class="tdwp-break-row"' : ''; ?>>
+			<td><?php echo esc_html( $level->level_order ); ?></td>
+			<?php if ( $is_break ) : ?>
+			<td colspan="3"><?php esc_html_e( '— Break —', 'poker-tournament-import' ); ?></td>
+			<?php else : ?>
+			<td><?php echo esc_html( number_format_i18n( $level->small_blind ) ); ?></td>
+			<td><?php echo esc_html( number_format_i18n( $level->big_blind ) ); ?></td>
+			<td><?php echo esc_html( number_format_i18n( $level->ante ) ); ?></td>
+			<?php endif; ?>
+			<td>
+				<?php
+				echo esc_html(
+					sprintf(
+						/* translators: %d: duration in minutes */
+						__( '%d min', 'poker-tournament-import' ),
+						$level->duration_minutes
+					)
+				);
+				?>
+			</td>
+			<td>
+				<?php echo $is_break ? esc_html__( 'Break', 'poker-tournament-import' ) : esc_html__( 'Blind', 'poker-tournament-import' ); ?>
+			</td>
+		</tr>
+		<?php endforeach; ?>
+	</tbody>
+</table>
+<?php endif; ?>
+</body>
+</html>
+		<?php
+		exit;
+	}
+
+	/**
+	 * AJAX: import a blind schedule from an uploaded CSV file.
+	 *
+	 * Creates a new schedule + bulk-inserts validated levels.
+	 * Reports per-row errors in the same format as the player importer.
+	 *
+	 * @since 3.7.0
+	 */
+	public function ajax_import_blind_csv() {
+		// Verify nonce (POST form, not wp_ajax in the typical sense — we use admin_post
+		// behaviour via the form submit, but register as AJAX for flexibility).
+		if ( ! isset( $_POST['tdwp_import_blind_nonce'] )
+			|| ! wp_verify_nonce( sanitize_key( $_POST['tdwp_import_blind_nonce'] ), 'tdwp_import_blind_csv' ) ) {
+			wp_die( esc_html__( 'Security check failed.', 'poker-tournament-import' ) );
+		}
+
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You do not have permission to perform this action.', 'poker-tournament-import' ) );
+		}
+
+		$schedule_name = isset( $_POST['schedule_name'] ) ? sanitize_text_field( wp_unslash( $_POST['schedule_name'] ) ) : '';
+
+		if ( empty( $schedule_name ) ) {
+			wp_redirect(
+				add_query_arg(
+					array(
+						'page'    => 'tdwp-blind-builder',
+						'message' => 'error',
+						'details' => urlencode( __( 'Schedule name is required.', 'poker-tournament-import' ) ),
+					),
+					admin_url( 'admin.php' )
+				)
+			);
+			exit;
+		}
+
+		// Validate uploaded file.
+		if ( empty( $_FILES['blind_csv']['tmp_name'] ) || ! is_uploaded_file( $_FILES['blind_csv']['tmp_name'] ) ) {
+			wp_redirect(
+				add_query_arg(
+					array(
+						'page'    => 'tdwp-blind-builder',
+						'message' => 'error',
+						'details' => urlencode( __( 'Please select a CSV file to upload.', 'poker-tournament-import' ) ),
+					),
+					admin_url( 'admin.php' )
+				)
+			);
+			exit;
+		}
+
+		$file_name = isset( $_FILES['blind_csv']['name'] ) ? sanitize_file_name( wp_unslash( $_FILES['blind_csv']['name'] ) ) : '';
+		$extension = strtolower( pathinfo( $file_name, PATHINFO_EXTENSION ) );
+
+		if ( 'csv' !== $extension ) {
+			wp_redirect(
+				add_query_arg(
+					array(
+						'page'    => 'tdwp-blind-builder',
+						'message' => 'error',
+						'details' => urlencode( __( 'Only CSV files are supported.', 'poker-tournament-import' ) ),
+					),
+					admin_url( 'admin.php' )
+				)
+			);
+			exit;
+		}
+
+		// phpcs:disable WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+		$content = file_get_contents( $_FILES['blind_csv']['tmp_name'] );
+		// phpcs:enable
+
+		if ( false === $content ) {
+			wp_redirect(
+				add_query_arg(
+					array(
+						'page'    => 'tdwp-blind-builder',
+						'message' => 'error',
+						'details' => urlencode( __( 'Failed to read uploaded file.', 'poker-tournament-import' ) ),
+					),
+					admin_url( 'admin.php' )
+				)
+			);
+			exit;
+		}
+
+		$importer = new TDWP_Blind_CSV_Importer();
+		$parsed   = $importer->parse_csv_content( $content );
+
+		if ( 0 === $parsed['valid'] ) {
+			$error_summary = __( 'No valid rows found in CSV.', 'poker-tournament-import' );
+			if ( ! empty( $parsed['errors'] ) ) {
+				$first = $parsed['errors'][0];
+				$error_summary = $first['message'];
+			}
+			wp_redirect(
+				add_query_arg(
+					array(
+						'page'    => 'tdwp-blind-builder',
+						'message' => 'error',
+						'details' => urlencode( $error_summary ),
+					),
+					admin_url( 'admin.php' )
+				)
+			);
+			exit;
+		}
+
+		// Create the new schedule.
+		$schedule_id = $this->schedule_manager->create(
+			array(
+				'name'        => $schedule_name,
+				'description' => '',
+			)
+		);
+
+		if ( is_wp_error( $schedule_id ) ) {
+			wp_redirect(
+				add_query_arg(
+					array(
+						'page'    => 'tdwp-blind-builder',
+						'message' => 'error',
+						'details' => urlencode( $schedule_id->get_error_message() ),
+					),
+					admin_url( 'admin.php' )
+				)
+			);
+			exit;
+		}
+
+		// Normalize and bulk-insert levels.
+		$levels      = $importer->normalize_rows( $parsed['rows'] );
+		$insert_result = $this->level_manager->bulk_create( $schedule_id, $levels );
+
+		if ( is_wp_error( $insert_result ) ) {
+			wp_redirect(
+				add_query_arg(
+					array(
+						'page'    => 'tdwp-blind-builder',
+						'message' => 'error',
+						'details' => urlencode( $insert_result->get_error_message() ),
+					),
+					admin_url( 'admin.php' )
+				)
+			);
+			exit;
+		}
+
+		wp_redirect(
+			add_query_arg(
+				array(
+					'page'    => 'tdwp-blind-builder',
+					'message' => 'created',
+				),
+				admin_url( 'admin.php' )
+			)
+		);
+		exit;
 	}
 }
 
