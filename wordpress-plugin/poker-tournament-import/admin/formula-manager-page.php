@@ -27,24 +27,16 @@ class Poker_Formula_Manager_Page {
     }
 
     public function enqueue_formula_manager_assets($hook) {
-        // Temporarily: Skip hook check to test if function is being called at all
-        // if ('poker-tournament-import_page_poker-formula-manager' !== $hook) return;
-
-        // Debug: Write hook value to temp file
-        file_put_contents(__DIR__ . '/hook-debug.txt', 'enqueue called with hook: ' . $hook . PHP_EOL, FILE_APPEND);
-
-        // Deregister any existing version to force cache refresh
-        wp_deregister_script('poker-formula-manager');
-        wp_dequeue_script('poker-formula-manager');
+        // Only load on the Formula Manager page. The submenu slug is unique
+        // enough to match regardless of the parent-menu hook prefix.
+        if (false === strpos($hook, 'poker-formula-manager')) {
+            return;
+        }
 
         wp_enqueue_script('jquery');
 
-        // Force cache bust with hardcoded version and timestamp
-        $version = '20250102-v3-' . time();
-        wp_enqueue_script('poker-formula-manager', plugins_url('assets/js/formula-manager.js', dirname(__FILE__)), array('jquery'), $version);
-
-        // Debug: Add timestamp to confirm code is running
-        wp_add_inline_script('jquery', 'console.log("Formula Manager Loaded: ' . $version . '");');
+        $version = POKER_TOURNAMENT_IMPORT_VERSION;
+        wp_enqueue_script('poker-formula-manager', plugins_url('assets/js/formula-manager.js', dirname(__FILE__)), array('jquery'), $version, true);
 
         // Enqueue active formula handler
         wp_enqueue_script(
@@ -65,12 +57,14 @@ class Poker_Formula_Manager_Page {
             )
         );
 
-        // Localize main formula manager script with nonce
+        // Localize main formula manager script with nonces. The validator
+        // handler (tdwp_validate_formula) uses its own nonce action.
         wp_localize_script(
             'poker-formula-manager',
             'pokerFormulaManager',
             array(
                 'nonce' => wp_create_nonce('poker_formula_manager_nonce'),
+                'validateNonce' => wp_create_nonce('poker_formula_validator'),
                 'ajaxUrl' => admin_url('admin-ajax.php')
             )
         );
