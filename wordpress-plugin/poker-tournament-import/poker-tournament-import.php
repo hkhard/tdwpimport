@@ -558,6 +558,8 @@ class Poker_Tournament_Import {
         TDWP_Sound_Manager::register();
         // Excel export (tdwp-871.27). Library guarded; vendor/ via composer install.
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-excel-exporter.php';
+        // PDF export (tdwp-871.26). Library guarded; vendor/ via composer install.
+        require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-pdf-exporter.php';
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/class-tournament-clock-shortcode.php';
 
         // **PHASE 2 Week 2-3: Table Management**

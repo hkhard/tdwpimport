@@ -15,7 +15,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class TDWP_Export_Manager {
 
-	const SUPPORTED_FORMATS = array( 'csv', 'tdt', 'xlsx' );
+	const SUPPORTED_FORMATS = array( 'csv', 'tdt', 'xlsx', 'pdf' );
 
 	/**
 	 * Export tournament in specified format
@@ -46,6 +46,8 @@ class TDWP_Export_Manager {
 				return TDWP_TDT_Exporter::generate( $tournament_id, $options );
 			case 'xlsx':
 				return TDWP_Excel_Exporter::generate( $tournament_id, $options );
+			case 'pdf':
+				return TDWP_PDF_Exporter::generate( $tournament_id, $options );
 		}
 
 		return new WP_Error( 'export_failed', __( 'Export failed', 'poker-tournament-import' ) );
