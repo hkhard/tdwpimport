@@ -1418,6 +1418,189 @@ class TDWP_Tournament_Player_Manager {
 	}
 
 	/**
+	 * Get the waitlist queue for a tournament.
+	 *
+	 * Returns waitlisted registrations ordered by their waitlist position so the
+	 * admin can review the queue (tdwp-cma.27).
+	 *
+	 * @since 3.7.0
+	 * @param int $tournament_id Tournament ID.
+	 * @return array Array of registration objects (with player_name) ordered by position.
+	 */
+	public static function get_waitlist( $tournament_id ) {
+		global $wpdb;
+		$table = $wpdb->prefix . 'tdwp_tournament_players';
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT tp.*, p.post_title AS player_name
+				FROM {$table} tp
+				INNER JOIN {$wpdb->posts} p ON tp.player_id = p.ID
+				WHERE tp.tournament_id = %d AND tp.status = 'waitlisted'
+				ORDER BY tp.waitlist_position ASC, tp.id ASC",
+				(int) $tournament_id
+			)
+		);
+
+		return is_array( $rows ) ? $rows : array();
+	}
+
+	/**
+	 * Promote a waitlisted player to confirmed.
+	 *
+	 * Flips the registrant's status from 'waitlisted' to 'registered', clears its
+	 * waitlist position, and repacks the remaining waitlist positions so the queue
+	 * stays sequential (tdwp-cma.27).
+	 *
+	 * @since 3.7.0
+	 * @param int $tournament_id Tournament ID.
+	 * @param int $player_id     Player ID.
+	 * @return true|WP_Error True on success, WP_Error on failure.
+	 */
+	public static function promote_waitlisted_player( $tournament_id, $player_id ) {
+		global $wpdb;
+
+		$tournament_id = (int) $tournament_id;
+		$player_id     = (int) $player_id;
+		$table         = $wpdb->prefix . 'tdwp_tournament_players';
+
+		// Verify the row exists and is currently waitlisted.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
+		$current_status = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT status FROM {$table} WHERE tournament_id = %d AND player_id = %d",
+				$tournament_id,
+				$player_id
+			)
+		);
+
+		if ( null === $current_status ) {
+			return new WP_Error( 'not_registered', __( 'Player is not registered for this tournament', 'poker-tournament-import' ) );
+		}
+
+		if ( 'waitlisted' !== $current_status ) {
+			return new WP_Error( 'not_waitlisted', __( 'Player is not on the waiting list', 'poker-tournament-import' ) );
+		}
+
+		// Promote: set status to registered and clear the waitlist position.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
+		$updated = $wpdb->update(
+			$table,
+			array(
+				'status'            => 'registered',
+				'waitlist_position' => 0,
+			),
+			array(
+				'tournament_id' => $tournament_id,
+				'player_id'     => $player_id,
+			),
+			array( '%s', '%d' ),
+			array( '%d', '%d' )
+		);
+
+		if ( false === $updated ) {
+			return new WP_Error( 'db_update_failed', __( 'Failed to promote player from the waiting list', 'poker-tournament-import' ) );
+		}
+
+		self::repack_waitlist_positions( $tournament_id );
+
+		do_action( 'tdwp_player_waitlist_promoted', $tournament_id, $player_id );
+
+		return true;
+	}
+
+	/**
+	 * Copy (re-register) a roster from one tournament into another.
+	 *
+	 * Re-registers every player from the source tournament into the target as a
+	 * confirmed entry, skipping any player already registered for the target or
+	 * that fails to add (tdwp-cma.8).
+	 *
+	 * @since 3.7.0
+	 * @param int $source_id Tournament to copy players from.
+	 * @param int $target_id Tournament to copy players into.
+	 * @return array|WP_Error { @type int $copied, @type int $skipped } or WP_Error on bad args.
+	 */
+	public static function copy_roster( $source_id, $target_id ) {
+		$source_id = (int) $source_id;
+		$target_id = (int) $target_id;
+
+		if ( ! $source_id || ! $target_id ) {
+			return new WP_Error( 'invalid_args', __( 'Both source and target tournaments are required', 'poker-tournament-import' ) );
+		}
+
+		if ( $source_id === $target_id ) {
+			return new WP_Error( 'same_tournament', __( 'Source and target tournaments must be different', 'poker-tournament-import' ) );
+		}
+
+		$source_players = self::get_tournament_players( $source_id );
+
+		$copied  = 0;
+		$skipped = 0;
+
+		foreach ( $source_players as $entry ) {
+			$player_id = (int) $entry->player_id;
+
+			if ( self::is_player_registered( $target_id, $player_id ) ) {
+				$skipped++;
+				continue;
+			}
+
+			$add = self::add_player( $target_id, $player_id, array( 'status' => 'registered' ) );
+
+			if ( is_wp_error( $add ) ) {
+				$skipped++;
+				continue;
+			}
+
+			$copied++;
+		}
+
+		return array(
+			'copied'  => $copied,
+			'skipped' => $skipped,
+		);
+	}
+
+	/**
+	 * Repack waitlist positions to be sequential (1-based) with no gaps.
+	 *
+	 * @since 3.7.0
+	 * @param int $tournament_id Tournament ID.
+	 * @return void
+	 */
+	private static function repack_waitlist_positions( $tournament_id ) {
+		global $wpdb;
+		$table = $wpdb->prefix . 'tdwp_tournament_players';
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id FROM {$table} WHERE tournament_id = %d AND status = 'waitlisted' ORDER BY waitlist_position ASC, id ASC",
+				(int) $tournament_id
+			)
+		);
+
+		if ( empty( $rows ) ) {
+			return;
+		}
+
+		$position = 1;
+		foreach ( $rows as $row ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->update(
+				$table,
+				array( 'waitlist_position' => $position ),
+				array( 'id' => (int) $row->id ),
+				array( '%d' ),
+				array( '%d' )
+			);
+			$position++;
+		}
+	}
+
+	/**
 	 * Get bustout timeline for tournament
 	 *
 	 * Returns detailed timeline of eliminations with timestamps and positions

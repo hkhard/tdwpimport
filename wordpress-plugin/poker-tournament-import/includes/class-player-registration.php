@@ -297,7 +297,7 @@ class TDWP_Player_Registration {
 				$registration_status = 'waitlisted';
 				$waitlist_position   = TDWP_Tournament_Player_Manager::get_next_waitlist_position( $tournament_id );
 
-				TDWP_Tournament_Player_Manager::add_player(
+				$link_result = TDWP_Tournament_Player_Manager::add_player(
 					$tournament_id,
 					$result,
 					array(
@@ -306,10 +306,22 @@ class TDWP_Player_Registration {
 					)
 				);
 			} else {
-				TDWP_Tournament_Player_Manager::add_player(
+				$link_result = TDWP_Tournament_Player_Manager::add_player(
 					$tournament_id,
 					$result,
 					array( 'status' => 'registered' )
+				);
+			}
+
+			// Surface (don't swallow) a failure to link the player to the tournament (tdwp-cma.27).
+			if ( is_wp_error( $link_result ) ) {
+				$this->log_registration_error( $link_result, $tournament_id, $result );
+
+				wp_send_json_error(
+					array(
+						'message'   => __( 'You were added as a player but could not be registered for this tournament. Please contact the organizer.', 'poker-tournament-import' ),
+						'player_id' => $result,
+					)
 				);
 			}
 		}
@@ -343,6 +355,38 @@ class TDWP_Player_Registration {
 				'waitlist_position'    => $waitlist_position,
 			)
 		);
+	}
+
+	/**
+	 * Log a failure to link a registrant to a tournament.
+	 *
+	 * Surfaces the underlying WP_Error to the server log instead of silently
+	 * swallowing it, so failed tournament registrations are diagnosable.
+	 *
+	 * @since 3.7.0
+	 *
+	 * @param WP_Error $error         The error returned by add_player().
+	 * @param int      $tournament_id Tournament post ID.
+	 * @param int      $player_id     Player post ID.
+	 * @return void
+	 */
+	private function log_registration_error( $error, $tournament_id, $player_id ) {
+		if ( ! is_wp_error( $error ) ) {
+			return;
+		}
+
+		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Intentional diagnostic logging of a swallowed registration error.
+			error_log(
+				sprintf(
+					'[poker-tournament-import] Failed to register player %d for tournament %d: %s (%s)',
+					(int) $player_id,
+					(int) $tournament_id,
+					$error->get_error_message(),
+					$error->get_error_code()
+				)
+			);
+		}
 	}
 
 	/**

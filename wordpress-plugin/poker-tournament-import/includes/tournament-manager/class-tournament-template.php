@@ -89,11 +89,12 @@ class TDWP_Tournament_Template {
 				'rebuy_limit_per_player'  => $sanitized_data['rebuy_limit_per_player'],
 				'addon_at_level'          => $sanitized_data['addon_at_level'],
 				'addon_until_level'       => $sanitized_data['addon_until_level'],
+				'late_reg_until_level'    => $sanitized_data['late_reg_until_level'],
 				'blind_schedule_id'       => $sanitized_data['blind_schedule_id'],
 				'prize_structure_id'      => $sanitized_data['prize_structure_id'],
 				'created_by'              => $user_id,
 			),
-			array( '%s', '%s', '%f', '%f', '%f', '%f', '%d', '%f', '%d', '%d', '%f', '%s', '%f', '%d', '%d', '%d', '%d', '%d', '%d', '%d', '%d' )
+			array( '%s', '%s', '%f', '%f', '%f', '%f', '%d', '%f', '%d', '%d', '%f', '%s', '%f', '%d', '%d', '%d', '%d', '%d', '%d', '%d', '%d', '%d' )
 		);
 
 		if ( false === $result ) {
@@ -202,11 +203,12 @@ class TDWP_Tournament_Template {
 				'rebuy_limit_per_player'  => $sanitized_data['rebuy_limit_per_player'],
 				'addon_at_level'          => $sanitized_data['addon_at_level'],
 				'addon_until_level'       => $sanitized_data['addon_until_level'],
+				'late_reg_until_level'    => $sanitized_data['late_reg_until_level'],
 				'blind_schedule_id'       => $sanitized_data['blind_schedule_id'],
 				'prize_structure_id'      => $sanitized_data['prize_structure_id'],
 			),
 			array( 'id' => $template_id ),
-			array( '%s', '%s', '%f', '%f', '%f', '%f', '%d', '%f', '%d', '%d', '%f', '%s', '%f', '%d', '%d', '%d', '%d', '%d', '%d', '%d' ),
+			array( '%s', '%s', '%f', '%f', '%f', '%f', '%d', '%f', '%d', '%d', '%f', '%s', '%f', '%d', '%d', '%d', '%d', '%d', '%d', '%d', '%d' ),
 			array( '%d' )
 		);
 
@@ -396,6 +398,7 @@ class TDWP_Tournament_Template {
 			'rebuy_limit_per_player'  => $existing->rebuy_limit_per_player ?? 0,
 			'addon_at_level'          => $existing->addon_at_level ?? 0,
 			'addon_until_level'       => $existing->addon_until_level ?? 0,
+			'late_reg_until_level'    => $existing->late_reg_until_level ?? 0,
 		);
 
 		// Create new template
@@ -489,6 +492,10 @@ class TDWP_Tournament_Template {
 		$sanitized['rebuy_limit_per_player'] = isset( $data['rebuy_limit_per_player'] ) ? absint( $data['rebuy_limit_per_player'] ) : 0;
 		$sanitized['addon_at_level']         = isset( $data['addon_at_level'] ) ? absint( $data['addon_at_level'] ) : 0;
 		$sanitized['addon_until_level']      = isset( $data['addon_until_level'] ) ? absint( $data['addon_until_level'] ) : 0;
+
+		// Late-registration window (tdwp-cma.5): last blind level at which late entry is allowed.
+		// 0 = no late registration window configured.
+		$sanitized['late_reg_until_level']   = isset( $data['late_reg_until_level'] ) ? absint( $data['late_reg_until_level'] ) : 0;
 
 		// Chip values
 		$sanitized['rebuy_chips']    = isset( $data['rebuy_chips'] ) ? absint( $data['rebuy_chips'] ) : 0;

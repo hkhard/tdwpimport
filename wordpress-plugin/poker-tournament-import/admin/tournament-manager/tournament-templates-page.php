@@ -752,6 +752,29 @@ class TDWP_Tournament_Templates_Page {
 							</td>
 						</tr>
 
+						<!-- Late Registration (tdwp-cma.5) -->
+						<tr>
+							<th scope="row">
+								<label for="template_late_reg_until_level">
+									<?php esc_html_e( 'Late Registration Until Level', 'poker-tournament-import' ); ?>
+								</label>
+							</th>
+							<td>
+								<input
+									type="number"
+									id="template_late_reg_until_level"
+									name="late_reg_until_level"
+									value="<?php echo $is_edit ? esc_attr( $template->late_reg_until_level ?? 0 ) : '0'; ?>"
+									step="1"
+									min="0"
+									class="small-text"
+								>
+								<p class="description">
+									<?php esc_html_e( 'Late registration allowed through end of this blind level (0 = no late registration)', 'poker-tournament-import' ); ?>
+								</p>
+							</td>
+						</tr>
+
 						<!-- Rake Mode (tdwp-vf9) -->
 						<tr>
 							<th scope="row">
@@ -988,6 +1011,7 @@ class TDWP_Tournament_Templates_Page {
 			'rebuy_limit_per_player'  => isset( $_POST['rebuy_limit_per_player'] ) ? $_POST['rebuy_limit_per_player'] : 0,
 			'addon_at_level'          => isset( $_POST['addon_at_level'] ) ? $_POST['addon_at_level'] : 0,
 			'addon_until_level'       => isset( $_POST['addon_until_level'] ) ? $_POST['addon_until_level'] : 0,
+			'late_reg_until_level'    => isset( $_POST['late_reg_until_level'] ) ? $_POST['late_reg_until_level'] : 0,
 		);
 
 		// Create or update
