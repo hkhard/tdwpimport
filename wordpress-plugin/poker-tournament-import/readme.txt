@@ -3,7 +3,7 @@ Contributors: hanshard
 Tags: poker, tournament, import, results, bulk-import
 Requires at least: 6.0
 Tested up to: 6.8
-Stable tag: 3.6.9
+Stable tag: 3.6.10
 Requires PHP: 8.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -77,6 +77,11 @@ Use the following shortcodes:
 6. **NEW: Interactive leaderboard with sorting**
 
 == Changelog ==
+
+= 3.6.10 - June 30, 2026 =
+* Data integrity: Fixed poker_player_roi duplication (no unique key + replace()) via delete-then-insert / clear-then-rebuild; full stats recompute now owns the ROI rebuild (tdwp-ayg b)
+* Fixed latent bug: added missing tdwp_tournament_live_state.buyin_amount column read by the TDT exporter; exporter read made null-safe (tdwp-ayg c)
+* Note: the larger live/legacy schema consolidation is split to a dedicated bead
 
 = 3.6.9 - June 30, 2026 =
 * Docs: Corrected CLAUDE.md table-prefix contradiction; documented the canonical poker_*/tdwp_* two-prefix reality (tdwp-x13)

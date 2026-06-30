@@ -1,5 +1,15 @@
 # Poker Tournament Import Changelog
 
+## Version 3.6.10 - (June 30, 2026)
+
+### 🛠️ Data integrity: ROI mart dedup + ownership; live buy-in column (tdwp-ayg b+c)
+
+- **Fixed `poker_player_roi` duplication (part b)**: the table has no unique key, so `$wpdb->replace()` never deduped — every re-import or migration appended duplicate ROI rows (inflating leaderboards/top-players). `process_player_roi_data()` now **delete-then-inserts** per tournament (idempotent), and `migrate_populate_roi_table()` **clears then rebuilds** (no dups by construction).
+- **Fixed undefined `get_the_gmdate()` in the ROI rebuild**: `migrate_populate_roi_table()` called a non-existent function on the no-`_tournament_date` path (a latent fatal); now uses `get_post_time()` with a safe fallback.
+- **Added missing `tdwp_tournament_live_state.buyin_amount` column (part c)**: the TDT exporter read this column although it never existed (latent bug). Added via `dbDelta` (new + existing installs) and made the exporter read null-safe.
+- **Deferred (tdwp-eil)**: having `calculate_all_statistics()` own a *blanket* ROI rebuild is intentionally not done yet — the rebuild resolves buy-in from post-meta the live/bridge path never writes, so it would be lossy for live tournaments. It pairs with the template-aware buy-in model. ROI correctness today is maintained incrementally (delete-then-insert per tournament on both import and live paths).
+- **Scope note**: the larger Option C schema consolidation (collapsing the dual `tdwp_*`/`poker_*` player stores) is split to its own bead for a dedicated, validated migration.
+
 ## Version 3.6.9 - (June 30, 2026)
 
 ### 🧪 Quality: docs fix, CI lint/PHPCS, parser/formula/stats tests
