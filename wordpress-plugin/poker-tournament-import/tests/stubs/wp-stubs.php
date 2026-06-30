@@ -33,6 +33,7 @@ function tdwp_test_reset() {
 	$GLOBALS['tdwp_test_actions']    = array();
 	$GLOBALS['tdwp_test_cron']       = array();
 	$GLOBALS['tdwp_test_transients'] = array();
+	$GLOBALS['tdwp_test_cache']      = array();
 	if ( isset( $GLOBALS['wpdb'] ) && $GLOBALS['wpdb'] instanceof TDWP_Fake_WPDB ) {
 		$GLOBALS['wpdb']->reset();
 	}
@@ -126,6 +127,17 @@ if ( ! function_exists( 'do_action' ) ) {
 	}
 }
 
+if ( ! function_exists( 'wp_count_posts' ) ) {
+	// No posts in the harness; report zero of every status.
+	function wp_count_posts( $type = 'post', $perm = '' ) {
+		return (object) array(
+			'publish' => 0,
+			'draft'   => 0,
+			'trash'   => 0,
+		);
+	}
+}
+
 if ( ! function_exists( 'wp_next_scheduled' ) ) {
 	function wp_next_scheduled( $hook ) {
 		return $GLOBALS['tdwp_test_cron'][ $hook ] ?? false;
@@ -198,6 +210,47 @@ if ( ! function_exists( 'delete_transient' ) ) {
 }
 
 /* ---------------------------------------------------------------------------
+ * Object cache (wp_cache_*) — backed by an in-memory, group-keyed store.
+ * The statistics engine caches per-stat reads and invalidates them in
+ * clear_all_statistics(); these stubs let those paths be asserted.
+ * ------------------------------------------------------------------------- */
+
+if ( ! defined( 'MINUTE_IN_SECONDS' ) ) {
+	define( 'MINUTE_IN_SECONDS', 60 );
+}
+if ( ! defined( 'HOUR_IN_SECONDS' ) ) {
+	define( 'HOUR_IN_SECONDS', 3600 );
+}
+if ( ! defined( 'DAY_IN_SECONDS' ) ) {
+	define( 'DAY_IN_SECONDS', 86400 );
+}
+
+if ( ! function_exists( 'wp_cache_get' ) ) {
+	function wp_cache_get( $key, $group = '', $force = false, &$found = null ) {
+		if ( isset( $GLOBALS['tdwp_test_cache'][ $group ][ $key ] ) ) {
+			$found = true;
+			return $GLOBALS['tdwp_test_cache'][ $group ][ $key ];
+		}
+		$found = false;
+		return false;
+	}
+}
+
+if ( ! function_exists( 'wp_cache_set' ) ) {
+	function wp_cache_set( $key, $value, $group = '', $expire = 0 ) {
+		$GLOBALS['tdwp_test_cache'][ $group ][ $key ] = $value;
+		return true;
+	}
+}
+
+if ( ! function_exists( 'wp_cache_delete' ) ) {
+	function wp_cache_delete( $key, $group = '' ) {
+		unset( $GLOBALS['tdwp_test_cache'][ $group ][ $key ] );
+		return true;
+	}
+}
+
+/* ---------------------------------------------------------------------------
  * In-memory $wpdb fake.
  *
  * Models exactly the tables the stats bridge touches:
@@ -217,6 +270,15 @@ class TDWP_Fake_WPDB {
 
 	/** @var string */
 	public $posts = 'wp_posts';
+
+	/** @var string Core taxonomy table names (real $wpdb exposes these as properties). */
+	public $terms = 'wp_terms';
+
+	/** @var string */
+	public $term_taxonomy = 'wp_term_taxonomy';
+
+	/** @var string */
+	public $term_relationships = 'wp_term_relationships';
 
 	/** @var string */
 	public $last_error = '';
@@ -245,6 +307,12 @@ class TDWP_Fake_WPDB {
 	/** @var mixed Buy-in returned by the live-state/template lookup; null => unknown. */
 	private $buyin = null;
 
+	/** @var array Stored statistics data mart: stat_name => stat_value. */
+	private $stats = array();
+
+	/** @var array Participation rows backing poker_tournament_players aggregates. */
+	private $player_rows = array();
+
 	public function reset() {
 		$this->live_rows    = array();
 		$this->legacy_rows  = array();
@@ -255,6 +323,23 @@ class TDWP_Fake_WPDB {
 		$this->last_error     = '';
 		$this->tables_exist   = true;
 		$this->missing_tables = array();
+		$this->stats          = array();
+		$this->player_rows    = array();
+	}
+
+	/** Test helper: define the poker_tournament_players rows the stats engine aggregates over. */
+	public function set_player_rows( array $rows ) {
+		$this->player_rows = array_map(
+			static function ( $r ) {
+				return (array) $r;
+			},
+			$rows
+		);
+	}
+
+	/** Test helper: read the current statistics data-mart contents (stat_name => value). */
+	public function get_stats() {
+		return $this->stats;
 	}
 
 	/** Test helper: define the live buy-in returned by the template lookup. */
@@ -312,7 +397,73 @@ class TDWP_Fake_WPDB {
 		if ( stripos( $sql, 'buy_in' ) !== false && stripos( $sql, 'tdwp_tournament_templates' ) !== false ) {
 			return $this->buyin;
 		}
+
+		// Statistics data mart (poker_statistics) reads.
+		if ( stripos( $sql, 'poker_statistics' ) !== false ) {
+			if ( stripos( $sql, 'stat_value' ) !== false && stripos( $sql, 'stat_name' ) !== false ) {
+				$name = $args[0] ?? '';
+				return $this->stats[ $name ] ?? null;
+			}
+			if ( stripos( $sql, 'MAX(last_updated' ) !== false ) {
+				return empty( $this->stats ) ? null : '2026-01-01 00:00:00';
+			}
+			if ( stripos( $sql, 'COUNT(' ) !== false ) {
+				return count( $this->stats );
+			}
+			return null;
+		}
+
+		// Aggregates over the poker_tournament_players read-model.
+		if ( stripos( $sql, 'poker_tournament_players' ) !== false ) {
+			if ( stripos( $sql, 'COUNT(DISTINCT player_id' ) !== false ) {
+				$ids = array();
+				foreach ( $this->player_rows as $r ) {
+					if ( isset( $r['player_id'] ) ) {
+						$ids[ (string) $r['player_id'] ] = true;
+					}
+				}
+				return count( $ids );
+			}
+			if ( stripos( $sql, 'SUM(buyins' ) !== false ) {
+				return array_sum( array_column( $this->player_rows, 'buyins' ) );
+			}
+			if ( stripos( $sql, 'SUM(winnings' ) !== false ) {
+				return array_sum( array_column( $this->player_rows, 'winnings' ) );
+			}
+			if ( stripos( $sql, 'MAX(winnings' ) !== false ) {
+				$w = array_column( $this->player_rows, 'winnings' );
+				return empty( $w ) ? null : max( $w );
+			}
+			if ( stripos( $sql, 'COUNT(*' ) !== false && stripos( $sql, 'winnings > 0' ) !== false ) {
+				$n = 0;
+				foreach ( $this->player_rows as $r ) {
+					if ( isset( $r['winnings'] ) && $r['winnings'] > 0 ) {
+						$n++;
+					}
+				}
+				return $n;
+			}
+			if ( stripos( $sql, 'AVG(finish_position' ) !== false ) {
+				$vals = array();
+				foreach ( $this->player_rows as $r ) {
+					if ( isset( $r['finish_position'] ) && $r['finish_position'] > 0 ) {
+						$vals[] = $r['finish_position'];
+					}
+				}
+				return empty( $vals ) ? null : array_sum( $vals ) / count( $vals );
+			}
+		}
 		return null;
+	}
+
+	/** Emulate $wpdb->query: only TRUNCATE of the stats data mart is modelled. */
+	public function query( $query ) {
+		$sql = is_array( $query ) ? $query['sql'] : $query;
+		if ( stripos( $sql, 'TRUNCATE' ) !== false && stripos( $sql, 'poker_statistics' ) !== false ) {
+			$this->stats = array();
+			return true;
+		}
+		return 0;
 	}
 
 	public function get_results( $query ) {
@@ -356,6 +507,14 @@ class TDWP_Fake_WPDB {
 	 * here we mirror insert() (callers clear first) so row counts reflect reality.
 	 */
 	public function replace( $table, $data, $format = null ) {
+		// Statistics data mart: REPLACE upserts by stat_name (its unique key).
+		if ( stripos( $table, 'poker_statistics' ) !== false ) {
+			if ( isset( $data['stat_name'] ) ) {
+				$this->stats[ $data['stat_name'] ] = $data['stat_value'] ?? null;
+				return 1;
+			}
+			return false;
+		}
 		return $this->insert( $table, $data, $format );
 	}
 
