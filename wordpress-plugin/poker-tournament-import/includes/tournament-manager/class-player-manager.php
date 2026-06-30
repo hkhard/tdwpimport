@@ -276,6 +276,108 @@ class TDWP_Player_Manager {
 	}
 
 	/**
+	 * Merge a source player record into a target player record.
+	 *
+	 * Re-points participation and statistics rows keyed by the player UUID from
+	 * the source player to the target player, then deletes the now-empty source
+	 * player post. The UUID is the cross-table join key (stored in postmeta under
+	 * 'player_uuid' and written as the `player_id` column in the data-mart
+	 * tables), so re-pointing is a UUID swap on those tables.
+	 *
+	 * Tables re-pointed (import / statistics subsystem, keyed by UUID):
+	 *   - {prefix}poker_tournament_players  (raw participation rows)
+	 *   - {prefix}poker_player_roi          (per-tournament ROI rows)
+	 *
+	 * NOT handled here (tracked as follow-up):
+	 *   - Aggregate marts ({prefix}poker_statistics, poker_financial_summary,
+	 *     poker_revenue_analytics) are derived from poker_tournament_players and
+	 *     are rebuilt by the statistics engine refresh, so they self-heal once
+	 *     the raw rows are re-pointed.
+	 *   - The TD3 live subsystem ({prefix}tdwp_tournament_players) keys players
+	 *     by the live registry id (tdwp_players.id), a different identity from the
+	 *     WP-post player_uuid, so it is intentionally out of scope here.
+	 *
+	 * @since 3.6.1
+	 *
+	 * @param int $source_id Source player post ID (merged away).
+	 * @param int $target_id Target player post ID (kept).
+	 * @return array|WP_Error Summary array on success, WP_Error on failure.
+	 */
+	public function merge_players( $source_id, $target_id ) {
+		global $wpdb;
+
+		$source_id = absint( $source_id );
+		$target_id = absint( $target_id );
+
+		if ( ! $source_id || ! $target_id ) {
+			return new WP_Error( 'invalid_player', __( 'Both source and target players are required.', 'poker-tournament-import' ) );
+		}
+
+		if ( $source_id === $target_id ) {
+			return new WP_Error( 'same_player', __( 'Source and target players must be different.', 'poker-tournament-import' ) );
+		}
+
+		$source = get_post( $source_id );
+		if ( ! $source || 'player' !== $source->post_type ) {
+			return new WP_Error( 'invalid_source', __( 'Source player not found.', 'poker-tournament-import' ) );
+		}
+
+		$target = get_post( $target_id );
+		if ( ! $target || 'player' !== $target->post_type ) {
+			return new WP_Error( 'invalid_target', __( 'Target player not found.', 'poker-tournament-import' ) );
+		}
+
+		$source_uuid = get_post_meta( $source_id, 'player_uuid', true );
+		$target_uuid = get_post_meta( $target_id, 'player_uuid', true );
+
+		if ( empty( $source_uuid ) || empty( $target_uuid ) ) {
+			return new WP_Error( 'missing_uuid', __( 'Both players must have a UUID before they can be merged.', 'poker-tournament-import' ) );
+		}
+
+		// Re-point the UUID-keyed data-mart tables. $wpdb->update() builds a
+		// prepared statement internally for both the SET and WHERE clauses.
+		$repointed = array();
+
+		$participation_table = $wpdb->prefix . 'poker_tournament_players';
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$participation_rows = $wpdb->update(
+			$participation_table,
+			array( 'player_id' => $target_uuid ),
+			array( 'player_id' => $source_uuid ),
+			array( '%s' ),
+			array( '%s' )
+		);
+		$repointed['poker_tournament_players'] = is_numeric( $participation_rows ) ? (int) $participation_rows : 0;
+
+		$roi_table = $wpdb->prefix . 'poker_player_roi';
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$roi_rows = $wpdb->update(
+			$roi_table,
+			array( 'player_id' => $target_uuid ),
+			array( 'player_id' => $source_uuid ),
+			array( '%s' ),
+			array( '%s' )
+		);
+		$repointed['poker_player_roi'] = is_numeric( $roi_rows ) ? (int) $roi_rows : 0;
+
+		// Remove the now-empty source player. Force-delete so it does not linger
+		// in the trash with a duplicate UUID.
+		$deleted = wp_delete_post( $source_id, true );
+
+		if ( ! $deleted ) {
+			return new WP_Error( 'merge_delete_failed', __( 'Records were re-pointed but the source player could not be removed.', 'poker-tournament-import' ) );
+		}
+
+		return array(
+			'source_id'   => $source_id,
+			'target_id'   => $target_id,
+			'source_uuid' => $source_uuid,
+			'target_uuid' => $target_uuid,
+			'repointed'   => $repointed,
+		);
+	}
+
+	/**
 	 * Find player by email
 	 *
 	 * @since 3.0.0
@@ -411,6 +513,16 @@ class TDWP_Player_Manager {
 			$sanitized['uuid'] = sanitize_text_field( wp_unslash( $data['uuid'] ) );
 		}
 
+		if ( isset( $data['buyin_status'] ) ) {
+			$sanitized['buyin_status'] = sanitize_text_field( wp_unslash( $data['buyin_status'] ) );
+		}
+
+		if ( isset( $data['seat_number'] ) ) {
+			$seat = sanitize_text_field( wp_unslash( $data['seat_number'] ) );
+			// Keep empty string as "unset"; otherwise store the seat as a non-negative integer.
+			$sanitized['seat_number'] = ( '' === $seat ) ? '' : absint( $seat );
+		}
+
 		if ( isset( $data['status'] ) ) {
 			$valid_statuses = array( 'publish', 'draft', 'pending', 'private' );
 			$status         = sanitize_text_field( wp_unslash( $data['status'] ) );
@@ -474,6 +586,14 @@ class TDWP_Player_Manager {
 			update_post_meta( $player_id, 'player_avatar_url', $data['avatar_url'] );
 		}
 
+		if ( isset( $data['buyin_status'] ) ) {
+			update_post_meta( $player_id, 'player_buyin_status', $data['buyin_status'] );
+		}
+
+		if ( isset( $data['seat_number'] ) && '' !== $data['seat_number'] ) {
+			update_post_meta( $player_id, 'player_seat_number', $data['seat_number'] );
+		}
+
 		// Set registration date if not already set.
 		if ( ! get_post_meta( $player_id, 'player_registration_date', true ) ) {
 			update_post_meta( $player_id, 'player_registration_date', current_time( 'mysql' ) );
@@ -494,6 +614,8 @@ class TDWP_Player_Manager {
 			'email'             => get_post_meta( $player_id, 'player_email', true ),
 			'phone'             => get_post_meta( $player_id, 'player_phone', true ),
 			'avatar_url'        => get_post_meta( $player_id, 'player_avatar_url', true ),
+			'buyin_status'      => get_post_meta( $player_id, 'player_buyin_status', true ),
+			'seat_number'       => get_post_meta( $player_id, 'player_seat_number', true ),
 			'registration_date' => get_post_meta( $player_id, 'player_registration_date', true ),
 		);
 	}
