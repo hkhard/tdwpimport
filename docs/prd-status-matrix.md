@@ -295,14 +295,60 @@ re-check (18/20 done|partial claims held; end-tournament downgraded done→parti
 
 ## Phase 3 — Professional Features (epic `tdwp-ee1`)
 
-| Feature area | Status | Audit bead |
-|--------------|--------|-----------|
-| Events & notifications (sounds, email/SMS, triggers) | ⬜ pending audit | `tdwp-38u` |
-| Rules display (templates, multi-language) | ⬜ pending audit | `tdwp-efh` |
-| Chip management (chipset, denominations, capacity) | ⬜ pending audit | `tdwp-g28` |
-| League mgmt + player photos/badges | ⬜ pending audit | `tdwp-hgp` |
+All five Phase 3 feature areas are now audited (subsections below): display/layout
+(`tdwp-7qe`), events & notifications (`tdwp-38u`), chip management (`tdwp-g28`),
+rules display (`tdwp-efh`), and advanced player features / league (`tdwp-hgp`).
 
-Likely files: `class-tournament-events.php` and others per feature area.
+### 3.x Events & notifications (sounds, email/SMS, triggers) — ✅ audited (`tdwp-38u`, 2026-06-30)
+
+PRD ref: `docs/prd-phase-3-professional-features.md §2`. Adversarially verified. Tally: 0 done · 4 partial · 2 missing · 0 wrong. Gaps filed under epic `tdwp-ee1`; 2 P0 defect(s) under `tdwp-3lg`.
+
+**P0 defects:** Event queue processor is missing — scheduled cron hook has no handler; Sound library asset files are missing from the repository.
+
+| Criterion | Status | Evidence |
+|-----------|--------|----------|
+| Event trigger system (round change, break, final table, etc.) | partial | class-tournament-events.php:48-63 defines EVENT_TYPES covering level_advanced, tournament_started/paused/resumed/completed, player_bust, table events. log() method writes to tdwp_t... |
+| Sound library integration | partial | class-td3-database-schema.php:353-365 creates tdwp_sound_library table; lines 905-945 insert four default sounds (bell, bustout, final-table, registration) referencing assets/sound... |
+| Custom sound upload | missing | Grepped for 'sound_upload', 'upload.*sound', 'custom.*sound' across all plugin PHP files — no results. No admin page or AJAX handler for uploading custom audio files was found. |
+| Email/SMS notifications | missing | Grepped for 'wp_mail', 'send_email', 'sms', 'twilio', 'vonage' across wordpress-plugin/**/*.php. Only hit is class-player-registration.php:283 (registration confirmation, unrelated... |
+| Event priority queue | partial | tdwp_event_queue table schema (class-td3-database-schema.php:265-300) has priority, status, attempts, max_attempts, next_attempt columns and is indexed by priority/status. A cron h... |
+| WordPress action hooks for extensibility | partial | class-tournament-events.php:139 fires do_action('tdwp_tournament_event_logged'); lines 278 and 300 fire do_action('tdwp_before_tournament_events_deleted') and do_action('tdwp_tourn... |
+
+### 3.x Chip management (chipset, denominations, capacity) — ✅ audited (`tdwp-g28`, 2026-06-30)
+
+PRD ref: `docs/prd-phase-3-professional-features.md §3`. Adversarially verified. Tally: 0 done · 0 partial · 5 missing · 0 wrong. Gaps filed under epic `tdwp-ee1`.
+
+| Criterion | Status | Evidence |
+|-----------|--------|----------|
+| Chipset designer with denominations | missing | Searched all .php, .ts, .js files under wordpress-plugin/, controller/, and mobile-app/ for 'chipset', 'chip_set', 'denomination'. Zero matches. No file named *chip* or *denominati... |
+| Color coding and chip images | missing | Searched for 'chip_color', 'chip.color', 'chip.image', 'chip_image' across entire repo. Zero matches. No asset directory contains chip images. No color-coding logic found. |
+| Tournament capacity calculator | missing | Searched for 'capacity.calc', 'capacity_calc', 'capacityCalc'. Only hit is a comment '// Check capacity' in controller/src/services/tournament/TournamentAllocator.ts:66, which chec... |
+| Starting stack configurator | missing | The field 'starting_stack' exists on blind_schedules in controller/src/db/repositories/BlindScheduleRepository.ts:14,70 as a numeric scalar on blind schedules, but there is no stan... |
+| Chip-up process automation | missing | Searched for 'chip.up', 'chipup', 'chip_up', 'race.off', 'raceoff' across all source files. Zero matches. No chip-up scheduling, triggering, or automation logic found anywhere in t... |
+
+### 3.x Rules display (templates, multi-language) — ✅ audited (`tdwp-efh`, 2026-06-30)
+
+PRD ref: `docs/prd-phase-3-professional-features.md §4`. Adversarially verified. Tally: 0 done · 1 partial · 3 missing · 0 wrong. Gaps filed under epic `tdwp-ee1`.
+
+| Criterion | Status | Evidence |
+|-----------|--------|----------|
+| Rules token editor — UI for authoring rules content with token substitution | missing | Grepped all PHP files for: rules_token, token_editor, rules.*editor, poker_rules, tournament_rules. No matches. No admin page or AJAX handler for a rules token editor exists anywhe... |
+| Template library — Roberts Rules, TDA, house rules presets | missing | Grepped all PHP files for: roberts, tda, house_rule, rules_template, rule.*template. No matches. The only 'rules' token in the codebase is the string 'rules' in the template_type e... |
+| Rules display on tournament screens — rendering rules content on a display screen | partial | class-display-manager.php:780 accepts 'rules' as a valid template_type alongside clock/rankings/prizes/seating/custom, so the database schema accommodates a rules-typed template. H... |
+| Multi-language support — i18n for rules display content | missing | Searched all PHP files for load_plugin_textdomain and load_textdomain — zero matches. No languages/ directory and no .po/.pot files found under wordpress-plugin/poker-tournament-im... |
+
+### 3.x League mgmt + player photos/badges — ✅ audited (`tdwp-hgp`, 2026-06-30)
+
+PRD ref: `docs/prd-phase-3-professional-features.md §5`. Adversarially verified. Tally: 1 done · 3 partial · 2 missing · 0 wrong. Gaps filed under epic `tdwp-ee1`.
+
+| Criterion | Status | Evidence |
+|-----------|--------|----------|
+| League management system | partial | DB schema exists: tdwp_leagues, tdwp_league_memberships, tdwp_seasons tables created in class-td3-database-schema.php:515,592. League metadata is parsed from .tdt files (class-tdt-... |
+| Player photos/avatars | partial | DB table tdwp_player_photos created in class-td3-database-schema.php:394-395. Migration references player-photos directory (class-td3-migration.php:157). However all avatar renderi... |
+| Player statistics dashboard | done | class-statistics-engine.php, class-poker-dashboard-shortcode.php, class-dashboard-renderer.php all exist. templates/single-player.php renders per-player stats (wins, final tables, ... |
+| Random draw tool | missing | Grepped 'random_draw', 'random.*draw', 'draw.*random', 'random.*seat', 'seat.*random' across all .php files in wordpress-plugin/ and mobile-app/ — zero results. seat_assignment fie... |
+| Receipt/invoice generation | missing | Grepped 'receipt', 'invoice', 'payment.slip', 'print.receipt' across all .php files — zero results. No PDF/print generation code found anywhere in the plugin. |
+| Player badges/name tags printable | partial | In-app achievement badges rendered as emoji spans (class-shortcodes.php:369-403, templates/single-player.php:299-308) and admin-bar practice badge (class-admin-bar-widget.php:91). ... |
 
 ### 3.x Token display + layout builder — ✅ audited (`tdwp-7qe`, 2026-06-30)
 
@@ -344,16 +390,75 @@ Verified by adversarial re-check (all 12 done|partial claims held).
 
 ## Phase 4 — Premium + REST API + Mobile (epic `tdwp-1u4`)
 
-| Feature area | Status | Audit bead |
-|--------------|--------|-----------|
-| Expo controller + mobile app + REST API | ⬜ pending audit | `tdwp-2mn` |
-| Advanced rake & financial reporting | ⬜ pending audit | `tdwp-3jh` |
-| Multi-monitor / advanced display | ⬜ pending audit | `tdwp-bro` |
-| Hand timer & analytics | ⬜ pending audit | `tdwp-ebd` |
+All four Phase 4 feature areas are now audited (subsections below).
+
+### 4.x Multi-monitor / advanced display — ✅ audited (`tdwp-bro`, 2026-06-30)
+
+PRD ref: `docs/prd-phase-4-premium-features.md §1`. Adversarially verified. Tally: 0 done · 4 partial · 2 missing · 0 wrong. Gaps filed under epic `tdwp-1u4`.
+
+| Criterion | Status | Evidence |
+|-----------|--------|----------|
+| Multi-monitor support | partial | class-display-manager.php: multiple independent screens can be registered via register_screen() and served at distinct URL endpoints (poker_display_screens table). However, no moni... |
+| Seating chart with custom table blueprints | partial | class-layout-builder.php:117-120 defines 'seating_chart' as a named layout component type with default grid size. ajax_save_display_template (class-display-manager.php:780) accepts... |
+| Player rankings screen with photos | partial | A 'rankings' component type exists in class-layout-builder.php (line ~113). class-td3-database-schema.php:394-395 defines a tdwp_player_photos table. However, no rendering code in ... |
+| Player movement history screen | missing | class-seat-manager.php:68 saves movement history when a player is reseated ('If registration is currently seated, save movement history'). No display screen, template type, or rend... |
+| Screen saver integration (idle mode) | missing | Searched for 'screensaver', 'screen_saver', 'idle_mode', 'idle.timeout', 'idle.screen', 'idle.time' across the entire wordpress-plugin, controller, and mobile-app directories. Zero... |
+| Display management API for remote screens | partial | class-display-manager.php registers AJAX handlers for screen CRUD (ajax_register_screen, ajax_update_screen, ajax_delete_screen, ajax_get_screen_health, ajax_get_all_screens_health... |
+
+### 4.x Hand timer & analytics — ✅ audited (`tdwp-ebd`, 2026-06-30)
+
+PRD ref: `docs/prd-phase-4-premium-features.md §2`. Adversarially verified. Tally: 0 done · 0 partial · 6 missing · 0 wrong. Gaps filed under epic `tdwp-1u4`.
+
+| Criterion | Status | Evidence |
+|-----------|--------|----------|
+| Per-hand timing system — ability to start/stop a timer per poker hand | missing | Grepped all PHP, TS, JS, SQL files for 'hand_timer', 'hand_number', 'per.hand', 'per_hand', 'hand_duration'. Zero matches in wordpress-plugin/, controller/, or mobile-app/ director... |
+| wp_poker_hand_history table (PRD schema: id, tournament_id, hand_number, level, start_time... | missing | Grepped for 'wp_poker_hand_history', 'poker_hand_history', 'hand_history' across all files. Only hits are the PRD doc itself and .beads/issues.jsonl (audit reference). No CREATE TA... |
+| Hand duration analytics — computed stats on how long hands take | missing | Grepped for 'hand_duration', 'duration_seconds', 'avg.*hand', 'average.*hand'. No implementation found anywhere in the codebase. |
+| Hand-based breaks — trigger a break after N hands instead of by time | missing | Grepped for 'hand.based.break', 'hand_based', 'break.*hand'. Zero matches. Break logic in class-tournament-clock.php is time-only. |
+| Slow-play warnings — alert when a hand exceeds a threshold duration | missing | Grepped for 'slow.play', 'slowplay', 'slow_play'. Zero matches in any source file. |
+| Average hand duration tracking — aggregate metric surfaced to UI or stats | missing | Grepped for 'avg.*hand', 'average.*hand', 'mean.*hand'. Zero matches. Statistics engine (class-statistics-engine.php) has no hand-level metrics. |
+
+### 4.x Advanced rake & financial reporting — ✅ audited (`tdwp-3jh`, 2026-06-30)
+
+PRD ref: `docs/prd-phase-4-premium-features.md §5`. Adversarially verified. Tally: 0 done · 1 partial · 5 missing · 0 wrong. Gaps filed under epic `tdwp-1u4`.
+
+| Criterion | Status | Evidence |
+|-----------|--------|----------|
+| Advanced rake calculations — sliding scale | missing | Grepped for 'sliding.scale', 'tiered.*rake', 'rake.*tier' across all plugin PHP files. No results. class-prize-calculator.php:41-73 implements only a single flat rake_percentage (0... |
+| Advanced rake calculations — capped rake | missing | Grepped for 'rake_cap', 'cap.*rake', 'rake.*cap' across all plugin PHP files. No results. The only rake calculation is gross_pool * (rake_percentage / 100) with no ceiling/cap appl... |
+| Financial reporting dashboard (admin UI) | missing | get_financial_summary() exists in class-statistics-engine.php:1710 and calculate_financial_summary() populates poker_financial_summary and poker_revenue_analytics tables, but no ad... |
+| ROI tracking per player | partial | poker_player_roi table is created (poker-tournament-import.php:~893). class-statistics-engine.php:889-934 queries the roi table for top-players leaderboard. TDWP_Stats_Bridge proje... |
+| Venue profitability analytics | missing | Grepped for 'venue', 'venue.*profit', 'profit.*venue', 'venue.*analytic' across all plugin PHP files. No results. Revenue analytics are tracked per tournament/month (poker_revenue_... |
+| Tax reporting exports | missing | Grepped for 'tax', 'w2g', 'irs', 'withhold', 'export.*tax', 'tax.*export', 'export.*report', 'reporting.*export' across all plugin PHP files. No results. The only CSV export found ... |
+
+### 4.x Expo controller + mobile app + REST API — ✅ audited (`tdwp-2mn`, 2026-06-30)
+
+PRD ref: `docs/prd-phase-4-premium-features.md (REST/mobile; ADR-0001)`. Adversarially verified. Tally: 3 done · 4 partial · 8 missing · 1 wrong. Gaps filed under epic `tdwp-1u4`.
+
+| Criterion | Status | Evidence |
+|-----------|--------|----------|
+| WordPress plugin exposes a versioned REST API (/wp-json/poker-tournament/v1/*) for mobile/... | missing | grep register_rest_route across wordpress-plugin/ found only class-bulk-import.php:76 (bulk-import batch endpoints under a different namespace). No tournament control, timer, playe... |
+| Expo controller (Fastify, Node.js) is implemented with tournament, timer, player, blind-sc... | partial | controller/src/api/routes/ contains tournaments.ts, timer.ts, players.ts, blindSchedules.ts, sync.ts, import.ts, export.ts, health.ts. controller/src/server.ts registers all route ... |
+| Controller uses tdwp_ prefixed SQLite schema (not WordPress MySQL) | wrong | controller/src/db/ has connection.ts and migrations.ts; mobile-app/src/db/schema.ts also has SQLite schema. Controller is a standalone Fastify service with its own SQLite — consist... |
+| Mobile app (Expo) connects to the controller API for tournament management | done | mobile-app/src/config/index.ts:API_BASE_URL defaults to localhost:3000/api. mobile-app/src/services/api/ has tournamentApi.ts, playerApi.ts, blindScheduleApi.ts all pointing to con... |
+| Mobile app has iOS and Android support (React Native / Expo) | done | mobile-app/package.json deps: expo, react-native, expo-sqlite. mobile-app/src/config/index.ts:19 handles Android emulator (10.0.2.2) vs iOS localhost. eas.json present for EAS buil... |
+| Remote tournament control from mobile app | partial | mobile-app screens: TimerScreen.tsx, TournamentDetailScreen.tsx, CreateTournamentScreen.tsx, PlayerManagerScreen.tsx exist. Timer control via controller's timer routes is wired. Ho... |
+| Player self-service (rebuy/seat assignment view) from mobile app | missing | Searched mobile-app/src/ for 'rebuy', 'seat assign', 'self.service', 'player_registration' — no results. PlayerManagerScreen.tsx exists but no rebuy or seat-assignment self-service... |
+| Push notifications from mobile app | partial | mobile-app/src/services/notifications/NotificationScheduler.ts uses expo-notifications for local timer alerts (level_change, break_start, break_end, tournament_end). Only LOCAL not... |
+| Offline mode for player database | done | mobile-app/src/services/sync/ has SyncService.ts, OfflineQueue.ts, NetworkMonitor.ts, ReconnectionService.ts. mobile-app/src/db/schema.ts + migrations.ts. BlindScheduleCache.ts wit... |
+| WordPress plugin REST API wired to controller/mobile (integration bridge) | missing | No references to 'wp-json', 'wordpress', or 'WP_REST' found anywhere in controller/src/ or mobile-app/src/ (grep returned no results). Controller and mobile app operate entirely in... |
+| SMS Notifications (Twilio integration) add-on | missing | Grepped for 'Twilio', 'SMS', 'sms' in controller/src/ and wordpress-plugin/ — no results. Not implemented anywhere. |
+| Advanced Reporting Pack (20+ report templates, scheduled email, BI/data-warehouse export) | missing | controller/src/api/routes/export.ts exists (checked name only) but no reporting templates, scheduled email, or BI/SQL-builder found. WordPress plugin has basic financial tables (po... |
+| Multi-monitor display API (PokerTournament.Display.register) | missing | Searched wordpress-plugin/ for 'Display.register', 'multi.monitor', 'display_manager' — not found. The existing display tables (poker_display_screens, poker_display_templates, poke... |
+| Hand timer with wp_poker_hand_history schema and analytics | missing | Searched wordpress-plugin/ for 'poker_hand_history', 'hand_number', 'hand_timer' — no results. PRD schema (wp_poker_hand_history) not created. Controller has a timer (TimerScreen, ... |
+| Customizable keyboard shortcuts / screen locking / kiosk mode | missing | Searched wordpress-plugin/ and controller/src/ for 'kiosk', 'keyboard.lock', 'screen.lock', 'hotkey', 'shortcut' — no results. |
+| Mobile app controls via REST API (PRD: Advanced Controls & Hotkeys feature) | partial | Mobile app does connect to controller REST (Fastify) for tournament/timer/player control. This satisfies 'mobile app controls via an API' in spirit. However it does NOT integrate w... |
 
 > REST API interface decision: see ADR `docs/adr/0001-api-interface-ajax-vs-rest.md` (deferred).
 
 ---
 
-_Maintained under tdwp-xsa. Phase 1 Setup+Templates rows are verified
-(tdwp-96a). All `⬜ pending audit` rows are filled in by their named audit bead._
+_Maintained under tdwp-xsa. **All 21 feature areas across Phases 1–4 are now
+audited** (2026-06-30) with per-criterion verdicts + file:line evidence and gap
+beads filed under their phase epics. 14 P0 data-integrity/correctness defects are
+tracked under `tdwp-3lg`. No `⬜ pending audit` rows remain._
