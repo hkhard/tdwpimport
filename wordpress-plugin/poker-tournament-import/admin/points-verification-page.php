@@ -26,21 +26,79 @@ $pv_season_id     = isset( $_GET['season_id'] ) ? absint( $_GET['season_id'] ) :
  * @param string $severity ok|warning|critical.
  * @return string HTML.
  */
-function tdwp_pv_health_badge( $severity ) {
-	$labels = array(
-		'ok'       => __( 'OK', 'poker-tournament-import' ),
-		'warning'  => __( 'Warning', 'poker-tournament-import' ),
-		'critical' => __( 'Critical', 'poker-tournament-import' ),
-	);
-	$label = isset( $labels[ $severity ] ) ? $labels[ $severity ] : $severity;
-	return '<span class="tdwp-pv-badge tdwp-pv-badge-' . esc_attr( $severity ) . '">' . esc_html( $label ) . '</span>';
+if ( ! function_exists( 'tdwp_pv_health_badge' ) ) {
+	function tdwp_pv_health_badge( $severity ) {
+		$labels = array(
+			'ok'       => __( 'OK', 'poker-tournament-import' ),
+			'warning'  => __( 'Warning', 'poker-tournament-import' ),
+			'critical' => __( 'Critical', 'poker-tournament-import' ),
+		);
+		$label = isset( $labels[ $severity ] ) ? $labels[ $severity ] : $severity;
+		return '<span class="tdwp-pv-badge tdwp-pv-badge-' . esc_attr( $severity ) . '">' . esc_html( $label ) . '</span>';
+	}
 }
 ?>
 <div class="wrap tdwp-pv-wrap">
 	<h1><?php esc_html_e( 'Points Verification', 'poker-tournament-import' ); ?></h1>
 
+	<?php if ( $pv_tournament_id || $pv_season_id ) : ?>
+		<p>
+			<a href="<?php echo esc_url( admin_url( 'admin.php?page=poker-points-verification' ) ); ?>">&larr; <?php esc_html_e( 'Choose another tournament or season', 'poker-tournament-import' ); ?></a>
+		</p>
+	<?php endif; ?>
+
 	<?php if ( ! $pv_tournament_id && ! $pv_season_id ) : ?>
-		<p><?php esc_html_e( 'Open a tournament from the Tournaments list and click "Review Points", or pass a tournament_id / season_id.', 'poker-tournament-import' ); ?></p>
+		<?php
+		$pv_pick_tournaments = get_posts(
+			array(
+				'post_type'      => 'tournament',
+				'posts_per_page' => 300,
+				'orderby'        => 'date',
+				'order'          => 'DESC',
+				'post_status'    => 'any',
+			)
+		);
+		$pv_pick_seasons = get_posts(
+			array(
+				'post_type'      => 'tournament_season',
+				'posts_per_page' => 100,
+				'orderby'        => 'title',
+				'order'          => 'ASC',
+				'post_status'    => 'any',
+			)
+		);
+		?>
+		<p class="description"><?php esc_html_e( 'Pick a tournament to verify its points, or a season to see all its tournaments at a glance.', 'poker-tournament-import' ); ?></p>
+
+		<div class="tdwp-pv-picker">
+			<form method="get" action="">
+				<input type="hidden" name="page" value="poker-points-verification" />
+				<label for="tdwp-pv-pick-tournament"><strong><?php esc_html_e( 'Tournament:', 'poker-tournament-import' ); ?></strong></label>
+				<select name="tournament_id" id="tdwp-pv-pick-tournament">
+					<option value=""><?php esc_html_e( '— Select a tournament —', 'poker-tournament-import' ); ?></option>
+					<?php foreach ( $pv_pick_tournaments as $pv_pick_t ) : ?>
+						<option value="<?php echo esc_attr( $pv_pick_t->ID ); ?>">
+							<?php echo esc_html( get_the_date( 'Y-m-d', $pv_pick_t ) . ' — ' . $pv_pick_t->post_title ); ?>
+						</option>
+					<?php endforeach; ?>
+				</select>
+				<button type="submit" class="button button-primary"><?php esc_html_e( 'Review', 'poker-tournament-import' ); ?></button>
+			</form>
+
+			<?php if ( ! empty( $pv_pick_seasons ) ) : ?>
+				<form method="get" action="" class="tdwp-pv-picker-season">
+					<input type="hidden" name="page" value="poker-points-verification" />
+					<label for="tdwp-pv-pick-season"><strong><?php esc_html_e( 'Season:', 'poker-tournament-import' ); ?></strong></label>
+					<select name="season_id" id="tdwp-pv-pick-season">
+						<option value=""><?php esc_html_e( '— Select a season —', 'poker-tournament-import' ); ?></option>
+						<?php foreach ( $pv_pick_seasons as $pv_pick_s ) : ?>
+							<option value="<?php echo esc_attr( $pv_pick_s->ID ); ?>"><?php echo esc_html( $pv_pick_s->post_title ); ?></option>
+						<?php endforeach; ?>
+					</select>
+					<button type="submit" class="button"><?php esc_html_e( 'View season', 'poker-tournament-import' ); ?></button>
+				</form>
+			<?php endif; ?>
+		</div>
 	<?php endif; ?>
 
 	<?php

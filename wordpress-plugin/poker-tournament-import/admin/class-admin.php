@@ -37,6 +37,28 @@ class Poker_Tournament_Import_Admin {
         // Points adjustments (tdwp-31i): manual per-player override + audit log.
         add_action('wp_ajax_tdwp_save_points_adjustment', array($this, 'ajax_save_points_adjustment'));
         add_action('wp_ajax_tdwp_get_tournament_players_for_adjustment', array($this, 'ajax_get_tournament_players_for_adjustment'));
+
+        // Surface verification from the Tournaments list (tdwp-ayy): row action.
+        add_filter('post_row_actions', array($this, 'add_review_points_row_action'), 10, 2);
+    }
+
+    /**
+     * Add a "Review Points" row action to tournament list rows.
+     *
+     * @param array   $actions Existing row actions.
+     * @param WP_Post $post    The row's post.
+     * @return array Filtered actions.
+     */
+    public function add_review_points_row_action($actions, $post) {
+        if ('tournament' === $post->post_type && current_user_can('manage_options')) {
+            $url = admin_url('admin.php?page=poker-points-verification&tournament_id=' . $post->ID);
+            $actions['tdwp_review_points'] = sprintf(
+                '<a href="%s">%s</a>',
+                esc_url($url),
+                esc_html__('Review Points', 'poker-tournament-import')
+            );
+        }
+        return $actions;
     }
 
     /**
