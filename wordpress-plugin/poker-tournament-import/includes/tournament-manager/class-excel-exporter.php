@@ -21,6 +21,24 @@ if ( ! defined( 'ABSPATH' ) ) {
 class TDWP_Excel_Exporter {
 
 	/**
+	 * Neutralise spreadsheet formula injection (pure).
+	 *
+	 * A cell value beginning with =, +, -, @, or a control char can execute as
+	 * a formula when the file is opened. Prefix such values with an apostrophe
+	 * so they are treated as literal text.
+	 *
+	 * @param string $value Cell text.
+	 * @return string Safe cell text.
+	 */
+	public static function escape_formula( $value ) {
+		$value = (string) $value;
+		if ( '' !== $value && false !== strpos( "=+-@\t\r", $value[0] ) ) {
+			return "'" . $value;
+		}
+		return $value;
+	}
+
+	/**
 	 * Build the spreadsheet rows from result data (pure; no library).
 	 *
 	 * @param array $results Rows with position, name, prize.
@@ -47,7 +65,7 @@ class TDWP_Excel_Exporter {
 		foreach ( $results as $result ) {
 			$rows[] = array(
 				( isset( $result['position'] ) && $result['position'] ) ? (int) $result['position'] : '',
-				isset( $result['name'] ) ? (string) $result['name'] : '',
+				self::escape_formula( isset( $result['name'] ) ? $result['name'] : '' ),
 				isset( $result['prize'] ) ? (float) $result['prize'] : 0.0,
 			);
 		}

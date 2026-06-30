@@ -55,6 +55,27 @@ class ExcelExporterTest extends TestCase {
 		$this->assertCount( 4, $rows ); // 1 header + 3 players.
 	}
 
+	public function test_formula_injection_is_neutralised() {
+		$this->assertSame( "'=HYPERLINK(\"evil\")", TDWP_Excel_Exporter::escape_formula( '=HYPERLINK("evil")' ) );
+		$this->assertSame( "'+1", TDWP_Excel_Exporter::escape_formula( '+1' ) );
+		$this->assertSame( "'-2", TDWP_Excel_Exporter::escape_formula( '-2' ) );
+		$this->assertSame( "'@x", TDWP_Excel_Exporter::escape_formula( '@x' ) );
+		$this->assertSame( 'Alice', TDWP_Excel_Exporter::escape_formula( 'Alice' ) );
+	}
+
+	public function test_dangerous_name_is_escaped_in_rows() {
+		$rows = TDWP_Excel_Exporter::build_rows(
+			array(
+				array(
+					'position' => 1,
+					'name'     => '=cmd|calc',
+					'prize'    => 0,
+				),
+			)
+		);
+		$this->assertSame( "'=cmd|calc", $rows[1][1] );
+	}
+
 	public function test_missing_position_sorts_last_and_blank() {
 		$rows = TDWP_Excel_Exporter::build_rows(
 			array(
