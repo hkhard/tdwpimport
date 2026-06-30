@@ -70,6 +70,9 @@ class TDWP_Tournament_Manager_AJAX {
 		// Chip-up / colour-up (tdwp-ee1.13).
 		add_action( 'wp_ajax_tdwp_tm_preview_chipup', array( __CLASS__, 'preview_chipup' ) );
 		add_action( 'wp_ajax_tdwp_tm_apply_chipup', array( __CLASS__, 'apply_chipup' ) );
+
+		// Results emailer (tdwp-871.29) — operator-triggered send.
+		add_action( 'wp_ajax_tdwp_tm_email_results', array( __CLASS__, 'email_results' ) );
 		add_action( 'wp_ajax_tdwp_tm_process_declined_reentry', array( __CLASS__, 'process_declined_reentry' ) );
 		add_action( 'wp_ajax_tdwp_tm_process_rebuy', array( __CLASS__, 'process_rebuy' ) );
 		add_action( 'wp_ajax_tdwp_tm_process_addon', array( __CLASS__, 'process_addon' ) );
@@ -919,6 +922,30 @@ class TDWP_Tournament_Manager_AJAX {
 		// Use new Player Operations class with transaction logging and multi-hitman support
 		$result = TDWP_Player_Operations::process_bustout( $tournament_id, $player_id, $eliminated_by );
 
+		if ( is_wp_error( $result ) ) {
+			wp_send_json_error( array( 'message' => $result->get_error_message() ) );
+		}
+
+		wp_send_json_success( $result );
+	}
+
+	/**
+	 * Email tournament results to players / addresses (tdwp-871.29).
+	 *
+	 * Operator-triggered; sends only when invoked from the admin UI.
+	 */
+	public static function email_results() {
+		self::verify_request();
+
+		$tournament_id = isset( $_POST['tournament_id'] ) ? absint( $_POST['tournament_id'] ) : 0;
+		$mode          = isset( $_POST['mode'] ) ? sanitize_text_field( wp_unslash( $_POST['mode'] ) ) : 'all';
+		$explicit      = isset( $_POST['addresses'] ) ? sanitize_textarea_field( wp_unslash( $_POST['addresses'] ) ) : '';
+
+		if ( ! $tournament_id ) {
+			wp_send_json_error( array( 'message' => __( 'Invalid tournament', 'poker-tournament-import' ) ) );
+		}
+
+		$result = TDWP_Results_Emailer::send( $tournament_id, $mode, $explicit );
 		if ( is_wp_error( $result ) ) {
 			wp_send_json_error( array( 'message' => $result->get_error_message() ) );
 		}

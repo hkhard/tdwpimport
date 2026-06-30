@@ -538,6 +538,8 @@ class Poker_Tournament_Import {
         // Chip-up / colour-up automation (tdwp-ee1.13). Auto-trigger is opt-in.
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-chip-up.php';
         TDWP_Chip_Up::register();
+        // Results emailer (tdwp-871.29). Operator-triggered; no auto-send.
+        require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-results-emailer.php';
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/class-tournament-clock-shortcode.php';
 
         // **PHASE 2 Week 2-3: Table Management**
