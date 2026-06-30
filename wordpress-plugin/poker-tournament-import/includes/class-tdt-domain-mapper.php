@@ -265,6 +265,21 @@ class Poker_Tournament_Domain_Mapper {
         // v2.4.11: Unwrap Call expressions like Map.from([...])
         $players_node = $this->unwrap_call($players_node);
 
+        // V:3.3 format: new Map({"uuid": new GamePlayer({...}), ...}) — object-argument Map constructor
+        if ($this->is_new_with_ctor($players_node, 'Map') && isset($players_node['arg'])) {
+            $map_obj = $this->expect_object($players_node['arg']);
+            foreach ($map_obj['entries'] as $val) {
+                if ($this->is_new_with_ctor($val, 'GamePlayer')) {
+                    $player = $this->extract_game_player($val);
+                    if ($player && !empty($player['uuid'])) {
+                        $players[$player['uuid']] = $player;
+                    }
+                }
+            }
+            Poker_Tournament_Import_Debug::log_success("Extracted " . count($players) . " players using AST parser (Map-object format)");
+            return $players;
+        }
+
         if (!$this->is_type($players_node, 'Array')) {
             return $players;
         }
