@@ -476,8 +476,8 @@ class Poker_Tournament_Points_Verifier {
 		do_action( 'tdwp_tournament_points_updated', $post_id, $formula_key );
 
 		if ( class_exists( 'Poker_Statistics_Engine' ) ) {
-			$engine = new Poker_Statistics_Engine();
-			$engine->calculate_all_statistics();
+			// Poker_Statistics_Engine is a singleton (private constructor).
+			Poker_Statistics_Engine::get_instance()->calculate_all_statistics();
 		}
 
 		return array(
