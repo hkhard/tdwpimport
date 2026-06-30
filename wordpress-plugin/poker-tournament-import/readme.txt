@@ -3,7 +3,7 @@ Contributors: hanshard
 Tags: poker, tournament, import, results, bulk-import
 Requires at least: 6.0
 Tested up to: 6.8
-Stable tag: 3.6.10
+Stable tag: 3.7.0
 Requires PHP: 8.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -77,6 +77,14 @@ Use the following shortcodes:
 6. **NEW: Interactive leaderboard with sorting**
 
 == Changelog ==
+
+= 3.7.0 - June 30, 2026 =
+* Phase 1 gap closure (epic tdwp-cma): Prize structure calculator and blind builder enhancements.
+* Prizes: 4 built-in prize-structure templates seeded on activation (tdwp-cma.20).
+* Prizes: player-count-based place-count suggestion algorithm (tdwp-cma.17).
+* Prizes: per-place fixed-amount, lock, recipient, and public-display fields with rework of payout math (tdwp-cma.15).
+* Prizes: chops recorded to the tournament event log and applicable to a live tournament (>=2 players), nonce/capability-checked (tdwp-cma.22, tdwp-cma.23).
+* Blinds: schedule-suggestion algorithm from starting chips / player count / desired duration / style (tdwp-cma.13).
 
 = 3.6.10 - June 30, 2026 =
 * Data integrity: Fixed poker_player_roi duplication (no unique key + replace()) via delete-then-insert / clear-then-rebuild; full stats recompute now owns the ROI rebuild (tdwp-ayg b)

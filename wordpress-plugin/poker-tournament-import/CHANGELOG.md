@@ -1,5 +1,17 @@
 # Poker Tournament Import Changelog
 
+## Version 3.7.0 - (June 30, 2026)
+
+### 🏗️ Phase 1 gap closure (epic tdwp-cma) — Prizes & Blinds
+
+- **Prizes — built-in templates (tdwp-cma.20)**: four PRD §4.3 prize-structure templates (Standard 3-Way, Standard 5-Way, Flat 9-Way, Top Heavy) are now seeded on activation, with a back-fill guard for existing installs.
+- **Prizes — place-count suggestion (tdwp-cma.17)**: `recommend_place_count()` / `generate_suggested_structure()` compute paid places from player count per PRD tiers (1-20→3, 21-50→5, 51-100→9, 100+→~15%).
+- **Prizes — richer per-place model (tdwp-cma.15)**: each place gains a fixed dollar amount, a lock flag (frozen against recalculation), a recipient override, and a public-display flag; the calculator pays locked/fixed places first then distributes the remainder across unlocked percentage places (backward-compatible with old `{place,percentage}` structures).
+- **Prizes — chop integration (tdwp-cma.22, tdwp-cma.23)**: applied chops are recorded to the tournament event log (`prize_chop`) and `_tdwp_chop_applied` post meta; a nonce/capability-checked AJAX path applies a chop to a specific live tournament, gated on ≥2 active players.
+- **Blinds — schedule suggestion (tdwp-cma.13)**: a pure-logic `suggest_schedule()` generates a draft blind ladder (blinds ~double every 4–6 levels, breaks every 60–90 min, total within ±15 min of the target) from starting chips / players / desired duration / style, exposed via a secured AJAX endpoint and a builder UI panel.
+- **Follow-ups filed**: locked-place UX polish (tdwp-cma.24), chopped-prize display badge (tdwp-cma.25). Two pre-existing blind-builder defects this work surfaced are tracked as P0 (tdwp-3lg.3 break-field mismatch, tdwp-3lg.4 hardcoded level duration).
+- **Tests**: full offline PHPUnit suite green at 126 tests / 479 assertions.
+
 ## Version 3.6.10 - (June 30, 2026)
 
 ### 🛠️ Data integrity: ROI mart dedup + ownership; live buy-in column (tdwp-ayg b+c)
