@@ -166,16 +166,30 @@ class TDWP_Prize_Calculator_Page {
 			'max_players' => isset( $_POST['max_players'] ) ? absint( $_POST['max_players'] ) : 999,
 		);
 
-		// Parse structure JSON from form.
+		// Parse structure JSON from form — include all extended per-place fields.
 		$places = array();
 		if ( isset( $_POST['places'] ) && is_array( $_POST['places'] ) ) {
 			foreach ( $_POST['places'] as $place_data ) {
-				if ( isset( $place_data['place'], $place_data['percentage'] ) ) {
-					$places[] = array(
-						'place'      => absint( $place_data['place'] ),
-						'percentage' => floatval( $place_data['percentage'] ),
-					);
+				if ( ! isset( $place_data['place'] ) ) {
+					continue;
 				}
+
+				// Fixed dollar amount: absent or empty string → null.
+				$raw_amount = isset( $place_data['amount'] ) ? trim( sanitize_text_field( wp_unslash( $place_data['amount'] ) ) ) : '';
+				$amount     = ( '' !== $raw_amount ) ? max( 0.0, floatval( $raw_amount ) ) : null;
+
+				// Recipient player ID: absent or zero → null.
+				$raw_recipient      = isset( $place_data['recipient_player_id'] ) ? absint( $place_data['recipient_player_id'] ) : 0;
+				$recipient_player_id = $raw_recipient > 0 ? $raw_recipient : null;
+
+				$places[] = array(
+					'place'               => absint( $place_data['place'] ),
+					'percentage'          => isset( $place_data['percentage'] ) ? floatval( $place_data['percentage'] ) : 0.0,
+					'amount'              => $amount,
+					'locked'              => isset( $place_data['locked'] ) && '1' === (string) $place_data['locked'],
+					'recipient_player_id' => $recipient_player_id,
+					'display'             => ! isset( $place_data['display'] ) || '1' === (string) $place_data['display'],
+				);
 			}
 		}
 
@@ -360,9 +374,23 @@ class TDWP_Prize_Calculator_Page {
 
 		$places = array();
 		foreach ( $places_raw as $place_data ) {
+			// Fixed dollar amount: absent or null → null.
+			$raw_amount = isset( $place_data['amount'] ) ? $place_data['amount'] : null;
+			$amount     = ( null !== $raw_amount && '' !== (string) $raw_amount )
+				? max( 0.0, floatval( $raw_amount ) )
+				: null;
+
+			// Recipient player ID: absent or zero → null.
+			$raw_recipient      = isset( $place_data['recipient_player_id'] ) ? absint( $place_data['recipient_player_id'] ) : 0;
+			$recipient_player_id = $raw_recipient > 0 ? $raw_recipient : null;
+
 			$places[] = array(
-				'place'      => absint( $place_data['place'] ),
-				'percentage' => floatval( $place_data['percentage'] ),
+				'place'               => absint( $place_data['place'] ),
+				'percentage'          => isset( $place_data['percentage'] ) ? floatval( $place_data['percentage'] ) : 0.0,
+				'amount'              => $amount,
+				'locked'              => ! empty( $place_data['locked'] ),
+				'recipient_player_id' => $recipient_player_id,
+				'display'             => ! isset( $place_data['display'] ) || (bool) $place_data['display'],
 			);
 		}
 
@@ -857,10 +885,19 @@ class TDWP_Prize_Calculator_Page {
 				<div id="places-container" class="places-list">
 					<?php if ( $structure && ! empty( $structure->places ) ) : ?>
 						<?php foreach ( $structure->places as $place_data ) : ?>
-							<?php $this->render_place_row( $place_data['place'], $place_data['percentage'] ); ?>
+							<?php
+							$this->render_place_row(
+								$place_data['place'],
+								$place_data['percentage'],
+								isset( $place_data['amount'] ) ? $place_data['amount'] : null,
+								! empty( $place_data['locked'] ),
+								isset( $place_data['recipient_player_id'] ) ? $place_data['recipient_player_id'] : null,
+								isset( $place_data['display'] ) ? (bool) $place_data['display'] : true
+							);
+							?>
 						<?php endforeach; ?>
 					<?php else : ?>
-						<?php $this->render_place_row( 1, 100 ); ?>
+						<?php $this->render_place_row( 1, 100.0, null, false, null, true ); ?>
 					<?php endif; ?>
 				</div>
 
@@ -875,9 +912,9 @@ class TDWP_Prize_Calculator_Page {
 			</p>
 		</form>
 
-		<!-- Place row template -->
+		<!-- Place row template (used by JS to append new rows) -->
 		<script type="text/template" id="place-row-template">
-			<?php $this->render_place_row( '__PLACE__', '__PERCENTAGE__' ); ?>
+			<?php $this->render_place_row( '__PLACE__', '__PERCENTAGE__', null, false, null, true ); ?>
 		</script>
 		<?php
 	}
@@ -885,12 +922,21 @@ class TDWP_Prize_Calculator_Page {
 	/**
 	 * Render single place row
 	 *
+	 * Extended (tdwp-cma.15) to include fixed-amount, lock, recipient-player, and
+	 * display-flag fields alongside the existing percentage input.
+	 *
 	 * @since 3.0.0
 	 *
-	 * @param int   $place      Place number.
-	 * @param float $percentage Percentage.
+	 * @param int        $place                Place number.
+	 * @param float      $percentage           Percentage (0–100).
+	 * @param float|null $amount               Optional fixed dollar amount.
+	 * @param bool       $locked               Whether the place is locked.
+	 * @param int|null   $recipient_player_id  Optional player ID override.
+	 * @param bool       $display              Whether the place appears in public display.
 	 */
-	private function render_place_row( $place, $percentage ) {
+	private function render_place_row( $place, $percentage, $amount = null, $locked = false, $recipient_player_id = null, $display = true ) {
+		$amount_val      = ( null !== $amount ) ? floatval( $amount ) : '';
+		$recipient_val   = ( null !== $recipient_player_id ) ? absint( $recipient_player_id ) : '';
 		?>
 		<div class="place-row">
 			<div class="place-number">
@@ -902,8 +948,32 @@ class TDWP_Prize_Calculator_Page {
 			<div class="place-percentage">
 				<label>
 					<?php esc_html_e( 'Percentage', 'poker-tournament-import' ); ?>
-					<input type="number" name="places[<?php echo esc_attr( $place ); ?>][percentage]" value="<?php echo esc_attr( $percentage ); ?>" class="percentage-input" min="0" max="100" step="0.01" required>
+					<input type="number" name="places[<?php echo esc_attr( $place ); ?>][percentage]" value="<?php echo esc_attr( $percentage ); ?>" class="percentage-input" min="0" max="100" step="0.01">
 					<span>%</span>
+				</label>
+			</div>
+			<div class="place-amount">
+				<label>
+					<?php esc_html_e( 'Fixed $', 'poker-tournament-import' ); ?>
+					<input type="number" name="places[<?php echo esc_attr( $place ); ?>][amount]" value="<?php echo esc_attr( $amount_val ); ?>" class="amount-input" min="0" step="0.01" placeholder="<?php esc_attr_e( 'optional', 'poker-tournament-import' ); ?>">
+				</label>
+			</div>
+			<div class="place-locked">
+				<label>
+					<input type="checkbox" name="places[<?php echo esc_attr( $place ); ?>][locked]" value="1" <?php checked( $locked ); ?>>
+					<?php esc_html_e( 'Locked', 'poker-tournament-import' ); ?>
+				</label>
+			</div>
+			<div class="place-recipient">
+				<label>
+					<?php esc_html_e( 'Recipient ID', 'poker-tournament-import' ); ?>
+					<input type="number" name="places[<?php echo esc_attr( $place ); ?>][recipient_player_id]" value="<?php echo esc_attr( $recipient_val ); ?>" class="recipient-input" min="0" placeholder="<?php esc_attr_e( 'none', 'poker-tournament-import' ); ?>">
+				</label>
+			</div>
+			<div class="place-display">
+				<label>
+					<input type="checkbox" name="places[<?php echo esc_attr( $place ); ?>][display]" value="1" <?php checked( $display ); ?>>
+					<?php esc_html_e( 'Show publicly', 'poker-tournament-import' ); ?>
 				</label>
 			</div>
 			<div class="place-actions">
