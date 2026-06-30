@@ -120,11 +120,27 @@ class TDWP_Prize_Calculator {
 	/**
 	 * Calculate payouts from structure array
 	 *
+	 * Supports the extended place model (tdwp-cma.15):
+	 *  - If a place has a fixed `amount` (> 0) it is treated as locked regardless
+	 *    of the `locked` flag: its payout is the fixed dollar value.
+	 *  - If a place has `locked` = true (but no fixed amount), its payout is
+	 *    calculated from its percentage of the *original* pool and then frozen.
+	 *  - The remaining pool (original pool minus all locked/fixed amounts) is
+	 *    distributed across the unlocked, percentage-based places proportionally.
+	 *  - Rounding differences (cents) are absorbed into the first unlocked place
+	 *    (place 1 when unlocked, otherwise the lowest-numbered unlocked place).
+	 *  - Backward-compatible: old {place, percentage}-only structures work
+	 *    unchanged because amount defaults to null and locked defaults to false.
+	 *
+	 * Each returned payout row carries the extra metadata keys so callers and UI
+	 * can honour recipient_player_id and display without extra lookups.
+	 *
 	 * @since 3.0.0
 	 *
 	 * @param float $prize_pool Net prize pool.
-	 * @param array $structure  Structure array with place/percentage.
-	 * @return array Payouts array indexed by place.
+	 * @param array $structure  Structure array with place/percentage and optional
+	 *                          amount/locked/recipient_player_id/display.
+	 * @return array Payouts array: [ place => [ 'amount' => float, 'recipient_player_id' => int|null, 'display' => bool ] ]
 	 */
 	public static function calculate_payouts_from_array( $prize_pool, $structure ) {
 		$prize_pool = floatval( $prize_pool );
@@ -133,25 +149,91 @@ class TDWP_Prize_Calculator {
 			return array();
 		}
 
-		$payouts = array();
-		$total_allocated = 0;
+		$payouts          = array();
+		$locked_total     = 0.0;
+		$unlocked_places  = array();
 
-		// Calculate each payout.
+		// First pass: settle locked/fixed-amount places and collect unlocked ones.
 		foreach ( $structure as $place_data ) {
-			$place      = absint( $place_data['place'] );
-			$percentage = floatval( $place_data['percentage'] );
+			$place        = absint( $place_data['place'] );
+			$fixed_amount = ( isset( $place_data['amount'] ) && null !== $place_data['amount'] )
+				? floatval( $place_data['amount'] )
+				: null;
+			$is_locked    = isset( $place_data['locked'] ) ? (bool) $place_data['locked'] : false;
+			$recipient    = ( isset( $place_data['recipient_player_id'] ) && null !== $place_data['recipient_player_id'] )
+				? absint( $place_data['recipient_player_id'] )
+				: null;
+			$display      = isset( $place_data['display'] ) ? (bool) $place_data['display'] : true;
 
-			$amount = round( $prize_pool * ( $percentage / 100 ), 2 );
-
-			$payouts[ $place ] = $amount;
-			$total_allocated += $amount;
+			if ( null !== $fixed_amount && $fixed_amount > 0 ) {
+				// Fixed dollar amount — locked by definition.
+				$payout_amount = round( $fixed_amount, 2 );
+				$payouts[ $place ] = array(
+					'amount'              => $payout_amount,
+					'recipient_player_id' => $recipient,
+					'display'             => $display,
+				);
+				$locked_total += $payout_amount;
+			} elseif ( $is_locked ) {
+				// Locked percentage place — freeze it against the full original pool.
+				$percentage    = floatval( isset( $place_data['percentage'] ) ? $place_data['percentage'] : 0 );
+				$payout_amount = round( $prize_pool * ( $percentage / 100 ), 2 );
+				$payouts[ $place ] = array(
+					'amount'              => $payout_amount,
+					'recipient_player_id' => $recipient,
+					'display'             => $display,
+				);
+				$locked_total += $payout_amount;
+			} else {
+				// Unlocked percentage place — will split the remaining pool.
+				$unlocked_places[] = array(
+					'place'               => $place,
+					'percentage'          => floatval( isset( $place_data['percentage'] ) ? $place_data['percentage'] : 0 ),
+					'recipient_player_id' => $recipient,
+					'display'             => $display,
+				);
+			}
 		}
 
-		// Handle rounding differences - add/subtract from first place.
-		$difference = round( $prize_pool - $total_allocated, 2 );
+		// Second pass: distribute the remaining pool across unlocked places.
+		$remaining_pool  = $prize_pool - $locked_total;
+		$unlocked_total  = array_sum( array_column( $unlocked_places, 'percentage' ) );
+		$total_allocated = 0.0;
+		$first_unlocked  = null;
 
-		if ( abs( $difference ) > 0 && isset( $payouts[1] ) ) {
-			$payouts[1] += $difference;
+		foreach ( $unlocked_places as $up ) {
+			$place = $up['place'];
+
+			if ( null === $first_unlocked ) {
+				$first_unlocked = $place;
+			}
+
+			// Normalise so that partial percentage sets still distribute the
+			// remainder proportionally. When unlocked_total is 0 split evenly.
+			if ( $unlocked_total > 0 ) {
+				$share = round( $remaining_pool * ( $up['percentage'] / $unlocked_total ), 2 );
+			} else {
+				$count = count( $unlocked_places );
+				$share = 0 < $count ? round( $remaining_pool / $count, 2 ) : 0.0;
+			}
+
+			$payouts[ $place ] = array(
+				'amount'              => $share,
+				'recipient_player_id' => $up['recipient_player_id'],
+				'display'             => $up['display'],
+			);
+			$total_allocated += $share;
+		}
+
+		// Absorb rounding remainder into the first unlocked place (or place 1 if
+		// all places are locked, which is an unusual but valid configuration).
+		$difference = round( $prize_pool - $locked_total - $total_allocated, 2 );
+
+		if ( abs( $difference ) > 0 ) {
+			$absorb_place = $first_unlocked ?? ( isset( $payouts[1] ) ? 1 : null );
+			if ( null !== $absorb_place && isset( $payouts[ $absorb_place ] ) ) {
+				$payouts[ $absorb_place ]['amount'] += $difference;
+			}
 		}
 
 		return $payouts;

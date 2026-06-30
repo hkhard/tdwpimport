@@ -662,6 +662,10 @@ class TDWP_Prize_Structure {
 	/**
 	 * Decode structure JSON
 	 *
+	 * Backward-compatible: old rows with only {place, percentage} are decoded with
+	 * sensible defaults for the new keys (amount null, locked false,
+	 * recipient_player_id null, display true).
+	 *
 	 * @since 3.0.0
 	 *
 	 * @param string $json JSON string.
@@ -674,12 +678,27 @@ class TDWP_Prize_Structure {
 			return array();
 		}
 
-		// Sanitize each place.
+		// Sanitize each place — carry all known keys with safe defaults.
 		return array_map(
 			function( $place ) {
+				// Fixed dollar amount: null when absent or explicitly null.
+				$amount = null;
+				if ( isset( $place['amount'] ) && null !== $place['amount'] ) {
+					$amount = floatval( $place['amount'] );
+					if ( $amount < 0 ) {
+						$amount = 0.0;
+					}
+				}
+
 				return array(
-					'place'      => isset( $place['place'] ) ? absint( $place['place'] ) : 0,
-					'percentage' => isset( $place['percentage'] ) ? floatval( $place['percentage'] ) : 0,
+					'place'               => isset( $place['place'] ) ? absint( $place['place'] ) : 0,
+					'percentage'          => isset( $place['percentage'] ) ? floatval( $place['percentage'] ) : 0.0,
+					'amount'              => $amount,
+					'locked'              => isset( $place['locked'] ) ? (bool) $place['locked'] : false,
+					'recipient_player_id' => ( isset( $place['recipient_player_id'] ) && null !== $place['recipient_player_id'] )
+						? absint( $place['recipient_player_id'] )
+						: null,
+					'display'             => isset( $place['display'] ) ? (bool) $place['display'] : true,
 				);
 			},
 			$decoded
@@ -780,29 +799,54 @@ class TDWP_Prize_Structure {
 			if ( ! is_array( $places ) || empty( $places ) ) {
 				$errors[] = __( 'Invalid prize structure format.', 'poker-tournament-import' );
 			} else {
-				// Validate percentages sum to 100.
-				$total = 0;
+				/*
+				 * Validate each place individually:
+				 *  - A place is valid if it has EITHER a percentage (>=0) OR a fixed
+				 *    dollar amount (>0). Both may be present on the same place; the
+				 *    calculator will use fixed amount when it is set.
+				 *  - A place flagged locked=true is exempt from the percentage-sum check
+				 *    because its value is pinned regardless of the pot size.
+				 *  - Fixed-amount places (amount > 0) are also excluded from the
+				 *    percentage-sum check for the same reason.
+				 */
+				$percentage_total          = 0.0;
+				$has_percentage_place_error = false;
+
 				foreach ( $places as $place ) {
-					if ( ! isset( $place['percentage'] ) ) {
-						$errors[] = __( 'Each place must have a percentage.', 'poker-tournament-import' );
+					$has_percentage = isset( $place['percentage'] ) && floatval( $place['percentage'] ) >= 0;
+					$has_amount     = isset( $place['amount'] ) && null !== $place['amount'] && floatval( $place['amount'] ) > 0;
+					$is_locked      = isset( $place['locked'] ) && (bool) $place['locked'];
+
+					// Each place must provide at least one of: percentage or fixed amount.
+					if ( ! $has_percentage && ! $has_amount ) {
+						$errors[] = __( 'Each place must have either a percentage or a fixed dollar amount.', 'poker-tournament-import' );
+						$has_percentage_place_error = true;
 						break;
 					}
 
-					$percentage = floatval( $place['percentage'] );
-					if ( $percentage < 0 || $percentage > 100 ) {
-						$errors[] = __( 'Percentages must be between 0 and 100.', 'poker-tournament-import' );
-						break;
-					}
+					// Percentage range check (when present).
+					if ( $has_percentage ) {
+						$percentage = floatval( $place['percentage'] );
+						if ( $percentage < 0 || $percentage > 100 ) {
+							$errors[] = __( 'Percentages must be between 0 and 100.', 'poker-tournament-import' );
+							$has_percentage_place_error = true;
+							break;
+						}
 
-					$total += $percentage;
+						// Accumulate only for unlocked, non-fixed-amount places.
+						if ( ! $is_locked && ! $has_amount ) {
+							$percentage_total += $percentage;
+						}
+					}
 				}
 
-				// Allow small rounding error (0.01%).
-				if ( abs( $total - 100 ) > 0.01 ) {
+				// The percentage-sum rule applies only to the unlocked, percentage-based
+				// places. Allow a 0.01 % rounding tolerance.
+				if ( ! $has_percentage_place_error && $percentage_total > 0 && abs( $percentage_total - 100 ) > 0.01 ) {
 					$errors[] = sprintf(
 						/* translators: %s: actual total percentage */
-						__( 'Percentages must sum to 100%%. Current total: %s%%', 'poker-tournament-import' ),
-						number_format( $total, 2 )
+						__( 'Percentages for unlocked places must sum to 100%%. Current total: %s%%', 'poker-tournament-import' ),
+						number_format( $percentage_total, 2 )
 					);
 				}
 
