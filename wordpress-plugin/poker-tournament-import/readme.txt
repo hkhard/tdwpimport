@@ -3,7 +3,7 @@ Contributors: hanshard
 Tags: poker, tournament, import, results, bulk-import
 Requires at least: 6.0
 Tested up to: 6.8
-Stable tag: 3.7.0
+Stable tag: 3.8.0
 Requires PHP: 8.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -77,6 +77,14 @@ Use the following shortcodes:
 6. **NEW: Interactive leaderboard with sorting**
 
 == Changelog ==
+
+= 3.8.0 - June 30, 2026 =
+Phase 1 Foundation gap closure complete (epic tdwp-cma) — P2/P3 across Prizes, Blinds, Players, and the creation wizard.
+* Prizes: rounding denominations ($1/$5/$10), top-heavy & flat suggestion styles, configurable minimum payout floor, custom per-player chop, over-allocation guard + live remaining-pool display, "Chopped" badge on public displays.
+* Blinds: schedule preview total duration + average stack, Hyper Turbo built-in template, apply-template-to-tournament, blind-schedule CSV import, print-friendly schedule view.
+* Players: registrant confirmation email, capacity waiting list with admin promote, available-seats display, duplicate-player merge, player-database CSV export, buy-in/seat CSV import columns, late-registration config, copy roster from a previous tournament, print-friendly roster.
+* Wizard/Templates: fee split (entry fee / prize-pool contribution), flat-rake mode, rebuy/add-on timing fields, live pot estimator + financial summary, Use-Template flow, 30s auto-save with drafts and crash recovery, tournament history log + details-view history panel.
+* Fixes: blind break-duration render field mismatch (tdwp-3lg.3).
 
 = 3.7.0 - June 30, 2026 =
 * Phase 1 gap closure (epic tdwp-cma): Prize structure calculator and blind builder enhancements.
