@@ -526,6 +526,165 @@ class TDWP_Blind_Schedule {
 	}
 
 	/**
+	 * Generate a suggested blind schedule from tournament parameters.
+	 *
+	 * Pure, stateless algorithm — no database access, no superglobals. Returns an
+	 * ordered array of level rows (ready to be loaded into the builder) plus a
+	 * summary with estimated duration and counts.
+	 *
+	 * Blind ladder: BB roughly doubles every 4–6 play levels (tuned per style).
+	 * Breaks are inserted every ~75 minutes of play time. Ante onset is partway
+	 * through the schedule, set to ~BB/2.
+	 *
+	 * @since 3.6.1
+	 *
+	 * @param array $params {
+	 *     @type int    $starting_chips   Starting chip count. Min 500. Default 10000.
+	 *     @type int    $player_count     Number of players. Min 2. Default 9.
+	 *     @type int    $desired_duration Target total duration in minutes. Min 20. Default 180.
+	 *     @type string $style            'turbo', 'standard', or 'deep'. Default 'standard'.
+	 * }
+	 * @return array {
+	 *     @type array $levels                  Ordered level rows, each with keys:
+	 *                                          small_blind, big_blind, ante,
+	 *                                          duration_minutes, is_break,
+	 *                                          break_duration_minutes.
+	 *     @type int   $estimated_total_minutes Estimated total tournament minutes.
+	 *     @type int   $level_count             Number of playing levels.
+	 *     @type int   $break_count             Number of breaks inserted.
+	 * }
+	 */
+	public static function suggest_schedule( array $params ): array {
+		// Clamp and sanitize inputs.
+		$starting_chips   = max( 500, absint( isset( $params['starting_chips'] ) ? $params['starting_chips'] : 10000 ) );
+		$desired_duration = max( 20, absint( isset( $params['desired_duration'] ) ? $params['desired_duration'] : 180 ) );
+		$style_raw        = isset( $params['style'] ) ? (string) $params['style'] : 'standard';
+		$style            = in_array( $style_raw, array( 'turbo', 'standard', 'deep' ), true ) ? $style_raw : 'standard';
+
+		// Style presets: level length, how many play levels before BB doubles,
+		// break duration, and the play level at which ante begins.
+		$presets = array(
+			'turbo'    => array( 'level_mins' => 10, 'double_every' => 4, 'break_dur' => 10, 'ante_onset' => 3 ),
+			'standard' => array( 'level_mins' => 15, 'double_every' => 5, 'break_dur' => 15, 'ante_onset' => 4 ),
+			'deep'     => array( 'level_mins' => 25, 'double_every' => 6, 'break_dur' => 15, 'ante_onset' => 6 ),
+		);
+		$preset     = $presets[ $style ];
+		$level_mins = $preset['level_mins'];
+		$double_every = $preset['double_every'];
+		$break_dur  = $preset['break_dur'];
+		$ante_onset = $preset['ante_onset'];
+
+		// Insert a break roughly every 75 minutes of play (≥ 3 levels minimum).
+		$break_every = max( 3, (int) round( 75 / $level_mins ) );
+
+		// Work out how many play levels fill the desired duration when breaks are
+		// interspersed: "block" = break_every play levels + 1 break.
+		$block_time      = $break_every * $level_mins + $break_dur;
+		$complete_blocks = (int) floor( $desired_duration / $block_time );
+		$remaining_time  = $desired_duration - $complete_blocks * $block_time;
+		$extra_levels    = (int) floor( $remaining_time / $level_mins );
+		$total_play      = max( 3, $complete_blocks * $break_every + $extra_levels );
+
+		// First BB: a small fraction of the starting stack.
+		$first_bb  = self::round_blind( (float) $starting_chips / 50 );
+		$first_sb  = max( 1, (int) floor( $first_bb / 2 ) );
+
+		// Per-level growth factor so BB doubles every $double_every levels.
+		$growth = pow( 2.0, 1.0 / (float) $double_every );
+
+		// Build the level list.
+		$levels      = array();
+		$play_level  = 0;
+		$current_bb  = $first_bb;
+		$current_sb  = $first_sb;
+
+		for ( $i = 0; $i < $total_play; $i++ ) {
+			$play_level++;
+
+			// Ante starts at ante_onset and is set to ~half the current BB.
+			$ante = ( $play_level >= $ante_onset ) ? self::round_blind( (float) $current_bb / 2 ) : 0;
+
+			$levels[] = array(
+				'small_blind'            => $current_sb,
+				'big_blind'              => $current_bb,
+				'ante'                   => $ante,
+				'duration_minutes'       => $level_mins,
+				'is_break'               => 0,
+				'break_duration_minutes' => 0,
+			);
+
+			// Insert a break after every $break_every play levels, except after
+			// the very last play level.
+			if ( 0 === $play_level % $break_every && $i < $total_play - 1 ) {
+				$levels[] = array(
+					'small_blind'            => 0,
+					'big_blind'              => 0,
+					'ante'                   => 0,
+					'duration_minutes'       => 0,
+					'is_break'               => 1,
+					'break_duration_minutes' => $break_dur,
+				);
+			}
+
+			// Advance blinds for the next play level.
+			$next_bb    = self::round_blind( (float) $current_bb * $growth );
+			$current_bb = $next_bb;
+			$current_sb = max( 1, (int) floor( $current_bb / 2 ) );
+		}
+
+		// Tally breaks and compute estimated duration.
+		$break_count    = 0;
+		foreach ( $levels as $level ) {
+			if ( 1 === $level['is_break'] ) {
+				$break_count++;
+			}
+		}
+		$estimated_total = $total_play * $level_mins + $break_count * $break_dur;
+
+		return array(
+			'levels'                  => $levels,
+			'estimated_total_minutes' => $estimated_total,
+			'level_count'             => $total_play,
+			'break_count'             => $break_count,
+		);
+	}
+
+	/**
+	 * Round a raw blind value to the nearest "nice" number used in poker.
+	 *
+	 * Snaps to common multiples of the nearest power-of-ten magnitude so the
+	 * generated schedule reads like a human-authored one (25, 50, 100, 150, 200,
+	 * 250, 300, 400, 500, 600, 800, 1000, …).
+	 *
+	 * @since 3.6.1
+	 *
+	 * @param float $value Raw numeric value to round.
+	 * @return int Rounded nice blind value (minimum 1).
+	 */
+	private static function round_blind( float $value ): int {
+		if ( $value <= 0 ) {
+			return 1;
+		}
+
+		$magnitude  = pow( 10.0, floor( log10( $value ) ) );
+		$multipliers = array( 1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0, 6.0, 8.0, 10.0 );
+
+		$best      = (float) $multipliers[0] * $magnitude;
+		$best_diff = abs( $value - $best );
+
+		foreach ( $multipliers as $m ) {
+			$candidate = $m * $magnitude;
+			$diff      = abs( $value - $candidate );
+			if ( $diff < $best_diff ) {
+				$best_diff = $diff;
+				$best      = $candidate;
+			}
+		}
+
+		return max( 1, (int) $best );
+	}
+
+	/**
 	 * Sanitize schedule data
 	 *
 	 * @since 3.0.0

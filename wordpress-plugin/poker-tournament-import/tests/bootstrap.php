@@ -43,3 +43,4 @@ require $plugin_dir . 'includes/class-tdt-ast-parser.php';
 require $plugin_dir . 'includes/class-tdt-domain-mapper.php';
 require $plugin_dir . 'includes/class-parser.php';
 require $plugin_dir . 'includes/class-statistics-engine.php';
+require $plugin_dir . 'includes/tournament-manager/class-blind-schedule.php';
