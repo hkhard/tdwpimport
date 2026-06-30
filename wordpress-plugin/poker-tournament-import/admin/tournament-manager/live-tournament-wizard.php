@@ -40,6 +40,51 @@ class TDWP_Live_Tournament_Wizard {
 		add_action( 'wp_ajax_tdwp_wizard_autosave_draft', array( $this, 'ajax_autosave_draft' ) );
 		add_action( 'wp_ajax_tdwp_wizard_get_draft', array( $this, 'ajax_get_draft' ) );
 		add_action( 'wp_ajax_tdwp_wizard_discard_draft', array( $this, 'ajax_discard_draft' ) );
+
+		// Log tournament_modified whenever a live_tournament post is updated (not newly created).
+		add_action( 'save_post_live_tournament', array( $this, 'on_save_live_tournament' ), 20, 3 );
+	}
+
+	/**
+	 * Hook: fires on save_post for live_tournament post type.
+	 *
+	 * Logs a tournament_modified event when an existing live_tournament is updated
+	 * (excludes auto-saves and revisions).
+	 *
+	 * @since 3.7.0
+	 *
+	 * @param int     $post_id Post ID.
+	 * @param WP_Post $post    Post object.
+	 * @param bool    $update  Whether this is an update (true) or new post (false).
+	 */
+	public function on_save_live_tournament( $post_id, $post, $update ) {
+		// Only log modifications to existing posts.
+		if ( ! $update ) {
+			return;
+		}
+
+		// Skip auto-saves and revisions.
+		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
+			return;
+		}
+
+		if ( wp_is_post_revision( $post_id ) ) {
+			return;
+		}
+
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+
+		$events = new TDWP_Tournament_Events();
+		$events->log(
+			$post_id,
+			'tournament_modified',
+			array(
+				'post_status' => $post->post_status,
+				'post_title'  => $post->post_title,
+			)
+		);
 	}
 
 	/**

@@ -81,6 +81,7 @@ wp_localize_script(
 		<button class="tdwp-tab-button" data-tab="players"><?php esc_html_e( 'Players', 'poker-tournament-import' ); ?></button>
 		<button class="tdwp-tab-button" data-tab="transactions"><?php esc_html_e( 'Transactions', 'poker-tournament-import' ); ?></button>
 		<button class="tdwp-tab-button" data-tab="stats"><?php esc_html_e( 'Stats', 'poker-tournament-import' ); ?></button>
+		<button class="tdwp-tab-button" data-tab="history"><?php esc_html_e( 'History', 'poker-tournament-import' ); ?></button>
 	</div>
 
 	<!-- Tab Panels -->
@@ -109,6 +110,11 @@ wp_localize_script(
 		<!-- Stats Tab (Stub) -->
 		<div id="tab-stats" class="tdwp-tab-panel">
 			<?php require_once __DIR__ . '/tabs/stats-tab.php'; ?>
+		</div>
+
+		<!-- History Tab - Tournament event log -->
+		<div id="tab-history" class="tdwp-tab-panel">
+			<?php require_once __DIR__ . '/tabs/history-tab.php'; ?>
 		</div>
 
 	</div>
