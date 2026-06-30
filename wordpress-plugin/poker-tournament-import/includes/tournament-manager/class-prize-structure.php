@@ -537,6 +537,129 @@ class TDWP_Prize_Structure {
 	}
 
 	/**
+	 * Recommend place count based on player count (tdwp-cma.17)
+	 *
+	 * PRD §4.2 tiers:
+	 *   1–20   → 3 places
+	 *   21–50  → 5 places
+	 *   51–100 → 9 places
+	 *   100+   → ~15 % of field (rounded, minimum 9)
+	 *
+	 * Pure logic — no DB access — so it is fully unit-testable offline.
+	 *
+	 * @since 3.5.0
+	 *
+	 * @param int $player_count Total players registered.
+	 * @return int Recommended number of paid places.
+	 */
+	public function recommend_place_count( $player_count ) {
+		$player_count = absint( $player_count );
+
+		if ( $player_count <= 0 ) {
+			return 0;
+		}
+
+		if ( $player_count <= 20 ) {
+			return 3;
+		}
+
+		if ( $player_count <= 50 ) {
+			return 5;
+		}
+
+		if ( $player_count <= 100 ) {
+			return 9;
+		}
+
+		// 100+ → 15 % of field, minimum 9.
+		return max( 9, (int) round( 0.15 * $player_count ) );
+	}
+
+	/**
+	 * Generate a suggested prize structure for a given player count (tdwp-cma.17)
+	 *
+	 * Returns an array of place entries [{ place, percentage }] whose percentages
+	 * sum to exactly 100. The distribution uses a decreasing-weight scale so that
+	 * earlier places receive a larger share. Known small-N distributions (3, 5, 9)
+	 * are hard-coded to match industry standards; larger Ns use a computed decay.
+	 *
+	 * Pure logic — no DB access — so it is fully unit-testable offline.
+	 *
+	 * @since 3.5.0
+	 *
+	 * @param int $player_count Total players registered.
+	 * @return array Array of ['place' => int, 'percentage' => float].
+	 */
+	public function generate_suggested_structure( $player_count ) {
+		$place_count = $this->recommend_place_count( $player_count );
+
+		if ( 0 === $place_count ) {
+			return array();
+		}
+
+		// Canonical distributions for the standard tiers.
+		$canonical = array(
+			3 => array( 50.00, 30.00, 20.00 ),
+			5 => array( 40.00, 25.00, 15.00, 12.00, 8.00 ),
+			9 => array( 30.00, 20.00, 14.00, 10.00, 8.00, 7.00, 5.00, 4.00, 2.00 ),
+		);
+
+		if ( isset( $canonical[ $place_count ] ) ) {
+			$percentages = $canonical[ $place_count ];
+		} else {
+			$percentages = $this->compute_decay_percentages( $place_count );
+		}
+
+		$structure = array();
+		foreach ( $percentages as $index => $pct ) {
+			$structure[] = array(
+				'place'      => $index + 1,
+				'percentage' => $pct,
+			);
+		}
+
+		return $structure;
+	}
+
+	/**
+	 * Compute a decaying percentage distribution for an arbitrary place count
+	 *
+	 * Uses weight = (n - place + 1)^1.5 for each place to model a natural
+	 * top-heavy prize pool, then normalises to exactly 100.
+	 *
+	 * @since 3.5.0
+	 *
+	 * @param int $place_count Number of paid places.
+	 * @return float[] Percentages indexed from 0, summing to exactly 100.
+	 */
+	private function compute_decay_percentages( $place_count ) {
+		$weights = array();
+		for ( $i = 1; $i <= $place_count; $i++ ) {
+			$weights[] = pow( $place_count - $i + 1, 1.5 );
+		}
+
+		$total_weight = array_sum( $weights );
+
+		// Round each share to two decimal places.
+		$percentages = array();
+		$running     = 0.0;
+		$last_index  = $place_count - 1;
+
+		foreach ( $weights as $index => $weight ) {
+			if ( $index === $last_index ) {
+				// Force last place to close out to exactly 100.
+				$percentages[] = round( 100.0 - $running, 2 );
+			} else {
+				$pct           = round( ( $weight / $total_weight ) * 100, 2 );
+				$percentages[] = $pct;
+				$running      += $pct;
+			}
+		}
+
+		return $percentages;
+	}
+
+	/**
 	 * Decode structure JSON
 	 *
 	 * @since 3.0.0

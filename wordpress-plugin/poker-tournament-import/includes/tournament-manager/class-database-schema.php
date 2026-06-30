@@ -785,20 +785,28 @@ class TDWP_Database_Schema {
 		// Check if templates already exist
 		$existing_templates = get_option( 'tdwp_default_templates_inserted', false );
 
-		if ( $existing_templates ) {
-			return true;
+		if ( ! $existing_templates ) {
+			global $wpdb;
+
+			// Insert default blind schedule templates
+			self::insert_default_blind_schedules( $wpdb );
+
+			// Insert default prize structure templates
+			self::insert_default_prize_structures( $wpdb );
+
+			// Mark as inserted
+			update_option( 'tdwp_default_templates_inserted', true );
 		}
 
-		global $wpdb;
-
-		// Insert default blind schedule templates
-		self::insert_default_blind_schedules( $wpdb );
-
-		// Insert default prize structure templates
-		self::insert_default_prize_structures( $wpdb );
-
-		// Mark as inserted
-		update_option( 'tdwp_default_templates_inserted', true );
+		// Supplemental seed: PRD §4.3 templates may be missing on pre-3.5.0
+		// installs where tdwp_default_templates_inserted was already set.
+		// The per-name idempotency guard inside insert_prd_prize_templates() makes
+		// this safe to call on every activation without creating duplicates.
+		if ( ! get_option( 'tdwp_prd_prize_templates_v1_inserted', false ) ) {
+			global $wpdb;
+			self::insert_prd_prize_templates( $wpdb );
+			update_option( 'tdwp_prd_prize_templates_v1_inserted', true );
+		}
 
 		return true;
 	}
@@ -986,6 +994,105 @@ class TDWP_Database_Schema {
 			),
 			array( '%s', '%s', '%d', '%d', '%d', '%s' )
 		);
+
+		// PRD §4.3 built-in templates (tdwp-cma.20).
+		self::insert_prd_prize_templates( $wpdb );
+	}
+
+	/**
+	 * Insert the four PRD §4.3 built-in prize templates (tdwp-cma.20)
+	 *
+	 * Skips any template whose name already exists so this is safe to call
+	 * more than once (idempotent per-name guard).
+	 *
+	 * @since 3.5.0
+	 * @param wpdb $wpdb WordPress database object.
+	 */
+	private static function insert_prd_prize_templates( $wpdb ) {
+		$table_name = $wpdb->prefix . 'tdwp_prize_structures';
+
+		$templates = array(
+			array(
+				'name'        => __( 'Standard 3-Way', 'poker-tournament-import' ),
+				'description' => __( 'Standard 3-place payout: 50% / 30% / 20%', 'poker-tournament-import' ),
+				'min_players' => 3,
+				'max_players' => 999,
+				'places'      => array(
+					array( 'place' => 1, 'percentage' => 50 ),
+					array( 'place' => 2, 'percentage' => 30 ),
+					array( 'place' => 3, 'percentage' => 20 ),
+				),
+			),
+			array(
+				'name'        => __( 'Standard 5-Way', 'poker-tournament-import' ),
+				'description' => __( 'Standard 5-place payout: 40% / 25% / 15% / 12% / 8%', 'poker-tournament-import' ),
+				'min_players' => 5,
+				'max_players' => 999,
+				'places'      => array(
+					array( 'place' => 1, 'percentage' => 40 ),
+					array( 'place' => 2, 'percentage' => 25 ),
+					array( 'place' => 3, 'percentage' => 15 ),
+					array( 'place' => 4, 'percentage' => 12 ),
+					array( 'place' => 5, 'percentage' => 8 ),
+				),
+			),
+			array(
+				'name'        => __( 'Flat 9-Way', 'poker-tournament-import' ),
+				'description' => __( '9-place near-even payout: 19% / 14% / 12% / 11% / 11% / 10% / 9% / 8% / 6%', 'poker-tournament-import' ),
+				'min_players' => 9,
+				'max_players' => 999,
+				'places'      => array(
+					array( 'place' => 1, 'percentage' => 19 ),
+					array( 'place' => 2, 'percentage' => 14 ),
+					array( 'place' => 3, 'percentage' => 12 ),
+					array( 'place' => 4, 'percentage' => 11 ),
+					array( 'place' => 5, 'percentage' => 11 ),
+					array( 'place' => 6, 'percentage' => 10 ),
+					array( 'place' => 7, 'percentage' => 9 ),
+					array( 'place' => 8, 'percentage' => 8 ),
+					array( 'place' => 9, 'percentage' => 6 ),
+				),
+			),
+			array(
+				'name'        => __( 'Top Heavy 3-Way', 'poker-tournament-import' ),
+				'description' => __( 'Top-heavy 3-place payout: 65% / 25% / 10%', 'poker-tournament-import' ),
+				'min_players' => 3,
+				'max_players' => 999,
+				'places'      => array(
+					array( 'place' => 1, 'percentage' => 65 ),
+					array( 'place' => 2, 'percentage' => 25 ),
+					array( 'place' => 3, 'percentage' => 10 ),
+				),
+			),
+		);
+
+		foreach ( $templates as $tpl ) {
+			// Idempotency guard: skip if a template with this name already exists.
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$exists = $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT COUNT(*) FROM {$table_name} WHERE name = %s",
+					$tpl['name']
+				)
+			);
+
+			if ( $exists ) {
+				continue;
+			}
+
+			$wpdb->insert(
+				$table_name,
+				array(
+					'name'           => $tpl['name'],
+					'description'    => $tpl['description'],
+					'is_template'    => 1,
+					'min_players'    => $tpl['min_players'],
+					'max_players'    => $tpl['max_players'],
+					'structure_json' => wp_json_encode( $tpl['places'] ),
+				),
+				array( '%s', '%s', '%d', '%d', '%d', '%s' )
+			);
+		}
 	}
 
 	/**
