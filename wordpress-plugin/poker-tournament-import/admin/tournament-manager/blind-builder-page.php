@@ -426,6 +426,34 @@ class TDWP_Blind_Builder_Page {
 
 			// Link to the tournament.
 			update_post_meta( $tournament_id, '_tdwp_blind_schedule_id', $target_schedule_id );
+
+			// Bridge (tdwp-cma.26): mirror the schedule ID onto the wizard-compatible
+			// '_blind_schedule_id' meta key so any reader that resolves a tournament's
+			// blind schedule via that key (set by the wizard on template-apply) also
+			// sees the new schedule without requiring a DB join through the templates table.
+			update_post_meta( $tournament_id, '_blind_schedule_id', $target_schedule_id );
+		}
+
+		// Additionally, update tdwp_tournament_templates.blind_schedule_id when the
+		// tournament has a live-state row that links it to a specific template. This
+		// ensures the canonical column reflects the applied schedule for any reader
+		// that resolves via the templates table (e.g. the wizard status endpoint).
+		global $wpdb;
+		$live_state = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT template_id FROM {$wpdb->prefix}tdwp_tournament_live_state WHERE tournament_id = %d LIMIT 1",
+				$tournament_id
+			)
+		);
+
+		if ( $live_state && ! empty( $live_state->template_id ) ) {
+			$wpdb->update(
+				$wpdb->prefix . 'tdwp_tournament_templates',
+				array( 'blind_schedule_id' => $target_schedule_id ),
+				array( 'id'               => (int) $live_state->template_id ),
+				array( '%d' ),
+				array( '%d' )
+			);
 		}
 
 		// Copy levels from source into target schedule.

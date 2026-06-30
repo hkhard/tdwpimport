@@ -106,6 +106,8 @@ class TDWP_Prize_Calculator_Page {
 					'invalidPercentages' => __( 'Percentages must sum to 100%.', 'poker-tournament-import' ),
 					'addPlace'        => __( 'Add Place', 'poker-tournament-import' ),
 					'deletePlace'     => __( 'Delete', 'poker-tournament-import' ),
+					'overAllocated'   => __( 'Over-allocated: locked/fixed amounts exceed the pool.', 'poker-tournament-import' ),
+					'examplePool'     => 10000,
 				),
 				'commonStructures' => TDWP_Prize_Calculator::suggest_common_structures(),
 			)
@@ -1043,6 +1045,12 @@ class TDWP_Prize_Calculator_Page {
 						<?php esc_html_e( 'Total:', 'poker-tournament-import' ); ?>
 						<span id="percentage-sum" class="sum-value">0.0</span>%
 						<span id="sum-status" class="sum-status"></span>
+					</div>
+
+					<div class="remaining-pool-indicator" title="<?php esc_attr_e( 'Pool remaining after locked/fixed places (example: $10,000 pool)', 'poker-tournament-import' ); ?>">
+						<?php esc_html_e( 'Remaining pool:', 'poker-tournament-import' ); ?>
+						<span id="remaining-pool-amount" class="remaining-pool-value"></span>
+						<span id="remaining-pool-status" class="remaining-pool-status"></span>
 					</div>
 				</div>
 
