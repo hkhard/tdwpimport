@@ -535,6 +535,9 @@ class Poker_Tournament_Import {
         TDWP_Event_Dispatcher::register();
         // Chipset / denomination management (tdwp-ee1.9).
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-chipset-manager.php';
+        // Chip-up / colour-up automation (tdwp-ee1.13). Auto-trigger is opt-in.
+        require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-chip-up.php';
+        TDWP_Chip_Up::register();
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/class-tournament-clock-shortcode.php';
 
         // **PHASE 2 Week 2-3: Table Management**

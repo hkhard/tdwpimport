@@ -66,6 +66,10 @@ class TDWP_Tournament_Manager_AJAX {
 		add_action( 'wp_ajax_tdwp_tm_get_chipsets', array( __CLASS__, 'get_chipsets' ) );
 		add_action( 'wp_ajax_tdwp_tm_save_chipset', array( __CLASS__, 'save_chipset' ) );
 		add_action( 'wp_ajax_tdwp_tm_delete_chipset', array( __CLASS__, 'delete_chipset' ) );
+
+		// Chip-up / colour-up (tdwp-ee1.13).
+		add_action( 'wp_ajax_tdwp_tm_preview_chipup', array( __CLASS__, 'preview_chipup' ) );
+		add_action( 'wp_ajax_tdwp_tm_apply_chipup', array( __CLASS__, 'apply_chipup' ) );
 		add_action( 'wp_ajax_tdwp_tm_process_declined_reentry', array( __CLASS__, 'process_declined_reentry' ) );
 		add_action( 'wp_ajax_tdwp_tm_process_rebuy', array( __CLASS__, 'process_rebuy' ) );
 		add_action( 'wp_ajax_tdwp_tm_process_addon', array( __CLASS__, 'process_addon' ) );
@@ -915,6 +919,44 @@ class TDWP_Tournament_Manager_AJAX {
 		// Use new Player Operations class with transaction logging and multi-hitman support
 		$result = TDWP_Player_Operations::process_bustout( $tournament_id, $player_id, $eliminated_by );
 
+		if ( is_wp_error( $result ) ) {
+			wp_send_json_error( array( 'message' => $result->get_error_message() ) );
+		}
+
+		wp_send_json_success( $result );
+	}
+
+	/**
+	 * Preview the chip-up for a tournament without applying it (tdwp-ee1.13).
+	 */
+	public static function preview_chipup() {
+		self::verify_request();
+
+		$tournament_id = isset( $_POST['tournament_id'] ) ? absint( $_POST['tournament_id'] ) : 0;
+		if ( ! $tournament_id ) {
+			wp_send_json_error( array( 'message' => __( 'Invalid tournament', 'poker-tournament-import' ) ) );
+		}
+
+		$preview = TDWP_Chip_Up::preview( $tournament_id );
+		if ( is_wp_error( $preview ) ) {
+			wp_send_json_error( array( 'message' => $preview->get_error_message() ) );
+		}
+
+		wp_send_json_success( $preview );
+	}
+
+	/**
+	 * Apply a chip-up to a tournament's live stacks (tdwp-ee1.13).
+	 */
+	public static function apply_chipup() {
+		self::verify_request();
+
+		$tournament_id = isset( $_POST['tournament_id'] ) ? absint( $_POST['tournament_id'] ) : 0;
+		if ( ! $tournament_id ) {
+			wp_send_json_error( array( 'message' => __( 'Invalid tournament', 'poker-tournament-import' ) ) );
+		}
+
+		$result = TDWP_Chip_Up::apply( $tournament_id );
 		if ( is_wp_error( $result ) ) {
 			wp_send_json_error( array( 'message' => $result->get_error_message() ) );
 		}
