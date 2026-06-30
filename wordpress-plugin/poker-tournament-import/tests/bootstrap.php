@@ -53,3 +53,6 @@ require $plugin_dir . 'includes/class-player-registration.php';
 require $plugin_dir . 'includes/tournament-manager/class-player-manager.php';
 require $plugin_dir . 'admin/tournament-manager/class-player-importer.php';
 require $plugin_dir . 'includes/tournament-manager/class-player-db-exporter.php';
+
+// Blind schedule CSV importer (cma.14).
+require $plugin_dir . 'includes/tournament-manager/class-blind-csv-importer.php';

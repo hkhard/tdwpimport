@@ -56,6 +56,7 @@ class TDWP_Player_Management_Page {
 		add_action( 'wp_ajax_tdwp_import_players', array( $this, 'ajax_import_players' ) );
 		add_action( 'wp_ajax_tdwp_merge_players', array( $this, 'ajax_merge_players' ) );
 		add_action( 'wp_ajax_tdwp_export_players_db', array( $this, 'ajax_export_players_db' ) );
+		add_action( 'wp_ajax_tdwp_print_player_roster', array( $this, 'ajax_print_player_roster' ) );
 		add_action( 'wp_ajax_tdwp_promote_waitlisted_player', array( $this, 'ajax_promote_waitlisted_player' ) );
 		add_action( 'wp_ajax_tdwp_copy_player_roster', array( $this, 'ajax_copy_player_roster' ) );
 	}
@@ -416,6 +417,10 @@ class TDWP_Player_Management_Page {
 					<a href="<?php echo esc_url( $this->get_export_db_url() ); ?>" class="button">
 						<span class="dashicons dashicons-download"></span>
 						<?php esc_html_e( 'Export Player Database (CSV)', 'poker-tournament-import' ); ?>
+					</a>
+					<a href="<?php echo esc_url( $this->get_print_roster_url() ); ?>" class="button" target="_blank" rel="noopener">
+						<span class="dashicons dashicons-printer"></span>
+						<?php esc_html_e( 'Print Roster', 'poker-tournament-import' ); ?>
 					</a>
 				</div>
 
@@ -1372,6 +1377,122 @@ class TDWP_Player_Management_Page {
 			'tdwp_player_management',
 			'nonce'
 		);
+	}
+
+	/**
+	 * Build the URL for the print-roster view.
+	 *
+	 * @since 3.7.0
+	 *
+	 * @return string Nonce-protected print URL.
+	 */
+	private function get_print_roster_url() {
+		return wp_nonce_url(
+			add_query_arg(
+				array( 'action' => 'tdwp_print_player_roster' ),
+				admin_url( 'admin-ajax.php' )
+			),
+			'tdwp_print_player_roster',
+			'nonce'
+		);
+	}
+
+	/**
+	 * AJAX: output a print-friendly player roster HTML page.
+	 *
+	 * Opens as a standalone page the user can print/save-as-PDF via the browser.
+	 * Nonce + capability checked before any output.
+	 *
+	 * @since 3.7.0
+	 */
+	public function ajax_print_player_roster() {
+		check_ajax_referer( 'tdwp_print_player_roster', 'nonce' );
+
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You do not have permission to perform this action.', 'poker-tournament-import' ) );
+		}
+
+		// Fetch all players (no pagination).
+		$results = $this->player_manager->get_all(
+			array(
+				'page'     => 1,
+				'per_page' => 9999,
+				'orderby'  => 'title',
+				'order'    => 'ASC',
+			)
+		);
+
+		$players    = isset( $results['players'] ) ? $results['players'] : array();
+		$total      = count( $players );
+		$print_date = date_i18n( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ) );
+		$css_url    = esc_url( POKER_TOURNAMENT_IMPORT_PLUGIN_URL . 'assets/css/tdwp-print.css' );
+		$site_name  = esc_html( get_bloginfo( 'name' ) );
+
+		// Output a complete standalone HTML page (no wp_head — intentional for print view).
+		header( 'Content-Type: text/html; charset=UTF-8' );
+		?>
+<!DOCTYPE html>
+<html lang="<?php echo esc_attr( get_bloginfo( 'language' ) ); ?>">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title><?php echo $site_name; ?> &mdash; <?php esc_html_e( 'Player Roster', 'poker-tournament-import' ); ?></title>
+<link rel="stylesheet" href="<?php echo $css_url; ?>">
+</head>
+<body>
+<h1><?php esc_html_e( 'Player Roster', 'poker-tournament-import' ); ?></h1>
+<p class="tdwp-print-meta">
+	<?php echo $site_name; ?> &mdash;
+	<?php
+	echo esc_html(
+		sprintf(
+			/* translators: 1: total player count, 2: print date */
+			__( '%1$d players &bull; Printed %2$s', 'poker-tournament-import' ),
+			$total,
+			$print_date
+		)
+	);
+	?>
+</p>
+
+<div class="tdwp-print-actions">
+	<button class="tdwp-print-btn" onclick="window.print()">
+		<?php esc_html_e( 'Print / Save as PDF', 'poker-tournament-import' ); ?>
+	</button>
+</div>
+
+<?php if ( empty( $players ) ) : ?>
+	<p><?php esc_html_e( 'No players found.', 'poker-tournament-import' ); ?></p>
+<?php else : ?>
+<table>
+	<thead>
+		<tr>
+			<th><?php esc_html_e( '#', 'poker-tournament-import' ); ?></th>
+			<th><?php esc_html_e( 'Name', 'poker-tournament-import' ); ?></th>
+			<th><?php esc_html_e( 'Email', 'poker-tournament-import' ); ?></th>
+			<th><?php esc_html_e( 'Phone', 'poker-tournament-import' ); ?></th>
+			<th><?php esc_html_e( 'UUID', 'poker-tournament-import' ); ?></th>
+			<th><?php esc_html_e( 'Status', 'poker-tournament-import' ); ?></th>
+		</tr>
+	</thead>
+	<tbody>
+		<?php foreach ( $players as $i => $player ) : ?>
+		<tr>
+			<td><?php echo esc_html( $i + 1 ); ?></td>
+			<td><?php echo esc_html( $player['name'] ); ?></td>
+			<td><?php echo esc_html( $player['email'] ); ?></td>
+			<td><?php echo esc_html( isset( $player['phone'] ) ? $player['phone'] : '' ); ?></td>
+			<td><?php echo esc_html( $player['uuid'] ); ?></td>
+			<td><?php echo esc_html( isset( $player['status'] ) ? ucfirst( $player['status'] ) : '' ); ?></td>
+		</tr>
+		<?php endforeach; ?>
+	</tbody>
+</table>
+<?php endif; ?>
+</body>
+</html>
+		<?php
+		exit;
 	}
 
 	/**
