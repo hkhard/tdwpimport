@@ -38,6 +38,8 @@ function tdwp_test_reset() {
 	$GLOBALS['tdwp_test_cache']      = array();
 	$GLOBALS['tdwp_test_mail']       = array();
 	$GLOBALS['tdwp_test_posts']      = array();
+	$GLOBALS['tdwp_test_user_meta']  = array();
+	$GLOBALS['tdwp_test_current_user_id'] = 1;
 	if ( isset( $GLOBALS['wpdb'] ) && $GLOBALS['wpdb'] instanceof TDWP_Fake_WPDB ) {
 		$GLOBALS['wpdb']->reset();
 	}
@@ -85,6 +87,50 @@ if ( ! function_exists( 'update_post_meta' ) ) {
 	function update_post_meta( $post_id, $key, $value ) {
 		$GLOBALS['tdwp_test_meta'][ $post_id ][ $key ] = $value;
 		return true;
+	}
+}
+
+if ( ! function_exists( 'get_user_meta' ) ) {
+	function get_user_meta( $user_id, $key, $single = false ) {
+		return $GLOBALS['tdwp_test_user_meta'][ $user_id ][ $key ] ?? ( $single ? '' : array() );
+	}
+}
+
+if ( ! function_exists( 'update_user_meta' ) ) {
+	function update_user_meta( $user_id, $key, $value ) {
+		$GLOBALS['tdwp_test_user_meta'][ $user_id ][ $key ] = $value;
+		return true;
+	}
+}
+
+if ( ! function_exists( 'delete_user_meta' ) ) {
+	function delete_user_meta( $user_id, $key ) {
+		unset( $GLOBALS['tdwp_test_user_meta'][ $user_id ][ $key ] );
+		return true;
+	}
+}
+
+if ( ! function_exists( 'get_current_user_id' ) ) {
+	function get_current_user_id() {
+		return (int) ( $GLOBALS['tdwp_test_current_user_id'] ?? 1 );
+	}
+}
+
+if ( ! function_exists( 'sanitize_key' ) ) {
+	function sanitize_key( $key ) {
+		return strtolower( preg_replace( '/[^a-z0-9_\-]/i', '', $key ) );
+	}
+}
+
+if ( ! function_exists( 'wp_unslash' ) ) {
+	function wp_unslash( $value ) {
+		return is_string( $value ) ? stripslashes( $value ) : $value;
+	}
+}
+
+if ( ! function_exists( 'wp_json_encode' ) ) {
+	function wp_json_encode( $data, $options = 0, $depth = 512 ) {
+		return json_encode( $data, $options, $depth );
 	}
 }
 
@@ -391,6 +437,9 @@ class TDWP_Fake_WPDB {
 	/** @var int ID of the most recently inserted row (mirrors real $wpdb->insert_id). */
 	public $insert_id = 0;
 
+	/** @var array|null Data from the most recent insert() call (for test assertions). */
+	private $last_insert = null;
+
 	/** @var bool Whether SHOW TABLES LIKE should report tables present. */
 	public $tables_exist = true;
 
@@ -472,6 +521,7 @@ class TDWP_Fake_WPDB {
 		$this->event_rows             = array();
 		$this->auto_id_events         = 0;
 		$this->insert_id              = 0;
+		$this->last_insert            = null;
 		$this->tdwp_player_inserts    = array();
 		$this->auto_id_tdwp_players   = 0;
 		$this->confirmed_counts       = array();
@@ -700,12 +750,26 @@ class TDWP_Fake_WPDB {
 		}
 		if ( stripos( $table, 'tdwp_tournament_events' ) !== false ) {
 			$this->auto_id_events++;
-			$data['id']      = $this->auto_id_events;
-			$this->insert_id = $this->auto_id_events;
+			$data['id']           = $this->auto_id_events;
+			$this->insert_id      = $this->auto_id_events;
+			$this->last_insert    = $data;
 			$this->event_rows[ $this->auto_id_events ] = $data;
 			return 1;
 		}
-		return false;
+		// Generic fallback: record the insert for test assertions.
+		$this->auto_id++;
+		$this->insert_id   = $this->auto_id;
+		$this->last_insert = $data;
+		return 1;
+	}
+
+	/**
+	 * Return the data array passed to the most recent insert() call.
+	 *
+	 * @return array|null
+	 */
+	public function get_last_insert(): ?array {
+		return $this->last_insert ?? null;
 	}
 
 	public function delete( $table, $where, $where_format = null ) {

@@ -46,6 +46,8 @@ class TDWP_Tournament_Events {
 	 * @var array
 	 */
 	const EVENT_TYPES = array(
+		'tournament_created'   => 'Tournament Created',
+		'tournament_modified'  => 'Tournament Modified',
 		'tournament_started'   => 'Tournament Started',
 		'tournament_paused'    => 'Tournament Paused',
 		'tournament_resumed'   => 'Tournament Resumed',

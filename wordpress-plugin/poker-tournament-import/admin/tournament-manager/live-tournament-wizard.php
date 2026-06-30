@@ -37,6 +37,9 @@ class TDWP_Live_Tournament_Wizard {
 		add_action( 'wp_ajax_tdwp_create_live_tournament', array( $this, 'ajax_create_tournament' ) );
 		add_action( 'wp_ajax_tdwp_get_template_data', array( $this, 'ajax_get_template_data' ) );
 		add_action( 'wp_ajax_tdwp_get_tournament_data', array( $this, 'ajax_get_tournament_data' ) );
+		add_action( 'wp_ajax_tdwp_wizard_autosave_draft', array( $this, 'ajax_autosave_draft' ) );
+		add_action( 'wp_ajax_tdwp_wizard_get_draft', array( $this, 'ajax_get_draft' ) );
+		add_action( 'wp_ajax_tdwp_wizard_discard_draft', array( $this, 'ajax_discard_draft' ) );
 	}
 
 	/**
@@ -82,12 +85,21 @@ class TDWP_Live_Tournament_Wizard {
 			true
 		);
 
+		$draft_data = $this->get_user_draft();
+
 		wp_localize_script(
 			'tdwp-live-tournament-wizard',
 			'tdwpWizard',
 			array(
-				'ajaxUrl' => admin_url( 'admin-ajax.php' ),
-				'nonce'   => wp_create_nonce( 'tdwp_live_tournament_wizard' ),
+				'ajaxUrl'    => admin_url( 'admin-ajax.php' ),
+				'nonce'      => wp_create_nonce( 'tdwp_live_tournament_wizard' ),
+				'draftNonce' => wp_create_nonce( 'tdwp_wizard_draft' ),
+				'hasDraft'   => ! empty( $draft_data ),
+				'draftMeta'  => $draft_data ? array(
+					'name'      => isset( $draft_data['tournament_name'] ) ? esc_js( $draft_data['tournament_name'] ) : '',
+					'savedAt'   => isset( $draft_data['_saved_at'] ) ? esc_js( $draft_data['_saved_at'] ) : '',
+					'method'    => isset( $draft_data['creation_method'] ) ? esc_js( $draft_data['creation_method'] ) : '',
+				) : null,
 			)
 		);
 	}
@@ -101,6 +113,24 @@ class TDWP_Live_Tournament_Wizard {
 		?>
 		<div class="wrap tdwp-wizard-wrap">
 			<h1><?php esc_html_e( 'Create New Live Tournament', 'poker-tournament-import' ); ?></h1>
+
+			<!-- Draft restore banner — shown by JS when a saved draft exists. -->
+			<div id="tdwp-draft-restore-banner" class="notice notice-info" style="display: none;">
+				<p>
+					<strong><?php esc_html_e( 'Unsaved draft found.', 'poker-tournament-import' ); ?></strong>
+					<?php esc_html_e( 'You have an unfinished tournament draft.', 'poker-tournament-import' ); ?>
+					<span id="tdwp-draft-meta-summary"></span>
+				</p>
+				<p>
+					<button type="button" class="button button-primary" id="btn-restore-draft"><?php esc_html_e( 'Restore Draft', 'poker-tournament-import' ); ?></button>
+					<button type="button" class="button" id="btn-discard-draft"><?php esc_html_e( 'Discard', 'poker-tournament-import' ); ?></button>
+				</p>
+			</div>
+
+			<!-- Auto-save status indicator -->
+			<div id="tdwp-autosave-indicator" style="display: none;">
+				<span id="tdwp-autosave-status"></span>
+			</div>
 
 			<div class="tdwp-wizard-container">
 				<!-- Step 1: Choose creation method -->
@@ -644,6 +674,21 @@ class TDWP_Live_Tournament_Wizard {
 		// Set as active tournament for current user.
 		TDWP_Active_Tournament_Manager::set_active_tournament( get_current_user_id(), $post_id );
 
+		// Log tournament_created history event.
+		$events = new TDWP_Tournament_Events();
+		$events->log(
+			$post_id,
+			'tournament_created',
+			array(
+				'name'            => $name,
+				'creation_method' => $method,
+			),
+			false
+		);
+
+		// Discard any in-progress wizard draft now that the tournament is saved.
+		delete_user_meta( get_current_user_id(), 'tdwp_wizard_draft' );
+
 		wp_send_json_success(
 			array(
 				'message'       => __( 'Tournament created successfully', 'poker-tournament-import' ),
@@ -845,5 +890,182 @@ class TDWP_Live_Tournament_Wizard {
 				'meta'       => $meta,
 			)
 		);
+	}
+
+	// -------------------------------------------------------------------------
+	// Draft persistence helpers (tdwp-67j)
+	// -------------------------------------------------------------------------
+
+	/**
+	 * The allowed field keys for wizard draft storage.
+	 *
+	 * Keeps the user-meta blob predictable and prevents arbitrary key injection.
+	 *
+	 * @since 3.7.0
+	 * @return array<string> List of allowed field names.
+	 */
+	private function draft_allowed_fields() {
+		return array(
+			'creation_method',
+			'tournament_name',
+			'buy_in',
+			'starting_chips',
+			'rebuy_cost',
+			'rebuy_chips',
+			'addon_cost',
+			'addon_chips',
+			'rake_percentage',
+			'is_practice',
+			'entry_fee',
+			'prize_pool_contribution',
+			'rake_mode',
+			'rake_flat_amount',
+			'allow_reentry',
+			'reentry_cost',
+			'reentry_chips',
+			'reentry_limit',
+			'reentry_until_level',
+			'rebuy_until_level',
+			'rebuy_chip_threshold',
+			'rebuy_limit_per_player',
+			'addon_at_level',
+			'addon_until_level',
+			'bounty_type',
+			'bounty_amount',
+			'bounty_percentage',
+			'late_reg_until_level',
+			'template_id',
+			'source_tournament_id',
+		);
+	}
+
+	/**
+	 * Retrieve the current user's wizard draft from user meta.
+	 *
+	 * @since 3.7.0
+	 * @return array|null Draft data array, or null when none exists.
+	 */
+	private function get_user_draft() {
+		$user_id = get_current_user_id();
+		if ( ! $user_id ) {
+			return null;
+		}
+
+		$raw = get_user_meta( $user_id, 'tdwp_wizard_draft', true );
+		if ( ! is_array( $raw ) || empty( $raw ) ) {
+			return null;
+		}
+
+		return $raw;
+	}
+
+	/**
+	 * AJAX: Auto-save wizard draft to user meta.
+	 *
+	 * Persists a sanitized subset of the in-progress form so a crash or
+	 * accidental navigation can be recovered. Stored in user meta
+	 * (`tdwp_wizard_draft`) as a serialised PHP array — no new table required.
+	 *
+	 * @since 3.7.0
+	 */
+	public function ajax_autosave_draft() {
+		check_ajax_referer( 'tdwp_wizard_draft', 'draft_nonce' );
+
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( array( 'message' => __( 'Access denied', 'poker-tournament-import' ) ) );
+		}
+
+		$user_id = get_current_user_id();
+
+		$draft = array();
+
+		foreach ( $this->draft_allowed_fields() as $field ) {
+			if ( ! isset( $_POST[ $field ] ) ) {
+				continue;
+			}
+
+			// Sanitize by field type.
+			$raw = wp_unslash( $_POST[ $field ] ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+
+			switch ( $field ) {
+				case 'tournament_name':
+					$draft[ $field ] = sanitize_text_field( $raw );
+					break;
+
+				case 'creation_method':
+				case 'bounty_type':
+				case 'rake_mode':
+					$draft[ $field ] = sanitize_key( $raw );
+					break;
+
+				case 'is_practice':
+				case 'allow_reentry':
+					$draft[ $field ] = '1' === (string) $raw ? 1 : 0;
+					break;
+
+				case 'buy_in':
+				case 'rebuy_cost':
+				case 'addon_cost':
+				case 'rake_percentage':
+				case 'entry_fee':
+				case 'prize_pool_contribution':
+				case 'rake_flat_amount':
+				case 'reentry_cost':
+				case 'bounty_amount':
+				case 'bounty_percentage':
+					$draft[ $field ] = (float) $raw;
+					break;
+
+				default:
+					// Integer fields.
+					$draft[ $field ] = absint( $raw );
+					break;
+			}
+		}
+
+		// Record when this draft was saved.
+		$draft['_saved_at'] = current_time( 'mysql' );
+
+		update_user_meta( $user_id, 'tdwp_wizard_draft', $draft );
+
+		wp_send_json_success( array( 'saved_at' => $draft['_saved_at'] ) );
+	}
+
+	/**
+	 * AJAX: Return the current user's wizard draft.
+	 *
+	 * @since 3.7.0
+	 */
+	public function ajax_get_draft() {
+		check_ajax_referer( 'tdwp_wizard_draft', 'draft_nonce' );
+
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( array( 'message' => __( 'Access denied', 'poker-tournament-import' ) ) );
+		}
+
+		$draft = $this->get_user_draft();
+
+		if ( null === $draft ) {
+			wp_send_json_error( array( 'message' => __( 'No draft found', 'poker-tournament-import' ) ) );
+		}
+
+		wp_send_json_success( array( 'draft' => $draft ) );
+	}
+
+	/**
+	 * AJAX: Discard the current user's wizard draft.
+	 *
+	 * @since 3.7.0
+	 */
+	public function ajax_discard_draft() {
+		check_ajax_referer( 'tdwp_wizard_draft', 'draft_nonce' );
+
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( array( 'message' => __( 'Access denied', 'poker-tournament-import' ) ) );
+		}
+
+		delete_user_meta( get_current_user_id(), 'tdwp_wizard_draft' );
+
+		wp_send_json_success( array( 'discarded' => true ) );
 	}
 }
