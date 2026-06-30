@@ -548,6 +548,7 @@ class TDWP_Database_Schema {
 			total_addons int DEFAULT 0,
 			current_chips_total bigint DEFAULT 0,
 			prize_pool decimal(10,2) DEFAULT 0,
+			buyin_amount decimal(10,2) DEFAULT 0,
 			next_payout_position int,
 			is_practice tinyint(1) DEFAULT 0,
 			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,

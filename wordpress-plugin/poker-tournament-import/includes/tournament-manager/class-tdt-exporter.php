@@ -73,7 +73,7 @@ class TDWP_TDT_Exporter {
 		$info->addChild( 'name', htmlspecialchars( get_the_title( $tournament_id ), ENT_XML1, 'UTF-8' ) );
 		$info->addChild( 'date', $live_state->started_at ?: current_time( 'mysql' ) );
 		$info->addChild( 'status', $live_state->status );
-		$info->addChild( 'buyin', $live_state->buyin_amount );
+		$info->addChild( 'buyin', $live_state->buyin_amount ?? 0 );
 		$info->addChild( 'prizePool', $live_state->prize_pool );
 		$info->addChild( 'totalPlayers', $live_state->total_players );
 		$info->addChild( 'remainingPlayers', $live_state->remaining_players );

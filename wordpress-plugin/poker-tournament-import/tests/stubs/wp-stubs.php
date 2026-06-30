@@ -212,6 +212,12 @@ class TDWP_Fake_WPDB {
 	/** @var string */
 	public $prefix = 'wp_';
 
+	/** @var string Core table names (real $wpdb exposes these as properties). */
+	public $postmeta = 'wp_postmeta';
+
+	/** @var string */
+	public $posts = 'wp_posts';
+
 	/** @var string */
 	public $last_error = '';
 
@@ -342,6 +348,21 @@ class TDWP_Fake_WPDB {
 			return $this->delete_from( $this->legacy_rows, $where );
 		}
 		return false;
+	}
+
+	/**
+	 * MySQL REPLACE: delete-by-unique-key then insert. The real poker_player_roi
+	 * has no unique key, so the production code does its own delete-then-insert;
+	 * here we mirror insert() (callers clear first) so row counts reflect reality.
+	 */
+	public function replace( $table, $data, $format = null ) {
+		return $this->insert( $table, $data, $format );
+	}
+
+	/** Minimal get_row: the lookups under test (e.g. postmeta -> post_id) have no
+	 *  fixture here, so return null (callers treat that as "not found"). */
+	public function get_row( $query ) {
+		return null;
 	}
 
 	/** Shared delete-by-where for the in-memory row stores (mutates by reference). */

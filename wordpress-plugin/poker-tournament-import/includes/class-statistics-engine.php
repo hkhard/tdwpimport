@@ -91,6 +91,17 @@ class Poker_Statistics_Engine {
         // **PHASE 2.1: Core Financial Data Infrastructure**
         $this->calculate_financial_summary();
 
+        // NOTE (tdwp-ayg part b): we deliberately do NOT call
+        // migrate_populate_roi_table() here. ROI correctness is maintained
+        // incrementally — process_player_roi_data() (imports) and
+        // TDWP_Stats_Bridge::project_to_roi_mart() (live) both delete-then-insert
+        // per tournament, so no duplication accumulates. A blanket rebuild on
+        // every recompute would be LOSSY for live tournaments: the rebuild
+        // resolves buy-in from _buy_in post-meta, which the live/bridge path never
+        // writes (it uses the template), so it would overwrite correct ROI with a
+        // $20 fallback. Making calculate_all_statistics() own a non-lossy rebuild
+        // requires the template-aware buy-in resolution tracked in tdwp-eil.
+
         // Log performance
         $calculation_time = round((microtime(true) - $start_time) * 1000, 2);
         error_log("Poker Statistics: All statistics calculated in {$calculation_time}ms");
@@ -1926,6 +1937,12 @@ class Poker_Statistics_Engine {
         // Fallback buy-in amount for backward compatibility
         $fallback_buy_in = floatval($tournament_data['buy_in'] ?? 0);
 
+        // Idempotency: clear any existing ROI rows for this tournament before
+        // (re)inserting. poker_player_roi has no unique key, so $wpdb->replace()
+        // never dedupes — a re-import would otherwise duplicate rows. (tdwp-ayg part b)
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table maintenance
+        $wpdb->delete( $player_roi_table, array( 'tournament_id' => $tournament_uuid ), array( '%s' ) );
+
         if (!empty($tournament_data['players']) && is_array($tournament_data['players'])) {
             foreach ($tournament_data['players'] as $player_data) {
                 $player_uuid = $player_data['uuid'] ?? '';
@@ -2066,6 +2083,12 @@ class Poker_Statistics_Engine {
 
         error_log("ROI Migration: Starting migration to populate poker_player_roi table");
 
+        // Full rebuild: clear the ROI table first so re-running this never
+        // duplicates rows (poker_player_roi has no unique key, so the replace()
+        // below would otherwise always insert). (tdwp-ayg part b)
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared -- Custom table maintenance, no user input
+        $wpdb->query( "DELETE FROM {$player_roi_table}" );
+
         // Get all tournaments with player data
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
         $tournaments = $wpdb->get_results(
@@ -2108,7 +2131,9 @@ class Poker_Statistics_Engine {
             // Get tournament date
             $tournament_date = get_post_meta($tournament_id, '_tournament_date', true);
             if (!$tournament_date) {
-                $tournament_date = get_the_gmdate('Y-m-d', $tournament_id);
+                // get_the_gmdate() is not a real WP function (would fatal). Use the
+                // post's GMT publish date, falling back to today. (tdwp-ayg)
+                $tournament_date = get_post_time('Y-m-d', true, $tournament_id) ?: gmdate('Y-m-d');
             }
 
             // Get all players for this tournament
