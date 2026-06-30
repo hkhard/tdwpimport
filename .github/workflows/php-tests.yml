@@ -31,10 +31,19 @@ jobs:
       - name: PHP version
         run: php -v
 
-      - name: Lint changed PHP (syntax)
+      - name: Lint PHP (syntax) — mandatory gate
         run: |
-          find includes admin poker-tournament-import.php -name '*.php' -print0 \
+          find includes admin templates poker-tournament-import.php -name '*.php' \
+            -not -path '*/tests/tools/*' -print0 \
             | xargs -0 -n1 php -l
 
       - name: Run unit tests
         run: ./run-tests.sh --testdox
+
+      # PHPCS-WordPress Coding Standards. Non-blocking for now: the legacy
+      # codebase has pre-existing style violations, so this reports without
+      # failing the build. Tracked follow-up: drive violations down (or add a
+      # baseline) and flip this to a hard gate.
+      - name: PHPCS (WordPress standard) — informational
+        continue-on-error: true
+        run: ./run-phpcs.sh

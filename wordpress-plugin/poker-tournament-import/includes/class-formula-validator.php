@@ -1339,11 +1339,7 @@ class Poker_Tournament_Formula_Validator {
             case 'floor': return floor($args[0] ?? 0);
             case 'ceil': return ceil($args[0] ?? 0);
             case 'round':
-                $result = round($args[0] ?? 0, $args[1] ?? 0);
-                if (current_user_can('manage_options')) {
-                    error_log("round() input: " . ($args[0] ?? 0) . " => result: " . $result);
-                }
-                return $result;
+                return round($args[0] ?? 0, $args[1] ?? 0);
             case 'roundUpToNearest':
                 $val = $args[0] ?? 0;
                 $mult = $args[1] ?? 1;

@@ -1,5 +1,14 @@
 # Poker Tournament Import Changelog
 
+## Version 3.6.9 - (June 30, 2026)
+
+### 🧪 Quality: docs fix, CI lint/PHPCS, parser/formula/stats tests
+
+- **Docs (tdwp-x13)**: corrected the CLAUDE.md table-prefix contradiction. Documented the canonical **two-prefix** reality — `poker_*` (import/statistics subsystem) and `tdwp_*` (TD3 live tournament manager) — replacing the inaccurate "prefix is tdwp_ always" note.
+- **CI (tdwp-cs7)**: broadened the mandatory `php -l` gate to all plugin PHP (incl. `templates/`), and added a non-blocking PHPCS (WordPress Coding Standards) step with a curated `phpcs.xml.dist` ruleset and a self-bootstrapping `run-phpcs.sh`.
+- **Tests (tdwp-5n7)**: added offline PHPUnit coverage for the formula validator (arithmetic, precedence, functions, the n/r/hits variables), the `.tdt` parser (valid structure, malformed/empty/truncated/non-tdt error handling, real-export parse), and the statistics engine (singleton, safe accessors). Suite now 67 tests / 175 assertions.
+- **Cleanup**: removed unconditional debug `error_log()` spam from the winnings calculation (`class-parser.php`) and the `round()` formula function (`class-formula-validator.php`) — these logged on every parse/calc regardless of debug mode. Remaining diagnostic spam tracked as a follow-up.
+
 ## Version 3.6.8 - (June 29, 2026)
 
 ### 🔒 Security: rate-limiting + authenticated-handler audit

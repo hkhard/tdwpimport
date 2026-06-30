@@ -3,7 +3,7 @@ Contributors: hanshard
 Tags: poker, tournament, import, results, bulk-import
 Requires at least: 6.0
 Tested up to: 6.8
-Stable tag: 3.6.8
+Stable tag: 3.6.9
 Requires PHP: 8.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -77,6 +77,12 @@ Use the following shortcodes:
 6. **NEW: Interactive leaderboard with sorting**
 
 == Changelog ==
+
+= 3.6.9 - June 30, 2026 =
+* Docs: Corrected CLAUDE.md table-prefix contradiction; documented the canonical poker_*/tdwp_* two-prefix reality (tdwp-x13)
+* CI: Broadened php -l to all plugin PHP and added a PHPCS (WordPress standard) step + ruleset + run-phpcs.sh (tdwp-cs7)
+* Tests: Added offline PHPUnit coverage for the formula validator, the .tdt parser, and the statistics engine (67 tests, 175 assertions) (tdwp-5n7)
+* Cleanup: Removed unconditional debug error_log() spam from the winnings calculation and the round() formula function
 
 = 3.6.8 - June 29, 2026 =
 * Security: Per-IP rate-limiting on public player registration to blunt spam without blocking other users (tdwp-hk3)
