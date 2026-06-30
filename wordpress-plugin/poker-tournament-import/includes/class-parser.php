@@ -171,7 +171,7 @@ class Poker_Tournament_Parser {
         $data['players'] = $this->calculate_hits_from_eliminations($data['players']);
 
         // Calculate Tournament Director points using formula system
-        $data['players'] = $this->calculate_tournament_points($data['players'], $data['financial']);
+        $data['players'] = $this->calculate_tournament_points($data['players'], $data['financial'], $data['metadata']['points_formula'] ?? null);
 
         // Calculate actual winnings
         $data['players'] = $this->calculate_winnings_by_rank($data['players'], $data['prizes']);
@@ -1438,7 +1438,7 @@ class Poker_Tournament_Parser {
      * Calculate Tournament Director points for all players using formula system
      * Now supports per-tournament formulas extracted from .tdt files
      */
-    private function calculate_tournament_points($players, $financial) {
+    private function calculate_tournament_points($players, $financial, $tdt_formula = null) {
         $total_players = count($players);
 
         // CRITICAL FIX: Calculate total money using actual buy-in amounts, not chip counts
@@ -1484,6 +1484,19 @@ class Poker_Tournament_Parser {
             }
         }
 
+        // FALLBACK v2.4.x: Tournament Director does not always serialize individual
+        // GameBuyin events (notably TD 3.7.2+ exports). When no per-player buyin
+        // records were parsed but the financial config carries a valid default
+        // buy-in fee, infer one buy-in per registered player so monies/avgBC are
+        // non-zero. Without this, monies=0 -> avgBC=0 -> log() term goes negative
+        // and the points formula produces NEGATIVE points (see season-points bug).
+        if ( 0 === $total_buyins && count( $players ) > 0 && floatval( $buy_in_amount ) > 0 ) {
+            $inferred_count = count( $players );
+            $total_buyins   = $inferred_count;
+            $total_money    = $inferred_count * floatval( $buy_in_amount );
+            Poker_Tournament_Import_Debug::log_warning( "Financial fallback: no GameBuyin records parsed; inferred {$inferred_count} buyins x \${$buy_in_amount} = \${$total_money}" );
+        }
+
         Poker_Tournament_Import_Debug::log("Financial Calculation Summary:");
         Poker_Tournament_Import_Debug::log("  Default buy-in amount: \${$buy_in_amount}");
         Poker_Tournament_Import_Debug::log("  Total buyins (including re-entries): {$total_buyins}");
@@ -1514,10 +1527,12 @@ class Poker_Tournament_Parser {
             }
         }
 
-        // Priority 1: Check for per-tournament formula from .tdt file
-        if (!$formula_data && isset($this->tournament_data['metadata']['points_formula']) &&
-            !empty($this->tournament_data['metadata']['points_formula'])) {
-            $formula_data = $this->tournament_data['metadata']['points_formula'];
+        // Priority 1: Check for per-tournament formula from .tdt file.
+        // NOTE: $this->tournament_data is still null at this point (it is only
+        // assigned after extract_tournament_data() returns), so the embedded
+        // formula must be passed in explicitly via $tdt_formula.
+        if (!$formula_data && !empty($tdt_formula) && !empty($tdt_formula['formula'])) {
+            $formula_data = $tdt_formula;
             $formula_source = 'tdt_file';
             Poker_Tournament_Import_Debug::log_success("Using PointsForPlaying formula from .tdt file");
         }
@@ -1610,12 +1625,23 @@ class Poker_Tournament_Parser {
             $result = $formula_validator->calculate_formula($complete_formula, $tournament_data, 'tournament');
 
             if ($result['success']) {
-                $players[$uuid]['points'] = $result['result'];
+                // Defensive guard: a points formula must never yield a NEGATIVE
+                // score. Negative values only arise from corrupt inputs (e.g.
+                // monies=0 -> negative log term). Clamp to 0 and flag the anomaly
+                // so the post-import verification view can surface it instead of
+                // silently polluting the season standings.
+                $computed_points = $result['result'];
+                if (is_numeric($computed_points) && floatval($computed_points) < 0) {
+                    Poker_Tournament_Import_Debug::log_warning("Negative points ({$computed_points}) computed for {$player['nickname']} via formula '{$formula_source}'; clamping to 0 and flagging anomaly");
+                    $computed_points = 0;
+                    $players[$uuid]['points_anomaly'] = true;
+                }
+                $players[$uuid]['points'] = $computed_points;
                 $players[$uuid]['points_calculation'] = array(
                     'formula_used' => $formula_source,
                     'formula_description' => $formula_data['description'] ?? 'Tournament points calculation',
                     'variables' => $result['variables'],
-                    'final_points' => $result['result'],
+                    'final_points' => $computed_points,
                     'warnings' => $result['warnings'] ?? array()
                 );
             } else {

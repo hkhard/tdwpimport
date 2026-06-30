@@ -122,8 +122,12 @@ class Poker_Tournament_Domain_Mapper {
 
         $formula_data = array();
 
-        // Extract Formula field
-        $formula_data['formula'] = $this->get_scalar($f_entries, 'Formula');
+        // Extract Formula field. Older TD exports use a 'Formula' key with a
+        // separate 'Dependencies' array; TD 3.7.2+ store the whole multi-statement
+        // expression (all assign() calls, newline-separated) under a single 'Text'
+        // key. Accept either so the embedded per-file formula is honored.
+        $formula_data['formula'] = $this->get_scalar($f_entries, 'Formula')
+            ?? $this->get_scalar($f_entries, 'Text');
 
         // Extract Dependencies array
         if (isset($f_entries['Dependencies'])) {
@@ -191,8 +195,15 @@ class Poker_Tournament_Domain_Mapper {
                                 if ($profile) {
                                     $financial['fee_profiles'][$profile['name']] = $profile;
 
-                                    // Set default buy_in from first profile (or "Standard" if found)
-                                    if (!isset($financial['buy_in']) || $profile['name'] === 'Standard') {
+                                    // Set the default buy-in. buy_in is initialised
+                                    // to 0, so the old `!isset()` test never fired and
+                                    // files whose profiles are not literally named
+                                    // "Standard" (e.g. "ORF Deepstack") were left at 0,
+                                    // which later zeroed monies and corrupted points.
+                                    // Use the first profile as the default, then prefer
+                                    // any profile whose name contains "Standard" (the
+                                    // conventional main buy-in) when one is present.
+                                    if (empty($financial['buy_in']) || false !== stripos($profile['name'], 'Standard')) {
                                         $financial['buy_in'] = $profile['fee'];
                                         Poker_Tournament_Import_Debug::log("Extracted buy-in amount from FeeProfile '{$profile['name']}': \${$profile['fee']} (AST parser)");
                                     }
