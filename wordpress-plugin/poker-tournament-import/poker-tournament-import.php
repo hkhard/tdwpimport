@@ -24,6 +24,13 @@ define('POKER_TOURNAMENT_IMPORT_VERSION', '3.8.0');
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_URL', plugin_dir_url(__FILE__));
 
+// Composer dependencies (PhpSpreadsheet, dompdf, ...) when installed. The repo
+// gitignores vendor/, so this is optional — features that need a library guard
+// with class_exists() and degrade gracefully when it is absent.
+if ( file_exists( POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'vendor/autoload.php' ) ) {
+    require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'vendor/autoload.php';
+}
+
 /**
  * Main plugin class
  */
@@ -549,6 +556,8 @@ class Poker_Tournament_Import {
         // Event sound playback (tdwp-ee1.1).
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-sound-manager.php';
         TDWP_Sound_Manager::register();
+        // Excel export (tdwp-871.27). Library guarded; vendor/ via composer install.
+        require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-excel-exporter.php';
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/class-tournament-clock-shortcode.php';
 
         // **PHASE 2 Week 2-3: Table Management**
