@@ -138,6 +138,11 @@ class TDWP_Live_Tournament_Wizard {
 					<form id="tdwp-tournament-form">
 						<?php wp_nonce_field( 'tdwp_live_tournament_wizard', 'tdwp_wizard_nonce' ); ?>
 						<input type="hidden" name="creation_method" id="creation-method" value="">
+						<!-- Fee-split and rake-mode fields populated by the apply-template flow (tdwp-l2l). -->
+						<input type="hidden" name="entry_fee" id="tpl-entry-fee" value="0">
+						<input type="hidden" name="prize_pool_contribution" id="tpl-prize-pool-contribution" value="0">
+						<input type="hidden" name="rake_mode" id="tpl-rake-mode" value="percentage">
+						<input type="hidden" name="rake_flat_amount" id="tpl-rake-flat-amount" value="0">
 
 						<!-- Basic Info (all methods) -->
 						<div class="tdwp-form-section">
@@ -595,6 +600,18 @@ class TDWP_Live_Tournament_Wizard {
 		$bounty_percentage       = isset( $_POST['bounty_percentage'] ) ? floatval( $_POST['bounty_percentage'] ) : 50;
 		$late_reg_until_level    = isset( $_POST['late_reg_until_level'] ) ? intval( $_POST['late_reg_until_level'] ) : 0;
 
+		// Fee-split / rake-mode fields (populated from template apply flow, tdwp-l2l).
+		$entry_fee               = isset( $_POST['entry_fee'] ) ? floatval( $_POST['entry_fee'] ) : 0;
+		$prize_pool_contribution = isset( $_POST['prize_pool_contribution'] ) ? floatval( $_POST['prize_pool_contribution'] ) : 0;
+		$rake_mode_raw           = isset( $_POST['rake_mode'] ) ? sanitize_key( wp_unslash( $_POST['rake_mode'] ) ) : 'percentage';
+		$rake_mode               = in_array( $rake_mode_raw, array( 'percentage', 'flat' ), true ) ? $rake_mode_raw : 'percentage';
+		$rake_flat_amount        = isset( $_POST['rake_flat_amount'] ) ? floatval( $_POST['rake_flat_amount'] ) : 0;
+
+		update_post_meta( $post_id, '_entry_fee', $entry_fee );
+		update_post_meta( $post_id, '_prize_pool_contribution', $prize_pool_contribution );
+		update_post_meta( $post_id, '_rake_mode', $rake_mode );
+		update_post_meta( $post_id, '_rake_flat_amount', $rake_flat_amount );
+
 		update_post_meta( $post_id, '_allow_reentry', $allow_reentry );
 		update_post_meta( $post_id, '_reentry_cost', $reentry_cost );
 		update_post_meta( $post_id, '_reentry_chips', $reentry_chips );
@@ -720,7 +737,10 @@ class TDWP_Live_Tournament_Wizard {
 	}
 
 	/**
-	 * AJAX: Get template data
+	 * AJAX: Get template data for wizard apply flow (tdwp-l2l)
+	 *
+	 * Returns all financial, rebuy/add-on timing, and relation fields needed to
+	 * pre-populate the creation form when the user chooses "From Template".
 	 *
 	 * @since 3.1.0
 	 */
@@ -731,22 +751,60 @@ class TDWP_Live_Tournament_Wizard {
 			wp_send_json_error( array( 'message' => __( 'Access denied', 'poker-tournament-import' ) ) );
 		}
 
-		$template_id = isset( $_POST['template_id'] ) ? intval( $_POST['template_id'] ) : 0;
+		$template_id = isset( $_POST['template_id'] ) ? absint( $_POST['template_id'] ) : 0;
 
 		if ( ! $template_id ) {
 			wp_send_json_error( array( 'message' => __( 'Invalid template ID', 'poker-tournament-import' ) ) );
 		}
 
-		global $wpdb;
-		$table = $wpdb->prefix . 'tdwp_tournament_templates';
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$template = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d", $template_id ) );
+		$loader   = new TDWP_Tournament_Template();
+		$template = $loader->get( $template_id, true );
 
 		if ( ! $template ) {
 			wp_send_json_error( array( 'message' => __( 'Template not found', 'poker-tournament-import' ) ) );
 		}
 
-		wp_send_json_success( array( 'template' => $template ) );
+		$payload = array(
+			// Core identity.
+			'id'   => (int) $template->id,
+			'name' => $template->name,
+
+			// Financial config.
+			'buy_in'                  => (float) $template->buy_in,
+			'entry_fee'               => (float) ( $template->entry_fee ?? 0 ),
+			'prize_pool_contribution' => (float) ( $template->prize_pool_contribution ?? 0 ),
+			'rake_percentage'         => (float) $template->rake_percentage,
+			'rake_mode'               => isset( $template->rake_mode ) ? $template->rake_mode : 'percentage',
+			'rake_flat_amount'        => (float) ( $template->rake_flat_amount ?? 0 ),
+
+			// Chip values.
+			'starting_chips' => (int) $template->starting_chips,
+			'rebuy_cost'     => (float) $template->rebuy_cost,
+			'rebuy_chips'    => (int) $template->rebuy_chips,
+			'addon_cost'     => (float) $template->addon_cost,
+			'addon_chips'    => (int) $template->addon_chips,
+
+			// Rebuy / add-on timing (tdwp-vf9 fields).
+			'rebuy_until_level'      => (int) ( $template->rebuy_until_level ?? 0 ),
+			'rebuy_chip_threshold'   => (int) ( $template->rebuy_chip_threshold ?? 0 ),
+			'rebuy_limit_per_player' => (int) ( $template->rebuy_limit_per_player ?? 0 ),
+			'addon_at_level'         => (int) ( $template->addon_at_level ?? 0 ),
+			'addon_until_level'      => (int) ( $template->addon_until_level ?? 0 ),
+
+			// Relation references.
+			'blind_schedule_id'  => (int) $template->blind_schedule_id,
+			'prize_structure_id' => (int) $template->prize_structure_id,
+
+			// Relation names for user-facing notice.
+			'blind_schedule_name'  => isset( $template->blind_schedule ) && $template->blind_schedule
+				? $template->blind_schedule->name
+				: '',
+			'prize_structure_name' => isset( $template->prize_structure ) && $template->prize_structure
+				? $template->prize_structure->name
+				: '',
+		);
+
+		wp_send_json_success( array( 'template' => $payload ) );
 	}
 
 	/**

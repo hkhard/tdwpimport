@@ -433,6 +433,15 @@ class TDWP_Fake_WPDB {
 	/** @var int Auto-increment id for tdwp_tournament_players inserts. */
 	private $auto_id_tdwp_players = 0;
 
+	/** @var object|null Template row returned by SELECT * FROM tdwp_tournament_templates. */
+	private $template_row = null;
+
+	/** @var object|null Blind schedule row returned by SELECT * FROM tdwp_blind_schedules. */
+	private $blind_schedule_row = null;
+
+	/** @var object|null Prize structure row returned by SELECT * FROM tdwp_prize_structures. */
+	private $prize_structure_row = null;
+
 	/**
 	 * Test helper: set confirmed player count for a tournament.
 	 * Used to make get_confirmed_count() return a predictable value.
@@ -467,6 +476,9 @@ class TDWP_Fake_WPDB {
 		$this->auto_id_tdwp_players   = 0;
 		$this->confirmed_counts       = array();
 		$this->max_waitlist_positions = array();
+		$this->template_row           = null;
+		$this->blind_schedule_row     = null;
+		$this->prize_structure_row    = null;
 		$GLOBALS['tdwp_test_mail']    = array();
 	}
 
@@ -565,6 +577,14 @@ class TDWP_Fake_WPDB {
 		) {
 			$tid = isset( $args[0] ) ? (int) $args[0] : 0;
 			return $this->max_waitlist_positions[ $tid ] ?? 0;
+		}
+
+		// Foreign-key COUNT checks in TDWP_Tournament_Template::validate_template_data().
+		if ( stripos( $sql, 'tdwp_blind_schedules' ) !== false && stripos( $sql, 'COUNT(*)' ) !== false ) {
+			return null !== $this->blind_schedule_row ? '1' : '0';
+		}
+		if ( stripos( $sql, 'tdwp_prize_structures' ) !== false && stripos( $sql, 'COUNT(*)' ) !== false ) {
+			return null !== $this->prize_structure_row ? '1' : '0';
 		}
 
 		if ( stripos( $sql, 'SHOW TABLES LIKE' ) !== false ) {
@@ -765,7 +785,34 @@ class TDWP_Fake_WPDB {
 
 	/** Minimal get_row: the lookups under test (e.g. postmeta -> post_id) have no
 	 *  fixture here, so return null (callers treat that as "not found"). */
+	/** Test helper: set the template row returned for tdwp_tournament_templates lookups. */
+	public function set_template_row( $row ) {
+		$this->template_row = $row;
+	}
+
+	/** Test helper: set the blind schedule row returned for tdwp_blind_schedules lookups. */
+	public function set_blind_schedule_row( $row ) {
+		$this->blind_schedule_row = $row;
+	}
+
+	/** Test helper: set the prize structure row returned for tdwp_prize_structures lookups. */
+	public function set_prize_structure_row( $row ) {
+		$this->prize_structure_row = $row;
+	}
+
 	public function get_row( $query ) {
+		$sql = is_array( $query ) ? $query['sql'] : $query;
+
+		if ( stripos( $sql, 'tdwp_tournament_templates' ) !== false ) {
+			return $this->template_row;
+		}
+		if ( stripos( $sql, 'tdwp_blind_schedules' ) !== false ) {
+			return $this->blind_schedule_row;
+		}
+		if ( stripos( $sql, 'tdwp_prize_structures' ) !== false ) {
+			return $this->prize_structure_row;
+		}
+
 		return null;
 	}
 
