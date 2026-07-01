@@ -108,3 +108,6 @@ eas-build-metadata.json
 .dolt/
 *.db
 .beads-credential-key
+
+# Build artifacts — distribute via GitHub Releases, never commit
+*.zip
