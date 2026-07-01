@@ -331,8 +331,10 @@
           self.updateTimeDisplay(self.localTimeRemaining);
           self.maybePlayThresholdSound(self.localTimeRemaining);
         } else if (statusName === 'break' && self.currentState && self.currentState.break_until) {
-          // Break countdown is derived from break_until on each tick so it
-          // keeps moving even though localTimeRemaining is frozen.
+          // During a break the server does not decrement time_remaining, so the
+          // main timer is driven from the absolute break_until instead. This is
+          // self-correcting (heartbeat-independent) and keeps ticking down.
+          self.updateTimeDisplay(self.breakSecondsRemaining(self.currentState.break_until));
           self.updateBreakInfo(self.currentState);
         }
       }, 1000);
@@ -436,8 +438,14 @@
         this.lastUpdateTime = Date.now();
       }
 
-      // Update all UI elements
-      this.updateTimeDisplay(this.localTimeRemaining);
+      // Update all UI elements. During a break the main timer counts down the
+      // absolute break_until (the server keeps time_remaining frozen), so avoid
+      // clobbering it with the frozen value on each heartbeat.
+      if (state.status === 'break' && state.break_until) {
+        this.updateTimeDisplay(this.breakSecondsRemaining(state.break_until));
+      } else {
+        this.updateTimeDisplay(this.localTimeRemaining);
+      }
       this.updateLevel(state.current_level);
       this.updateStatus(state.status);
       this.updateStats(state);
@@ -674,16 +682,45 @@
      * @return {string} Formatted HH:MM, or empty string if invalid.
      */
     formatBackAt: function (datetimeStr) {
-      if (!datetimeStr) {
+      var date = this.parseServerUtc(datetimeStr);
+      if (!date) {
         return '';
       }
 
-      var date = new Date(String(datetimeStr).replace(' ', 'T'));
-      if (isNaN(date.getTime())) {
-        return '';
-      }
-
+      // date is parsed as UTC; getHours()/getMinutes() render it in the
+      // viewer's local timezone, which is the correct "back at" wall time.
       return this.pad(date.getHours()) + ':' + this.pad(date.getMinutes());
+    },
+
+    /**
+     * Parse a server datetime string ("Y-m-d H:i:s", stored as UTC via gmdate)
+     * into a Date, treating it as UTC. Returns null when unparseable.
+     */
+    parseServerUtc: function (datetimeStr) {
+      if (!datetimeStr) {
+        return null;
+      }
+
+      var normalized = String(datetimeStr).replace(' ', 'T');
+      if (!/[zZ]|[+-]\d{2}:?\d{2}$/.test(normalized)) {
+        normalized += 'Z';
+      }
+
+      var date = new Date(normalized);
+      return isNaN(date.getTime()) ? null : date;
+    },
+
+    /**
+     * Seconds remaining until the break ends, derived from the absolute
+     * break_until timestamp (UTC). Never negative.
+     */
+    breakSecondsRemaining: function (breakUntil) {
+      var date = this.parseServerUtc(breakUntil);
+      if (!date) {
+        return 0;
+      }
+
+      return Math.max(0, Math.floor((date.getTime() - Date.now()) / 1000));
     },
 
     /**
