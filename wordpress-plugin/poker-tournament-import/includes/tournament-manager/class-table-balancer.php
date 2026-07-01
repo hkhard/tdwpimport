@@ -22,6 +22,11 @@ if ( ! defined( 'ABSPATH' ) ) {
 class TDWP_Table_Balancer {
 
 	/**
+	 * Minimum players a table must retain during balancing (PRD 2.2).
+	 */
+	const MIN_PLAYERS_PER_TABLE = 4;
+
+	/**
 	 * Calculate balance plan for tournament
 	 *
 	 * Returns array of moves to achieve ±1 balance
@@ -120,6 +125,10 @@ class TDWP_Table_Balancer {
 
 		// Move players from overloaded to underloaded tables
 		foreach ( $overloaded as $source_table ) {
+			// Track how many players remain at the source so we never drain it
+			// below the minimum table size (PRD 2.2 — tdwp-3lg.7).
+			$source_remaining = (int) $source_table['player_count'];
+
 			// Get occupied seats
 			$occupied_seats = array_filter(
 				$source_table['seats'],
@@ -130,6 +139,11 @@ class TDWP_Table_Balancer {
 
 			// Move players to underloaded tables
 			foreach ( $occupied_seats as $seat ) {
+				// Never move a player if it would leave the source below the floor.
+				if ( ! self::can_move_out( $source_remaining, self::MIN_PLAYERS_PER_TABLE ) ) {
+					break;
+				}
+
 				// Find underloaded table with empty seat
 				foreach ( $underloaded as &$dest_table ) {
 					// Check if destination table has capacity
@@ -166,20 +180,32 @@ class TDWP_Table_Balancer {
 						'to_seat'        => $empty_seat->seat_number,
 					);
 
-					// Update virtual counts
+					// Update virtual counts.
 					$dest_table['player_count']++;
-
-					// Stop if source table is no longer overloaded
-					if ( $source_table['player_count'] - count( $moves ) <= ceil( count( $all_tables ) / count( $all_tables ) ) + 1 ) {
-						break 2;
-					}
+					$source_remaining--;
 
 					break;
 				}
+				unset( $dest_table );
 			}
 		}
 
 		return $moves;
+	}
+
+	/**
+	 * Whether a player may be moved off a table without violating the floor (pure).
+	 *
+	 * A player may leave only if the source table still holds at least the
+	 * minimum number of players afterward.
+	 *
+	 * @since 3.9.0
+	 * @param int $source_count   Players currently at the source table.
+	 * @param int $min_per_table  Minimum players a table must retain.
+	 * @return bool
+	 */
+	public static function can_move_out( $source_count, $min_per_table ) {
+		return ( (int) $source_count - 1 ) >= (int) $min_per_table;
 	}
 
 	/**
