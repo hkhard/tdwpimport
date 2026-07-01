@@ -1,134 +1,387 @@
-/* Shortcode Help Admin Styles */
+/**
+ * Shortcode Help admin page styles.
+ *
+ * One consistent component set for the "Shortcodes & Help" page. Class names
+ * here match the markup in admin/shortcode-help.php exactly.
+ */
 
+/* Layout ------------------------------------------------------------------ */
 .poker-shortcode-help {
-    max-width: 1200px;
+	max-width: 1100px;
 }
 
+.poker-shortcode-help h1 {
+	margin-bottom: 4px;
+}
+
+/* Intro / hero card */
+.help-intro {
+	margin: 16px 0 24px;
+	padding: 22px 26px;
+	background: linear-gradient(135deg, #1d2327 0%, #2c3338 100%);
+	color: #f0f0f1;
+	border-radius: 10px;
+}
+
+.help-intro p {
+	margin: 6px 0 0;
+	font-size: 15px;
+	line-height: 1.6;
+	color: #dcdcde;
+}
+
+.help-intro .help-intro-title {
+	font-size: 20px;
+	font-weight: 600;
+	margin: 0;
+	color: #fff;
+}
+
+/* Sticky section navigation */
 .help-navigation {
-    margin: 20px 0;
-    padding: 15px;
-    background: #f9f9f9;
-    border-radius: 8px;
+	position: sticky;
+	top: 32px;
+	z-index: 10;
+	margin: 0 0 24px;
+	padding: 12px 15px;
+	background: #fff;
+	border: 1px solid #dcdcde;
+	border-radius: 8px;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
 
 .help-nav {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
 }
 
 .help-nav li {
-    margin: 0;
+	margin: 0;
 }
 
 .help-nav a {
-    display: block;
-    padding: 8px 16px;
-    background: #fff;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    text-decoration: none;
-    color: #333;
-    transition: all .2s ease;
+	display: block;
+	padding: 7px 14px;
+	background: #f6f7f7;
+	border: 1px solid #dcdcde;
+	border-radius: 4px;
+	text-decoration: none;
+	color: #2c3338;
+	font-weight: 500;
+	transition: all 0.15s ease;
 }
 
 .help-nav a:hover,
 .help-nav a.nav-active {
-    background: #0073aa;
-    color: white;
-    border-color: #0073aa;
+	background: #2271b1;
+	color: #fff;
+	border-color: #2271b1;
 }
 
+/* Section cards ----------------------------------------------------------- */
 .help-section {
-    margin-bottom: 40px;
-    padding: 25px;
-    background: #fff;
-    border: 1px solid #e1e1e1;
-    border-radius: 8px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+	margin-bottom: 28px;
+	padding: 26px 28px;
+	background: #fff;
+	border: 1px solid #e1e1e1;
+	border-radius: 10px;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+	scroll-margin-top: 90px;
 }
 
-.help-section h2 {
-    margin-top: 0;
-    color: #23282d;
-    font-size: 24px;
-    font-weight: 600;
+.help-section > h2 {
+	margin-top: 0;
+	padding-bottom: 12px;
+	border-bottom: 2px solid #f0f0f1;
+	color: #1d2327;
+	font-size: 22px;
+	font-weight: 600;
 }
 
 .help-section h3 {
-    color: #3c434a;
-    font-size: 18px;
-    font-weight: 600;
-    margin-top: 30px;
-    margin-bottom: 15px;
+	color: #2c3338;
+	font-size: 17px;
+	font-weight: 600;
+	margin-top: 28px;
+	margin-bottom: 12px;
 }
 
+.help-section h4 {
+	color: #2c3338;
+	font-size: 14px;
+	font-weight: 600;
+	margin: 14px 0 8px;
+}
+
+.help-section p {
+	font-size: 14px;
+	line-height: 1.6;
+	color: #3c434a;
+}
+
+/* Shortcode code blocks (click to copy) ----------------------------------- */
 .shortcode-block {
-    background: #f8f9f9;
-    border: 1px solid #ddd;
-    border-left: 4px solid #0073aa;
-    padding: 15px;
-    margin: 15px 0;
-    border-radius: 4px;
-    font-family: "Courier New", monospace;
-    font-size: 14px;
-    cursor: pointer;
-    position: relative;
+	position: relative;
+	background: #1d2327;
+	border-radius: 6px;
+	padding: 14px 110px 14px 16px;
+	margin: 12px 0;
+	font-family: Menlo, Consolas, "Courier New", monospace;
+	font-size: 13px;
+	line-height: 1.5;
+	color: #7ec8ff;
+	white-space: pre-wrap;
+	word-break: break-word;
+	cursor: pointer;
 }
 
 .shortcode-block:hover {
-    background: #f0f5f8;
+	outline: 2px solid #2271b1;
 }
 
+.shortcode-block strong,
 .shortcode-block code {
-    display: block;
-    color: #0073aa;
-    word-wrap: break-word;
+	color: #7ec8ff;
+	font-weight: 400;
+	background: none;
 }
 
 .copy-button {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    padding: 5px 10px;
-    background: #0073aa;
-    color: white;
-    border: none;
-    border-radius: 3px;
-    cursor: pointer;
-    font-size: 12px;
-    transition: background .2s ease;
+	position: absolute;
+	top: 10px;
+	right: 10px;
+	padding: 4px 12px;
+	background: #2271b1;
+	color: #fff;
+	border: none;
+	border-radius: 3px;
+	cursor: pointer;
+	font-size: 12px;
+	line-height: 1.6;
+	transition: background 0.15s ease;
 }
 
 .copy-button:hover {
-    background: #005a87;
+	background: #135e96;
 }
 
-.parameter-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin: 15px 0;
+.copy-button.copied {
+	background: #00844a;
 }
 
-.parameter-table th,
-.parameter-table td {
-    padding: 10px;
-    text-align: left;
-    border-bottom: 1px solid #e1e1e1;
+/* Attribute tables -------------------------------------------------------- */
+.attribute-table {
+	width: 100%;
+	border-collapse: collapse;
+	margin: 14px 0;
+	font-size: 13px;
 }
 
-.parameter-table th {
-    background: #f8f9f9;
-    font-weight: 600;
-    color: #23282d;
+.attribute-table th,
+.attribute-table td {
+	padding: 9px 12px;
+	text-align: left;
+	border-bottom: 1px solid #e6e7e8;
+	vertical-align: top;
 }
 
-.parameter-table code {
-    background: #f0f0f1;
-    padding: 2px 6px;
-    border-radius: 3px;
-    font-size: 13px;
+.attribute-table thead th {
+	background: #f6f7f7;
+	font-weight: 600;
+	color: #1d2327;
+	border-bottom: 2px solid #dcdcde;
+}
+
+.attribute-table tbody tr:hover,
+.attribute-table tr:hover {
+	background: #fafafb;
+}
+
+.attribute-table td:first-child {
+	font-family: Menlo, Consolas, monospace;
+	font-weight: 600;
+	white-space: nowrap;
+}
+
+.attribute-table code {
+	background: #f0f0f1;
+	padding: 2px 6px;
+	border-radius: 3px;
+	font-size: 12px;
+}
+
+.required-attr {
+	color: #b32d2e;
+}
+
+.optional-attr {
+	color: #2c3338;
+}
+
+/* Quick reference table (all shortcodes at a glance) */
+.quickref-table {
+	width: 100%;
+	border-collapse: collapse;
+	margin: 8px 0 4px;
+	font-size: 13px;
+}
+
+.quickref-table th,
+.quickref-table td {
+	padding: 9px 12px;
+	text-align: left;
+	border-bottom: 1px solid #e6e7e8;
+}
+
+.quickref-table thead th {
+	background: #f6f7f7;
+	font-weight: 600;
+	border-bottom: 2px solid #dcdcde;
+}
+
+.quickref-table td:first-child {
+	font-family: Menlo, Consolas, monospace;
+	white-space: nowrap;
+}
+
+.quickref-table a {
+	text-decoration: none;
+}
+
+/* Badges ------------------------------------------------------------------ */
+.pti-badge {
+	display: inline-block;
+	padding: 2px 9px;
+	border-radius: 20px;
+	font-size: 11px;
+	font-weight: 600;
+	line-height: 1.7;
+	vertical-align: middle;
+	margin-left: 6px;
+}
+
+.pti-badge-new {
+	background: #00844a;
+	color: #fff;
+}
+
+.pti-badge-required {
+	background: #b32d2e;
+	color: #fff;
+}
+
+.pti-badge-optional {
+	background: #dcdcde;
+	color: #2c3338;
+}
+
+/* Callout boxes ----------------------------------------------------------- */
+.example-box {
+	margin: 16px 0;
+	padding: 16px 18px;
+	background: #f6f7f7;
+	border: 1px solid #e1e1e1;
+	border-radius: 8px;
+}
+
+.example-box > h4:first-child {
+	margin-top: 0;
+}
+
+.tip-box,
+.warning-box,
+.info-box {
+	margin: 16px 0;
+	padding: 12px 16px;
+	border-radius: 6px;
+	font-size: 14px;
+	line-height: 1.6;
+}
+
+.tip-box {
+	background: #edfaef;
+	border-left: 4px solid #00844a;
+}
+
+.warning-box {
+	background: #fcf0f1;
+	border-left: 4px solid #b32d2e;
+}
+
+.info-box {
+	background: #f0f6fc;
+	border-left: 4px solid #2271b1;
+}
+
+.tip-box code,
+.warning-box code,
+.info-box code {
+	background: rgba(0, 0, 0, 0.06);
+	padding: 2px 6px;
+	border-radius: 3px;
+}
+
+/* Feature checklists */
+.feature-list {
+	list-style: none;
+	margin: 12px 0;
+	padding: 0;
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+	gap: 6px 20px;
+}
+
+.feature-list li {
+	margin: 0;
+	padding: 4px 0;
+	font-size: 14px;
+	color: #3c434a;
+}
+
+/* Tabbed interface (getting started) -------------------------------------- */
+.tabbed-interface {
+	margin: 12px 0;
+}
+
+.tab-buttons {
+	display: flex;
+	gap: 4px;
+	border-bottom: 2px solid #dcdcde;
+}
+
+.tab-button {
+	padding: 8px 16px;
+	background: none;
+	border: none;
+	border-bottom: 2px solid transparent;
+	margin-bottom: -2px;
+	cursor: pointer;
+	font-size: 13px;
+	font-weight: 600;
+	color: #646970;
+}
+
+.tab-button.active {
+	color: #2271b1;
+	border-bottom-color: #2271b1;
+}
+
+.tab-content {
+	display: none;
+	padding: 14px 2px;
+}
+
+.tab-content.active {
+	display: block;
+}
+
+/* Dashboard prominence link ---------------------------------------------- */
+.pti-help-cta {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
 }

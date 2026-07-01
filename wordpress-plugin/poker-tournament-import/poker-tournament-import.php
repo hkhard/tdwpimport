@@ -149,7 +149,6 @@ class Poker_Tournament_Import {
             // Initialize shortcode help page
             require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/shortcode-help.php';
             $shortcode_help = new Poker_Shortcode_Help_Page();
-            $shortcode_help->add_help_admin_menu();
 
             // Initialize shortcode helper meta boxes
             require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/shortcode-helper.php';
