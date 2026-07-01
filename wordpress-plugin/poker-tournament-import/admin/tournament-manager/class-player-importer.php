@@ -119,21 +119,84 @@ class TDWP_Player_Importer {
 	}
 
 	/**
-	 * Parse Excel file (simplified - converts to CSV)
+	 * Parse an Excel (.xls/.xlsx) file into rows via PhpSpreadsheet.
+	 *
+	 * Returns a clear WP_Error (rather than silently accepting the upload) when
+	 * the library is unavailable or the file cannot be read (tdwp-3lg.2).
 	 *
 	 * @since 3.0.0
 	 *
 	 * @param string $file_path File path.
-	 * @return array|WP_Error Parsed data on success, WP_Error on failure.
+	 * @return array|WP_Error Parsed rows on success, WP_Error on failure.
 	 */
 	private function parse_excel( $file_path ) {
-		// Note: This is a simplified implementation.
-		// For production, consider using PHPSpreadsheet library.
-		// For now, return error suggesting CSV format.
-		return new WP_Error(
-			'excel_not_supported',
-			__( 'Excel format not yet supported. Please convert to CSV format.', 'poker-tournament-import' )
-		);
+		if ( ! class_exists( '\PhpOffice\PhpSpreadsheet\IOFactory' ) ) {
+			return new WP_Error(
+				'excel_lib_missing',
+				__( 'Excel import requires the PhpSpreadsheet library. Run "composer install" in the plugin directory, or convert the file to CSV.', 'poker-tournament-import' )
+			);
+		}
+
+		try {
+			$reader = \PhpOffice\PhpSpreadsheet\IOFactory::createReaderForFile( $file_path );
+			$reader->setReadDataOnly( true );
+			$spreadsheet = $reader->load( $file_path );
+			$rows        = $spreadsheet->getActiveSheet()->toArray( null, true, false, false );
+		} catch ( \Throwable $e ) {
+			return new WP_Error(
+				'excel_read_error',
+				__( 'Could not read the Excel file. It may be corrupt or in an unsupported format.', 'poker-tournament-import' )
+			);
+		}
+
+		$data = self::normalize_rows( $rows );
+
+		if ( empty( $data ) ) {
+			return new WP_Error( 'empty_file', __( 'File is empty or unreadable.', 'poker-tournament-import' ) );
+		}
+
+		return $data;
+	}
+
+	/**
+	 * Normalize raw spreadsheet rows (pure).
+	 *
+	 * Trims every cell to a string and drops rows where all cells are empty —
+	 * mirroring the CSV path so both importers share row semantics. Kept pure
+	 * and static so it is unit-testable without a spreadsheet binary.
+	 *
+	 * @since 3.9.0
+	 *
+	 * @param array $rows Rows of cells (nulls allowed).
+	 * @return array Normalized rows (fully-empty rows removed).
+	 */
+	public static function normalize_rows( $rows ) {
+		$out = array();
+		if ( ! is_array( $rows ) ) {
+			return $out;
+		}
+
+		foreach ( $rows as $row ) {
+			if ( ! is_array( $row ) ) {
+				continue;
+			}
+
+			$clean     = array();
+			$has_value = false;
+			foreach ( $row as $cell ) {
+				$value   = ( null === $cell ) ? '' : trim( (string) $cell );
+				$clean[] = $value;
+				if ( '' !== $value ) {
+					$has_value = true;
+				}
+			}
+
+			if ( $has_value ) {
+				$out[] = $clean;
+			}
+		}
+
+		return $out;
 	}
 
 	/**
