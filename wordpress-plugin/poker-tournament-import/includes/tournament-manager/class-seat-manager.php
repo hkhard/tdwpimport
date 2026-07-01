@@ -23,6 +23,74 @@ if ( ! defined( 'ABSPATH' ) ) {
 class TDWP_Seat_Manager {
 
 	/**
+	 * Seat status marking a chair as out of play (tdwp-3lg.8).
+	 */
+	const STATUS_UNAVAILABLE = 'unavailable';
+
+	/**
+	 * Whether a seat may be assigned to a player (pure).
+	 *
+	 * A seat is assignable only when it holds no player and is not marked
+	 * unavailable (a broken/blocked chair).
+	 *
+	 * @since 3.9.0
+	 * @param object|array $seat Seat row.
+	 * @return bool
+	 */
+	public static function is_seat_assignable( $seat ) {
+		if ( ! is_object( $seat ) && ! is_array( $seat ) ) {
+			return false;
+		}
+		$seat   = (object) $seat;
+		$status = isset( $seat->status ) ? (string) $seat->status : '';
+		return empty( $seat->player_id ) && self::STATUS_UNAVAILABLE !== $status;
+	}
+
+	/**
+	 * Mark a seat available or unavailable.
+	 *
+	 * Only an empty seat can be taken out of play; restoring sets it back to
+	 * 'empty'. Occupied seats cannot be marked unavailable (unseat first).
+	 *
+	 * @since 3.9.0
+	 * @param int  $table_id    Table ID.
+	 * @param int  $seat_number Seat number.
+	 * @param bool $available   True to restore, false to mark unavailable.
+	 * @return bool|WP_Error True on success.
+	 */
+	public static function set_seat_availability( $table_id, $seat_number, $available ) {
+		global $wpdb;
+
+		$seats_table = $wpdb->prefix . 'tdwp_tournament_seats';
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$seat = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT * FROM {$seats_table} WHERE table_id = %d AND seat_number = %d",
+				absint( $table_id ),
+				absint( $seat_number )
+			)
+		);
+
+		if ( ! $seat ) {
+			return new WP_Error( 'seat_not_found', __( 'Seat does not exist', 'poker-tournament-import' ) );
+		}
+		if ( ! $available && ! empty( $seat->player_id ) ) {
+			return new WP_Error( 'seat_occupied', __( 'Cannot mark an occupied seat unavailable; unseat the player first', 'poker-tournament-import' ) );
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->update(
+			$seats_table,
+			array( 'status' => $available ? 'empty' : self::STATUS_UNAVAILABLE ),
+			array( 'id' => (int) $seat->id ),
+			array( '%s' ),
+			array( '%d' )
+		);
+
+		return true;
+	}
+
+	/**
 	 * Move player registration to a seat
 	 *
 	 * @since 3.1.0
@@ -265,6 +333,7 @@ class TDWP_Seat_Manager {
 				WHERE t.tournament_id = %d
 				AND t.status = 'active'
 				AND s.player_id IS NULL
+				AND ( s.status IS NULL OR s.status <> 'unavailable' )
 				GROUP BY s.id
 				ORDER BY table_player_count ASC, RAND()
 				LIMIT 1",
@@ -365,7 +434,7 @@ class TDWP_Seat_Manager {
 			)
 		);
 
-		return $seat && ! $seat->player_id;
+		return self::is_seat_assignable( $seat );
 	}
 
 	/**
@@ -459,6 +528,14 @@ class TDWP_Seat_Manager {
 			return array(
 				'valid' => false,
 				'error' => __( 'Seat does not exist', 'poker-tournament-import' ),
+			);
+		}
+
+		// Reject seats taken out of play (broken/blocked chairs).
+		if ( self::STATUS_UNAVAILABLE === (string) $seat->status ) {
+			return array(
+				'valid' => false,
+				'error' => __( 'Seat is marked unavailable', 'poker-tournament-import' ),
 			);
 		}
 
