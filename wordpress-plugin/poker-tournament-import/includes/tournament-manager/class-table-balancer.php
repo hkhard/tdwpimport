@@ -156,7 +156,8 @@ class TDWP_Table_Balancer {
 					foreach ( $all_tables as $table ) {
 						if ( $table['id'] === $dest_table['id'] ) {
 							foreach ( $table['seats'] as $s ) {
-								if ( ! $s->player_id ) {
+								// Skip occupied and unavailable (broken) seats (tdwp-3lg.8).
+								if ( TDWP_Seat_Manager::is_seat_assignable( $s ) ) {
 									$empty_seat = $s;
 									break 2;
 								}
