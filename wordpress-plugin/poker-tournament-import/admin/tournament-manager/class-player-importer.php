@@ -137,6 +137,20 @@ class TDWP_Player_Importer {
 			);
 		}
 
+		// Cap the file size before loading to bound memory use on hostile files.
+		$max_bytes = (int) apply_filters( 'tdwp_excel_import_max_bytes', 10 * MB_IN_BYTES );
+		$size      = @filesize( $file_path ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+		if ( $size && $size > $max_bytes ) {
+			return new WP_Error(
+				'file_too_large',
+				sprintf(
+					/* translators: %d: maximum size in megabytes */
+					__( 'The Excel file exceeds the %d MB import limit. Split it or import as CSV.', 'poker-tournament-import' ),
+					(int) round( $max_bytes / MB_IN_BYTES )
+				)
+			);
+		}
+
 		try {
 			$reader = \PhpOffice\PhpSpreadsheet\IOFactory::createReaderForFile( $file_path );
 			$reader->setReadDataOnly( true );
