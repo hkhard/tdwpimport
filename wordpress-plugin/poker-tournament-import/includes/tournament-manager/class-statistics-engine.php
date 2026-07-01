@@ -105,13 +105,15 @@ class TDWP_Statistics_Engine {
 			)
 		);
 
-		// Calculate big blind equivalent for chip leader
+		// Calculate the big-blind equivalent for the chip leader using the real
+		// big blind for the current level from the tournament's blind schedule.
 		$bb_equivalent = 0;
 		if ( $chip_leader && $live_state->current_level > 0 ) {
-			// Get current blind level big blind amount
-			// For now, use a placeholder - this should come from blind schedule
-			$current_bb    = 100; // TODO: Get from actual blind schedule
-			$bb_equivalent = $current_bb > 0 ? round( $chip_leader->chip_count / $current_bb, 1 ) : 0;
+			$current_bb    = self::get_current_big_blind(
+				isset( $live_state->template_id ) ? (int) $live_state->template_id : 0,
+				(int) $live_state->current_level
+			);
+			$bb_equivalent = self::bb_equivalent( (int) $chip_leader->chip_count, $current_bb );
 		}
 
 		// Calculate bubble position (next payout position - 1)
@@ -187,5 +189,51 @@ class TDWP_Statistics_Engine {
 	 */
 	private static function get_cache_key( $tournament_id ) {
 		return sprintf( 'tdwp_live_stats_%d', absint( $tournament_id ) );
+	}
+
+	/**
+	 * Big-blind equivalent of a stack (pure).
+	 *
+	 * @param int $chips      Chip count.
+	 * @param int $big_blind  Current big blind (0 if unknown).
+	 * @return float Stack in big blinds, or 0 when the big blind is unknown.
+	 */
+	public static function bb_equivalent( $chips, $big_blind ) {
+		$big_blind = (int) $big_blind;
+		return $big_blind > 0 ? round( (int) $chips / $big_blind, 1 ) : 0.0;
+	}
+
+	/**
+	 * Resolve the big blind for a tournament's current level.
+	 *
+	 * Follows live_state.template_id -> template.blind_schedule_id ->
+	 * tdwp_blind_levels(level_order).
+	 *
+	 * @param int $template_id  Template ID from the live state.
+	 * @param int $current_level Current level number.
+	 * @return int Big blind, or 0 if it cannot be resolved.
+	 */
+	private static function get_current_big_blind( $template_id, $current_level ) {
+		global $wpdb;
+
+		$template_id   = absint( $template_id );
+		$current_level = absint( $current_level );
+		if ( ! $template_id || ! $current_level ) {
+			return 0;
+		}
+
+		$big_blind = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT bl.big_blind
+				 FROM {$wpdb->prefix}tdwp_tournament_templates t
+				 INNER JOIN {$wpdb->prefix}tdwp_blind_levels bl ON bl.schedule_id = t.blind_schedule_id
+				 WHERE t.id = %d AND bl.level_order = %d
+				 LIMIT 1",
+				$template_id,
+				$current_level
+			)
+		);
+
+		return null === $big_blind ? 0 : (int) $big_blind;
 	}
 }
