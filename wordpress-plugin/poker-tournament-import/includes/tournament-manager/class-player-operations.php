@@ -504,12 +504,27 @@ class TDWP_Player_Operations {
 			return new WP_Error( 'player_not_found', __( 'Player not found', 'poker-tournament-import' ) );
 		}
 
-		// TODO: Add rebuy period validation (check tournament template settings)
-		// For now, allow rebuys if tournament is running
+		// Enforce the tournament's rebuy policy (period / limit / stack threshold).
+		$rebuy_until_level = (int) get_post_meta( $tournament_id, '_rebuy_until_level', true );
+		$rebuy_limit       = (int) get_post_meta( $tournament_id, '_rebuy_limit_per_player', true );
+		$rebuy_threshold   = (int) get_post_meta( $tournament_id, '_rebuy_chip_threshold', true );
+		$rebuy_chips       = (int) get_post_meta( $tournament_id, '_rebuy_chips', true );
+		$state             = class_exists( 'TDWP_Live_State_Manager' ) ? TDWP_Live_State_Manager::get_state( $tournament_id ) : null;
+		$current_level     = $state ? (int) $state->current_level : 1;
 
-		// Get starting chip count from tournament template
-		// For now, use a default of 10000 (this should come from tournament settings)
-		$chips_to_add = 10000;
+		$eligible = TDWP_Player_Op_Rules::can_rebuy(
+			(int) $player->rebuys_count,
+			(int) $player->chip_count,
+			$rebuy_until_level,
+			$rebuy_limit,
+			$rebuy_threshold,
+			$current_level
+		);
+		if ( is_wp_error( $eligible ) ) {
+			return $eligible;
+		}
+
+		$chips_to_add = $rebuy_chips > 0 ? $rebuy_chips : 10000;
 
 		// Calculate new chip count
 		$new_chip_count = $player->chip_count + $chips_to_add;
@@ -619,12 +634,31 @@ class TDWP_Player_Operations {
 			return new WP_Error( 'player_not_found', __( 'Player not found', 'poker-tournament-import' ) );
 		}
 
-		if ( 'busted' === $player->status ) {
-			return new WP_Error( 'player_busted', __( 'Busted players cannot purchase add-ons', 'poker-tournament-import' ) );
+		// process_bustout sets status='eliminated'; accept 'busted' too defensively.
+		if ( in_array( $player->status, array( 'eliminated', 'busted' ), true ) ) {
+			return new WP_Error( 'player_busted', __( 'Eliminated players cannot purchase add-ons', 'poker-tournament-import' ) );
 		}
 
-		// Get add-on chip count (default 10000, should come from tournament settings)
-		$chips_to_add = 10000;
+		// Enforce the tournament's add-on policy (window + one-per-player limit).
+		$addon_at_level    = (int) get_post_meta( $tournament_id, '_addon_at_level', true );
+		$addon_until_level = (int) get_post_meta( $tournament_id, '_addon_until_level', true );
+		$addon_max         = (int) get_post_meta( $tournament_id, '_max_addons_per_player', true );
+		$addon_chips       = (int) get_post_meta( $tournament_id, '_addon_chips', true );
+		$state             = class_exists( 'TDWP_Live_State_Manager' ) ? TDWP_Live_State_Manager::get_state( $tournament_id ) : null;
+		$current_level     = $state ? (int) $state->current_level : 1;
+
+		$eligible = TDWP_Player_Op_Rules::can_add_on(
+			(int) $player->addons_count,
+			$addon_at_level,
+			$addon_until_level,
+			$addon_max,
+			$current_level
+		);
+		if ( is_wp_error( $eligible ) ) {
+			return $eligible;
+		}
+
+		$chips_to_add = $addon_chips > 0 ? $addon_chips : 10000;
 
 		// Calculate new chip count
 		$new_chip_count = $player->chip_count + $chips_to_add;
