@@ -33,6 +33,7 @@ class TDWP_Tournament_Manager_AJAX {
 		add_action( 'wp_ajax_tdwp_tm_pause', array( __CLASS__, 'pause_tournament' ) );
 		add_action( 'wp_ajax_tdwp_tm_resume', array( __CLASS__, 'resume_tournament' ) );
 		add_action( 'wp_ajax_tdwp_tm_advance_level', array( __CLASS__, 'advance_level' ) );
+		add_action( 'wp_ajax_tdwp_tm_skip_to_level', array( __CLASS__, 'skip_to_level' ) );
 		add_action( 'wp_ajax_tdwp_tm_add_time', array( __CLASS__, 'add_time' ) );
 		add_action( 'wp_ajax_tdwp_tm_start_break', array( __CLASS__, 'start_break' ) );
 		add_action( 'wp_ajax_tdwp_tm_end_break', array( __CLASS__, 'end_break' ) );
@@ -257,6 +258,37 @@ class TDWP_Tournament_Manager_AJAX {
 	}
 
 	/**
+	 * Skip directly to a specific level
+	 *
+	 * @since 3.9.2
+	 */
+	public static function skip_to_level() {
+		self::verify_request();
+
+		$tournament_id = isset( $_POST['tournament_id'] ) ? intval( $_POST['tournament_id'] ) : 0;
+		$target_level  = isset( $_POST['target_level'] ) ? absint( $_POST['target_level'] ) : 0;
+
+		if ( ! $tournament_id ) {
+			wp_send_json_error( array( 'message' => __( 'Invalid tournament ID', 'poker-tournament-import' ) ) );
+		}
+
+		if ( $target_level < 1 ) {
+			wp_send_json_error( array( 'message' => __( 'Invalid target level', 'poker-tournament-import' ) ) );
+		}
+
+		$success = TDWP_Live_State_Manager::skip_to_level( $tournament_id, $target_level );
+
+		if ( $success ) {
+			wp_send_json_success( array(
+				'message' => __( 'Skipped to level', 'poker-tournament-import' ),
+				'state'   => TDWP_Live_State_Manager::get_state( $tournament_id ),
+			) );
+		} else {
+			wp_send_json_error( array( 'message' => __( 'Failed to skip to level', 'poker-tournament-import' ) ) );
+		}
+	}
+
+	/**
 	 * Add time to current level
 	 *
 	 * @since 3.1.0
@@ -461,26 +493,23 @@ class TDWP_Tournament_Manager_AJAX {
 			)
 		);
 
-		// Tick for elapsed time to get fresh state (not stale database time)
+		// Tick for elapsed time to get fresh state (not stale database time).
+		// tick() computes wall-clock elapsed time itself from $state->updated_at
+		// when no $elapsed is supplied, so it never truncates a large gap.
 		if ( $state && 'running' === $state->status ) {
-			$elapsed = time() - strtotime( $state->updated_at );
-			$elapsed = min( max( 0, $elapsed ), 30 ); // Cap between 0-30 seconds
+			$clock_manager = new TDWP_Tournament_Clock();
+			$clock_manager->tick( $tournament_id );
+			// Refresh state after tick
+			$state = TDWP_Live_State_Manager::get_state( $tournament_id );
 
-			if ( $elapsed > 0 ) {
-				$clock_manager = new TDWP_Tournament_Clock();
-				$clock_manager->tick( $tournament_id, $elapsed );
-				// Refresh state after tick
-				$state = TDWP_Live_State_Manager::get_state( $tournament_id );
-
-				TDWP_Debug_Logger::log(
-					'AJAX',
-					'GET_STATE after tick',
-					array(
-						'time_remaining' => $state->time_remaining,
-						'updated_at'     => $state->updated_at,
-					)
-				);
-			}
+			TDWP_Debug_Logger::log(
+				'AJAX',
+				'GET_STATE after tick',
+				array(
+					'time_remaining' => $state->time_remaining,
+					'updated_at'     => $state->updated_at,
+				)
+			);
 		}
 
 		$tables = TDWP_Table_Manager::get_tables( $tournament_id, 'active' );

@@ -288,6 +288,88 @@ class TDWP_Live_State_Manager {
 	}
 
 	/**
+	 * Skip directly to a specific level
+	 *
+	 * Unlike advance_level() (which always moves one level forward), this jumps
+	 * the tournament straight to an operator-chosen level. Mirrors advance_level()'s
+	 * break auto-detection so skipping onto a break level starts the break correctly.
+	 *
+	 * @since 3.9.2
+	 * @param int $tournament_id Tournament post ID.
+	 * @param int $target_level  Level number to skip to (1-based).
+	 * @return bool True on success, false on failure or invalid input.
+	 */
+	public static function skip_to_level( $tournament_id, $target_level ) {
+		global $wpdb;
+		$table = $wpdb->prefix . 'tdwp_tournament_live_state';
+
+		$target_level = absint( $target_level );
+		if ( $target_level < 1 ) {
+			return false;
+		}
+
+		$state = self::get_state( $tournament_id );
+		if ( ! $state ) {
+			return false;
+		}
+
+		// Determine the target level's duration, falling back to the current
+		// time remaining (or a sane default) when the snapshot is unavailable.
+		$new_status      = self::STATUS_RUNNING;
+		$new_time_remain = ! empty( $state->time_remaining ) ? (int) $state->time_remaining : 900;
+
+		if ( class_exists( 'TDWP_Tournament_Snapshot' ) ) {
+			$snapshot  = TDWP_Tournament_Snapshot::get( $tournament_id );
+			$level_row = is_array( $snapshot ) ? TDWP_Tournament_Snapshot::blind_level_for( $snapshot, $target_level ) : null;
+
+			// blind_level_for() returns an associative array (or null), not an object.
+			if ( is_array( $level_row ) ) {
+				if ( ! empty( $level_row['is_break'] ) ) {
+					$break_duration_minutes = isset( $level_row['break_duration_minutes'] ) ? (int) $level_row['break_duration_minutes'] : 0;
+					$new_status             = self::STATUS_BREAK;
+					$new_time_remain        = $break_duration_minutes * 60;
+				} elseif ( isset( $level_row['duration_minutes'] ) ) {
+					$new_time_remain = (int) $level_row['duration_minutes'] * 60;
+				}
+			}
+		}
+
+		$update_data   = array(
+			'current_level'  => $target_level,
+			'time_remaining' => $new_time_remain,
+			'status'         => $new_status,
+		);
+		$update_format = array( '%d', '%d', '%s' );
+
+		if ( self::STATUS_BREAK === $new_status ) {
+			$update_data['break_until'] = gmdate( 'Y-m-d H:i:s', time() + $new_time_remain );
+			$update_format[]            = '%s';
+		} else {
+			$update_data['break_until'] = null;
+			$update_format[]            = '%s';
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
+		$result = $wpdb->update(
+			$table,
+			$update_data,
+			array( 'tournament_id' => $tournament_id ),
+			$update_format,
+			array( '%d' )
+		);
+
+		if ( $result !== false ) {
+			do_action( 'tdwp_level_skipped', $tournament_id, $target_level );
+
+			if ( self::STATUS_BREAK === $new_status ) {
+				do_action( 'tdwp_break_started', $tournament_id, (int) round( $new_time_remain / 60 ) );
+			}
+		}
+
+		return $result !== false;
+	}
+
+	/**
 	 * Start break
 	 *
 	 * @since 3.1.0

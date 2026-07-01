@@ -440,13 +440,14 @@ class TDWP_Tournament_Clock {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param int $tournament_id Tournament ID.
-	 * @param int $elapsed       Seconds elapsed since last update.
+	 * @param int      $tournament_id Tournament ID.
+	 * @param int|null $elapsed       Seconds elapsed since last update. Pass null to have it
+	 *                                computed server-side from the stored `updated_at` timestamp
+	 *                                (avoids client-supplied drift/caps).
 	 * @return bool|WP_Error True on success, WP_Error on failure.
 	 */
-	public function tick( $tournament_id, $elapsed = 15 ) {
+	public function tick( $tournament_id, $elapsed = null ) {
 		$tournament_id = absint( $tournament_id );
-		$elapsed       = absint( $elapsed );
 
 		$state = $this->live_manager->get_by_tournament_id( $tournament_id );
 		if ( ! $state ) {
@@ -454,6 +455,21 @@ class TDWP_Tournament_Clock {
 				'not_started',
 				__( 'Tournament has not been started.', 'poker-tournament-import' )
 			);
+		}
+
+		// Compute wall-clock elapsed time server-side when the caller doesn't supply it,
+		// so gaps longer than any previous artificial cap still drain the clock correctly
+		// instead of accumulating drift.
+		if ( null === $elapsed ) {
+			$updated_timestamp = ! empty( $state->updated_at ) ? strtotime( $state->updated_at ) : false;
+
+			if ( false === $updated_timestamp ) {
+				$elapsed = 15;
+			} else {
+				$elapsed = max( 0, time() - $updated_timestamp );
+			}
+		} else {
+			$elapsed = absint( $elapsed );
 		}
 
 		// Only tick if running.

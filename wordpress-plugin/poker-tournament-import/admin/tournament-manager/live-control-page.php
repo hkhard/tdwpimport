@@ -654,12 +654,10 @@ class TDWP_Live_Control_Page {
 		$state = $this->live_manager->get_by_tournament_id( $tournament_id );
 
 		if ( $state ) {
-			// Calculate actual elapsed time since last update
-			$elapsed = time() - strtotime( $state->updated_at );
-			$elapsed = min( max( 0, $elapsed ), 30 ); // Cap between 0-30 seconds
-
-			// Tick by actual elapsed time
-			$this->clock_manager->tick( $tournament_id, $elapsed );
+			// Tick by actual elapsed time; tick() computes it itself from
+			// $state->updated_at when no $elapsed is supplied, so it never
+			// truncates a large gap (missed heartbeat, backgrounded tab, etc).
+			$this->clock_manager->tick( $tournament_id );
 
 			// Refresh state after tick
 			$state = $this->live_manager->get_by_tournament_id( $tournament_id );
