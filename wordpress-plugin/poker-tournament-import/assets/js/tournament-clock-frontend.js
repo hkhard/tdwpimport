@@ -72,6 +72,22 @@
     wakeLockSentinel: null,
 
     /**
+     * BroadcastChannel used to sync clock state across tabs of the same
+     * tournament (tdwp-32g).
+     */
+    channel: null,
+
+    /**
+     * Disconnect overlay element (tdwp-o12).
+     */
+    $disconnectOverlay: null,
+
+    /**
+     * Watchdog interval that toggles the disconnect overlay (tdwp-o12).
+     */
+    disconnectWatchdogInterval: null,
+
+    /**
      * Initialize
      *
      * @since 3.1.0
@@ -92,13 +108,35 @@
         this.localTimeRemaining = parseInt($timeElement.data('seconds'), 10) || 0;
       }
 
+      // Seed the connection-freshness timer so the disconnect watchdog does
+      // not false-trigger before the first real heartbeat/poll arrives.
+      this.lastUpdateTime = Date.now();
+
+      // Build the (hidden) disconnect overlay and start the watchdog.
+      this.$disconnectOverlay = $(
+        '<div class="tdwp-clock-disconnect-overlay" style="display:none;">' +
+          '<div class="tdwp-clock-disconnect-message">Connection lost — reconnecting…</div>' +
+          '</div>'
+      );
+      this.$widget.append(this.$disconnectOverlay);
+      this.startDisconnectWatchdog();
+
+      var self = this;
+
+      // Set up cross-tab sync via BroadcastChannel, when supported.
+      if (typeof BroadcastChannel !== 'undefined') {
+        this.channel = new BroadcastChannel('tdwp-clock-' + this.tournamentId);
+        this.channel.onmessage = function (e) {
+          self.updateState(e.data, true);
+        };
+      }
+
       this.screenMode = (typeof tdwpClock !== 'undefined' && tdwpClock.screenMode) || false;
 
       if (window.TDWPSoundManager && typeof tdwpClock !== 'undefined' && tdwpClock.sounds) {
         window.TDWPSoundManager.preload(tdwpClock.sounds);
       }
 
-      var self = this;
       this.$widget.find('.tdwp-clock-fullscreen-toggle').on('click', function () {
         self.toggleFullscreen();
       });
@@ -198,6 +236,42 @@
     },
 
     /**
+     * Start the watchdog that shows/hides the disconnect overlay.
+     *
+     * Compares the time since the last real state update (heartbeat tick or
+     * status poll) against a threshold (3x the 15s heartbeat interval). This
+     * is intentionally the single source of truth for the overlay - it must
+     * NOT be influenced by state received via BroadcastChannel from sibling
+     * tabs, otherwise a tab whose own heartbeat has died would look
+     * "connected" just because a sibling tab keeps broadcasting.
+     *
+     * @since 3.9.2
+     */
+    startDisconnectWatchdog: function () {
+      var self = this;
+      var DISCONNECT_THRESHOLD_MS = 45000; // 3x the 15s heartbeat interval.
+      var WATCHDOG_CHECK_INTERVAL_MS = 5000;
+
+      if (this.disconnectWatchdogInterval) {
+        clearInterval(this.disconnectWatchdogInterval);
+      }
+
+      this.disconnectWatchdogInterval = setInterval(function () {
+        if (!self.$disconnectOverlay) {
+          return;
+        }
+
+        var elapsed = Date.now() - (self.lastUpdateTime || Date.now());
+
+        if (elapsed > DISCONNECT_THRESHOLD_MS) {
+          self.$disconnectOverlay.show();
+        } else {
+          self.$disconnectOverlay.hide();
+        }
+      }, WATCHDOG_CHECK_INTERVAL_MS);
+    },
+
+    /**
      * Initialize WordPress Heartbeat API
      *
      * @since 3.1.0
@@ -216,6 +290,13 @@
       $(document).on('heartbeat-tick', function (event, data) {
         if (data.tdwp_clock_state) {
           self.updateState(data.tdwp_clock_state);
+
+          // Push the freshly received state to sibling tabs (tdwp-32g) so
+          // they can sync within ~1s instead of waiting on their own
+          // 15s heartbeat.
+          if (self.channel) {
+            self.channel.postMessage(data.tdwp_clock_state);
+          }
         }
       });
 
@@ -334,8 +415,14 @@
      * @since 3.1.0
      *
      * @param {Object} state State data from server.
+     * @param {boolean} [fromBroadcast] True when this update came from a
+     *   sibling tab via BroadcastChannel (tdwp-32g) rather than this tab's
+     *   own heartbeat/poll. Broadcast-origin updates refresh the display but
+     *   must NOT refresh the connection-freshness timer used by the
+     *   disconnect watchdog (tdwp-o12) - only this tab's own successful
+     *   heartbeat/poll may do that.
      */
-    updateState: function (state) {
+    updateState: function (state, fromBroadcast) {
       if (!state) {
         return;
       }
@@ -344,7 +431,10 @@
 
       // Update local time remaining from server (source of truth)
       this.localTimeRemaining = parseInt(state.time_remaining, 10) || 0;
-      this.lastUpdateTime = Date.now();
+
+      if (!fromBroadcast) {
+        this.lastUpdateTime = Date.now();
+      }
 
       // Update all UI elements
       this.updateTimeDisplay(this.localTimeRemaining);
