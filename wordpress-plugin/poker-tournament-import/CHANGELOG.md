@@ -1,5 +1,30 @@
 # Poker Tournament Import Changelog
 
+## Version 3.9.2 - (July 1, 2026)
+
+### 🕐 Phase 2 Live Operations — tournament clock cluster
+
+Public `[tournament_clock]` and live-clock gap closure (epic tdwp-871).
+
+**Public clock display**
+- Public display mode via `?screen=clock`: fullscreen + native Wake Lock (feature-detected, graceful fallback), dark full-viewport theme, and a fullscreen toggle button (tdwp-558).
+- Current SB/BB/Ante and next-level preview (tdwp-7u1); average chip stack and current pot — total collected, distinct from prize pool (tdwp-ekz).
+- Sound notifications: 5-minute / 1-minute / level-change / break-start cues via Web Audio, with per-level fire guards (tdwp-blc).
+- Configurable elements: per-tournament logo (featured image or `logo_url`), prize payout table, and live chip-leader rankings — all opt-in, default off (tdwp-wp7).
+
+**Break handling**
+- Advancing (or skipping) onto a break level auto-starts the break with `break_until` (tdwp-nja).
+- Live break countdown driven from the absolute `break_until` (no longer freezes) with a timezone-correct "Back at HH:MM" rendered in the viewer's local time.
+
+**Reliability & control**
+- Server-side wall-clock tick: elapsed is computed from `updated_at`, removing the 30-second cap that accumulated clock drift over long events (tdwp-rhp).
+- Skip-to-specific-level operator control with a nonce/capability-checked AJAX endpoint (tdwp-zh6).
+- Connection-lost overlay when heartbeats stop for 3× the interval (tdwp-o12); cross-tab state sync within ~1s via BroadcastChannel (tdwp-32g).
+
+**Fixes**
+- Robust fresh-activation template seeding: empty template tables now self-heal (tdwp-luk).
+- Removed stray `hook-debug.txt` writes on every admin page load (tdwp-he6).
+
 ## Version 3.8.0 - (June 30, 2026)
 
 ### 🏁 Phase 1 Foundation gap closure complete (epic tdwp-cma)
