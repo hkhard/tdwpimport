@@ -185,7 +185,8 @@
         var level = {
           level_order: $row.find('.level-number').text(),
           is_break: type === 'break' ? 1 : 0,
-          duration_minutes: 15, // Default duration
+          // Per-level duration from the editor input (tdwp-3lg.4); default 15.
+          duration_minutes: parseInt($row.find('.level-duration').val(), 10) || 15,
         };
 
         if (type === 'break') {
