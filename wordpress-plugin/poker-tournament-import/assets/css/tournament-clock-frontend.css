@@ -530,3 +530,90 @@
 .tdwp-clock-fullscreen-mode .tdwp-clock-fullscreen-toggle:hover {
 	opacity: 1;
 }
+
+/* ========================================
+   Logo, Prizes, Rankings (tdwp-wp7)
+   ======================================== */
+
+.tdwp-clock-logo-wrap {
+	display: flex;
+	justify-content: center;
+	margin-bottom: 12px;
+}
+
+.tdwp-clock-logo {
+	max-width: 200px;
+	max-height: 120px;
+	width: auto;
+	height: auto;
+	object-fit: contain;
+}
+
+.tdwp-clock-prizes,
+.tdwp-clock-rankings {
+	margin-top: 16px;
+	padding-top: 16px;
+	border-top: 1px solid #dcdcde;
+}
+
+.tdwp-clock-prizes-title,
+.tdwp-clock-rankings-title {
+	margin: 0 0 8px;
+	font-size: 15px;
+	font-weight: 600;
+	text-align: center;
+}
+
+.tdwp-clock-prizes-table,
+.tdwp-clock-rankings-table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 14px;
+}
+
+.tdwp-clock-prizes-table td,
+.tdwp-clock-rankings-table td {
+	padding: 4px 8px;
+	border-bottom: 1px solid #f0f0f1;
+}
+
+.tdwp-clock-prizes-place,
+.tdwp-clock-rankings-rank {
+	width: 2.5em;
+	font-weight: 600;
+	text-align: right;
+}
+
+.tdwp-clock-prizes-amount,
+.tdwp-clock-rankings-chips {
+	text-align: right;
+	white-space: nowrap;
+}
+
+.tdwp-clock-rankings-name {
+	text-align: left;
+}
+
+/* Fullscreen (?screen=clock) variants */
+
+.tdwp-clock-fullscreen-mode .tdwp-clock-logo {
+	max-width: 12vw;
+	max-height: 12vh;
+}
+
+.tdwp-clock-fullscreen-mode .tdwp-clock-prizes,
+.tdwp-clock-fullscreen-mode .tdwp-clock-rankings {
+	border-top-color: rgba(255, 255, 255, 0.2);
+	color: #fff;
+}
+
+.tdwp-clock-fullscreen-mode .tdwp-clock-prizes-title,
+.tdwp-clock-fullscreen-mode .tdwp-clock-rankings-title {
+	color: #fff;
+}
+
+.tdwp-clock-fullscreen-mode .tdwp-clock-prizes-table td,
+.tdwp-clock-fullscreen-mode .tdwp-clock-rankings-table td {
+	border-bottom-color: rgba(255, 255, 255, 0.12);
+	font-size: 1.6vw;
+}

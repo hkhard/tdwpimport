@@ -131,11 +131,15 @@ class TDWP_Tournament_Clock_Shortcode {
 		// Parse attributes
 		$atts = shortcode_atts(
 			array(
-				'tournament_id' => 0,
-				'show_stats'    => 'yes',
-				'show_level'    => 'yes',
-				'theme'         => 'default', // default, dark, light
-				'size'          => 'large',   // small, medium, large
+				'tournament_id'  => 0,
+				'show_stats'     => 'yes',
+				'show_level'     => 'yes',
+				'theme'          => 'default', // default, dark, light
+				'size'           => 'large',   // small, medium, large
+				'show_prizes'    => 'no',
+				'show_rankings'  => 'no',
+				'rankings_limit' => 10,
+				'logo_url'       => '',
 			),
 			$atts,
 			'tournament_clock'
@@ -172,6 +176,15 @@ class TDWP_Tournament_Clock_Shortcode {
 		ob_start();
 		?>
 		<div class="<?php echo esc_attr( implode( ' ', $classes ) ); ?>" data-tournament-id="<?php echo absint( $state->tournament_id ); ?>">
+
+			<?php
+			$logo_url = '' !== $atts['logo_url'] ? esc_url_raw( $atts['logo_url'] ) : get_the_post_thumbnail_url( $state->tournament_id, 'medium' );
+			?>
+			<?php if ( ! empty( $logo_url ) ) : ?>
+				<div class="tdwp-clock-logo-wrap">
+					<img class="tdwp-clock-logo" src="<?php echo esc_url( $logo_url ); ?>" alt="" />
+				</div>
+			<?php endif; ?>
 
 			<!-- Clock Display -->
 			<div class="tdwp-clock-main">
@@ -234,6 +247,63 @@ class TDWP_Tournament_Clock_Shortcode {
 						</div>
 					<?php endif; ?>
 				</div>
+			<?php endif; ?>
+
+			<?php if ( 'yes' === $atts['show_prizes'] ) : ?>
+				<?php $prizes = $this->get_prize_payouts( $state->tournament_id ); ?>
+				<?php if ( ! empty( $prizes ) ) : ?>
+					<!-- Prize Payouts -->
+					<div class="tdwp-clock-prizes">
+						<h3 class="tdwp-clock-prizes-title"><?php esc_html_e( 'Payouts', 'poker-tournament-import' ); ?></h3>
+						<table class="tdwp-clock-prizes-table">
+							<tbody>
+								<?php foreach ( $prizes as $prize ) : ?>
+									<tr>
+										<td class="tdwp-clock-prizes-place">
+											<?php
+											printf(
+												/* translators: %d: finishing place */
+												esc_html__( '%d.', 'poker-tournament-import' ),
+												absint( $prize['place'] )
+											);
+											?>
+										</td>
+										<td class="tdwp-clock-prizes-amount">
+											<?php
+											if ( null !== $prize['amount'] ) {
+												echo esc_html( $this->format_currency( $prize['amount'] ) );
+											} elseif ( null !== $prize['percentage'] ) {
+												echo esc_html( $prize['percentage'] . '%' );
+											}
+											?>
+										</td>
+									</tr>
+								<?php endforeach; ?>
+							</tbody>
+						</table>
+					</div>
+				<?php endif; ?>
+			<?php endif; ?>
+
+			<?php if ( 'yes' === $atts['show_rankings'] ) : ?>
+				<?php $rankings = $this->get_rankings( $state->tournament_id, $atts['rankings_limit'] ); ?>
+				<?php if ( ! empty( $rankings ) ) : ?>
+					<!-- Rankings -->
+					<div class="tdwp-clock-rankings">
+						<h3 class="tdwp-clock-rankings-title"><?php esc_html_e( 'Chip Leaders', 'poker-tournament-import' ); ?></h3>
+						<table class="tdwp-clock-rankings-table">
+							<tbody>
+								<?php foreach ( $rankings as $ranking ) : ?>
+									<tr>
+										<td class="tdwp-clock-rankings-rank"><?php echo absint( $ranking['rank'] ); ?></td>
+										<td class="tdwp-clock-rankings-name"><?php echo esc_html( $ranking['name'] ); ?></td>
+										<td class="tdwp-clock-rankings-chips"><?php echo esc_html( number_format_i18n( $ranking['chip_count'] ) ); ?></td>
+									</tr>
+								<?php endforeach; ?>
+							</tbody>
+						</table>
+					</div>
+				<?php endif; ?>
 			<?php endif; ?>
 
 			<!-- Powered by (optional) -->
@@ -457,6 +527,119 @@ class TDWP_Tournament_Clock_Shortcode {
 		$result['current_pot'] = (float) $pot;
 
 		return $result;
+	}
+
+	/**
+	 * Get the configured prize payout structure for a tournament.
+	 *
+	 * Reads the tournament's config snapshot (tdwp-3lg.5) rather than the live
+	 * prize-structure template so historical payouts never change retroactively.
+	 *
+	 * @since 3.10.0
+	 *
+	 * @param int $tournament_id Tournament ID.
+	 * @return array Array of normalized payout rows: place, amount (float|null), percentage (float|null).
+	 */
+	private function get_prize_payouts( $tournament_id ) {
+		$payouts = array();
+
+		$snapshot = TDWP_Tournament_Snapshot::get( $tournament_id );
+
+		if ( ! is_array( $snapshot ) || empty( $snapshot['prizes'] ) || ! is_array( $snapshot['prizes'] ) ) {
+			return $payouts;
+		}
+
+		foreach ( $snapshot['prizes'] as $prize_structure_row ) {
+			$prize_structure_row = (array) $prize_structure_row;
+
+			if ( empty( $prize_structure_row['structure_json'] ) ) {
+				continue;
+			}
+
+			$places = json_decode( $prize_structure_row['structure_json'], true );
+
+			if ( ! is_array( $places ) ) {
+				continue;
+			}
+
+			foreach ( $places as $place_row ) {
+				$place_row = (array) $place_row;
+
+				if ( isset( $place_row['display'] ) && ! $place_row['display'] ) {
+					continue;
+				}
+
+				$amount = ( isset( $place_row['amount'] ) && null !== $place_row['amount'] ) ? floatval( $place_row['amount'] ) : null;
+
+				$payouts[] = array(
+					'place'      => isset( $place_row['place'] ) ? absint( $place_row['place'] ) : 0,
+					'amount'     => $amount,
+					'percentage' => isset( $place_row['percentage'] ) ? floatval( $place_row['percentage'] ) : null,
+				);
+			}
+		}
+
+		usort(
+			$payouts,
+			function( $a, $b ) {
+				return $a['place'] <=> $b['place'];
+			}
+		);
+
+		return $payouts;
+	}
+
+	/**
+	 * Get the current chip-count rankings (still-in players) for a tournament.
+	 *
+	 * @since 3.10.0
+	 *
+	 * @param int $tournament_id Tournament ID.
+	 * @param int $limit         Maximum number of rows to return.
+	 * @return array Array of rows: rank, name, chip_count.
+	 */
+	private function get_rankings( $tournament_id, $limit ) {
+		global $wpdb;
+
+		$tournament_id = absint( $tournament_id );
+		$limit         = min( 50, max( 1, absint( $limit ) ) );
+
+		$rankings = array();
+
+		if ( ! $tournament_id ) {
+			return $rankings;
+		}
+
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT tp.chip_count, p.post_title AS player_name
+				 FROM {$wpdb->prefix}tdwp_tournament_players tp
+				 INNER JOIN {$wpdb->posts} p ON tp.player_id = p.ID
+				 WHERE tp.tournament_id = %d
+				 AND tp.withdrawal_status = 'active'
+				 AND tp.finish_position IS NULL
+				 ORDER BY tp.chip_count DESC
+				 LIMIT %d",
+				$tournament_id,
+				$limit
+			)
+		);
+
+		if ( ! is_array( $rows ) ) {
+			return $rankings;
+		}
+
+		$rank = 1;
+		foreach ( $rows as $row ) {
+			$rankings[] = array(
+				'rank'       => $rank,
+				'name'       => $row->player_name,
+				'chip_count' => (int) $row->chip_count,
+			);
+			++$rank;
+		}
+
+		return $rankings;
 	}
 
 	/**
