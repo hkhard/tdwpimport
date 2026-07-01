@@ -2,6 +2,13 @@
 
 ## Version 3.9.2 - (July 1, 2026)
 
+### 📖 Admin help overhaul
+
+- Relocated the shortcode help to a prominent **Shortcodes & Help** entry at the top of the main Poker Import menu (previously buried under the Tournaments menu).
+- Documented every shortcode (29 across Tournament, Series, Season, Player, Live Clock, Display Screen, and Dashboard/Registration categories) with accurate attributes, defaults, a Quick Reference index, and click-to-copy code blocks.
+- Added **Tutorials**: step-by-step walkthroughs for importing & managing a `.tdt` file and for running a live tournament end-to-end via the Tournament Manager.
+- Rebuilt the help stylesheet into one consistent, readable design system (and actually enqueue it).
+
 ### 🕐 Phase 2 Live Operations — tournament clock cluster
 
 Public `[tournament_clock]` and live-clock gap closure (epic tdwp-871).
