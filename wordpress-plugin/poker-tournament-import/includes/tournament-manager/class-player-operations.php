@@ -634,8 +634,9 @@ class TDWP_Player_Operations {
 			return new WP_Error( 'player_not_found', __( 'Player not found', 'poker-tournament-import' ) );
 		}
 
-		if ( 'busted' === $player->status ) {
-			return new WP_Error( 'player_busted', __( 'Busted players cannot purchase add-ons', 'poker-tournament-import' ) );
+		// process_bustout sets status='eliminated'; accept 'busted' too defensively.
+		if ( in_array( $player->status, array( 'eliminated', 'busted' ), true ) ) {
+			return new WP_Error( 'player_busted', __( 'Eliminated players cannot purchase add-ons', 'poker-tournament-import' ) );
 		}
 
 		// Enforce the tournament's add-on policy (window + one-per-player limit).
