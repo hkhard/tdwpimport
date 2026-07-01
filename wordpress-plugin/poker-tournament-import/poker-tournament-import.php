@@ -568,6 +568,9 @@ class Poker_Tournament_Import {
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-seat-manager.php';
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-table-balancer.php';
 
+        // Player-op rule guards (tdwp-3lg.9/.10/.11) — used by the live paths.
+        require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-player-op-rules.php';
+
         // **PHASE 1 Beta16: Tournament Player Manager**
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-tournament-player-manager.php';
 

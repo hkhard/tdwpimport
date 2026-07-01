@@ -48,6 +48,18 @@ class TDWP_Tournament_Player_Manager {
 			return new WP_Error( 'player_already_registered', __( 'Player is already registered for this tournament', 'poker-tournament-import' ) );
 		}
 
+		// Enforce the late-registration deadline once the tournament is running.
+		$late_reg_until_level = (int) get_post_meta( $tournament_id, '_late_reg_until_level', true );
+		$state                = class_exists( 'TDWP_Live_State_Manager' ) ? TDWP_Live_State_Manager::get_state( $tournament_id ) : null;
+		$reg_eligible         = TDWP_Player_Op_Rules::can_register_late(
+			$late_reg_until_level,
+			$state ? (int) $state->current_level : 0,
+			$state ? $state->status : null
+		);
+		if ( is_wp_error( $reg_eligible ) ) {
+			return $reg_eligible;
+		}
+
 		// Get tournament settings for chip count and bounty
 		$starting_chips = (int) get_post_meta( $tournament_id, '_starting_chips', true );
 		$bounty_type    = get_post_meta( $tournament_id, '_bounty_type', true );
