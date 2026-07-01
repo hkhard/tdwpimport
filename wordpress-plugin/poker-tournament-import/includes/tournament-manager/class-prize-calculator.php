@@ -574,9 +574,13 @@ class TDWP_Prize_Calculator {
 	/**
 	 * Calculate ICM chop (Independent Chip Model)
 	 *
-	 * Simplified ICM calculation for remaining players
+	 * Uses the exact Malmuth-Harville recursive model (see calculate_icm) —
+	 * each player's equity is the sum over finishing places of their probability
+	 * of reaching that place times the prize there. Replaces a previous linear
+	 * place-factor heuristic that produced materially wrong equity splits.
 	 *
 	 * @since 3.0.0
+	 * @since 3.9.1 True recursive ICM.
 	 *
 	 * @param array $remaining_prizes Array of remaining prize amounts.
 	 * @param array $chip_counts      Array of chip counts indexed by player.
@@ -586,92 +590,110 @@ class TDWP_Prize_Calculator {
 		if ( ! is_array( $remaining_prizes ) || ! is_array( $chip_counts ) ) {
 			return array();
 		}
-
 		if ( empty( $remaining_prizes ) || empty( $chip_counts ) ) {
 			return array();
 		}
 
-		// Sort prizes descending.
-		rsort( $remaining_prizes );
-
-		// Calculate total chips.
-		$total_chips = array_sum( array_map( 'absint', $chip_counts ) );
-
-		if ( 0 === $total_chips ) {
+		$equity = self::calculate_icm( $remaining_prizes, $chip_counts );
+		if ( empty( $equity ) ) {
 			return array();
 		}
 
-		$player_count = count( $chip_counts );
-		$prize_count  = count( $remaining_prizes );
-
-		// Simplified ICM: Calculate equity for each player.
 		$icm_values = array();
-
-		foreach ( $chip_counts as $player => $chips ) {
-			$chips = absint( $chips );
-			$equity = 0;
-
-			// Calculate probability-weighted equity.
-			for ( $prize_idx = 0; $prize_idx < min( $prize_count, $player_count ); $prize_idx++ ) {
-				$probability = self::calculate_finish_probability(
-					$chips,
-					$total_chips,
-					$player_count,
-					$prize_idx + 1
-				);
-
-				$equity += $probability * $remaining_prizes[ $prize_idx ];
-			}
-
-			$icm_values[ $player ] = round( $equity, 2 );
+		foreach ( $equity as $player => $value ) {
+			$icm_values[ $player ] = round( $value, 2 );
 		}
 
-		// Normalize to match total prize pool exactly.
+		// Correct any rounding drift so the payout matches the pool exactly by
+		// nudging the largest-equity player (which absorbs the smallest relative
+		// error).
+		$total_prizes    = array_sum( array_map( 'floatval', $remaining_prizes ) );
 		$total_allocated = array_sum( $icm_values );
-		$total_prizes = array_sum( $remaining_prizes );
-		$difference = round( $total_prizes - $total_allocated, 2 );
-
-		if ( abs( $difference ) > 0 ) {
-			// Add difference to biggest stack.
-			$biggest_stack = array_keys( $chip_counts, max( $chip_counts ) )[0];
-			$icm_values[ $biggest_stack ] += $difference;
+		$difference      = round( $total_prizes - $total_allocated, 2 );
+		if ( abs( $difference ) > 0 && ! empty( $icm_values ) ) {
+			$top_player                 = array_keys( $icm_values, max( $icm_values ) )[0];
+			$icm_values[ $top_player ]  = round( $icm_values[ $top_player ] + $difference, 2 );
 		}
 
 		return $icm_values;
 	}
 
 	/**
-	 * Calculate probability of finishing in specific place
+	 * Exact ICM equity via the Malmuth-Harville recursive model (pure).
 	 *
-	 * Simplified calculation for ICM
+	 * Each player's equity = P(finish 1st) * prize[0]
+	 *   + sum over every other player j of P(j finishes 1st) * (that player's
+	 *     equity in the sub-tournament with j removed and prizes shifted up).
 	 *
-	 * @since 3.0.0
+	 * Recursion depth is bounded by the number of prizes (final-table sized in
+	 * practice). Players with zero/negative stacks are dropped.
 	 *
-	 * @param int $player_chips Player's chip count.
-	 * @param int $total_chips  Total chips in play.
-	 * @param int $players_left Number of players remaining.
-	 * @param int $place        Place to calculate probability for.
-	 * @return float Probability (0-1).
+	 * @param array $prizes Prize amounts (any order; sorted descending here).
+	 * @param array $stacks Chip counts indexed by player.
+	 * @return array<int|string,float> Equity indexed by the surviving players.
 	 */
-	private static function calculate_finish_probability( $player_chips, $total_chips, $players_left, $place ) {
-		if ( $total_chips <= 0 || $players_left <= 0 ) {
-			return 0;
+	public static function calculate_icm( $prizes, $stacks ) {
+		$prizes = array_values( array_map( 'floatval', (array) $prizes ) );
+		rsort( $prizes );
+
+		$clean = array();
+		foreach ( (array) $stacks as $player => $chips ) {
+			$chips = (float) $chips;
+			if ( $chips > 0 ) {
+				$clean[ $player ] = $chips;
+			}
 		}
 
-		// Base probability from chip percentage.
-		$chip_percentage = $player_chips / $total_chips;
+		// Only the top N places pay, where N = number of prizes.
+		return self::icm_recurse( $prizes, $clean );
+	}
 
-		// Adjust for place (simplified model).
-		// Higher places have slightly reduced probability for smaller stacks.
-		$place_factor = 1 - ( ( $place - 1 ) * 0.1 );
-		$place_factor = max( 0.1, $place_factor );
+	/**
+	 * Recursive helper for calculate_icm().
+	 *
+	 * @param array $prizes Prizes for the remaining places (descending).
+	 * @param array $stacks Surviving stacks indexed by player.
+	 * @return array<int|string,float> Equity per player.
+	 */
+	private static function icm_recurse( $prizes, $stacks ) {
+		$equity = array();
+		foreach ( $stacks as $player => $chips ) {
+			$equity[ $player ] = 0.0;
+		}
+		if ( empty( $prizes ) || empty( $stacks ) ) {
+			return $equity;
+		}
 
-		// Adjust for number of players.
-		$competition_factor = 1 / $players_left;
+		$total = array_sum( $stacks );
+		if ( $total <= 0 ) {
+			return $equity;
+		}
 
-		$probability = $chip_percentage * $place_factor * ( $players_left - $place + 1 );
+		$prize = $prizes[0];
+		$rest  = array_slice( $prizes, 1 );
 
-		return max( 0, min( 1, $probability ) );
+		foreach ( $stacks as $winner => $chips ) {
+			$p_win               = $chips / $total;
+			$equity[ $winner ] += $p_win * $prize;
+
+			if ( ! empty( $rest ) ) {
+				$sub_stacks = $stacks;
+				unset( $sub_stacks[ $winner ] );
+				if ( empty( $sub_stacks ) ) {
+					// No opponents remain but prizes are left (only possible when
+					// #prizes > #players): the last survivor collects them so the
+					// full pool is conserved.
+					$equity[ $winner ] += $p_win * array_sum( $rest );
+				} else {
+					$sub = self::icm_recurse( $rest, $sub_stacks );
+					foreach ( $sub as $other => $sub_equity ) {
+						$equity[ $other ] += $p_win * $sub_equity;
+					}
+				}
+			}
+		}
+
+		return $equity;
 	}
 
 	/**
