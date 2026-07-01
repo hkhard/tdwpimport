@@ -570,6 +570,8 @@ class Poker_Tournament_Import {
 
         // Player-op rule guards (tdwp-3lg.9/.10/.11) — used by the live paths.
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-player-op-rules.php';
+        // Per-tournament config snapshot (tdwp-3lg.5) — isolates started tournaments from template edits.
+        require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-tournament-snapshot.php';
 
         // **PHASE 1 Beta16: Tournament Player Manager**
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-tournament-player-manager.php';

@@ -120,6 +120,12 @@ class TDWP_Tournament_Clock {
 			)
 		);
 
+		// Snapshot the effective config so later template edits can't change
+		// this started tournament (tdwp-3lg.5).
+		if ( class_exists( 'TDWP_Tournament_Snapshot' ) ) {
+			TDWP_Tournament_Snapshot::create( $tournament_id, $template_id );
+		}
+
 		// Log event.
 		$this->events_manager->log(
 			$tournament_id,
@@ -318,9 +324,22 @@ class TDWP_Tournament_Clock {
 		// Get next level number.
 		$next_level = absint( $state->current_level ) + 1;
 
-		// Get template to calculate time.
-		$template     = $this->get_tournament_template( $state->template_id );
-		$time_seconds = $this->get_level_duration_seconds( $template );
+		// Prefer the per-tournament snapshot (tdwp-3lg.5) so a later template
+		// edit can't change this running tournament; fall back to the template.
+		$time_seconds = 0;
+		if ( class_exists( 'TDWP_Tournament_Snapshot' ) ) {
+			$snapshot = TDWP_Tournament_Snapshot::get( $tournament_id );
+			if ( null !== $snapshot ) {
+				$level = TDWP_Tournament_Snapshot::blind_level_for( $snapshot, $next_level );
+				if ( $level && ! empty( $level['duration_minutes'] ) ) {
+					$time_seconds = absint( $level['duration_minutes'] ) * 60;
+				}
+			}
+		}
+		if ( ! $time_seconds ) {
+			$template     = $this->get_tournament_template( $state->template_id );
+			$time_seconds = $this->get_level_duration_seconds( $template );
+		}
 
 		// Update to next level.
 		$result = $this->live_manager->update(
