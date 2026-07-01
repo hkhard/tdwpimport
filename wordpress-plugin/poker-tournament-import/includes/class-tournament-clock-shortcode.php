@@ -80,23 +80,41 @@ class TDWP_Tournament_Clock_Shortcode {
 			POKER_TOURNAMENT_IMPORT_VERSION
 		);
 
+		// Enqueue sound manager script (dependency of the main clock script).
+		wp_enqueue_script(
+			'tdwp-clock-sound-manager',
+			POKER_TOURNAMENT_IMPORT_PLUGIN_URL . 'assets/js/tournament-clock-sound-manager.js',
+			array( 'jquery' ),
+			POKER_TOURNAMENT_IMPORT_VERSION,
+			true
+		);
+
 		// Enqueue scripts
 		wp_enqueue_script(
 			'tdwp-tournament-clock',
 			POKER_TOURNAMENT_IMPORT_PLUGIN_URL . 'assets/js/tournament-clock-frontend.js',
-			array( 'jquery', 'heartbeat' ),
+			array( 'jquery', 'heartbeat', 'tdwp-clock-sound-manager' ),
 			POKER_TOURNAMENT_IMPORT_VERSION,
 			true
 		);
+
+		$screen = isset( $_GET['screen'] ) ? sanitize_key( wp_unslash( $_GET['screen'] ) ) : '';
 
 		// Localize script
 		wp_localize_script(
 			'tdwp-tournament-clock',
 			'tdwpClock',
 			array(
-				'ajaxurl'   => admin_url( 'admin-ajax.php' ),
-				'nonce'     => wp_create_nonce( 'tdwp_clock_frontend' ),
+				'ajaxurl'         => admin_url( 'admin-ajax.php' ),
+				'nonce'           => wp_create_nonce( 'tdwp_clock_frontend' ),
 				'refreshInterval' => 15, // seconds
+				'screenMode'      => ( 'clock' === $screen ),
+				'sounds'          => array(
+					'warn5min'    => POKER_TOURNAMENT_IMPORT_PLUGIN_URL . 'assets/sounds/bell.wav',
+					'warn1min'    => POKER_TOURNAMENT_IMPORT_PLUGIN_URL . 'assets/sounds/bell.wav',
+					'levelChange' => POKER_TOURNAMENT_IMPORT_PLUGIN_URL . 'assets/sounds/bell.wav',
+					'breakStart'  => POKER_TOURNAMENT_IMPORT_PLUGIN_URL . 'assets/sounds/bell.wav',
+				),
 			)
 		);
 	}
@@ -146,6 +164,11 @@ class TDWP_Tournament_Clock_Shortcode {
 			'tdwp-clock-status-' . sanitize_html_class( $state->status ),
 		);
 
+		$screen = isset( $_GET['screen'] ) ? sanitize_key( wp_unslash( $_GET['screen'] ) ) : '';
+		if ( 'clock' === $screen ) {
+			$classes[] = 'tdwp-clock-fullscreen-mode';
+		}
+
 		ob_start();
 		?>
 		<div class="<?php echo esc_attr( implode( ' ', $classes ) ); ?>" data-tournament-id="<?php echo absint( $state->tournament_id ); ?>">
@@ -172,6 +195,21 @@ class TDWP_Tournament_Clock_Shortcode {
 					<span class="tdwp-status-indicator"></span>
 					<?php echo esc_html( ucfirst( $state->status ) ); ?>
 				</div>
+
+				<div class="tdwp-clock-blinds">
+					<span class="tdwp-clock-sb"></span> / <span class="tdwp-clock-bb"></span> <span class="tdwp-clock-ante"></span>
+				</div>
+
+				<div class="tdwp-clock-avg-stack"></div>
+				<div class="tdwp-clock-pot"></div>
+
+				<div class="tdwp-clock-break-info">
+					<span class="tdwp-clock-back-at"></span>
+				</div>
+
+				<div class="tdwp-clock-next-level"></div>
+
+				<button type="button" class="tdwp-clock-fullscreen-toggle"><?php echo esc_html__( 'Fullscreen', 'poker-tournament-import' ); ?></button>
 			</div>
 
 			<?php if ( 'yes' === $atts['show_stats'] ) : ?>
@@ -251,19 +289,7 @@ class TDWP_Tournament_Clock_Shortcode {
 			}
 		}
 
-		wp_send_json_success(
-			array(
-				'tournament_id'     => $state->tournament_id,
-				'status'            => $state->status,
-				'current_level'     => $state->current_level,
-				'time_remaining'    => $state->time_remaining,
-				'total_players'     => $state->total_players,
-				'remaining_players' => $state->remaining_players,
-				'total_rebuys'      => $state->total_rebuys,
-				'total_addons'      => $state->total_addons,
-				'prize_pool'        => $state->prize_pool,
-			)
-		);
+		wp_send_json_success( $this->build_payload( $state ) );
 	}
 
 	/**
@@ -323,20 +349,114 @@ class TDWP_Tournament_Clock_Shortcode {
 		$state = $this->live_manager->get_by_tournament_id( $tournament_id );
 
 		if ( $state ) {
-			$response['tdwp_clock_state'] = array(
-				'tournament_id'     => $state->tournament_id,
-				'status'            => $state->status,
-				'current_level'     => $state->current_level,
-				'time_remaining'    => $state->time_remaining,
-				'total_players'     => $state->total_players,
-				'remaining_players' => $state->remaining_players,
-				'total_rebuys'      => $state->total_rebuys,
-				'total_addons'      => $state->total_addons,
-				'prize_pool'        => $state->prize_pool,
-			);
+			$response['tdwp_clock_state'] = $this->build_payload( $state );
 		}
 
 		return $response;
+	}
+
+	/**
+	 * Build the frontend clock state payload.
+	 *
+	 * @since 3.9.2
+	 *
+	 * @param object $state Live state object.
+	 * @return array Payload array.
+	 */
+	private function build_payload( $state ) {
+		$payload = array(
+			'tournament_id'     => $state->tournament_id,
+			'status'            => $state->status,
+			'current_level'     => $state->current_level,
+			'time_remaining'    => $state->time_remaining,
+			'total_players'     => $state->total_players,
+			'remaining_players' => $state->remaining_players,
+			'total_rebuys'      => $state->total_rebuys,
+			'total_addons'      => $state->total_addons,
+			'prize_pool'        => $state->prize_pool,
+			'break_until'       => isset( $state->break_until ) ? $state->break_until : null,
+			'small_blind'       => null,
+			'big_blind'         => null,
+			'ante'              => null,
+			'next_level'        => null,
+		);
+
+		$snapshot = TDWP_Tournament_Snapshot::get( $state->tournament_id );
+
+		if ( is_array( $snapshot ) ) {
+			$current_level = TDWP_Tournament_Snapshot::blind_level_for( $snapshot, $state->current_level );
+			if ( is_array( $current_level ) ) {
+				$payload['small_blind'] = isset( $current_level['small_blind'] ) ? $current_level['small_blind'] : null;
+				$payload['big_blind']   = isset( $current_level['big_blind'] ) ? $current_level['big_blind'] : null;
+				$payload['ante']        = isset( $current_level['ante'] ) ? $current_level['ante'] : null;
+			}
+
+			$next_level = TDWP_Tournament_Snapshot::blind_level_for( $snapshot, (int) $state->current_level + 1 );
+			if ( is_array( $next_level ) ) {
+				$payload['next_level'] = array(
+					'small_blind'      => isset( $next_level['small_blind'] ) ? $next_level['small_blind'] : null,
+					'big_blind'        => isset( $next_level['big_blind'] ) ? $next_level['big_blind'] : null,
+					'ante'             => isset( $next_level['ante'] ) ? $next_level['ante'] : null,
+					'duration_minutes' => isset( $next_level['duration_minutes'] ) ? $next_level['duration_minutes'] : null,
+					'is_break'         => isset( $next_level['is_break'] ) ? $next_level['is_break'] : null,
+				);
+			}
+		}
+
+		$stack_and_pot         = $this->get_avg_stack_and_pot( $state->tournament_id );
+		$payload['avg_stack']  = $stack_and_pot['avg_stack'];
+		$payload['current_pot'] = $stack_and_pot['current_pot'];
+
+		return $payload;
+	}
+
+	/**
+	 * Compute average chip stack and current pot (total money collected) for a tournament.
+	 *
+	 * @since 3.9.2
+	 *
+	 * @param int $tournament_id Tournament ID.
+	 * @return array Array with 'avg_stack' (int) and 'current_pot' (float).
+	 */
+	private function get_avg_stack_and_pot( $tournament_id ) {
+		global $wpdb;
+
+		$tournament_id = (int) $tournament_id;
+
+		$result = array(
+			'avg_stack'   => 0,
+			'current_pot' => 0.0,
+		);
+
+		if ( ! $tournament_id ) {
+			return $result;
+		}
+
+		$stack_row = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT COALESCE(SUM(chip_count), 0) AS total_chips, COUNT(*) AS cnt
+				 FROM {$wpdb->prefix}tdwp_tournament_players
+				 WHERE tournament_id = %d AND withdrawal_status = 'active' AND finish_position IS NULL",
+				$tournament_id
+			)
+		);
+
+		if ( $stack_row && (int) $stack_row->cnt > 0 ) {
+			$result['avg_stack'] = (int) round( $stack_row->total_chips / $stack_row->cnt );
+		}
+
+		$pot = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COALESCE(SUM(paid_amount), 0)
+				 FROM {$wpdb->prefix}tdwp_tournament_players
+				 WHERE tournament_id = %d",
+				$tournament_id
+			)
+		);
+
+		$result['current_pot'] = (float) $pot;
+
+		return $result;
 	}
 
 	/**

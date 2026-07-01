@@ -236,21 +236,52 @@ class TDWP_Live_State_Manager {
 
 		$new_level = $state->current_level + 1;
 
+		// Determine whether the new level is a break so we can auto-start it.
+		$new_status      = self::STATUS_RUNNING;
+		$new_time_remain = $next_level_duration_seconds;
+
+		if ( class_exists( 'TDWP_Tournament_Snapshot' ) ) {
+			$snapshot   = TDWP_Tournament_Snapshot::get( $tournament_id );
+			$level_row  = is_array( $snapshot ) ? TDWP_Tournament_Snapshot::blind_level_for( $snapshot, $new_level ) : null;
+
+			// blind_level_for() returns an associative array (or null), not an object.
+			if ( is_array( $level_row ) && ! empty( $level_row['is_break'] ) ) {
+				$break_duration_minutes = isset( $level_row['break_duration_minutes'] ) ? (int) $level_row['break_duration_minutes'] : 0;
+				$new_status             = self::STATUS_BREAK;
+				$new_time_remain        = $break_duration_minutes * 60;
+			}
+		}
+
+		$update_data   = array(
+			'current_level'  => $new_level,
+			'time_remaining' => $new_time_remain,
+			'status'         => $new_status,
+		);
+		$update_format = array( '%d', '%d', '%s' );
+
+		if ( self::STATUS_BREAK === $new_status ) {
+			$update_data['break_until'] = gmdate( 'Y-m-d H:i:s', time() + $new_time_remain );
+			$update_format[]            = '%s';
+		} else {
+			$update_data['break_until'] = null;
+			$update_format[]            = '%s';
+		}
+
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
 		$result = $wpdb->update(
 			$table,
-			array(
-				'current_level'  => $new_level,
-				'time_remaining' => $next_level_duration_seconds,
-				'status'         => self::STATUS_RUNNING,
-			),
+			$update_data,
 			array( 'tournament_id' => $tournament_id ),
-			array( '%d', '%d', '%s' ),
+			$update_format,
 			array( '%d' )
 		);
 
 		if ( $result !== false ) {
 			do_action( 'tdwp_level_advanced', $tournament_id, $new_level );
+
+			if ( self::STATUS_BREAK === $new_status ) {
+				do_action( 'tdwp_break_started', $tournament_id, (int) round( $new_time_remain / 60 ) );
+			}
 		}
 
 		return $result !== false;
