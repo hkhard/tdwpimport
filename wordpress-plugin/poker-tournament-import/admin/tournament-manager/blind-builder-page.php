@@ -1023,6 +1023,7 @@ class TDWP_Blind_Builder_Page {
 							<th class="column-sb"><?php esc_html_e( 'Small Blind', 'poker-tournament-import' ); ?></th>
 							<th class="column-bb"><?php esc_html_e( 'Big Blind', 'poker-tournament-import' ); ?></th>
 							<th class="column-ante"><?php esc_html_e( 'Ante', 'poker-tournament-import' ); ?></th>
+							<th class="column-duration"><?php esc_html_e( 'Duration (min)', 'poker-tournament-import' ); ?></th>
 							<th class="column-type"><?php esc_html_e( 'Type', 'poker-tournament-import' ); ?></th>
 							<th class="column-actions"><?php esc_html_e( 'Actions', 'poker-tournament-import' ); ?></th>
 						</tr>
@@ -1073,6 +1074,7 @@ class TDWP_Blind_Builder_Page {
 				<td class="column-sb"><input type="number" class="small-blind" value="25" min="1"></td>
 				<td class="column-bb"><input type="number" class="big-blind" value="50" min="1"></td>
 				<td class="column-ante"><input type="number" class="ante" value="0" min="0"></td>
+				<td class="column-duration"><input type="number" class="level-duration" value="15" min="1" max="120"></td>
 				<td class="column-type"><?php esc_html_e( 'Blind Level', 'poker-tournament-import' ); ?></td>
 				<td class="column-actions">
 					<button type="button" class="button button-small delete-level"><?php esc_html_e( 'Delete', 'poker-tournament-import' ); ?></button>
@@ -1084,7 +1086,7 @@ class TDWP_Blind_Builder_Page {
 			<tr class="level-row level-break" data-level-type="break">
 				<td class="column-drag"><span class="dashicons dashicons-menu"></span></td>
 				<td class="column-order"><span class="level-number">1</span></td>
-				<td class="column-sb" colspan="3">
+				<td class="column-sb" colspan="4">
 					<strong><?php esc_html_e( 'BREAK', 'poker-tournament-import' ); ?></strong> -
 					<input type="number" class="break-length" value="15" min="1" max="60"> <?php esc_html_e( 'minutes', 'poker-tournament-import' ); ?>
 				</td>
@@ -1110,7 +1112,7 @@ class TDWP_Blind_Builder_Page {
 			<tr class="level-row level-break" data-level-type="break">
 				<td class="column-drag"><span class="dashicons dashicons-menu"></span></td>
 				<td class="column-order"><span class="level-number"><?php echo esc_html( $level->level_order ); ?></span></td>
-				<td class="column-sb" colspan="3">
+				<td class="column-sb" colspan="4">
 					<strong><?php esc_html_e( 'BREAK', 'poker-tournament-import' ); ?></strong> -
 					<input type="number" class="break-length" value="<?php echo esc_attr( $level->break_duration_minutes ); ?>" min="1" max="60"> <?php esc_html_e( 'minutes', 'poker-tournament-import' ); ?>
 				</td>
@@ -1128,6 +1130,7 @@ class TDWP_Blind_Builder_Page {
 				<td class="column-sb"><input type="number" class="small-blind" value="<?php echo esc_attr( $level->small_blind ); ?>" min="1"></td>
 				<td class="column-bb"><input type="number" class="big-blind" value="<?php echo esc_attr( $level->big_blind ); ?>" min="1"></td>
 				<td class="column-ante"><input type="number" class="ante" value="<?php echo esc_attr( $level->ante ); ?>" min="0"></td>
+				<td class="column-duration"><input type="number" class="level-duration" value="<?php echo esc_attr( $level->duration_minutes ); ?>" min="1" max="120"></td>
 				<td class="column-type"><?php esc_html_e( 'Blind Level', 'poker-tournament-import' ); ?></td>
 				<td class="column-actions">
 					<button type="button" class="button button-small delete-level"><?php esc_html_e( 'Delete', 'poker-tournament-import' ); ?></button>
