@@ -142,6 +142,7 @@ jQuery(document).ready(function($) {
             <div class="help-content">
                 <?php $this->render_quick_reference_section(); ?>
                 <?php $this->render_getting_started_section(); ?>
+                <?php $this->render_tutorials_section(); ?>
                 <?php $this->render_live_clock_section(); ?>
                 <?php $this->render_tournament_shortcodes_section(); ?>
                 <?php $this->render_series_shortcodes_section(); ?>
@@ -177,6 +178,7 @@ jQuery(document).ready(function($) {
         $sections = array(
             'quick-reference'    => __('Quick Reference', 'poker-tournament-import'),
             'getting-started'    => __('Getting Started', 'poker-tournament-import'),
+            'tutorials'          => __('Tutorials', 'poker-tournament-import'),
             'live-clock'         => __('Live Clock', 'poker-tournament-import'),
             'tournament-shortcodes' => __('Tournaments', 'poker-tournament-import'),
             'series-shortcodes'  => __('Series', 'poker-tournament-import'),
@@ -377,6 +379,234 @@ jQuery(document).ready(function($) {
                 <li><?php esc_html_e('IDs are also shown in the list tables (Tournaments, Series, Seasons, Players) when hovering over an item.', 'poker-tournament-import'); ?></li>
                 <li><?php esc_html_e('On a tournament, series, season, or player edit screen, check the "Shortcode Helper" box in the sidebar for ready-made, copyable shortcodes.', 'poker-tournament-import'); ?></li>
             </ol>
+        </section>
+        <?php
+    }
+
+    /**
+     * Tutorials section: step-by-step walkthroughs for common workflows.
+     */
+    private function render_tutorials_section() {
+        ?>
+        <section id="tutorials" class="help-section">
+            <h2>
+                <?php esc_html_e('Tutorials', 'poker-tournament-import'); ?>
+                <span class="pti-badge pti-badge-new"><?php esc_html_e('New', 'poker-tournament-import'); ?></span>
+            </h2>
+            <p><?php esc_html_e('Step-by-step walkthroughs for the two most common jobs: importing a finished tournament, and running one live from the clock.', 'poker-tournament-import'); ?></p>
+
+            <div class="tutorial-toc">
+                <a href="#tutorial-import">
+                    <strong><?php esc_html_e('Import & Manage a Tournament', 'poker-tournament-import'); ?></strong>
+                    <span><?php esc_html_e('Upload a .tdt file from Tournament Director and get it live on your site.', 'poker-tournament-import'); ?></span>
+                </a>
+                <a href="#tutorial-live">
+                    <strong><?php esc_html_e('Run a Live Tournament', 'poker-tournament-import'); ?></strong>
+                    <span><?php esc_html_e('Build blinds and payouts, launch, run the clock, and display it on a screen.', 'poker-tournament-import'); ?></span>
+                </a>
+            </div>
+
+            <div class="tutorial" id="tutorial-import">
+                <h3><?php esc_html_e('Import & Manage a Tournament (.tdt)', 'poker-tournament-import'); ?></h3>
+                <p class="tutorial-lead"><?php esc_html_e('Import a Tournament Director .tdt results file and get it live on the site.', 'poker-tournament-import'); ?></p>
+                <ol class="tutorial-steps">
+                    <li>
+                        <strong class="step-title"><?php esc_html_e('Open the importer', 'poker-tournament-import'); ?></strong>
+                        <p>
+                            <?php
+                            printf(
+                                /* translators: %s: admin menu path (Poker Import -> Import Tournament) */
+                                esc_html__('Go to %s. The main menu is "Poker Import" (spade icon).', 'poker-tournament-import'),
+                                '<span class="ui-path">' . esc_html__('Poker Import → Import Tournament', 'poker-tournament-import') . '</span>'
+                            );
+                            ?>
+                        </p>
+                    </li>
+                    <li>
+                        <strong class="step-title"><?php esc_html_e('Choose your .tdt file', 'poker-tournament-import'); ?></strong>
+                        <p><?php esc_html_e('Click the file field (accepts .tdt only — .xlsx/.csv are rejected) and pick the file exported from Tournament Director.', 'poker-tournament-import'); ?></p>
+                    </li>
+                    <li>
+                        <strong class="step-title"><?php esc_html_e('Set import options', 'poker-tournament-import'); ?></strong>
+                        <p><?php esc_html_e('Checkboxes: "Create new players automatically" (on by default), "Publish tournament immediately", "Enable debug for this import only". Under Points Formula pick "Auto-detect (Recommended)" (uses the formula in the .tdt, else your site default) or "Use specific formula" to choose one.', 'poker-tournament-import'); ?></p>
+                    </li>
+                    <li>
+                        <strong class="step-title"><?php esc_html_e('Click Import Tournament', 'poker-tournament-import'); ?></strong>
+                        <p><?php esc_html_e('The button appears once a file is chosen. On success you\'ll see "Tournament imported successfully!" and an Import Preview (title, series, season, date, player count). Duplicates are detected by the .tdt\'s UUID (not filename) and you\'ll be asked to confirm.', 'poker-tournament-import'); ?></p>
+                    </li>
+                    <li>
+                        <strong class="step-title"><?php esc_html_e('Importing many at once?', 'poker-tournament-import'); ?></strong>
+                        <p>
+                            <?php
+                            printf(
+                                /* translators: %s: admin menu path (Poker Import -> Bulk Import) */
+                                esc_html__('Use %s: click "Choose Files" (multi-select), set "Skip Duplicates"/"Update Existing"/"Import as New", then "Start Upload". Files process one-by-one with a progress bar; finish with "View Tournaments". (Limited to the server\'s max upload count, commonly 20 files, and per-file size limit.)', 'poker-tournament-import'),
+                                '<span class="ui-path">' . esc_html__('Poker Import → Bulk Import', 'poker-tournament-import') . '</span>'
+                            );
+                            ?>
+                        </p>
+                        <div class="info-box">
+                            <?php esc_html_e('Front-end contributors can instead use the [tdwp_tournament_import] shortcode on a page — it lets a logged-in user with edit-posts upload a .tdt without the admin area (see Registration & Import below).', 'poker-tournament-import'); ?>
+                        </div>
+                    </li>
+                    <li>
+                        <strong class="step-title"><?php esc_html_e('Review the tournament', 'poker-tournament-import'); ?></strong>
+                        <p>
+                            <?php
+                            printf(
+                                /* translators: %s: admin menu path (Tournaments) */
+                                esc_html__('Open %s (the tournament list) and edit the imported post to confirm/adjust its Series and Season. Each row also has a "Review Points" action.', 'poker-tournament-import'),
+                                '<span class="ui-path">' . esc_html__('Tournaments', 'poker-tournament-import') . '</span>'
+                            );
+                            ?>
+                        </p>
+                    </li>
+                    <li>
+                        <strong class="step-title"><?php esc_html_e('Check the points', 'poker-tournament-import'); ?></strong>
+                        <p>
+                            <?php
+                            printf(
+                                /* translators: 1: admin menu path (Points Verification), 2: admin menu path (Points Adjustments) */
+                                esc_html__('Go to %1$s to see a season-by-season health check that flags points anomalies; preview/apply a different formula per tournament if needed. For manual per-player overrides use %2$s (kept with an audit trail).', 'poker-tournament-import'),
+                                '<span class="ui-path">' . esc_html__('Poker Import → Points Verification', 'poker-tournament-import') . '</span>',
+                                '<span class="ui-path">' . esc_html__('Poker Import → Points Adjustments', 'poker-tournament-import') . '</span>'
+                            );
+                            ?>
+                        </p>
+                    </li>
+                    <li>
+                        <strong class="step-title"><?php esc_html_e('Refresh dashboard stats', 'poker-tournament-import'); ?></strong>
+                        <p>
+                            <?php
+                            printf(
+                                /* translators: %s: admin menu path (Poker Import -> Settings) */
+                                esc_html__('Statistics are cached for speed. After importing, go to %s → "Statistics Data Mart" → click "Refresh Statistics Now" to update dashboards and leaderboards.', 'poker-tournament-import'),
+                                '<span class="ui-path">' . esc_html__('Poker Import → Settings', 'poker-tournament-import') . '</span>'
+                            );
+                            ?>
+                        </p>
+                    </li>
+                    <li>
+                        <strong class="step-title"><?php esc_html_e('Publish it', 'poker-tournament-import'); ?></strong>
+                        <p><?php esc_html_e('Put the tournament on a page with the shortcode below (see Tournament Shortcodes for more options).', 'poker-tournament-import'); ?></p>
+                        <div class="shortcode-block" data-copy="[tournament_results id=&quot;123&quot; show_players=&quot;true&quot;]">
+                            <code>[tournament_results id="123" show_players="true"]</code>
+                        </div>
+                        <div class="tip-box">
+                            <strong><?php esc_html_e('Pro Tip:', 'poker-tournament-import'); ?></strong>
+                            <?php
+                            printf(
+                                /* translators: %s: admin menu path (Poker Import -> Debug Log) */
+                                esc_html__('Troubleshooting a bad import? Check %s.', 'poker-tournament-import'),
+                                '<span class="ui-path">' . esc_html__('Poker Import → Debug Log', 'poker-tournament-import') . '</span>'
+                            );
+                            ?>
+                        </div>
+                    </li>
+                </ol>
+            </div>
+
+            <div class="tutorial" id="tutorial-live">
+                <h3><?php esc_html_e('Run a Live Tournament (Tournament Manager)', 'poker-tournament-import'); ?></h3>
+                <p class="tutorial-lead"><?php esc_html_e('Build the structure, launch, run the clock, and put it on a screen — all from the Tournament Manager menu (trophy icon, a separate top-level menu from Poker Import).', 'poker-tournament-import'); ?></p>
+                <ol class="tutorial-steps">
+                    <li>
+                        <strong class="step-title"><?php esc_html_e('Build a blind schedule', 'poker-tournament-import'); ?></strong>
+                        <p>
+                            <?php
+                            printf(
+                                /* translators: %s: admin menu path (Tournament Manager -> Blind Builder) */
+                                esc_html__('%s → "Add New Schedule"; set Schedule Name, Level Duration, Break Frequency & Duration (or start from a Turbo/Regular/Deep Stack default), then edit the blind levels. Mark break levels here so the clock auto-starts breaks.', 'poker-tournament-import'),
+                                '<span class="ui-path">' . esc_html__('Tournament Manager → Blind Builder', 'poker-tournament-import') . '</span>'
+                            );
+                            ?>
+                        </p>
+                    </li>
+                    <li>
+                        <strong class="step-title"><?php esc_html_e('Set up payouts', 'poker-tournament-import'); ?></strong>
+                        <p>
+                            <?php
+                            printf(
+                                /* translators: %s: admin menu path (Tournament Manager -> Prize Calculator) */
+                                esc_html__('%s → "Add New Structure"; set the player range and add payout Places with percentages (or use the "Winner" preset). Tabs: Structures / Pool Calculator / Chop Calculator.', 'poker-tournament-import'),
+                                '<span class="ui-path">' . esc_html__('Tournament Manager → Prize Calculator', 'poker-tournament-import') . '</span>'
+                            );
+                            ?>
+                        </p>
+                    </li>
+                    <li>
+                        <strong class="step-title"><?php esc_html_e('Create a template (recommended)', 'poker-tournament-import'); ?></strong>
+                        <p>
+                            <?php
+                            printf(
+                                /* translators: %s: admin menu path (Tournament Manager -> Templates) */
+                                esc_html__('%s → "Add New"; set Starting Chips, rebuy/add-on cost & chips and limits, late-registration cutoff, rake, and link the Blind Schedule + Prize Structure you just made.', 'poker-tournament-import'),
+                                '<span class="ui-path">' . esc_html__('Tournament Manager → Templates', 'poker-tournament-import') . '</span>'
+                            );
+                            ?>
+                        </p>
+                    </li>
+                    <li>
+                        <strong class="step-title"><?php esc_html_e('Launch the tournament', 'poker-tournament-import'); ?></strong>
+                        <p>
+                            <?php
+                            printf(
+                                /* translators: %s: admin menu path (Tournament Manager -> New Live Tournament) */
+                                esc_html__('%s. Step 1 choose "Start Blank", "From Template", or "Copy Tournament". Step 2 configure name, starting chips, rebuys, rake, practice mode, financial policy (rebuy policy, bounty/PKO type, late-reg cutoff). Click "Create Tournament", then "Manage Tournament" to open Live Control.', 'poker-tournament-import'),
+                                '<span class="ui-path">' . esc_html__('Tournament Manager → New Live Tournament', 'poker-tournament-import') . '</span>'
+                            );
+                            ?>
+                        </p>
+                    </li>
+                    <li>
+                        <strong class="step-title"><?php esc_html_e('Operate the clock', 'poker-tournament-import'); ?></strong>
+                        <p>
+                            <?php
+                            printf(
+                                /* translators: %s: admin menu path (Tournament Manager -> Live Control) */
+                                esc_html__('%s. On the Timer tab you get the current level (blinds/ante/duration) + next level, and controls: "Start Tournament", "Pause", "Resume", "Skip Level", "Add 5 Minutes", "Start Break" / "End Break", and "Stop Tournament" to finalize. A level-history table logs changes.', 'poker-tournament-import'),
+                                '<span class="ui-path">' . esc_html__('Tournament Manager → Live Control', 'poker-tournament-import') . '</span>'
+                            );
+                            ?>
+                        </p>
+                    </li>
+                    <li>
+                        <strong class="step-title"><?php esc_html_e('Manage players live', 'poker-tournament-import'); ?></strong>
+                        <p><?php esc_html_e('The Players tab: "Add Player", "Process Buy-ins", and per-player "Process Rebuy", "Process Add-on", "Update Chip Count", "Bust Out Player" (with eliminator selection for bounties), and "Player Withdrawal".', 'poker-tournament-import'); ?></p>
+                    </li>
+                    <li>
+                        <strong class="step-title"><?php esc_html_e('Put it on a screen', 'poker-tournament-import'); ?></strong>
+                        <p><?php esc_html_e('The simplest public display: add the clock shortcode to a page and open it with ?screen=clock for a chrome-free fullscreen venue display (see Live Tournament Clock above).', 'poker-tournament-import'); ?></p>
+                        <div class="shortcode-block" data-copy="[tournament_clock tournament_id=&quot;123&quot; theme=&quot;dark&quot;]">
+                            <code>[tournament_clock tournament_id="123" theme="dark"]</code>
+                        </div>
+                        <p>
+                            <?php esc_html_e('For a richer board, combine the display widgets ([tdwp_tournament_display], [tdwp_leaderboard], [tdwp_prize_pool], [tdwp_current_blinds], [tdwp_player_count]) — see Display Screens.', 'poker-tournament-import'); ?>
+                        </p>
+                        <div class="shortcode-block" data-copy="[tdwp_tournament_display tournament_id=&quot;123&quot;]">
+                            <code>[tdwp_tournament_display tournament_id="123"]</code>
+                        </div>
+                        <p>
+                            <?php
+                            printf(
+                                /* translators: 1: admin menu path (Tournament Manager -> Display Screens), 2: admin menu path (Tournament Manager -> Layout Builder) */
+                                esc_html__('For a managed TV, use %1$s to add a screen and assign the tournament, optionally styled in %2$s.', 'poker-tournament-import'),
+                                '<span class="ui-path">' . esc_html__('Tournament Manager → Display Screens', 'poker-tournament-import') . '</span>',
+                                '<span class="ui-path">' . esc_html__('Tournament Manager → Layout Builder', 'poker-tournament-import') . '</span>'
+                            );
+                            ?>
+                        </p>
+                        <div class="tip-box">
+                            <strong><?php esc_html_e('Pro Tip:', 'poker-tournament-import'); ?></strong>
+                            <?php esc_html_e('See the Live Tournament Clock section for the clock\'s live features (sounds, break countdown, multi-tab sync).', 'poker-tournament-import'); ?>
+                        </div>
+                    </li>
+                    <li>
+                        <strong class="step-title"><?php esc_html_e('Finish', 'poker-tournament-import'); ?></strong>
+                        <p><?php esc_html_e('Click "Stop Tournament" on the Timer tab to finalize standings and payouts (or "Trash Tournament" to discard a test run). Results then flow into the same stats/standings the shortcodes display.', 'poker-tournament-import'); ?></p>
+                    </li>
+                </ol>
+            </div>
         </section>
         <?php
     }
