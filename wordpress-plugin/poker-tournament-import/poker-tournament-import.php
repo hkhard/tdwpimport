@@ -449,8 +449,62 @@ class Poker_Tournament_Import {
             }
         }
 
+        // Data-level self-heal (tdwp-luk): template tables can exist but be empty
+        // when insert_default_templates() was skipped or aborted during activate()
+        // (e.g. tables not yet visible, or an earlier fatal). The option-based guard
+        // inside insert_default_templates() trusts its own flags, so an empty table
+        // never re-seeds on its own. Detect empty template tables and force a re-seed.
+        $this->ensure_default_templates_seeded();
+
         // Set transient to check again in 1 hour
         set_transient('tdwp_all_tables_checked', true, HOUR_IN_SECONDS);
+    }
+
+    /**
+     * Ensure built-in templates are seeded, self-healing empty template tables.
+     *
+     * Mirrors the missing-tables self-heal above but at the data level: if the
+     * blind-schedule or prize-structure tables exist yet contain no rows, the
+     * seed-gate options are cleared and insert_default_templates() is re-run.
+     * insert_default_templates() is idempotent (per-name guards), so this is
+     * safe even when the tables are only partially populated.
+     *
+     * @since 3.9.2 tdwp-luk: fresh-activation seeding was not robust.
+     */
+    private function ensure_default_templates_seeded() {
+        if (!class_exists('TDWP_Database_Schema')) {
+            return;
+        }
+
+        global $wpdb;
+
+        $schedules_table = $wpdb->prefix . 'tdwp_blind_schedules';
+        $prizes_table    = $wpdb->prefix . 'tdwp_prize_structures';
+
+        // Only meaningful once the tables themselves exist.
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table existence check
+        if ($wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $schedules_table)) !== $schedules_table) {
+            return;
+        }
+
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Row count for self-heal
+        $schedule_count = (int) $wpdb->get_var("SELECT COUNT(*) FROM `{$schedules_table}`");
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Row count for self-heal
+        $prize_count = (int) $wpdb->get_var("SELECT COUNT(*) FROM `{$prizes_table}`");
+
+        if ($schedule_count > 0 && $prize_count > 0) {
+            return; // Already seeded — nothing to do.
+        }
+
+        error_log('Tournament Manager Templates: Empty template tables detected (schedules=' . $schedule_count . ', prizes=' . $prize_count . ') - re-seeding');
+
+        // Clear the seed-gate options so insert_default_templates() re-runs every branch.
+        delete_option('tdwp_default_templates_inserted');
+        delete_option('tdwp_prd_prize_templates_v1_inserted');
+        delete_option('tdwp_hyper_turbo_v1_inserted');
+
+        TDWP_Database_Schema::insert_default_templates();
+        error_log('Tournament Manager Templates: Default templates re-seeded');
     }
 
     /**

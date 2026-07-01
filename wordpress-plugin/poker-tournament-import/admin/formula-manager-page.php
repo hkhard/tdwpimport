@@ -10,18 +10,12 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-// Debug: Log when file is included
-file_put_contents(__DIR__ . '/hook-debug.txt', 'formula-manager-page.php included: ' . date('Y-m-d H:i:s') . PHP_EOL, FILE_APPEND);
-
 class Poker_Formula_Manager_Page {
 
     /**
      * Constructor
      */
     public function __construct() {
-        // Debug: Log when class is instantiated
-        file_put_contents(__DIR__ . '/hook-debug.txt', 'Poker_Formula_Manager_Page constructed: ' . date('Y-m-d H:i:s') . PHP_EOL, FILE_APPEND);
-
         add_action('admin_init', array($this, 'save_formula_settings'));
         add_action('admin_enqueue_scripts', array($this, 'enqueue_formula_manager_assets'));
     }
