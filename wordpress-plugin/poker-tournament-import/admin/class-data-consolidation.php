@@ -35,6 +35,20 @@ class TDWP_Data_Consolidation_Admin {
 		add_action( 'admin_post_tdwp_eil_enable', array( __CLASS__, 'handle_enable' ) );
 		add_action( 'admin_post_tdwp_eil_disable', array( __CLASS__, 'handle_disable' ) );
 		add_action( 'admin_post_tdwp_eil_rollback', array( __CLASS__, 'handle_rollback' ) );
+		add_action( 'admin_post_tdwp_eil_export', array( __CLASS__, 'handle_export' ) );
+	}
+
+	/**
+	 * Tables offered for the pre-cutover safety export (whitelisted — never interpolate user input).
+	 *
+	 * @return array<string,string> suffix => human label
+	 */
+	private static function exportable_tables() {
+		return array(
+			'poker_tournament_players' => __( 'Stats mart (poker_tournament_players)', 'poker-tournament-import' ),
+			'poker_player_roi'         => __( 'ROI mart (poker_player_roi)', 'poker-tournament-import' ),
+			'tdwp_tournament_players'  => __( 'Canonical source (tdwp_tournament_players)', 'poker-tournament-import' ),
+		);
 	}
 
 	/**
@@ -126,6 +140,19 @@ class TDWP_Data_Consolidation_Admin {
 					<li><strong><?php echo esc_html( sprintf( __( 'Rollup cutover: %s', 'poker-tournament-import' ), $enabled ? __( 'ENABLED', 'poker-tournament-import' ) : __( 'disabled', 'poker-tournament-import' ) ) ); ?></strong></li>
 					<li><?php echo esc_html( sprintf( __( 'Last reconcile clean: %s', 'poker-tournament-import' ), $reviewed ? __( 'yes', 'poker-tournament-import' ) : __( 'not yet', 'poker-tournament-import' ) ) ); ?></li>
 				</ul>
+			</div>
+
+			<div class="card" style="max-width:820px;margin-top:20px;">
+				<h2><?php esc_html_e( 'Step 0 — Export a backup (recommended)', 'poker-tournament-import' ); ?></h2>
+				<p><?php esc_html_e( 'No DB CLI needed: download a CSV snapshot of each affected table before making changes. Also take a host/backup-plugin snapshot if you can.', 'poker-tournament-import' ); ?></p>
+				<?php foreach ( self::exportable_tables() as $suffix => $label ) : ?>
+					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline-block;margin:0 6px 6px 0;">
+						<input type="hidden" name="action" value="tdwp_eil_export" />
+						<input type="hidden" name="table" value="<?php echo esc_attr( $suffix ); ?>" />
+						<?php wp_nonce_field( 'tdwp_eil_export' ); ?>
+						<button type="submit" class="button"><?php echo esc_html( sprintf( __( 'Export %s', 'poker-tournament-import' ), $label ) ); ?></button>
+					</form>
+				<?php endforeach; ?>
 			</div>
 
 			<div class="card" style="max-width:820px;margin-top:20px;">
@@ -385,6 +412,61 @@ class TDWP_Data_Consolidation_Admin {
 		$removed = $wpdb->query( "DELETE FROM {$src} WHERE source = 'import'" );
 		delete_option( self::REVIEW_FLAG );
 		self::redirect_notice( 'success', sprintf( __( 'Rolled back: cutover disabled, %d imported rows removed.', 'poker-tournament-import' ), (int) $removed ) );
+	}
+
+	/**
+	 * Stream a whitelisted table as a CSV download (batched, low-memory) — the no-CLI backup
+	 * safety net (tdwp-ffx). Take one of each affected table before cutover.
+	 *
+	 * @return void
+	 */
+	public static function handle_export() {
+		self::verify_post( 'tdwp_eil_export' );
+		global $wpdb;
+
+		$suffix = isset( $_POST['table'] ) ? sanitize_key( wp_unslash( $_POST['table'] ) ) : '';
+		$allowed = self::exportable_tables();
+		if ( ! isset( $allowed[ $suffix ] ) ) {
+			self::redirect_notice( 'error', __( 'Unknown table for export.', 'poker-tournament-import' ) );
+		}
+		$table = $wpdb->prefix . $suffix;
+
+		// Discard any buffered output so the CSV stream is clean.
+		while ( ob_get_level() > 0 ) {
+			ob_end_clean();
+		}
+		nocache_headers();
+		header( 'Content-Type: text/csv; charset=utf-8' );
+		header( 'Content-Disposition: attachment; filename="' . $suffix . '-' . gmdate( 'Ymd-His' ) . '.csv"' );
+
+		$out = fopen( 'php://output', 'w' );
+
+		// Header row from the table columns.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Export.
+		$columns = $wpdb->get_col( "SHOW COLUMNS FROM {$table}" );
+		if ( empty( $columns ) ) {
+			fclose( $out );
+			exit;
+		}
+		fputcsv( $out, $columns );
+
+		// Batched read to keep memory bounded on large prod tables.
+		$batch  = 1000;
+		$offset = 0;
+		do {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table whitelisted above; LIMIT prepared.
+			$rows = $wpdb->get_results(
+				$wpdb->prepare( "SELECT * FROM {$table} ORDER BY 1 LIMIT %d OFFSET %d", $batch, $offset ),
+				ARRAY_A
+			);
+			foreach ( (array) $rows as $row ) {
+				fputcsv( $out, $row );
+			}
+			$offset += $batch;
+		} while ( ! empty( $rows ) && count( $rows ) === $batch );
+
+		fclose( $out );
+		exit;
 	}
 
 	/**
