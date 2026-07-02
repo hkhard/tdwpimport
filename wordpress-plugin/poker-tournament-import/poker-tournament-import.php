@@ -1083,6 +1083,82 @@ class Poker_Tournament_Import {
         }
     }
 
+    /**
+     * Delete duplicate poker_player_roi rows, keeping the lowest id per (player_id, tournament_id).
+     *
+     * tdwp-eil / tdwp-ayg: poker_player_roi shipped with only PRIMARY KEY(id) and no UNIQUE on the
+     * (player_id, tournament_id) pair, so $wpdb->replace() never actually replaced -- writers that
+     * skipped the manual delete accumulated duplicate rows that inflate SUM(net_profit) on every
+     * leaderboard. Dedup before enforcing the UNIQUE index.
+     *
+     * @return int Number of duplicate rows removed.
+     */
+    public function dedup_player_roi() {
+        global $wpdb;
+        $table = $wpdb->prefix . 'poker_player_roi';
+
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- table existence check
+        if ($wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table)) !== $table) {
+            return 0;
+        }
+
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- one-time dedup migration
+        $removed = $wpdb->query(
+            "DELETE r FROM {$table} r
+             INNER JOIN (
+                 SELECT player_id, tournament_id, MIN(id) AS keep_id
+                 FROM {$table}
+                 GROUP BY player_id, tournament_id
+                 HAVING COUNT(*) > 1
+             ) dup
+             ON r.player_id = dup.player_id
+             AND r.tournament_id = dup.tournament_id
+             AND r.id <> dup.keep_id"
+        );
+
+        return $removed ? (int) $removed : 0;
+    }
+
+    /**
+     * Dedup poker_player_roi, then ensure UNIQUE(player_id, tournament_id).
+     *
+     * Guarded by an option so the ALTER runs once. Safe to call on every activation/upgrade.
+     * After this, $wpdb->replace() on the ROI table is correct (delete-then-insert becomes
+     * belt-and-suspenders) and future duplication is structurally impossible.
+     */
+    public function ensure_roi_unique_index() {
+        global $wpdb;
+        $table = $wpdb->prefix . 'poker_player_roi';
+
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- table existence check
+        if ($wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table)) !== $table) {
+            return;
+        }
+
+        // Already present? Nothing to do.
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- index introspection
+        $has_index = $wpdb->get_var("SHOW INDEX FROM {$table} WHERE Key_name = 'player_tournament'");
+        if ($has_index) {
+            update_option('poker_roi_unique_index_v1', 1);
+            return;
+        }
+
+        // Must dedup before a UNIQUE index can be added.
+        $removed = $this->dedup_player_roi();
+        if ($removed > 0) {
+            error_log("Poker Import: deduped {$removed} duplicate ROI rows before adding UNIQUE index");
+        }
+
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- one-time schema upgrade
+        $added = $wpdb->query("ALTER TABLE {$table} ADD UNIQUE KEY player_tournament (player_id, tournament_id)");
+        if ($added !== false) {
+            update_option('poker_roi_unique_index_v1', 1);
+            error_log('Poker Import: added UNIQUE(player_id, tournament_id) to poker_player_roi');
+        } else {
+            error_log('Poker Import: failed to add UNIQUE index to poker_player_roi: ' . $wpdb->last_error);
+        }
+    }
+
     private function create_database_tables() {
         global $wpdb;
 
@@ -1193,6 +1269,7 @@ class Poker_Tournament_Import {
             tournament_date date DEFAULT NULL,
             created_at datetime DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY  (id),
+            UNIQUE KEY player_tournament (player_id, tournament_id),
             KEY player_id (player_id),
             KEY tournament_id (tournament_id),
             KEY roi_percentage (roi_percentage),
@@ -1200,6 +1277,10 @@ class Poker_Tournament_Import {
         ) $charset_collate;";
 
         dbDelta($player_roi_sql);
+
+        // tdwp-eil / tdwp-ayg: existing installs may hold duplicate (player_id, tournament_id)
+        // ROI rows, which would make the UNIQUE KEY above fail to apply via dbDelta. Dedup then enforce.
+        $this->ensure_roi_unique_index();
 
         // Table for revenue analytics (monthly aggregation)
         $revenue_analytics_table_name = $wpdb->prefix . 'poker_revenue_analytics';
