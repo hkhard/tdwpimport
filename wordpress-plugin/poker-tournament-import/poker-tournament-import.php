@@ -191,14 +191,15 @@ class Poker_Tournament_Import {
         // statistics data-mart so leaderboards include live-run tournaments.
         // Loaded OUTSIDE is_admin() so both the finish hook (admin-ajax) and the
         // async refresh hook (cron) are registered. See bead tdwp-iwc (Option A).
+        // Stats rollup (tdwp-eil): single derived-mart writer sourced from the canonical
+        // per-entry table. Required BEFORE the bridge so the bridge can check whether the
+        // rollup has taken over. Registers finish hooks only when tdwp_eil_rollup_enabled is
+        // set (dormant + no-op otherwise); reconcile_report() is always read-only.
+        require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-stats-rollup.php';
+
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-stats-bridge.php';
         TDWP_Stats_Bridge::init();
-
-        // Stats rollup (tdwp-eil Phase D): single derived-mart writer sourced from the
-        // canonical per-entry table. Loaded but DORMANT — it registers no hooks and
-        // rebuild_tournament() is a no-op until the tdwp_eil_rollup_enabled option is set
-        // at cutover. reconcile_report() is read-only and drives the shadow dry-run.
-        require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-stats-rollup.php';
+        TDWP_Stats_Rollup::init();
 
         // AJAX handlers for tabbed interface
         add_action('wp_ajax_tdwp_series_tab_content', array($this, 'ajax_series_tab_content'));

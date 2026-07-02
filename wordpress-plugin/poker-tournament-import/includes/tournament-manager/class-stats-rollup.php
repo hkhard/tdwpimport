@@ -36,6 +36,11 @@ class TDWP_Stats_Rollup {
 	 */
 	const ENABLED_OPTION = 'tdwp_eil_rollup_enabled';
 
+	/** Live-tournament completion hooks (shared with TDWP_Stats_Bridge). */
+	const FINISH_HOOK   = 'tdwp_tournament_finished';
+	const COMPLETE_HOOK = 'tdwp_tournament_completed';
+	const REFRESH_HOOK  = 'tdwp_stats_rollup_refresh';
+
 	/**
 	 * Whether the rollup is the active mart writer.
 	 *
@@ -43,6 +48,130 @@ class TDWP_Stats_Rollup {
 	 */
 	public static function is_enabled() {
 		return (bool) get_option( self::ENABLED_OPTION, false );
+	}
+
+	/**
+	 * Register finish-hook handlers — ONLY when enabled. Until cutover this is a no-op, so
+	 * TDWP_Stats_Bridge remains the sole projector; after cutover the rollup takes over and the
+	 * bridge stands down (see TDWP_Stats_Bridge::init).
+	 *
+	 * @return void
+	 */
+	public static function init() {
+		if ( ! self::is_enabled() ) {
+			return;
+		}
+		// Priority 20 so other finish listeners run first; rebuild is idempotent on double-fire.
+		add_action( self::FINISH_HOOK, array( __CLASS__, 'on_tournament_finished' ), 20, 1 );
+		add_action( self::COMPLETE_HOOK, array( __CLASS__, 'on_tournament_finished' ), 20, 1 );
+		add_action( self::REFRESH_HOOK, array( __CLASS__, 'refresh_stats_mart' ) );
+	}
+
+	/**
+	 * Finish-hook handler: ensure live rows carry stored UUIDs, then rebuild the marts.
+	 *
+	 * Replaces TDWP_Stats_Bridge::project_to_stats_mart after cutover. Where the bridge mapped
+	 * post IDs to UUIDs at projection time, this stamps the stored tournament_uuid/player_uuid
+	 * columns on the live source rows first, then rolls up from those stored keys.
+	 *
+	 * @param int $tournament_id Tournament post ID.
+	 * @return void
+	 */
+	public static function on_tournament_finished( $tournament_id ) {
+		$tournament_id = absint( $tournament_id );
+		if ( ! $tournament_id ) {
+			return;
+		}
+
+		$tournament_uuid = self::ensure_live_uuids( $tournament_id );
+		if ( '' === $tournament_uuid ) {
+			return;
+		}
+
+		self::rebuild_tournament( $tournament_uuid );
+
+		if ( ! wp_next_scheduled( self::REFRESH_HOOK ) ) {
+			wp_schedule_single_event( time() + 5, self::REFRESH_HOOK );
+		}
+	}
+
+	/**
+	 * Recompute the legacy statistics data-mart (async).
+	 *
+	 * @return void
+	 */
+	public static function refresh_stats_mart() {
+		if ( class_exists( 'Poker_Statistics_Engine' ) ) {
+			Poker_Statistics_Engine::get_instance()->calculate_all_statistics();
+		}
+	}
+
+	/**
+	 * Stamp stored tournament_uuid/player_uuid (+ source='live') on the live source rows for a
+	 * finished tournament, minting UUIDs into postmeta where missing (reuses existing ones so live
+	 * and imported records for the same post unify). Returns the tournament UUID.
+	 *
+	 * @param int $tournament_id Tournament post ID.
+	 * @return string Tournament UUID, or '' on failure.
+	 */
+	private static function ensure_live_uuids( $tournament_id ) {
+		global $wpdb;
+
+		$source = $wpdb->prefix . 'tdwp_tournament_players';
+		if ( ! self::table_exists( $source ) ) {
+			return '';
+		}
+
+		$tournament_uuid = self::get_or_create_meta_uuid( $tournament_id, 'tournament_uuid' );
+		if ( '' === $tournament_uuid ) {
+			return '';
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Migration read.
+		$player_ids = $wpdb->get_col(
+			$wpdb->prepare( "SELECT DISTINCT player_id FROM {$source} WHERE tournament_id = %d", $tournament_id )
+		);
+
+		foreach ( (array) $player_ids as $pid ) {
+			$player_uuid = self::get_or_create_meta_uuid( (int) $pid, 'player_uuid' );
+			if ( '' === $player_uuid ) {
+				continue;
+			}
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Stamp stored keys.
+			$wpdb->query(
+				$wpdb->prepare(
+					"UPDATE {$source} SET tournament_uuid = %s, player_uuid = %s, source = 'live'
+					 WHERE tournament_id = %d AND player_id = %d",
+					$tournament_uuid,
+					$player_uuid,
+					$tournament_id,
+					(int) $pid
+				)
+			);
+		}
+
+		return $tournament_uuid;
+	}
+
+	/**
+	 * Return an existing post-meta UUID, or generate, store, and return a new one.
+	 *
+	 * @param int    $post_id  Post ID.
+	 * @param string $meta_key 'tournament_uuid' or 'player_uuid'.
+	 * @return string UUID, or '' if post_id is invalid.
+	 */
+	private static function get_or_create_meta_uuid( $post_id, $meta_key ) {
+		$post_id = absint( $post_id );
+		if ( ! $post_id ) {
+			return '';
+		}
+		$uuid = get_post_meta( $post_id, $meta_key, true );
+		if ( ! empty( $uuid ) ) {
+			return (string) $uuid;
+		}
+		$uuid = 'live-' . wp_generate_uuid4();
+		update_post_meta( $post_id, $meta_key, $uuid );
+		return $uuid;
 	}
 
 	/**

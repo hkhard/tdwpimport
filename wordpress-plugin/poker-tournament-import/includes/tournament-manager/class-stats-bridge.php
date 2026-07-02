@@ -66,6 +66,11 @@ class TDWP_Stats_Bridge {
 	 * @since 3.6.6
 	 */
 	public static function init() {
+		// tdwp-eil cutover: once TDWP_Stats_Rollup is enabled it owns the finish projection
+		// (sourcing from the canonical per-entry table). Stand down to avoid double-writing.
+		if ( class_exists( 'TDWP_Stats_Rollup' ) && TDWP_Stats_Rollup::is_enabled() ) {
+			return;
+		}
 		// Priority 20 so any other finish listeners (e.g. events) run first.
 		// Both completion paths are covered; the projection is idempotent, so if
 		// both fire for one tournament there is no duplication.
