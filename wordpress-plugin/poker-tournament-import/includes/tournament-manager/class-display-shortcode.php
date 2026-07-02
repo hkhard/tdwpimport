@@ -522,34 +522,42 @@ class TDWP_Display_Shortcode {
 	private function get_leaderboard( $tournament_id, $limit = 10, $include_eliminated = false ) {
 		global $wpdb;
 
-		$table_name = $wpdb->prefix . 'poker_tournament_players';
+		// tdwp-eil: this helper always meant the LIVE table. It previously queried
+		// poker_tournament_players (the UUID-keyed stats mart) with a bigint tournament_id
+		// and columns rank/chips/eliminated/elimination_order that do not exist there, so it
+		// silently returned nothing. Repoint to tdwp_tournament_players and map to the real
+		// live columns (chip_count, status, finish_position). player_id here IS a bigint post ID.
+		$table_name = $wpdb->prefix . 'tdwp_tournament_players';
 		$limit = intval( $limit );
 
 		$sql = "SELECT
 			p.post_title as name,
-			tp.rank,
-			tp.chips,
-			tp.eliminated,
-			tp.elimination_order
+			tp.chip_count as chips,
+			tp.finish_position,
+			CASE WHEN tp.status IN ( 'eliminated', 'busted' ) OR tp.finish_position IS NOT NULL THEN 1 ELSE 0 END as eliminated
 			FROM {$table_name} tp
 			INNER JOIN {$wpdb->posts} p ON tp.player_id = p.ID
 			WHERE tp.tournament_id = %d";
 
 		if ( ! $include_eliminated ) {
-			$sql .= " AND tp.eliminated = 0";
+			$sql .= " AND tp.status = 'active'";
 		}
 
-		$sql .= " ORDER BY tp.rank ASC, tp.elimination_order ASC LIMIT %d";
+		// Active players ranked by chip count (leader first); eliminated ordered by finish position.
+		$sql .= " ORDER BY eliminated ASC, tp.chip_count DESC, tp.finish_position ASC LIMIT %d";
 
 		$results = $wpdb->get_results( $wpdb->prepare( $sql, $tournament_id, $limit ) );
 
 		$leaderboard = array();
+		$rank        = 0;
 		foreach ( $results as $result ) {
+			$rank++;
 			$leaderboard[] = array(
-				'name' => $result->name,
-				'rank' => $result->rank,
-				'chips' => $result->chips,
-				'eliminated' => $result->eliminated,
+				// Eliminated players keep their finish position; active players get a chip-rank ordinal.
+				'name'       => $result->name,
+				'rank'       => $result->finish_position ? intval( $result->finish_position ) : $rank,
+				'chips'      => intval( $result->chips ),
+				'eliminated' => intval( $result->eliminated ),
 			);
 		}
 

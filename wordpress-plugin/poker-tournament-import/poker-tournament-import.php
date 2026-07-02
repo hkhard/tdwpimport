@@ -3,7 +3,7 @@
  * Plugin Name: Poker Tournament Import
  * Plugin URI: https://nikielhard.se/tdwpimport
  * Description: Import and display poker tournament results from Tournament Director (.tdt) files. Now with Tournament Manager for creating tournaments without TD software!
- * Version: 3.9.2
+ * Version: 3.9.7
  * Author: Hans Kästel Hård
  * Author URI: https://nikielhard.se
  * License: GPL v2 or later
@@ -20,7 +20,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('POKER_TOURNAMENT_IMPORT_VERSION', '3.9.2');
+define('POKER_TOURNAMENT_IMPORT_VERSION', '3.9.7');
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -187,12 +187,20 @@ class Poker_Tournament_Import {
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/class-bulk-import.php';
         Poker_Tournament_Bulk_Import::get_instance();
 
-        // Stats mart bridge: project finished LIVE tournaments into the legacy
-        // statistics data-mart so leaderboards include live-run tournaments.
-        // Loaded OUTSIDE is_admin() so both the finish hook (admin-ajax) and the
-        // async refresh hook (cron) are registered. See bead tdwp-iwc (Option A).
-        require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-stats-bridge.php';
-        TDWP_Stats_Bridge::init();
+        // Stats rollup (tdwp-eil): the single derived-mart writer. On a live tournament finish it
+        // stamps canonical UUIDs and rebuilds poker_tournament_players + poker_player_roi from the
+        // canonical per-entry source. Loaded OUTSIDE is_admin() so both the finish hook (admin-ajax)
+        // and the async refresh hook (cron) register. Phase F retired the old TDWP_Stats_Bridge; the
+        // rollup is now unconditional (no opt-in flag).
+        require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-stats-rollup.php';
+        TDWP_Stats_Rollup::init();
+
+        // Data Consolidation cutover UI (tdwp-eil): admin page + batched AJAX + actions. Admin/AJAX
+        // context only. Registering menu/ajax/admin-post hooks is inert on the front end.
+        if ( is_admin() || wp_doing_ajax() ) {
+            require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/class-data-consolidation.php';
+            TDWP_Data_Consolidation_Admin::init();
+        }
 
         // AJAX handlers for tabbed interface
         add_action('wp_ajax_tdwp_series_tab_content', array($this, 'ajax_series_tab_content'));
@@ -263,6 +271,9 @@ class Poker_Tournament_Import {
         add_action('save_post_tournament', array($this, 'on_tournament_save'), 10, 3);
         add_action('wp_trash_post', array($this, 'on_tournament_delete'));
         add_action('untrash_post', array($this, 'on_tournament_restore'));
+        // tdwp-48e: permanently deleting a tournament must also purge its per-tournament
+        // data-mart rows, otherwise orphaned participation rows linger on player profiles.
+        add_action('before_delete_post', array($this, 'on_tournament_permanent_delete'));
 
         // Clear overall standings cache on tournament changes
         if (class_exists('Poker_Series_Standings_Calculator')) {
@@ -315,6 +326,24 @@ class Poker_Tournament_Import {
                 } else {
                     error_log("ROI Migration: Skipped - ROI table already has {$roi_count} records");
                 }
+            }
+
+            // tdwp-46s: one-time repair of the participation mart on upgrade —
+            // reconcile orphaned rows, dedup, and enforce the UNIQUE index so historical
+            // duplicate tournaments stop rendering on player profiles.
+            $orphans_removed = $this->reconcile_orphan_participation_rows();
+            if ($orphans_removed > 0) {
+                error_log("Poker Import: reconciled {$orphans_removed} orphaned participation rows on upgrade");
+            }
+            $this->ensure_participation_unique_index();
+
+            // tdwp-eil (tdwp-rqr): also enforce the ROI UNIQUE(player_id, tournament_id) index on
+            // UPDATE, not just activation. Prod installs update in place (no deactivate/reactivate),
+            // so without this the ROI dedup + unique key from Phase B would never run there.
+            $this->ensure_roi_unique_index();
+
+            if (class_exists('Poker_Statistics_Engine')) {
+                Poker_Statistics_Engine::get_instance()->calculate_all_statistics();
             }
 
             // Update the stored version
@@ -961,6 +990,189 @@ class Poker_Tournament_Import {
     /**
      * Create custom database tables
      */
+    /**
+     * Collapse duplicate participation rows in poker_tournament_players.
+     *
+     * tdwp-46s: repeated import->delete historically appended duplicate
+     * (tournament_id, player_id) rows. This keeps the lowest-id row per pair and
+     * removes the rest, so aggregates converge and the UNIQUE index can apply.
+     *
+     * @return int Number of duplicate rows removed.
+     */
+    public function dedup_participation_mart() {
+        global $wpdb;
+        $table = $wpdb->prefix . 'poker_tournament_players';
+
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- table existence check
+        if ($wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table)) !== $table) {
+            return 0;
+        }
+
+        // Delete every row that is not the minimum id for its (tournament_id, player_id) pair.
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- one-time dedup migration
+        $removed = $wpdb->query(
+            "DELETE tp FROM {$table} tp
+             INNER JOIN (
+                 SELECT tournament_id, player_id, MIN(id) AS keep_id
+                 FROM {$table}
+                 GROUP BY tournament_id, player_id
+                 HAVING COUNT(*) > 1
+             ) dup
+             ON tp.tournament_id = dup.tournament_id
+             AND tp.player_id = dup.player_id
+             AND tp.id <> dup.keep_id"
+        );
+
+        return $removed ? (int) $removed : 0;
+    }
+
+    /**
+     * Remove participation rows whose tournament no longer exists as a post.
+     *
+     * tdwp-46s: permanent deletes prior to the delete-cleanup hook left orphaned
+     * UUID-keyed rows that still rendered on player profiles. Reconcile them.
+     *
+     * @return int Number of orphaned rows removed.
+     */
+    public function reconcile_orphan_participation_rows() {
+        global $wpdb;
+        $table = $wpdb->prefix . 'poker_tournament_players';
+
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- table existence check
+        if ($wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table)) !== $table) {
+            return 0;
+        }
+
+        // A row is orphaned when its tournament_id (UUID) has no matching
+        // 'tournament_uuid' postmeta pointing at a live tournament post.
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- orphan reconciliation
+        $removed = $wpdb->query(
+            "DELETE tp FROM {$table} tp
+             LEFT JOIN {$wpdb->postmeta} pm
+                 ON pm.meta_key = 'tournament_uuid' AND pm.meta_value = tp.tournament_id
+             LEFT JOIN {$wpdb->posts} p
+                 ON p.ID = pm.post_id AND p.post_type IN ('tournament', 'live_tournament')
+             WHERE p.ID IS NULL"
+        );
+
+        return $removed ? (int) $removed : 0;
+    }
+
+    /**
+     * Dedup the participation mart, then ensure the UNIQUE(tournament_id, player_id) index.
+     *
+     * Guarded by an option so it only performs the ALTER once. Safe to call on every
+     * activation/upgrade.
+     */
+    public function ensure_participation_unique_index() {
+        global $wpdb;
+        $table = $wpdb->prefix . 'poker_tournament_players';
+
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- table existence check
+        if ($wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table)) !== $table) {
+            return;
+        }
+
+        // Already present? Nothing to do.
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- index introspection
+        $has_index = $wpdb->get_var("SHOW INDEX FROM {$table} WHERE Key_name = 'tournament_player'");
+        if ($has_index) {
+            update_option('poker_participation_unique_index_v1', 1);
+            return;
+        }
+
+        // Must dedup before a UNIQUE index can be added.
+        $removed = $this->dedup_participation_mart();
+        if ($removed > 0) {
+            error_log("Poker Import: deduped {$removed} duplicate participation rows before adding UNIQUE index");
+        }
+
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- one-time schema upgrade
+        $added = $wpdb->query("ALTER TABLE {$table} ADD UNIQUE KEY tournament_player (tournament_id, player_id)");
+        if ($added !== false) {
+            update_option('poker_participation_unique_index_v1', 1);
+            error_log('Poker Import: added UNIQUE(tournament_id, player_id) to poker_tournament_players');
+        } else {
+            error_log('Poker Import: failed to add UNIQUE index to poker_tournament_players: ' . $wpdb->last_error);
+        }
+    }
+
+    /**
+     * Delete duplicate poker_player_roi rows, keeping the lowest id per (player_id, tournament_id).
+     *
+     * tdwp-eil / tdwp-ayg: poker_player_roi shipped with only PRIMARY KEY(id) and no UNIQUE on the
+     * (player_id, tournament_id) pair, so $wpdb->replace() never actually replaced -- writers that
+     * skipped the manual delete accumulated duplicate rows that inflate SUM(net_profit) on every
+     * leaderboard. Dedup before enforcing the UNIQUE index.
+     *
+     * @return int Number of duplicate rows removed.
+     */
+    public function dedup_player_roi() {
+        global $wpdb;
+        $table = $wpdb->prefix . 'poker_player_roi';
+
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- table existence check
+        if ($wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table)) !== $table) {
+            return 0;
+        }
+
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- one-time dedup migration
+        $removed = $wpdb->query(
+            "DELETE r FROM {$table} r
+             INNER JOIN (
+                 SELECT player_id, tournament_id, MIN(id) AS keep_id
+                 FROM {$table}
+                 GROUP BY player_id, tournament_id
+                 HAVING COUNT(*) > 1
+             ) dup
+             ON r.player_id = dup.player_id
+             AND r.tournament_id = dup.tournament_id
+             AND r.id <> dup.keep_id"
+        );
+
+        return $removed ? (int) $removed : 0;
+    }
+
+    /**
+     * Dedup poker_player_roi, then ensure UNIQUE(player_id, tournament_id).
+     *
+     * Guarded by an option so the ALTER runs once. Safe to call on every activation/upgrade.
+     * After this, $wpdb->replace() on the ROI table is correct (delete-then-insert becomes
+     * belt-and-suspenders) and future duplication is structurally impossible.
+     */
+    public function ensure_roi_unique_index() {
+        global $wpdb;
+        $table = $wpdb->prefix . 'poker_player_roi';
+
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- table existence check
+        if ($wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table)) !== $table) {
+            return;
+        }
+
+        // Already present? Nothing to do.
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- index introspection
+        $has_index = $wpdb->get_var("SHOW INDEX FROM {$table} WHERE Key_name = 'player_tournament'");
+        if ($has_index) {
+            update_option('poker_roi_unique_index_v1', 1);
+            return;
+        }
+
+        // Must dedup before a UNIQUE index can be added.
+        $removed = $this->dedup_player_roi();
+        if ($removed > 0) {
+            error_log("Poker Import: deduped {$removed} duplicate ROI rows before adding UNIQUE index");
+        }
+
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- one-time schema upgrade
+        $added = $wpdb->query("ALTER TABLE {$table} ADD UNIQUE KEY player_tournament (player_id, tournament_id)");
+        if ($added !== false) {
+            update_option('poker_roi_unique_index_v1', 1);
+            error_log('Poker Import: added UNIQUE(player_id, tournament_id) to poker_player_roi');
+        } else {
+            error_log('Poker Import: failed to add UNIQUE index to poker_player_roi: ' . $wpdb->last_error);
+        }
+    }
+
     private function create_database_tables() {
         global $wpdb;
 
@@ -981,12 +1193,17 @@ class Poker_Tournament_Import {
             points decimal(10,2) DEFAULT 0,
             created_at datetime DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY  (id),
+            UNIQUE KEY tournament_player (tournament_id, player_id),
             KEY tournament_id (tournament_id),
             KEY player_id (player_id)
         ) $charset_collate;";
 
         require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
         dbDelta($sql);
+
+        // tdwp-46s: existing installs may already hold duplicate participation rows, which
+        // would make the UNIQUE KEY above fail to apply via dbDelta. Dedup then enforce.
+        $this->ensure_participation_unique_index();
 
         // Table for dashboard statistics (data mart)
         $stats_table_name = $wpdb->prefix . 'poker_statistics';
@@ -1066,6 +1283,7 @@ class Poker_Tournament_Import {
             tournament_date date DEFAULT NULL,
             created_at datetime DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY  (id),
+            UNIQUE KEY player_tournament (player_id, tournament_id),
             KEY player_id (player_id),
             KEY tournament_id (tournament_id),
             KEY roi_percentage (roi_percentage),
@@ -1073,6 +1291,10 @@ class Poker_Tournament_Import {
         ) $charset_collate;";
 
         dbDelta($player_roi_sql);
+
+        // tdwp-eil / tdwp-ayg: existing installs may hold duplicate (player_id, tournament_id)
+        // ROI rows, which would make the UNIQUE KEY above fail to apply via dbDelta. Dedup then enforce.
+        $this->ensure_roi_unique_index();
 
         // Table for revenue analytics (monthly aggregation)
         $revenue_analytics_table_name = $wpdb->prefix . 'poker_revenue_analytics';
@@ -2299,7 +2521,7 @@ class Poker_Tournament_Import {
         }
 
         // Refresh statistics asynchronously to avoid blocking save
-        wp_schedule_single_event(time(), 'poker_refresh_statistics_async', array($post_id));
+        $this->schedule_statistics_refresh($post_id);
     }
 
     /**
@@ -2309,7 +2531,7 @@ class Poker_Tournament_Import {
         $post = get_post($post_id);
         if ($post && $post->post_type === 'tournament') {
             // Refresh statistics asynchronously
-            wp_schedule_single_event(time(), 'poker_refresh_statistics_async', array($post_id));
+            $this->schedule_statistics_refresh($post_id);
         }
     }
 
@@ -2320,7 +2542,71 @@ class Poker_Tournament_Import {
         $post = get_post($post_id);
         if ($post && $post->post_type === 'tournament') {
             // Refresh statistics asynchronously
-            wp_schedule_single_event(time(), 'poker_refresh_statistics_async', array($post_id));
+            $this->schedule_statistics_refresh($post_id);
+        }
+    }
+
+    /**
+     * Handle permanent tournament deletion - purge per-tournament data-mart rows.
+     *
+     * tdwp-48e: on trash we keep the mart rows (so a restore isn't lossy), but on a
+     * permanent delete the tournament is gone for good and its UUID-keyed rows must be
+     * removed from every per-tournament mart, otherwise they orphan and keep rendering
+     * on player profiles / inflating aggregates.
+     *
+     * @param int $post_id Post being permanently deleted.
+     */
+    public function on_tournament_permanent_delete($post_id) {
+        $post = get_post($post_id);
+        if (!$post || $post->post_type !== 'tournament') {
+            return;
+        }
+
+        $uuid = get_post_meta($post_id, 'tournament_uuid', true);
+        if (empty($uuid)) {
+            return;
+        }
+
+        global $wpdb;
+
+        // Per-tournament marts keyed on the .tdt UUID string.
+        $marts = array(
+            'poker_tournament_players',
+            'poker_player_roi',
+            'poker_tournament_costs',
+        );
+
+        foreach ($marts as $mart) {
+            $table = $wpdb->prefix . $mart;
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- table existence check
+            if ($wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table)) !== $table) {
+                continue;
+            }
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- orphan cleanup on permanent delete
+            $removed = $wpdb->delete($table, array('tournament_id' => $uuid), array('%s'));
+            if ($removed) {
+                error_log("Poker Import: purged {$removed} rows from {$mart} for deleted tournament UUID {$uuid}");
+            }
+        }
+
+        // Recompute aggregates now that the mart rows are gone.
+        $this->schedule_statistics_refresh($post_id);
+    }
+
+    /**
+     * Schedule a single, debounced statistics refresh.
+     *
+     * tdwp-g3i: calculate_all_statistics() is a full rebuild. Saving or deleting tournaments
+     * in bulk (e.g. selecting many on the All Tournaments list and deleting) previously
+     * scheduled one recalc PER post — an O(N) storm. Guard on wp_next_scheduled() so any
+     * number of changes in one request coalesce into a single recalc a few seconds later,
+     * mirroring TDWP_Stats_Bridge's debounce.
+     *
+     * @param int|null $post_id Tournament triggering the refresh (for logging only).
+     */
+    public function schedule_statistics_refresh($post_id = null) {
+        if (!wp_next_scheduled('poker_refresh_statistics_async')) {
+            wp_schedule_single_event(time() + 5, 'poker_refresh_statistics_async');
         }
     }
 
@@ -3259,10 +3545,13 @@ class Poker_Tournament_Import {
             'clock_running' => false,
         );
 
-        // Get player count from database
-        $table_name = $wpdb->prefix . 'poker_tournament_players';
+        // Get remaining (active) player count from the LIVE table.
+        // tdwp-eil: previously counted poker_tournament_players (UUID-keyed stats mart) with a
+        // bigint tournament_id and an eliminated column that does not exist there, so it always
+        // returned 0. players_remaining is live state -> tdwp_tournament_players, status='active'.
+        $table_name = $wpdb->prefix . 'tdwp_tournament_players';
         $player_count = $wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM {$table_name} WHERE tournament_id = %d AND eliminated = 0",
+            "SELECT COUNT(*) FROM {$table_name} WHERE tournament_id = %d AND status = 'active'",
             $tournament_id
         ));
 

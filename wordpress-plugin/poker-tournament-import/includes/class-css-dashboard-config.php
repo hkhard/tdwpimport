@@ -292,15 +292,20 @@ class Poker_CSS_Dashboard_Config extends CSS_Dashboard_Base
                 if (empty($tournament_uuids)) {
                     $players = array();
                 } else {
-                    // Now get players using UUIDs
+                    // Now get players using UUIDs.
+                    // tdwp-eil: player_id/tournament_id in poker_tournament_players are UUID
+                    // varchars, not post IDs. Bridge tp.player_id -> post via the player_uuid
+                    // postmeta key (the canonical join used across the plugin), never p.ID = tp.player_id.
                     $players = $wpdb->get_results($wpdb->prepare(
-                        "SELECT DISTINCT p.ID, p.post_title,
+                        "SELECT p.ID, p.post_title,
                                 COALESCE(SUM(tp.winnings), 0) as winnings,
                                 COUNT(DISTINCT tp.tournament_id) as played,
                                 COALESCE(AVG(tp.finish_position), 0) as avg_finish
-                         FROM {$wpdb->posts} p
-                         INNER JOIN $table_name tp ON p.ID = tp.player_id
-                         WHERE tp.tournament_id IN (" . implode(',', array_fill(0, count($tournament_uuids), '%s')) . ")
+                         FROM $table_name tp
+                         INNER JOIN {$wpdb->postmeta} pm ON pm.meta_key = 'player_uuid' AND pm.meta_value = tp.player_id
+                         INNER JOIN {$wpdb->posts} p ON p.ID = pm.post_id
+                         WHERE p.post_type = 'player' AND p.post_status = 'publish'
+                           AND tp.tournament_id IN (" . implode(',', array_fill(0, count($tournament_uuids), '%s')) . ")
                          GROUP BY p.ID
                          ORDER BY winnings DESC
                          LIMIT 100",
@@ -309,15 +314,21 @@ class Poker_CSS_Dashboard_Config extends CSS_Dashboard_Base
                 }
             }
         } else {
-            // Get all players without season filter
+            // Get all players without season filter.
+            // tdwp-eil: previously LEFT JOINed poker_player_roi ON p.ID = stats.player_id and read
+            // stats.tournaments_played / stats.avg_finish, but ROI is UUID-keyed and has no such
+            // columns -- the join matched nothing and the ranking was silently blank. Aggregate
+            // directly from poker_tournament_players via the player_uuid postmeta bridge instead.
             $players = $wpdb->get_results("
                 SELECT p.ID, p.post_title,
-                       COALESCE(stats.total_winnings, 0) as winnings,
-                       COALESCE(stats.tournaments_played, 0) as played,
-                       COALESCE(stats.avg_finish, 0) as avg_finish
+                       COALESCE(SUM(tp.winnings), 0) as winnings,
+                       COUNT(DISTINCT tp.tournament_id) as played,
+                       COALESCE(AVG(tp.finish_position), 0) as avg_finish
                 FROM {$wpdb->posts} p
-                LEFT JOIN {$wpdb->prefix}poker_player_roi stats ON p.ID = stats.player_id
+                INNER JOIN {$wpdb->postmeta} pm ON pm.post_id = p.ID AND pm.meta_key = 'player_uuid'
+                INNER JOIN {$wpdb->prefix}poker_tournament_players tp ON tp.player_id = pm.meta_value
                 WHERE p.post_type = 'player' AND p.post_status = 'publish'
+                GROUP BY p.ID
                 ORDER BY winnings DESC
                 LIMIT 100
             ");

@@ -1,5 +1,76 @@
 # Poker Tournament Import Changelog
 
+## Version 3.9.7 - (July 2, 2026)
+
+### 🧹 Retire the legacy stats bridge (tdwp-eil Phase F)
+
+- `TDWP_Stats_Rollup` is now the single, unconditional writer that projects finished live tournaments into the statistics data marts. The old `TDWP_Stats_Bridge` and the `tdwp_eil_rollup_enabled` opt-in flag have been removed — there is no cutover step; the rollup is always active.
+- The finish handler is now fully guarded so a projection error can never interrupt a tournament finish.
+- Data Consolidation admin page: removed the now-moot Enable/Disable cutover controls; Backfill, Reconcile, Export, and buy-in Curation remain, and "Rollback" now simply removes imported canonical rows.
+- Verified: with the flag absent (fresh-install state), finishing a live tournament rebuilds its mart rows via the rollup — no regression from removing the bridge.
+
+## Version 3.9.6 - (July 2, 2026)
+
+### 🐛 Points adjustments now reflect everywhere + working dashboard links
+
+**Manual points overrides were stored but invisible**
+- Adjusting a player's tournament points saved an audit row in `tdwp_points_adjustments` but never updated the canonical `poker_tournament_players.points` column, so the single-tournament page, single-player page, and stats dashboard (all of which read the raw column) kept showing the old value.
+- The save handler now writes the override into the points column, schedules a debounced statistics rebuild, and purges the object cache + LiteSpeed page cache so the change is visible immediately.
+- Re-running "verify/apply formula" no longer clobbers a manual override — overrides are re-applied on top of the recomputed formula values.
+
+**Dashboard tournament links did nothing**
+- The dashboard "Recent Tournaments" tiles were hrefless `<div>`s that relied entirely on inline JavaScript (which LiteSpeed's JS deferral/combine could break); they are now real `<a href>` anchors that work with JS disabled.
+- The player-profile "Recent Tournament Results" links were built from a tournament UUID (so `get_permalink()` returned an empty href); they now use the actual tournament post ID.
+- Note: after updating, Purge All in LiteSpeed. The permalink/rewrite flush already runs automatically on update; only re-save Permalinks if pretty tournament URLs 404.
+
+## Version 3.9.5 - (July 2, 2026)
+
+### 🐛 Admin notices rendered as raw HTML
+
+- **Refresh Statistics** result and the **post-import summary** displayed their HTML markup as literal text. Both were passing already-built, safely-escaped HTML through `esc_html()` (which escapes the tags again). Switched to `wp_kses_post()` so the success notice and the "Edit Tournament/Series/Season" links render correctly.
+
+## Version 3.9.4 - (July 2, 2026)
+
+### 🧱 Live/legacy data consolidation (epic tdwp-3lg, Option C — tdwp-eil)
+
+Collapses the two parallel player-participation stores onto one canonical per-entry source so the stats bridge is no longer needed — with a full production cutover path that requires **no database CLI**.
+
+**Consolidation engine**
+- `tdwp_tournament_players` becomes the canonical per-entry source, carrying stored `tournament_uuid`/`player_uuid`/`source` keys (schema v3.6.3) plus `import_buyins`/`import_hits` carry columns (v3.6.4).
+- New `TDWP_Stats_Rollup` is the single derived-mart writer: on a live tournament finish it stamps the stored UUIDs and rebuilds `poker_tournament_players` + `poker_player_roi` from the canonical source. `TDWP_Stats_Bridge` stands down when the rollup is enabled.
+- Imported tournaments are represented as one synthetic entry per player and kept in sync automatically on every import.
+
+**Bug fixes surfaced along the way**
+- ROI mart now has `UNIQUE(player_id, tournament_id)` (fixes silent duplicate ROI rows inflating leaderboards); applied on plugin update, not just activation.
+- Four broken player-stats readers repointed (all-players dashboard ranking, season players, live leaderboard, and live "players remaining") — they queried the wrong table/columns and returned nothing.
+
+**No-DB-CLI cutover UI** (Admin → Poker Tournament Import → Data Consolidation)
+- CSV export of the affected tables, batched idempotent backfill, read-only reconcile that gates the cutover on zero mismatches, one-click enable/disable, rollback, ambiguous/missing-mapping flagging, and buy-in curation for imports without a stored prize pool.
+- Additive and reversible throughout: enabling is inert until a live tournament finishes, and the backfill never writes the stats mart.
+
+## Version 3.9.3 - (July 2, 2026)
+
+### 🐛 Data integrity — duplicate tournaments & robust statistics (epic tdwp-3lg)
+
+**Duplicate tournaments on player profiles (tdwp-48e)**
+- Root cause fixed: `poker_tournament_players` was append-only on import with no cleanup on delete, so repeatedly importing and deleting the same `.tdt` left multiple copies of every participation row — showing the same tournament twice on a player profile.
+- Imports are now idempotent: participation rows are deleted-then-reinserted per tournament UUID, mirroring the ROI mart.
+- Tournament posts are found-and-updated by UUID instead of blindly recreated on every re-import.
+- Permanently deleting a tournament now purges its rows from `poker_tournament_players`, `poker_player_roi`, and `poker_tournament_costs`.
+- Player profile listings collapse duplicates (`GROUP BY tournament_id`) and count wins/final tables with `COUNT(DISTINCT tournament_id)`.
+
+**Robust statistics recalculation (tdwp-46s)**
+- New `UNIQUE(tournament_id, player_id)` index on `poker_tournament_players` makes duplicate rows structurally impossible.
+- One-time upgrade migration reconciles orphaned rows, de-duplicates, enforces the index, and recalculates — automatically cleaning historical damage.
+- `calculate_all_statistics()` self-heals the participation mart before aggregating, so recalculation is idempotent.
+
+**Negative tournament points (tdwp-brj)**
+- Rebuy and add-on fees are now extracted from their `.tdt` `BuyConfig` blocks (previously never set, so rebuy/add-on money was always 0). Combines with the existing buy-in inference fallback and negative-points clamp to protect the prize-pool-driven points formula.
+
+**Data Operations menu (tdwp-7br)**
+- New **Data Operations** submenu consolidates Refresh Statistics, a new **Repair Participation Mart** tool, and links to the Data Mart Cleaner and Migration Tools.
+- Data Mart Cleaner moved from the Tournaments menu into the Poker Import menu.
+
 ## Version 3.9.2 - (July 1, 2026)
 
 ### 📖 Admin help overhaul

@@ -592,7 +592,7 @@ class Poker_Tournament_Import_Shortcodes {
         if (false === $tournaments) {
             // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
             $tournaments = $wpdb->get_results($wpdb->prepare(
-                "SELECT tp.*, p.post_title as tournament_name, p.post_date,
+                "SELECT tp.*, p.ID as tournament_post_id, p.post_title as tournament_name, p.post_date,
                         pm.meta_value as tournament_date
                 FROM $table_name tp
                 LEFT JOIN {$wpdb->posts} p ON tp.tournament_id = (SELECT meta_value FROM {$wpdb->postmeta} WHERE post_id = p.ID AND meta_key = 'tournament_uuid')
@@ -621,14 +621,21 @@ class Poker_Tournament_Import_Shortcodes {
             echo '<tbody>';
 
             foreach ($tournaments as $tournament) {
-                $tournament_link = esc_url(get_permalink($tournament->tournament_id));
+                // tp.tournament_id is a UUID, not a post ID — resolve the permalink from the joined
+                // post ID instead (get_permalink(UUID) returns false and produced an empty href).
+                $tournament_post_id = !empty($tournament->tournament_post_id) ? intval($tournament->tournament_post_id) : 0;
+                $tournament_link = $tournament_post_id ? get_permalink($tournament_post_id) : '';
                 $display_date = $tournament->tournament_date ?
                     date_i18n(get_option('date_format'), strtotime($tournament->tournament_date)) :
                     date_i18n(get_option('date_format'), strtotime($tournament->post_date));
 
                 echo '<tr>';
                 echo '<td>' . esc_html($tournament->finish_position) . esc_html(get_ordinal_suffix($tournament->finish_position)) . '</td>';
-                echo '<td><a href="' . esc_url($tournament_link) . '">' . esc_html($tournament->tournament_name) . '</a></td>';
+                if ($tournament_link) {
+                    echo '<td><a href="' . esc_url($tournament_link) . '">' . esc_html($tournament->tournament_name) . '</a></td>';
+                } else {
+                    echo '<td>' . esc_html($tournament->tournament_name) . '</td>';
+                }
                 echo '<td>' . esc_html($display_date) . '</td>';
                 echo '<td>' . esc_html(poker_format_currency($tournament->winnings)) . '</td>';
                 echo '<td>' . esc_html(number_format($tournament->points, 2)) . '</td>';
@@ -2843,7 +2850,7 @@ class Poker_Tournament_Import_Shortcodes {
                                 <?php if (!empty($recent_tournaments)): ?>
                                     <div class="tournaments-list">
                                         <?php foreach ($recent_tournaments as $tournament): ?>
-                                            <div class="tournament-item clickable" data-tournament-id="<?php echo esc_attr($tournament->ID); ?>">
+                                            <a class="tournament-item clickable" href="<?php echo esc_url(get_permalink($tournament->ID)); ?>" data-tournament-id="<?php echo esc_attr($tournament->ID); ?>" data-tournament-url="<?php echo esc_url(get_permalink($tournament->ID)); ?>">
                                                 <div class="tournament-info">
                                                     <div class="tournament-name"><?php echo esc_html($tournament->post_title); ?></div>
                                                     <div class="tournament-meta">
@@ -2860,7 +2867,7 @@ class Poker_Tournament_Import_Shortcodes {
                                                         <span class="no-winner">--</span>
                                                     <?php endif; ?>
                                                 </div>
-                                            </div>
+                                            </a>
                                         <?php endforeach; ?>
                                     </div>
                                 <?php else: ?>

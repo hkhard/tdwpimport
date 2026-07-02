@@ -3,7 +3,7 @@ Contributors: hanshard
 Tags: poker, tournament, import, results, bulk-import
 Requires at least: 6.0
 Tested up to: 6.8
-Stable tag: 3.9.2
+Stable tag: 3.9.7
 Requires PHP: 8.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -77,6 +77,29 @@ Use the following shortcodes:
 6. **NEW: Interactive leaderboard with sorting**
 
 == Changelog ==
+
+= 3.9.7 - July 2, 2026 =
+* Retired the legacy stats bridge: the rollup is now the single, always-on writer that projects finished live tournaments into the stats marts (no cutover flag). The finish handler is fully guarded so it can never interrupt a tournament finish. Removed the moot Enable/Disable cutover controls from the Data Consolidation page.
+
+= 3.9.6 - July 2, 2026 =
+* Fixed manual points adjustments not showing on the tournament page, player page, or stats dashboard — the override is now written to the canonical points column, stats are rebuilt, and caches (object + LiteSpeed) are purged. Re-verifying a formula no longer clobbers an override.
+* Fixed dashboard "Recent Tournaments" links doing nothing (now real anchors that survive LiteSpeed JS optimization) and player-profile tournament links that had an empty URL (now use the tournament post ID). Purge LiteSpeed after updating.
+
+= 3.9.5 - July 2, 2026 =
+* Fixed the Refresh Statistics result and the post-import summary showing raw HTML tags instead of a formatted notice/links (they were double-escaped; now rendered with wp_kses_post).
+
+= 3.9.4 - July 2, 2026 =
+Live/legacy data consolidation (epic tdwp-3lg, Option C — tdwp-eil).
+* Consolidated the two parallel player-participation stores onto one canonical per-entry source; new TDWP_Stats_Rollup replaces the stats bridge as the single derived-mart writer, and imports stay in sync automatically.
+* Fixed silent duplicate ROI rows with a UNIQUE(player_id, tournament_id) index (applied on update, not just activation), and repointed four broken player-stats readers that were returning nothing.
+* Added a no-database-CLI cutover UI (Data Consolidation page): CSV export, batched idempotent backfill, a reconcile review that gates the cutover on zero mismatches, enable/disable, rollback, and buy-in curation — additive and reversible throughout.
+
+= 3.9.3 - July 2, 2026 =
+Data integrity release (epic tdwp-3lg).
+* Fixed duplicate tournaments on player profiles: imports are now idempotent (delete-then-insert per tournament UUID), tournament posts are updated-by-UUID instead of recreated, and permanent deletes purge the data-mart rows (tdwp-48e).
+* Robust statistics: UNIQUE(tournament_id, player_id) index, a one-time upgrade migration that reconciles orphans + de-duplicates historical rows, and self-healing recalculation (tdwp-46s).
+* Fixed negative tournament points by extracting rebuy/add-on fees from the .tdt BuyConfig blocks (tdwp-brj).
+* New Data Operations admin submenu consolidating Refresh Statistics, a Repair Participation Mart tool, the Data Mart Cleaner, and Migration Tools (tdwp-7br).
 
 = 3.8.0 - June 30, 2026 =
 Phase 1 Foundation gap closure complete (epic tdwp-cma) — P2/P3 across Prizes, Blinds, Players, and the creation wizard.

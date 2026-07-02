@@ -44,7 +44,7 @@ class TDWP_Database_Schema {
 	 *
 	 * @var string
 	 */
-	const DB_VERSION = '3.6.2';
+	const DB_VERSION = '3.6.4';
 
 	/**
 	 * Option name for storing database version
@@ -267,6 +267,16 @@ class TDWP_Database_Schema {
 		// Run v3.6.0 financial config migrations (tdwp-vf9)
 		if ( version_compare( $from_version, '3.6.0', '<' ) ) {
 			self::migrate_financial_config_v360();
+		}
+
+		// Run v3.6.3 canonical UUID columns on tdwp_tournament_players (tdwp-eil Phase C)
+		if ( version_compare( $from_version, '3.6.3', '<' ) ) {
+			self::migrate_canonical_uuid_columns_v363();
+		}
+
+		// Run v3.6.4 import-aggregate carry columns on tdwp_tournament_players (tdwp-eil Phase E)
+		if ( version_compare( $from_version, '3.6.4', '<' ) ) {
+			self::migrate_import_aggregate_columns_v364();
 		}
 	}
 
@@ -822,6 +832,11 @@ class TDWP_Database_Schema {
 			withdrawal_status varchar(20) DEFAULT 'active',
 			withdrawal_timestamp datetime DEFAULT NULL,
 			elimination_reason varchar(20) DEFAULT NULL,
+			tournament_uuid varchar(100) NOT NULL DEFAULT '',
+			player_uuid varchar(100) NOT NULL DEFAULT '',
+			source varchar(16) NOT NULL DEFAULT 'live',
+			import_buyins int NOT NULL DEFAULT 0,
+			import_hits int NOT NULL DEFAULT 0,
 			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 			PRIMARY KEY  (id),
@@ -835,7 +850,10 @@ class TDWP_Database_Schema {
 			KEY is_reentry (is_reentry),
 			KEY bustout_timestamp (bustout_timestamp),
 			KEY withdrawal_status (withdrawal_status),
-			KEY elimination_reason (elimination_reason)
+			KEY elimination_reason (elimination_reason),
+			KEY tournament_uuid (tournament_uuid),
+			KEY player_uuid (player_uuid),
+			KEY uuid_pair (tournament_uuid, player_uuid)
 		) {$charset_collate};";
 
 		dbDelta( $sql );
@@ -1657,6 +1675,111 @@ class TDWP_Database_Schema {
 	 * @since 3.5.0
 	 * @return bool True on success
 	 */
+	/**
+	 * Add canonical UUID columns to tdwp_tournament_players and backfill (v3.6.3, tdwp-eil Phase C).
+	 *
+	 * Adds tournament_uuid / player_uuid / source columns (+ indexes) so the live per-entry table can
+	 * carry the UUID join keys the legacy stats mart uses as stored columns rather than a runtime
+	 * postmeta lookup — the step that lets the stats rollup replace the TDWP_Stats_Bridge projection.
+	 * Purely additive; live code ignores the new columns. Backfill is best-effort: rows whose
+	 * tournament/player post has no *_uuid postmeta yet are left empty (UUIDs are minted when the
+	 * tournament finishes), and the remaining-empty count is logged for observability.
+	 *
+	 * Idempotent: checks column existence before altering; safe to re-run.
+	 *
+	 * @since 3.6.3
+	 * @return bool True on success
+	 */
+	private static function migrate_canonical_uuid_columns_v363() {
+		global $wpdb;
+		$table = $wpdb->prefix . 'tdwp_tournament_players';
+
+		// Bail early if table doesn't exist yet — create_tables() will build it with the columns.
+		if ( $wpdb->get_var( "SHOW TABLES LIKE '{$table}'" ) !== $table ) {
+			return true;
+		}
+
+		$columns_to_add = array(
+			'tournament_uuid' => "ADD COLUMN tournament_uuid varchar(100) NOT NULL DEFAULT '' AFTER elimination_reason",
+			'player_uuid'     => "ADD COLUMN player_uuid varchar(100) NOT NULL DEFAULT '' AFTER tournament_uuid",
+			'source'          => "ADD COLUMN source varchar(16) NOT NULL DEFAULT 'live' AFTER player_uuid",
+		);
+
+		foreach ( $columns_to_add as $column => $sql ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$column_exists = $wpdb->get_results( $wpdb->prepare( 'SHOW COLUMNS FROM `' . $table . '` LIKE %s', $column ) );
+
+			if ( empty( $column_exists ) ) {
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				$wpdb->query( "ALTER TABLE `{$table}` {$sql}" );
+				error_log( "tdwp-eil v363: Added column {$column} to {$table}" );
+			}
+		}
+
+		// Backfill stored UUIDs from existing postmeta (tournament_id/player_id are bigint post IDs here).
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$wpdb->query(
+			"UPDATE {$table} lp
+			 INNER JOIN {$wpdb->postmeta} tm ON tm.post_id = lp.tournament_id AND tm.meta_key = 'tournament_uuid'
+			 SET lp.tournament_uuid = tm.meta_value
+			 WHERE ( lp.tournament_uuid = '' OR lp.tournament_uuid IS NULL ) AND tm.meta_value <> ''"
+		);
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$wpdb->query(
+			"UPDATE {$table} lp
+			 INNER JOIN {$wpdb->postmeta} pm ON pm.post_id = lp.player_id AND pm.meta_key = 'player_uuid'
+			 SET lp.player_uuid = pm.meta_value
+			 WHERE ( lp.player_uuid = '' OR lp.player_uuid IS NULL ) AND pm.meta_value <> ''"
+		);
+
+		// Observability: how many rows still lack a UUID (post has no *_uuid meta yet — minted on finish).
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$still_empty = (int) $wpdb->get_var(
+			"SELECT COUNT(*) FROM {$table} WHERE tournament_uuid = '' OR player_uuid = ''"
+		);
+		error_log( "tdwp-eil v363: canonical UUID backfill complete; {$still_empty} row(s) still awaiting a minted UUID" );
+
+		return true;
+	}
+
+	/**
+	 * Add import-aggregate carry columns to tdwp_tournament_players (v3.6.4, tdwp-eil Phase E).
+	 *
+	 * Imported tournaments have no true per-entry detail, so they are represented as ONE synthetic
+	 * entry per player (source='import'). These columns carry the pre-consolidation aggregate that a
+	 * single entry row cannot express via COUNT(*): import_buyins (the original buy-in/entry count)
+	 * and import_hits (knockouts). The rollup reads these for source='import' rows and uses COUNT(*)
+	 * / live semantics otherwise. They stay 0 for live rows.
+	 *
+	 * Idempotent. @since 3.6.4
+	 * @return bool
+	 */
+	private static function migrate_import_aggregate_columns_v364() {
+		global $wpdb;
+		$table = $wpdb->prefix . 'tdwp_tournament_players';
+
+		if ( $wpdb->get_var( "SHOW TABLES LIKE '{$table}'" ) !== $table ) {
+			return true;
+		}
+
+		$columns_to_add = array(
+			'import_buyins' => 'ADD COLUMN import_buyins int NOT NULL DEFAULT 0 AFTER source',
+			'import_hits'   => 'ADD COLUMN import_hits int NOT NULL DEFAULT 0 AFTER import_buyins',
+		);
+
+		foreach ( $columns_to_add as $column => $sql ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$column_exists = $wpdb->get_results( $wpdb->prepare( 'SHOW COLUMNS FROM `' . $table . '` LIKE %s', $column ) );
+			if ( empty( $column_exists ) ) {
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				$wpdb->query( "ALTER TABLE `{$table}` {$sql}" );
+				error_log( "tdwp-eil v364: Added column {$column} to {$table}" );
+			}
+		}
+
+		return true;
+	}
+
 	private static function migrate_waitlist_position_v350() {
 		global $wpdb;
 		$table = $wpdb->prefix . 'tdwp_tournament_players';

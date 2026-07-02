@@ -21,6 +21,7 @@ class Poker_Tournament_Import_Admin {
         add_action('admin_init', array($this, 'handle_overwrite_confirmation'));
         add_action('admin_init', array($this, 'register_settings'));
         add_action('admin_init', array($this, 'handle_statistics_refresh'));
+        add_action('admin_init', array($this, 'handle_participation_mart_repair'));
 
         // Note: Formula Manager AJAX handlers (save_formula, delete_formula) are registered in poker-tournament-import.php with tdwp_ prefix
 
@@ -117,6 +118,16 @@ class Poker_Tournament_Import_Admin {
                 array($this, 'render_layout_builder_page')
             );
         }
+
+        // tdwp-7br: single hub for all destructive/maintenance data operations.
+        add_submenu_page(
+            'poker-tournament-import',
+            __('Data Operations', 'poker-tournament-import'),
+            __('Data Operations', 'poker-tournament-import'),
+            'manage_options',
+            'poker-data-operations',
+            array($this, 'render_data_operations_page')
+        );
 
         add_submenu_page(
             'poker-tournament-import',
@@ -1291,6 +1302,13 @@ class Poker_Tournament_Import_Admin {
                     }
                 }
 
+                // tdwp-eil (tdwp-4o2): keep the canonical per-entry source in sync with this import
+                // so it stays the complete record for the consolidation cutover. Additive and
+                // idempotent — writes only source='import' canonical rows, never the stats mart.
+                if (class_exists('TDWP_Stats_Rollup') && !empty($tournament_uuid)) {
+                    TDWP_Stats_Rollup::sync_import_by_uuid($tournament_uuid);
+                }
+
                 // **CRITICAL**: Trigger statistics calculation after tournament import
                 Poker_Tournament_Import_Debug::log('Triggering statistics calculation after tournament import');
                 if (class_exists('Poker_Statistics_Engine')) {
@@ -1495,6 +1513,38 @@ class Poker_Tournament_Import_Admin {
     }
 
     /**
+     * Find an existing tournament post by its .tdt UUID.
+     *
+     * Used for import idempotency (tdwp-48e) so re-importing the same file updates the
+     * existing tournament instead of creating a duplicate. Includes trashed posts so a
+     * re-import of a trashed tournament reuses the same post rather than orphaning it.
+     *
+     * @param string $uuid Tournament UUID from the .tdt metadata.
+     * @return int Post ID if found, 0 otherwise.
+     */
+    private function find_tournament_by_uuid($uuid) {
+        if (empty($uuid)) {
+            return 0;
+        }
+
+        $existing = get_posts(array(
+            'post_type'      => 'tournament',
+            'post_status'    => array('publish', 'draft', 'pending', 'private', 'future', 'trash'),
+            'meta_query'     => array(
+                array(
+                    'key'     => 'tournament_uuid',
+                    'value'   => $uuid,
+                    'compare' => '=',
+                ),
+            ),
+            'posts_per_page' => 1,
+            'fields'         => 'ids',
+        ));
+
+        return !empty($existing) ? (int) $existing[0] : 0;
+    }
+
+    /**
      * Create tournament post
      */
     private function create_tournament_post($tournament_data, $series_id = 0, $season_id = 0, $player_ids = array(), $status = 'draft', $parser = null) {
@@ -1533,6 +1583,40 @@ class Poker_Tournament_Import_Admin {
             $post_data['post_date'] = gmdate('Y-m-d H:i:s', strtotime($metadata['start_time']));
             $post_data['post_date_gmt'] = get_gmt_from_date($post_data['post_date']);
             Poker_Tournament_Import_Debug::log('Tournament date set', $post_data['post_date']);
+        }
+
+        // **DEDUP FIX (tdwp-48e)**: Find-or-update an existing tournament post by UUID instead of
+        // always creating a new one. Series/season/player all find-or-create; tournament did not,
+        // so every re-import of the same .tdt spawned a duplicate post. Update-in-place preserves
+        // the post ID and permalink; we never delete-recreate.
+        $existing_was_trashed = false;
+        if (!empty($metadata['uuid'])) {
+            $existing_tournament = $this->find_tournament_by_uuid($metadata['uuid']);
+            if ($existing_tournament > 0) {
+                $post_data['ID'] = $existing_tournament;
+                $existing_status = get_post_status($existing_tournament);
+
+                if ('trash' === $existing_status) {
+                    // tdwp-6cy: the tournament was deliberately trashed. Restore it cleanly
+                    // (wp_untrash_post handles the trash meta + slug) rather than letting
+                    // wp_insert_post raw-update over the trashed row and leave stale meta.
+                    $existing_was_trashed = true;
+                    wp_untrash_post($existing_tournament);
+                    // Keep the requested $status so the restored post lands published/draft.
+                } else {
+                    // tdwp-qag: preserve the existing publish/draft state — do NOT let a
+                    // re-import (which may default to 'draft') silently unpublish a live
+                    // tournament. Only a brand-new post uses the import form's status.
+                    unset($post_data['post_status']);
+                }
+
+                Poker_Tournament_Import_Debug::log('Existing tournament found by UUID, updating in place', array(
+                    'uuid' => $metadata['uuid'],
+                    'post_id' => $existing_tournament,
+                    'existing_status' => $existing_status,
+                    'restored_from_trash' => $existing_was_trashed,
+                ));
+            }
         }
 
         Poker_Tournament_Import_Debug::log_wp_operation('wp_insert_post', $post_data);
@@ -1705,19 +1789,19 @@ class Poker_Tournament_Import_Admin {
 
         if (isset($created_posts['tournament'])) {
             /* translators: %s: URL to edit tournament */
-            echo '<li>' . esc_html(sprintf(esc_html__('Tournament created: <a href="%s">Edit Tournament</a>', 'poker-tournament-import'),
+            echo '<li>' . wp_kses_post(sprintf(__('Tournament created: <a href="%s">Edit Tournament</a>', 'poker-tournament-import'),
                 esc_url(get_edit_post_link($created_posts['tournament'])))) . '</li>';
         }
 
         if (isset($created_posts['series'])) {
             /* translators: %s: URL to edit series */
-            echo '<li>' . esc_html(sprintf(esc_html__('Series: <a href="%s">Edit Series</a>', 'poker-tournament-import'),
+            echo '<li>' . wp_kses_post(sprintf(__('Series: <a href="%s">Edit Series</a>', 'poker-tournament-import'),
                 esc_url(get_edit_post_link($created_posts['series'])))) . '</li>';
         }
 
         if (isset($created_posts['season'])) {
             /* translators: %s: URL to edit season */
-            echo '<li>' . esc_html(sprintf(esc_html__('Season: <a href="%s">Edit Season</a>', 'poker-tournament-import'),
+            echo '<li>' . wp_kses_post(sprintf(__('Season: <a href="%s">Edit Season</a>', 'poker-tournament-import'),
                 esc_url(get_edit_post_link($created_posts['season'])))) . '</li>';
         }
 
@@ -2396,9 +2480,100 @@ class Poker_Tournament_Import_Admin {
             // Clean output buffer and add to admin notices
             $message = ob_get_clean();
             add_action('admin_notices', function() use ($message) {
-                echo esc_html($message);
+                // $message is trusted admin-notice HTML assembled above with esc_*() on every
+                // dynamic value; wp_kses_post renders it (esc_html would show raw tags as text).
+                echo wp_kses_post($message);
             });
         }
+    }
+
+    /**
+     * tdwp-7br / tdwp-46s: Repair the participation data mart on demand.
+     *
+     * Reconciles orphaned rows (tournament post gone), collapses duplicate
+     * (tournament_id, player_id) rows, ensures the UNIQUE index, and recomputes
+     * aggregates. This is the manual counterpart to the automatic upgrade migration
+     * and the visible fix for historical duplicate tournaments on player profiles.
+     */
+    public function handle_participation_mart_repair() {
+        if (!isset($_POST['repair_participation_mart'])) {
+            return;
+        }
+        if (!current_user_can('manage_options')) {
+            return;
+        }
+        if (!check_admin_referer('poker_repair_participation_mart', 'poker_repair_mart_nonce')) {
+            return;
+        }
+
+        $plugin = Poker_Tournament_Import::get_instance();
+        $orphans = $plugin->reconcile_orphan_participation_rows();
+        $dupes   = $plugin->dedup_participation_mart();
+        $plugin->ensure_participation_unique_index();
+        if (class_exists('Poker_Statistics_Engine')) {
+            Poker_Statistics_Engine::get_instance()->calculate_all_statistics();
+        }
+
+        add_action('admin_notices', function() use ($orphans, $dupes) {
+            echo '<div class="notice notice-success is-dismissible"><p><strong>'
+                . esc_html__('Participation mart repaired.', 'poker-tournament-import') . '</strong> '
+                . esc_html(sprintf(
+                    /* translators: 1: orphaned rows removed, 2: duplicate rows removed */
+                    __('Removed %1$d orphaned and %2$d duplicate participation rows, enforced the unique index, and recalculated statistics.', 'poker-tournament-import'),
+                    $orphans,
+                    $dupes
+                ))
+                . '</p></div>';
+        });
+    }
+
+    /**
+     * tdwp-7br: "Data Operations" hub — one place for all maintenance/destructive ops.
+     */
+    public function render_data_operations_page() {
+        if (!current_user_can('manage_options')) {
+            wp_die(esc_html__('You do not have permission to access this page.', 'poker-tournament-import'));
+        }
+
+        $cleaner_url   = admin_url('admin.php?page=poker-data-mart-cleaner');
+        $migration_url = admin_url('admin.php?page=poker-migration-tools');
+        ?>
+        <div class="wrap">
+            <h1><?php esc_html_e('Data Operations', 'poker-tournament-import'); ?></h1>
+            <p class="description"><?php esc_html_e('Maintenance and data-integrity tools for the tournament data marts. Destructive operations cannot be undone — back up your database first.', 'poker-tournament-import'); ?></p>
+
+            <div class="card" style="max-width:720px;margin-top:20px;">
+                <h2><?php esc_html_e('Refresh Statistics', 'poker-tournament-import'); ?></h2>
+                <p><?php esc_html_e('Rebuild all dashboard and leaderboard aggregates from tournament data. Also self-heals duplicate participation rows.', 'poker-tournament-import'); ?></p>
+                <form method="post">
+                    <?php wp_nonce_field('poker_refresh_statistics_admin', 'poker_refresh_stats_nonce'); ?>
+                    <button type="submit" name="refresh_statistics" value="1" class="button button-primary">
+                        <?php esc_html_e('Refresh Statistics', 'poker-tournament-import'); ?>
+                    </button>
+                </form>
+            </div>
+
+            <div class="card" style="max-width:720px;margin-top:20px;">
+                <h2><?php esc_html_e('Repair Participation Mart', 'poker-tournament-import'); ?></h2>
+                <p><?php esc_html_e('Fixes duplicate tournaments on player profiles: reconciles rows whose tournament was deleted, collapses duplicate participation rows, enforces the unique index, and recalculates statistics.', 'poker-tournament-import'); ?></p>
+                <form method="post" onsubmit="return confirm('<?php echo esc_js(__('Repair the participation mart now? This removes orphaned and duplicate rows.', 'poker-tournament-import')); ?>');">
+                    <?php wp_nonce_field('poker_repair_participation_mart', 'poker_repair_mart_nonce'); ?>
+                    <button type="submit" name="repair_participation_mart" value="1" class="button">
+                        <?php esc_html_e('Repair Participation Mart', 'poker-tournament-import'); ?>
+                    </button>
+                </form>
+            </div>
+
+            <div class="card" style="max-width:720px;margin-top:20px;">
+                <h2><?php esc_html_e('More Data Tools', 'poker-tournament-import'); ?></h2>
+                <p>
+                    <a href="<?php echo esc_url($cleaner_url); ?>" class="button"><?php esc_html_e('Data Mart Cleaner', 'poker-tournament-import'); ?></a>
+                    <a href="<?php echo esc_url($migration_url); ?>" class="button"><?php esc_html_e('Migration Tools', 'poker-tournament-import'); ?></a>
+                </p>
+                <p class="description"><?php esc_html_e('Data Mart Cleaner performs full-table resets. Migration Tools re-run one-time data migrations.', 'poker-tournament-import'); ?></p>
+            </div>
+        </div>
+        <?php
     }
 
     /**
@@ -2964,6 +3139,24 @@ class Poker_Tournament_Import_Admin {
                 $structure_info[] = $column->Field . ' (' . $column->Type . ')';
             }
             Poker_Tournament_Import_Debug::log('Table structure', $structure_info);
+        }
+
+        // **IDEMPOTENCY FIX (tdwp-48e)**: Remove any existing participation rows for this
+        // tournament UUID before (re-)inserting. Without this, re-importing the same .tdt
+        // appends a second full set of rows, producing duplicate tournaments on player
+        // profiles and inflated COUNT(*) aggregates. Mirrors the ROI mart's delete-then-insert
+        // pattern (class-statistics-engine.php process_player_roi_data()).
+        if ($table_check && !empty($tournament_uuid)) {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table cleanup before idempotent re-insert
+            $deleted_rows = $wpdb->delete($table_name, array('tournament_id' => $tournament_uuid), array('%s'));
+            if ($deleted_rows === false) {
+                Poker_Tournament_Import_Debug::log_error('Failed to clear existing participation rows before re-insert', array(
+                    'tournament_uuid' => $tournament_uuid,
+                    'wpdb_error' => $wpdb->last_error,
+                ));
+            } elseif ($deleted_rows > 0) {
+                Poker_Tournament_Import_Debug::log('Cleared existing participation rows before re-insert', $deleted_rows . ' rows removed for UUID ' . $tournament_uuid);
+            }
         }
 
         foreach ($tournament_data['players'] as $player_uuid => $player_data) {
@@ -5103,6 +5296,27 @@ class Poker_Tournament_Import_Admin {
         if (false === $insert_id) {
             wp_send_json_error(array('message' => __('Could not save the adjustment.', 'poker-tournament-import')), 500);
         }
+
+        // Propagate the override into the canonical points column so every raw read surface
+        // (single-tournament, single-player, stats dashboard) reflects it — the adjustment table
+        // alone is not read by those pages. Then debounce a stats rebuild and purge caches so the
+        // change is visible (incl. LiteSpeed page cache) without waiting for a TTL.
+        $wpdb->update(
+            $table,
+            array('points' => $new_points),
+            array('tournament_id' => $uuid, 'player_id' => $player_uuid),
+            array('%f'),
+            array('%s', '%s')
+        );
+        if (!wp_next_scheduled('poker_refresh_statistics_async')) {
+            wp_schedule_single_event(time() + 5, 'poker_refresh_statistics_async');
+        }
+        // Bust the per-query object cache used by the front-end read surfaces (group flush is a
+        // no-op on backends that do not support it) and purge LiteSpeed so cached HTML is rebuilt.
+        if (function_exists('wp_cache_flush_group')) {
+            wp_cache_flush_group('poker_tournament');
+        }
+        do_action('litespeed_purge_all');
 
         wp_send_json_success(array(
             'id' => $insert_id,

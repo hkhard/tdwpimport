@@ -59,6 +59,19 @@ class Poker_Statistics_Engine {
         // Start timer for performance tracking
         $start_time = microtime(true);
 
+        // tdwp-46s: self-heal the participation mart before aggregating. calculate_all_statistics()
+        // does NOT rebuild poker_tournament_players, so any duplicate (tournament_id, player_id)
+        // rows would otherwise inflate COUNT(*) aggregates and profile listings every recalc.
+        if (class_exists('Poker_Tournament_Import')) {
+            $plugin = Poker_Tournament_Import::get_instance();
+            if (method_exists($plugin, 'dedup_participation_mart')) {
+                $deduped = $plugin->dedup_participation_mart();
+                if ($deduped > 0) {
+                    error_log("Poker Statistics: self-healed {$deduped} duplicate participation rows during recalc");
+                }
+            }
+        }
+
         // Clear existing statistics
         $this->clear_all_statistics();
 
