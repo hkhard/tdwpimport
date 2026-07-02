@@ -21,6 +21,7 @@ class Poker_Tournament_Import_Admin {
         add_action('admin_init', array($this, 'handle_overwrite_confirmation'));
         add_action('admin_init', array($this, 'register_settings'));
         add_action('admin_init', array($this, 'handle_statistics_refresh'));
+        add_action('admin_init', array($this, 'handle_participation_mart_repair'));
 
         // Note: Formula Manager AJAX handlers (save_formula, delete_formula) are registered in poker-tournament-import.php with tdwp_ prefix
 
@@ -117,6 +118,16 @@ class Poker_Tournament_Import_Admin {
                 array($this, 'render_layout_builder_page')
             );
         }
+
+        // tdwp-7br: single hub for all destructive/maintenance data operations.
+        add_submenu_page(
+            'poker-tournament-import',
+            __('Data Operations', 'poker-tournament-import'),
+            __('Data Operations', 'poker-tournament-import'),
+            'manage_options',
+            'poker-data-operations',
+            array($this, 'render_data_operations_page')
+        );
 
         add_submenu_page(
             'poker-tournament-import',
@@ -2446,6 +2457,95 @@ class Poker_Tournament_Import_Admin {
                 echo esc_html($message);
             });
         }
+    }
+
+    /**
+     * tdwp-7br / tdwp-46s: Repair the participation data mart on demand.
+     *
+     * Reconciles orphaned rows (tournament post gone), collapses duplicate
+     * (tournament_id, player_id) rows, ensures the UNIQUE index, and recomputes
+     * aggregates. This is the manual counterpart to the automatic upgrade migration
+     * and the visible fix for historical duplicate tournaments on player profiles.
+     */
+    public function handle_participation_mart_repair() {
+        if (!isset($_POST['repair_participation_mart'])) {
+            return;
+        }
+        if (!current_user_can('manage_options')) {
+            return;
+        }
+        if (!check_admin_referer('poker_repair_participation_mart', 'poker_repair_mart_nonce')) {
+            return;
+        }
+
+        $plugin = Poker_Tournament_Import::get_instance();
+        $orphans = $plugin->reconcile_orphan_participation_rows();
+        $dupes   = $plugin->dedup_participation_mart();
+        $plugin->ensure_participation_unique_index();
+        if (class_exists('Poker_Statistics_Engine')) {
+            Poker_Statistics_Engine::get_instance()->calculate_all_statistics();
+        }
+
+        add_action('admin_notices', function() use ($orphans, $dupes) {
+            echo '<div class="notice notice-success is-dismissible"><p><strong>'
+                . esc_html__('Participation mart repaired.', 'poker-tournament-import') . '</strong> '
+                . esc_html(sprintf(
+                    /* translators: 1: orphaned rows removed, 2: duplicate rows removed */
+                    __('Removed %1$d orphaned and %2$d duplicate participation rows, enforced the unique index, and recalculated statistics.', 'poker-tournament-import'),
+                    $orphans,
+                    $dupes
+                ))
+                . '</p></div>';
+        });
+    }
+
+    /**
+     * tdwp-7br: "Data Operations" hub — one place for all maintenance/destructive ops.
+     */
+    public function render_data_operations_page() {
+        if (!current_user_can('manage_options')) {
+            wp_die(esc_html__('You do not have permission to access this page.', 'poker-tournament-import'));
+        }
+
+        $cleaner_url   = admin_url('admin.php?page=poker-data-mart-cleaner');
+        $migration_url = admin_url('admin.php?page=poker-migration-tools');
+        ?>
+        <div class="wrap">
+            <h1><?php esc_html_e('Data Operations', 'poker-tournament-import'); ?></h1>
+            <p class="description"><?php esc_html_e('Maintenance and data-integrity tools for the tournament data marts. Destructive operations cannot be undone — back up your database first.', 'poker-tournament-import'); ?></p>
+
+            <div class="card" style="max-width:720px;margin-top:20px;">
+                <h2><?php esc_html_e('Refresh Statistics', 'poker-tournament-import'); ?></h2>
+                <p><?php esc_html_e('Rebuild all dashboard and leaderboard aggregates from tournament data. Also self-heals duplicate participation rows.', 'poker-tournament-import'); ?></p>
+                <form method="post">
+                    <?php wp_nonce_field('poker_refresh_statistics_admin', 'poker_refresh_stats_nonce'); ?>
+                    <button type="submit" name="refresh_statistics" value="1" class="button button-primary">
+                        <?php esc_html_e('Refresh Statistics', 'poker-tournament-import'); ?>
+                    </button>
+                </form>
+            </div>
+
+            <div class="card" style="max-width:720px;margin-top:20px;">
+                <h2><?php esc_html_e('Repair Participation Mart', 'poker-tournament-import'); ?></h2>
+                <p><?php esc_html_e('Fixes duplicate tournaments on player profiles: reconciles rows whose tournament was deleted, collapses duplicate participation rows, enforces the unique index, and recalculates statistics.', 'poker-tournament-import'); ?></p>
+                <form method="post" onsubmit="return confirm('<?php echo esc_js(__('Repair the participation mart now? This removes orphaned and duplicate rows.', 'poker-tournament-import')); ?>');">
+                    <?php wp_nonce_field('poker_repair_participation_mart', 'poker_repair_mart_nonce'); ?>
+                    <button type="submit" name="repair_participation_mart" value="1" class="button">
+                        <?php esc_html_e('Repair Participation Mart', 'poker-tournament-import'); ?>
+                    </button>
+                </form>
+            </div>
+
+            <div class="card" style="max-width:720px;margin-top:20px;">
+                <h2><?php esc_html_e('More Data Tools', 'poker-tournament-import'); ?></h2>
+                <p>
+                    <a href="<?php echo esc_url($cleaner_url); ?>" class="button"><?php esc_html_e('Data Mart Cleaner', 'poker-tournament-import'); ?></a>
+                    <a href="<?php echo esc_url($migration_url); ?>" class="button"><?php esc_html_e('Migration Tools', 'poker-tournament-import'); ?></a>
+                </p>
+                <p class="description"><?php esc_html_e('Data Mart Cleaner performs full-table resets. Migration Tools re-run one-time data migrations.', 'poker-tournament-import'); ?></p>
+            </div>
+        </div>
+        <?php
     }
 
     /**

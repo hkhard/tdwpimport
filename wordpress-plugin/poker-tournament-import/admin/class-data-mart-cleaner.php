@@ -59,8 +59,9 @@ class Poker_Data_Mart_Cleaner {
      * Add admin menu page
      */
     public function add_admin_menu() {
+        // tdwp-7br: consolidated under the Poker Import menu (was under the Tournaments CPT menu).
         add_submenu_page(
-            'edit.php?post_type=tournament',
+            'poker-tournament-import',
             __('Data Mart Cleaner', 'poker-tournament-import'),
             __('Data Mart Cleaner', 'poker-tournament-import'),
             'manage_options',
@@ -73,8 +74,10 @@ class Poker_Data_Mart_Cleaner {
      * Enqueue scripts and styles for data mart cleaner page
      */
     public function enqueue_cleaner_assets($hook) {
-        // Only load on our specific admin page
-        if ('tournament_page_poker-data-mart-cleaner' !== $hook) {
+        // Only load on our specific admin page. tdwp-7br: the page moved under the
+        // Poker Import menu, which changes the hook suffix prefix, so match on the
+        // slug instead of a hardcoded parent prefix.
+        if (false === strpos((string) $hook, 'poker-data-mart-cleaner')) {
             return;
         }
 
@@ -413,7 +416,7 @@ class Poker_Data_Mart_Cleaner {
         }
 
         $action = sanitize_text_field($_POST['poker_cleaner_action']);
-        $redirect_url = admin_url('edit.php?post_type=tournament&page=poker-data-mart-cleaner');
+        $redirect_url = admin_url('admin.php?page=poker-data-mart-cleaner');
 
         switch ($action) {
             case 'clean_statistics':
