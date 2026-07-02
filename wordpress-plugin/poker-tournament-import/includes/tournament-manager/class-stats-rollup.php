@@ -51,7 +51,7 @@ class TDWP_Stats_Rollup {
 	 * @param string $tournament_uuid Tournament UUID join key.
 	 * @return array{rows: array<string,array>, total_money: float} Per-player-uuid aggregates.
 	 */
-	public static function aggregate_from_source( $tournament_uuid ) {
+	public static function aggregate_from_source( $tournament_uuid, $source_table = null ) {
 		global $wpdb;
 
 		$out = array(
@@ -64,7 +64,7 @@ class TDWP_Stats_Rollup {
 			return $out;
 		}
 
-		$source = $wpdb->prefix . 'tdwp_tournament_players';
+		$source = $source_table ? $source_table : $wpdb->prefix . 'tdwp_tournament_players';
 		if ( ! self::table_exists( $source ) ) {
 			return $out;
 		}
@@ -72,7 +72,7 @@ class TDWP_Stats_Rollup {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table read.
 		$entries = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT player_uuid, finish_position, prize_amount, paid_amount
+				"SELECT player_uuid, finish_position, prize_amount, paid_amount, source, import_buyins, import_hits
 				 FROM {$source}
 				 WHERE tournament_uuid = %s AND player_uuid <> ''",
 				$tournament_uuid
@@ -88,24 +88,35 @@ class TDWP_Stats_Rollup {
 			$finish   = is_null( $e->finish_position ) ? 0 : (int) $e->finish_position;
 			$winnings = (float) $e->prize_amount;
 			$invested = (float) $e->paid_amount;
+			$is_import = ( 'import' === $e->source );
+
+			// Buy-ins: imports carry the original count on a single synthetic row (decision:
+			// store-aggregate-on-1-row); live tournaments count one per entry row. Hits: imports
+			// carry the parsed knockout count; live rows contribute 0 (unchanged live behavior).
+			// Store-aggregate-on-1-row: the synthetic import row always exists, so preserve the
+			// true buy-in count (including 0) rather than clamping — faithful to the source mart.
+			$row_buyins = $is_import ? (int) $e->import_buyins : 1;
+			$row_hits   = $is_import ? (int) $e->import_hits : 0;
 			$out['total_money'] += $winnings;
 
 			if ( ! isset( $out['rows'][ $puuid ] ) ) {
 				$out['rows'][ $puuid ] = array(
 					'finish'         => $finish,
 					'winnings'       => $winnings,
-					'buyins'         => 1,
+					'buyins'         => $row_buyins,
+					'hits'           => $row_hits,
 					'total_invested' => $invested,
 				);
 				continue;
 			}
 
-			// Best (lowest, non-zero) finish wins; sum winnings + invested; count entries as buy-ins.
+			// Best (lowest, non-zero) finish wins; sum winnings/invested/hits; accumulate buy-ins.
 			if ( $finish > 0 && ( 0 === $out['rows'][ $puuid ]['finish'] || $finish < $out['rows'][ $puuid ]['finish'] ) ) {
 				$out['rows'][ $puuid ]['finish'] = $finish;
 			}
 			$out['rows'][ $puuid ]['winnings']       += $winnings;
-			$out['rows'][ $puuid ]['buyins']         += 1;
+			$out['rows'][ $puuid ]['buyins']         += $row_buyins;
+			$out['rows'][ $puuid ]['hits']           += $row_hits;
 			$out['rows'][ $puuid ]['total_invested'] += $invested;
 		}
 
@@ -118,8 +129,8 @@ class TDWP_Stats_Rollup {
 	 * @param string $tournament_uuid Tournament UUID.
 	 * @return array{mart: array<int,array>, roi: array<int,array>} Ready-to-write rows.
 	 */
-	public static function compute_rows( $tournament_uuid ) {
-		$agg = self::aggregate_from_source( $tournament_uuid );
+	public static function compute_rows( $tournament_uuid, $source_table = null ) {
+		$agg = self::aggregate_from_source( $tournament_uuid, $source_table );
 		$result = array(
 			'mart' => array(),
 			'roi'  => array(),
@@ -138,6 +149,7 @@ class TDWP_Stats_Rollup {
 			$finish   = (int) $row['finish'];
 			$winnings = (float) $row['winnings'];
 			$buyins   = (int) $row['buyins'];
+			$hits     = (int) $row['hits'];
 			$invested = (float) $row['total_invested'];
 
 			// Points: active formula, then apply a manual override if one exists (decision #4).
@@ -164,7 +176,7 @@ class TDWP_Stats_Rollup {
 				'buyins'          => $buyins,
 				'rebuys'          => 0,
 				'addons'          => 0,
-				'hits'            => 0,
+				'hits'            => $hits,
 				'points'          => $points,
 			);
 
@@ -272,10 +284,10 @@ class TDWP_Stats_Rollup {
 	 * @param string|null $tournament_uuid Limit to one tournament, or null for every UUID in the source.
 	 * @return array<int,array> One entry per tournament with mismatches[] and summary counts.
 	 */
-	public static function reconcile_report( $tournament_uuid = null ) {
+	public static function reconcile_report( $tournament_uuid = null, $source_table = null ) {
 		global $wpdb;
 
-		$source     = $wpdb->prefix . 'tdwp_tournament_players';
+		$source     = $source_table ? $source_table : $wpdb->prefix . 'tdwp_tournament_players';
 		$mart_table = $wpdb->prefix . 'poker_tournament_players';
 		if ( ! self::table_exists( $source ) || ! self::table_exists( $mart_table ) ) {
 			return array();
@@ -292,7 +304,7 @@ class TDWP_Stats_Rollup {
 
 		$report = array();
 		foreach ( (array) $uuids as $uuid ) {
-			$computed = self::compute_rows( $uuid );
+			$computed = self::compute_rows( $uuid, $source );
 			$expected = array();
 			foreach ( $computed['mart'] as $m ) {
 				$expected[ $m['player_id'] ] = $m;
@@ -301,7 +313,7 @@ class TDWP_Stats_Rollup {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Read-only reconcile.
 			$actual_rows = $wpdb->get_results(
 				$wpdb->prepare(
-					"SELECT player_id, winnings, buyins, finish_position
+					"SELECT player_id, winnings, buyins, finish_position, hits
 					 FROM {$mart_table} WHERE tournament_id = %s",
 					$uuid
 				)
@@ -327,6 +339,9 @@ class TDWP_Stats_Rollup {
 				if ( (int) $m['finish_position'] !== (int) $a->finish_position ) {
 					$mismatches[] = array( 'player' => $puuid, 'issue' => 'finish', 'rollup' => $m['finish_position'], 'mart' => $a->finish_position );
 				}
+				if ( (int) $m['hits'] !== (int) $a->hits ) {
+					$mismatches[] = array( 'player' => $puuid, 'issue' => 'hits', 'rollup' => $m['hits'], 'mart' => $a->hits );
+				}
 			}
 			foreach ( $actual as $puuid => $a ) {
 				if ( ! isset( $expected[ $puuid ] ) ) {
@@ -343,6 +358,114 @@ class TDWP_Stats_Rollup {
 		}
 
 		return $report;
+	}
+
+	/**
+	 * Backfill imported tournaments into the canonical per-entry source as synthetic entries.
+	 *
+	 * Each imported mart row becomes ONE synthetic entry (source='import', entry_number=1) carrying
+	 * the aggregate buy-in count (import_buyins) and knockouts (import_hits), keyed by the resolved
+	 * bigint post IDs plus the stored UUIDs. ROI invested (paid_amount) is derived from the
+	 * tournament's prize pool divided by its total entries (decision #3: derive-from-prize-pool);
+	 * tournaments without a _prize_pool are flagged and get paid_amount=0 for later curation.
+	 *
+	 * Only tournaments NOT already present as LIVE rows are backfilled (live is canonical; decision #5).
+	 * Writes into $target_table (the real source, or a *_shadow clone for a dry run).
+	 *
+	 * @param string $target_table Fully-qualified destination table.
+	 * @return array Summary: inserted, tournaments, flagged_no_buyin[].
+	 */
+	public static function backfill_imports( $target_table ) {
+		global $wpdb;
+
+		$mart     = $wpdb->prefix . 'poker_tournament_players';
+		$live_src = $wpdb->prefix . 'tdwp_tournament_players';
+		$summary  = array( 'inserted' => 0, 'tournaments' => 0, 'flagged_no_buyin' => array() );
+
+		if ( ! self::table_exists( $mart ) || ! self::table_exists( $target_table ) ) {
+			return $summary;
+		}
+
+		// Live tournament UUIDs are canonical — never overwrite them with an import projection.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Migration read.
+		$live_uuids = $wpdb->get_col( "SELECT DISTINCT tournament_uuid FROM {$live_src} WHERE tournament_uuid <> '' AND source = 'live'" );
+		$live_set   = array_fill_keys( (array) $live_uuids, true );
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Migration read.
+		$tournament_uuids = $wpdb->get_col( "SELECT DISTINCT tournament_id FROM {$mart}" );
+
+		foreach ( (array) $tournament_uuids as $tuuid ) {
+			if ( isset( $live_set[ $tuuid ] ) ) {
+				continue; // Live tournament — skip.
+			}
+
+			$tournament_post_id = (int) $wpdb->get_var(
+				$wpdb->prepare( "SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key='tournament_uuid' AND meta_value=%s LIMIT 1", $tuuid )
+			);
+			if ( ! $tournament_post_id ) {
+				continue;
+			}
+
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Migration read.
+			$rows = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT player_id, finish_position, winnings, buyins, hits FROM {$mart} WHERE tournament_id = %s",
+					$tuuid
+				)
+			);
+			if ( empty( $rows ) ) {
+				continue;
+			}
+
+			// Derive per-entry buy-in: prize pool / total entries. Flag tournaments with no prize pool.
+			$prize_pool    = (float) get_post_meta( $tournament_post_id, '_prize_pool', true );
+			$total_entries = 0;
+			foreach ( $rows as $r ) {
+				$total_entries += (int) $r->buyins;
+			}
+			$per_entry_buyin = ( $prize_pool > 0 && $total_entries > 0 ) ? ( $prize_pool / $total_entries ) : 0.0;
+			if ( $per_entry_buyin <= 0 ) {
+				$summary['flagged_no_buyin'][] = $tuuid;
+			}
+
+			$summary['tournaments']++;
+
+			foreach ( $rows as $r ) {
+				$player_post_id = (int) $wpdb->get_var(
+					$wpdb->prepare( "SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key='player_uuid' AND meta_value=%s LIMIT 1", $r->player_id )
+				);
+				if ( ! $player_post_id ) {
+					continue;
+				}
+
+				$buyins = (int) $r->buyins;
+
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Migration write.
+				$res = $wpdb->insert(
+					$target_table,
+					array(
+						'tournament_id'   => $tournament_post_id,
+						'player_id'       => $player_post_id,
+						'entry_number'    => 1,
+						'status'          => 'busted',
+						'finish_position' => (int) $r->finish_position,
+						'prize_amount'    => (float) $r->winnings,
+						'paid_amount'     => (float) $per_entry_buyin * $buyins,
+						'tournament_uuid' => $tuuid,
+						'player_uuid'     => $r->player_id,
+						'source'          => 'import',
+						'import_buyins'   => $buyins,
+						'import_hits'     => (int) $r->hits,
+					),
+					array( '%d', '%d', '%d', '%s', '%d', '%f', '%f', '%s', '%s', '%s', '%d', '%d' )
+				);
+				if ( false !== $res ) {
+					$summary['inserted']++;
+				}
+			}
+		}
+
+		return $summary;
 	}
 
 	/* ---- helpers (mirrors of TDWP_Stats_Bridge, sourced from stored columns) ---- */

@@ -44,7 +44,7 @@ class TDWP_Database_Schema {
 	 *
 	 * @var string
 	 */
-	const DB_VERSION = '3.6.3';
+	const DB_VERSION = '3.6.4';
 
 	/**
 	 * Option name for storing database version
@@ -272,6 +272,11 @@ class TDWP_Database_Schema {
 		// Run v3.6.3 canonical UUID columns on tdwp_tournament_players (tdwp-eil Phase C)
 		if ( version_compare( $from_version, '3.6.3', '<' ) ) {
 			self::migrate_canonical_uuid_columns_v363();
+		}
+
+		// Run v3.6.4 import-aggregate carry columns on tdwp_tournament_players (tdwp-eil Phase E)
+		if ( version_compare( $from_version, '3.6.4', '<' ) ) {
+			self::migrate_import_aggregate_columns_v364();
 		}
 	}
 
@@ -830,6 +835,8 @@ class TDWP_Database_Schema {
 			tournament_uuid varchar(100) NOT NULL DEFAULT '',
 			player_uuid varchar(100) NOT NULL DEFAULT '',
 			source varchar(16) NOT NULL DEFAULT 'live',
+			import_buyins int NOT NULL DEFAULT 0,
+			import_hits int NOT NULL DEFAULT 0,
 			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 			PRIMARY KEY  (id),
@@ -1731,6 +1738,44 @@ class TDWP_Database_Schema {
 			"SELECT COUNT(*) FROM {$table} WHERE tournament_uuid = '' OR player_uuid = ''"
 		);
 		error_log( "tdwp-eil v363: canonical UUID backfill complete; {$still_empty} row(s) still awaiting a minted UUID" );
+
+		return true;
+	}
+
+	/**
+	 * Add import-aggregate carry columns to tdwp_tournament_players (v3.6.4, tdwp-eil Phase E).
+	 *
+	 * Imported tournaments have no true per-entry detail, so they are represented as ONE synthetic
+	 * entry per player (source='import'). These columns carry the pre-consolidation aggregate that a
+	 * single entry row cannot express via COUNT(*): import_buyins (the original buy-in/entry count)
+	 * and import_hits (knockouts). The rollup reads these for source='import' rows and uses COUNT(*)
+	 * / live semantics otherwise. They stay 0 for live rows.
+	 *
+	 * Idempotent. @since 3.6.4
+	 * @return bool
+	 */
+	private static function migrate_import_aggregate_columns_v364() {
+		global $wpdb;
+		$table = $wpdb->prefix . 'tdwp_tournament_players';
+
+		if ( $wpdb->get_var( "SHOW TABLES LIKE '{$table}'" ) !== $table ) {
+			return true;
+		}
+
+		$columns_to_add = array(
+			'import_buyins' => 'ADD COLUMN import_buyins int NOT NULL DEFAULT 0 AFTER source',
+			'import_hits'   => 'ADD COLUMN import_hits int NOT NULL DEFAULT 0 AFTER import_buyins',
+		);
+
+		foreach ( $columns_to_add as $column => $sql ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$column_exists = $wpdb->get_results( $wpdb->prepare( 'SHOW COLUMNS FROM `' . $table . '` LIKE %s', $column ) );
+			if ( empty( $column_exists ) ) {
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				$wpdb->query( "ALTER TABLE `{$table}` {$sql}" );
+				error_log( "tdwp-eil v364: Added column {$column} to {$table}" );
+			}
+		}
 
 		return true;
 	}
