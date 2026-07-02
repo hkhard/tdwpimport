@@ -189,3 +189,38 @@ Each DDL step is guarded by `SHOW COLUMNS`/`SHOW INDEX`/`SHOW TABLES` checks + a
 - **Phase F — Retire bridge & dead writers (Step 7, optional).** Only after a multi-week clean soak. Keep all mart tables. **This is where tdwp-eil is formally satisfied.**
 
 Stopping after any phase still delivers value (e.g. after B the ROI dup bug is fixed; after E the bridge is already redundant even before code deletion).
+
+---
+
+## Production deployment — no DB CLI (added 2026-07-02)
+
+The Local stage cutover relied on operator tools that **do not exist on prod**: raw `mysql`
+(ALTERs/dedup/backfill), `wp eval` (calling `backfill_imports()` / `reconcile_report()` /
+setting the flag), and `mysqldump` (backup). On prod (no DB CLI, no WP-CLI/SSH) every one of
+those must become a plugin-driven, UI-triggered, batched, idempotent, reversible operation.
+
+**Survives as-is (ships in the plugin zip):** Phase A reader fixes; Phase C/E schema columns
+(auto-applied by the version-gated `TDWP_Database_Schema::create_tables()` at admin load —
+verified poker-tournament-import.php:84); the dormant rollup + bridge stand-down (gated on the
+`tdwp_eil_rollup_enabled` option).
+
+**Gaps that need building (tracked in beads):**
+- `tdwp-rqr` (DONE) — Phase B ROI UNIQUE index ran only on activation; `check_plugin_upgrade()`
+  now also calls `ensure_roi_unique_index()` so it applies on a plain update.
+- `tdwp-x9u` — admin reconcile/dry-run **review page** (the human cutover gate, read-only).
+- `tdwp-4b0` — admin **backfill / enable / disable / rollback** actions (idempotent, reversible).
+- `tdwp-77n` — **batch** backfill + reconcile (kill the N+1 postmeta lookups; AJAX/WP-Cron chunks
+  with a resumable cursor) so prod-scale data does not hit PHP timeout/memory limits.
+- `tdwp-4o2` — repoint the `.tdt` importer to write canonical + rollup, batch-safe.
+- `tdwp-5xm` — harden UUID→post-ID resolution (ambiguous/duplicate `player_uuid`, missing posts).
+- `tdwp-ffx` — no-CLI safety net: in-plugin table export + one-click rollback + host-backup notice.
+- `tdwp-npe` — buy-in curation UI for flagged import tournaments (decision #3).
+- `tdwp-t1c` — the UI-only prod runbook (deploy → verify schema → export → backfill → review
+  reconcile → curate → enable → soak → Phase F).
+
+**Why prod risk is low despite no CLI:** enabling the flag is *inert until a live tournament
+finishes* (the rollup only rebuilds a tournament's mart on its finish hook, idempotently), and
+the backfill writes only the canonical source — it never touches the mart. So enabling never
+destroys existing stats, and rollback is: unset the flag (bridge re-registers) ± delete
+`source='import'` canonical rows. The real risk concentrates in the batched data operations
+(backfill / importer repoint) and correct edge-case resolution at scale — hence the P1s above.

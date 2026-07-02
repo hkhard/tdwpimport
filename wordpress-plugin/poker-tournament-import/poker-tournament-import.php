@@ -335,6 +335,12 @@ class Poker_Tournament_Import {
                 error_log("Poker Import: reconciled {$orphans_removed} orphaned participation rows on upgrade");
             }
             $this->ensure_participation_unique_index();
+
+            // tdwp-eil (tdwp-rqr): also enforce the ROI UNIQUE(player_id, tournament_id) index on
+            // UPDATE, not just activation. Prod installs update in place (no deactivate/reactivate),
+            // so without this the ROI dedup + unique key from Phase B would never run there.
+            $this->ensure_roi_unique_index();
+
             if (class_exists('Poker_Statistics_Engine')) {
                 Poker_Statistics_Engine::get_instance()->calculate_all_statistics();
             }
