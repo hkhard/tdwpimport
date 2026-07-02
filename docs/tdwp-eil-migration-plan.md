@@ -224,3 +224,39 @@ the backfill writes only the canonical source — it never touches the mart. So 
 destroys existing stats, and rollback is: unset the flag (bridge re-registers) ± delete
 `source='import'` canonical rows. The real risk concentrates in the batched data operations
 (backfill / importer repoint) and correct edge-case resolution at scale — hence the P1s above.
+
+---
+
+## Production cutover runbook (UI-only, no DB CLI) — tdwp-t1c
+
+Every step is performed from **WP Admin → Poker Tournament Import → Data Consolidation**
+(capability: `manage_options`). No shell, WP-CLI, or DB client required. Each step is reversible.
+
+1. **Deploy the plugin update.** Ships Phase A reader fixes, the ROI-index-on-update fix
+   (`tdwp-rqr`), the canonical schema (v3.6.3/v3.6.4), the dormant rollup + bridge stand-down, the
+   import→canonical sync, and the Data Consolidation admin page.
+2. **Load any admin page once.** The version-gated `TDWP_Database_Schema::create_tables()` runs the
+   v3.6.4 migration (adds `tournament_uuid`/`player_uuid`/`source`/`import_buyins`/`import_hits`);
+   `check_plugin_upgrade()` applies the ROI `UNIQUE` index. Open the Data Consolidation page — the
+   **Status** card should show *Schema ready: yes*.
+3. **Step 0 — Export.** Download a CSV of each affected table (`poker_tournament_players`,
+   `poker_player_roi`, `tdwp_tournament_players`). Also take a host/backup-plugin snapshot if
+   available. *(Rollback for later steps does not require this, but take it anyway.)*
+4. **Step 1 — Backfill.** Click **Run Backfill**. Batched + idempotent; safe to re-run. Note the
+   summary: inserted rows, flagged (no buy-in), **ambiguous**, skipped (missing). Investigate any
+   ambiguous/skipped entries (merged/duplicate/trashed posts) before relying on their stats.
+5. **Step 2 — Reconcile.** Click **Run Reconcile** (read-only). The **Enable** button unlocks only
+   when the full run reports **0 mismatches**. Any mismatches are listed per tournament — resolve
+   them (usually a buy-in curation or an ambiguous mapping) and re-run.
+6. **Curate buy-ins** (if the backfill flagged tournaments with no prize pool) — see `tdwp-npe`.
+7. **Step 3 — Enable cutover.** Click **Enable Cutover**. The rollup becomes the live-projection
+   writer and `TDWP_Stats_Bridge` stands down. This is inert until the next live tournament
+   finishes; existing stats are untouched.
+8. **Soak.** Run live tournaments; confirm leaderboards/dashboard look right over a few weeks.
+9. **Phase F (deferred).** After a clean soak, remove the bridge projection code in a later release.
+
+**Rollback at any point:**
+- Before enabling: **Roll Back Consolidation** (disables + deletes `source='import'` canonical
+  rows; live rows and the mart are untouched).
+- After enabling: **Disable Cutover** (the bridge resumes on the next finish). The mart is never
+  destroyed by enabling, so disabling is safe and immediate.
