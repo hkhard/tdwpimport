@@ -3450,10 +3450,13 @@ class Poker_Tournament_Import {
             'clock_running' => false,
         );
 
-        // Get player count from database
-        $table_name = $wpdb->prefix . 'poker_tournament_players';
+        // Get remaining (active) player count from the LIVE table.
+        // tdwp-eil: previously counted poker_tournament_players (UUID-keyed stats mart) with a
+        // bigint tournament_id and an eliminated column that does not exist there, so it always
+        // returned 0. players_remaining is live state -> tdwp_tournament_players, status='active'.
+        $table_name = $wpdb->prefix . 'tdwp_tournament_players';
         $player_count = $wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM {$table_name} WHERE tournament_id = %d AND eliminated = 0",
+            "SELECT COUNT(*) FROM {$table_name} WHERE tournament_id = %d AND status = 'active'",
             $tournament_id
         ));
 
