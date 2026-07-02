@@ -1,5 +1,14 @@
 # Poker Tournament Import Changelog
 
+## Version 3.9.8 - (July 2, 2026)
+
+### 🚀 Automatic cache purge + permalink flush after stats changes
+
+No more manually clearing LiteSpeed or re-saving permalinks after data changes.
+
+- **Auto cache purge:** every path that changes statistics — importing a `.tdt`, finishing a live tournament, a manual "Refresh Statistics", the debounced bulk-save/delete refresh, points adjustments, and formula re-verification — now purges the LiteSpeed full-page cache, the plugin's per-query object cache, and its derived stat/standings transients (both DB and persistent object cache). Centralised in a new `Poker_Cache_Purge` helper that runs once per request and is a no-op when no cache plugin is present. Other plugins' transients are left untouched, and a `poker_public_caches_purged` action lets you hook additional cache layers.
+- **Auto permalink flush:** after an import creates new tournament posts, the plugin flushes rewrite rules once on the next admin load (coalesced across bulk imports), so newly-imported tournament permalinks resolve without a manual Settings → Permalinks → Save.
+
 ## Version 3.9.7 - (July 2, 2026)
 
 ### 🧹 Retire the legacy stats bridge (tdwp-eil Phase F)

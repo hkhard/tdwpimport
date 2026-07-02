@@ -3,7 +3,7 @@
  * Plugin Name: Poker Tournament Import
  * Plugin URI: https://nikielhard.se/tdwpimport
  * Description: Import and display poker tournament results from Tournament Director (.tdt) files. Now with Tournament Manager for creating tournaments without TD software!
- * Version: 3.9.7
+ * Version: 3.9.8
  * Author: Hans Kästel Hård
  * Author URI: https://nikielhard.se
  * License: GPL v2 or later
@@ -20,7 +20,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('POKER_TOURNAMENT_IMPORT_VERSION', '3.9.7');
+define('POKER_TOURNAMENT_IMPORT_VERSION', '3.9.8');
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -284,6 +284,36 @@ class Poker_Tournament_Import {
 
         // Hook for asynchronous statistics refresh
         add_action('poker_refresh_statistics_async', array($this, 'async_refresh_statistics'));
+
+        // Coalesced rewrite-rules flush after an import created new tournament posts, so their
+        // pretty permalinks resolve without a manual "Save Permalinks". The importer sets the
+        // flag; we flush once on the next admin load (batched across bulk imports).
+        add_action('admin_init', array($this, 'maybe_flush_rewrite_rules'));
+        // Batch importer path: flag the flush + purge caches on each imported tournament.
+        add_action('poker_tournament_imported', function() {
+            update_option('tdwp_needs_rewrite_flush', 1, false);
+            if (class_exists('Poker_Cache_Purge')) {
+                Poker_Cache_Purge::purge_public();
+            }
+        });
+    }
+
+    /**
+     * Flush rewrite rules once if an import flagged that new tournament posts were created.
+     *
+     * @return void
+     */
+    public function maybe_flush_rewrite_rules() {
+        if (!get_option('tdwp_needs_rewrite_flush')) {
+            return;
+        }
+        delete_option('tdwp_needs_rewrite_flush');
+        // Soft flush: regenerate the rewrite_rules option (and refresh any object-cached copy)
+        // without rewriting .htaccess. This makes newly-imported tournament permalinks routable.
+        flush_rewrite_rules(false);
+        if (class_exists('Poker_Cache_Purge')) {
+            Poker_Cache_Purge::purge_public();
+        }
     }
 
     /**
@@ -595,6 +625,7 @@ class Poker_Tournament_Import {
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/class-debug.php';
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/class-formula-validator.php';
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/class-active-formula-manager.php';
+        require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/class-cache-purge.php';
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/class-points-adjustment-manager.php';
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/class-series-standings.php';
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/class-statistics-engine.php';
@@ -2624,6 +2655,10 @@ class Poker_Tournament_Import {
                     update_option('tdwp_statistics_last_refresh', current_time('mysql'));
                 } else {
                     error_log("Poker Statistics: Async refresh failed for tournament {$tournament_id}");
+                }
+                // Invalidate LiteSpeed/object/transient caches so refreshed stats show immediately.
+                if (class_exists('Poker_Cache_Purge')) {
+                    Poker_Cache_Purge::purge_public();
                 }
             } catch (Exception $e) {
                 error_log("Poker Statistics: Exception during async refresh: " . $e->getMessage());

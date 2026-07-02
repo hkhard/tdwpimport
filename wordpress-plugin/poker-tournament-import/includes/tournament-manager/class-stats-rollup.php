@@ -158,6 +158,10 @@ class TDWP_Stats_Rollup {
 		if ( class_exists( 'Poker_Statistics_Engine' ) ) {
 			Poker_Statistics_Engine::get_instance()->calculate_all_statistics();
 		}
+		// A live tournament just finished and its stats were rebuilt — invalidate front-end caches.
+		if ( class_exists( 'Poker_Cache_Purge' ) ) {
+			Poker_Cache_Purge::purge_public();
+		}
 	}
 
 	/**

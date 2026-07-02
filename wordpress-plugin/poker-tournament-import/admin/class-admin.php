@@ -1321,6 +1321,16 @@ class Poker_Tournament_Import_Admin {
                     }
                 }
 
+                // A new tournament post was created: flag a (coalesced) rewrite-rules flush so its
+                // pretty permalink resolves without a manual "Save Permalinks", and purge the stale
+                // aggregate-page caches so the new import shows up on the dashboard/leaderboards.
+                if (!empty($created_posts['tournament'])) {
+                    update_option('tdwp_needs_rewrite_flush', 1, false);
+                }
+                if (class_exists('Poker_Cache_Purge')) {
+                    Poker_Cache_Purge::purge_public();
+                }
+
                 Poker_Tournament_Import_Debug::log_success('Import process completed successfully', $created_posts);
                 return array(
                     'success' => true,
@@ -2437,6 +2447,11 @@ class Poker_Tournament_Import_Admin {
                     if ($result) {
                         // Update last refresh timestamp
                         update_option('tdwp_statistics_last_refresh', current_time('mysql'));
+
+                        // Purge front-end caches so the refreshed numbers are visible immediately.
+                        if (class_exists('Poker_Cache_Purge')) {
+                            Poker_Cache_Purge::purge_public();
+                        }
 
                         $dashboard_stats = $stats_engine->get_dashboard_statistics();
 
@@ -5311,12 +5326,10 @@ class Poker_Tournament_Import_Admin {
         if (!wp_next_scheduled('poker_refresh_statistics_async')) {
             wp_schedule_single_event(time() + 5, 'poker_refresh_statistics_async');
         }
-        // Bust the per-query object cache used by the front-end read surfaces (group flush is a
-        // no-op on backends that do not support it) and purge LiteSpeed so cached HTML is rebuilt.
-        if (function_exists('wp_cache_flush_group')) {
-            wp_cache_flush_group('poker_tournament');
+        // Purge LiteSpeed + object cache + stat transients so the override shows immediately.
+        if (class_exists('Poker_Cache_Purge')) {
+            Poker_Cache_Purge::purge_public();
         }
-        do_action('litespeed_purge_all');
 
         wp_send_json_success(array(
             'id' => $insert_id,
