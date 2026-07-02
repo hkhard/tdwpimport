@@ -489,8 +489,14 @@ class Poker_Tournament_Parser {
      * @return int Fee amount, or 0 if not found.
      */
     private function extract_buyconfig_fee($content, $block) {
-        // Locate "<block>: new BuyConfig({ ... " and grab the first Fee within its Profiles.
-        if (!preg_match('/' . preg_quote($block, '/') . ':\s*new BuyConfig\(\{.*?Profiles:\s*\[(.*?)\]/s', $content, $m)) {
+        // Locate "<block>: new BuyConfig({ ... Profiles: [ ... " and grab the first Fee.
+        // tdwp-5lq: the (?:(?!new BuyConfig).)*? guard stops the non-greedy gap from crossing
+        // into a DIFFERENT BuyConfig block. So a target block with rebuys/add-ons disabled
+        // (Allow: false, no Profiles) fails to match here and returns 0, instead of silently
+        // borrowing the next block's fee.
+        $pattern = '/' . preg_quote($block, '/')
+            . ':\s*new BuyConfig\(\{(?:(?!new BuyConfig).)*?Profiles:\s*\[(.*?)\]/s';
+        if (!preg_match($pattern, $content, $m)) {
             return 0;
         }
         if (preg_match('/Fee:\s*(\d+)/', $m[1], $fee)) {

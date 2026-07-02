@@ -1582,13 +1582,32 @@ class Poker_Tournament_Import_Admin {
         // always creating a new one. Series/season/player all find-or-create; tournament did not,
         // so every re-import of the same .tdt spawned a duplicate post. Update-in-place preserves
         // the post ID and permalink; we never delete-recreate.
+        $existing_was_trashed = false;
         if (!empty($metadata['uuid'])) {
             $existing_tournament = $this->find_tournament_by_uuid($metadata['uuid']);
             if ($existing_tournament > 0) {
                 $post_data['ID'] = $existing_tournament;
+                $existing_status = get_post_status($existing_tournament);
+
+                if ('trash' === $existing_status) {
+                    // tdwp-6cy: the tournament was deliberately trashed. Restore it cleanly
+                    // (wp_untrash_post handles the trash meta + slug) rather than letting
+                    // wp_insert_post raw-update over the trashed row and leave stale meta.
+                    $existing_was_trashed = true;
+                    wp_untrash_post($existing_tournament);
+                    // Keep the requested $status so the restored post lands published/draft.
+                } else {
+                    // tdwp-qag: preserve the existing publish/draft state — do NOT let a
+                    // re-import (which may default to 'draft') silently unpublish a live
+                    // tournament. Only a brand-new post uses the import form's status.
+                    unset($post_data['post_status']);
+                }
+
                 Poker_Tournament_Import_Debug::log('Existing tournament found by UUID, updating in place', array(
                     'uuid' => $metadata['uuid'],
                     'post_id' => $existing_tournament,
+                    'existing_status' => $existing_status,
+                    'restored_from_trash' => $existing_was_trashed,
                 ));
             }
         }
