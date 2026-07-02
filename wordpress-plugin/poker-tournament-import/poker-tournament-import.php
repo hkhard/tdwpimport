@@ -194,6 +194,12 @@ class Poker_Tournament_Import {
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-stats-bridge.php';
         TDWP_Stats_Bridge::init();
 
+        // Stats rollup (tdwp-eil Phase D): single derived-mart writer sourced from the
+        // canonical per-entry table. Loaded but DORMANT — it registers no hooks and
+        // rebuild_tournament() is a no-op until the tdwp_eil_rollup_enabled option is set
+        // at cutover. reconcile_report() is read-only and drives the shadow dry-run.
+        require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-stats-rollup.php';
+
         // AJAX handlers for tabbed interface
         add_action('wp_ajax_tdwp_series_tab_content', array($this, 'ajax_series_tab_content'));
         add_action('wp_ajax_nopriv_tdwp_series_tab_content', array($this, 'ajax_series_tab_content'));
