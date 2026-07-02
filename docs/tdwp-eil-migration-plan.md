@@ -9,6 +9,20 @@
 
 ---
 
+## Decisions (RESOLVED with owner, 2026-07-02)
+
+1. **Physical endgame — CONFIRMED.** "One canonical per-entry source + derived read model." No literal single-table merge.
+2. **Import per-entry policy — one synthetic entry per player** (`entry_number=1`, `source='import'`). Owner deferred to recommendation.
+3. **Historical ROI buy-in — NO silent $20 fallback.** At import, if no buy-in is found, **prompt the user to curate it before the row is written**. For import-only rows already in the DB with no buy-in, produce a **curation report** (do not guess).
+4. **Points overrides — MUST persist.** Manual points are migrated to / stored in `tdwp_points_adjustments` and **re-applied by the rollup** on every rebuild; a recompute never silently discards them.
+5. **Dual import/live — cannot normally occur.** Live is canonical; a live tournament is never re-imported except a backup/restore scenario. Precedence question is therefore moot in normal operation; the dry-run still detects any collision. Points adjustments may still be made against live tournaments.
+6. **Latent-bug readers — CONFIRMED repoint to LIVE table.** `class-display-shortcode::get_leaderboard` and `get_tournament_data` live-count are broken today (querying the mart for live-only columns/keys); repoint both to `tdwp_tournament_players`. (The two `class-css-dashboard-config` bugs repoint to the UUID/postmeta join — no ambiguity there.)
+7. **Staging — the on-machine WP DB is treated as dev/stage** and may be destroyed/rebuilt. Step 5 shadow dry-run and Step 0-6 rehearsal run there first.
+
+Consequent plan changes: the `$20` fallback in `migrate_populate_roi_table` is **removed** (see ROI section); an import-time buy-in curation prompt + a historical curation report are added; the rollup reads `tdwp_points_adjustments` as an override layer (see Risks/points hazard — now mitigated by design).
+
+---
+
 ## TL;DR — the key reframe
 
 **"One physical table" is the wrong target. "One canonical SOURCE + one derived READ MODEL" is right.**
