@@ -721,6 +721,89 @@ class TDWP_Stats_Rollup {
 		return $summary;
 	}
 
+	/**
+	 * List imported tournaments in the canonical source whose per-entry buy-in is still 0
+	 * (no prize pool was available at backfill) — the curation worklist (tdwp-npe).
+	 *
+	 * @return array<int,array> {tournament_uuid, name, entries, players}
+	 */
+	public static function list_uncurated_imports() {
+		global $wpdb;
+		$src = $wpdb->prefix . 'tdwp_tournament_players';
+		if ( ! self::table_exists( $src ) ) {
+			return array();
+		}
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Curation worklist.
+		$rows = $wpdb->get_results(
+			"SELECT tournament_uuid, COUNT(*) AS players, SUM(import_buyins) AS entries, SUM(paid_amount) AS invested
+			 FROM {$src}
+			 WHERE source = 'import' AND tournament_uuid <> ''
+			 GROUP BY tournament_uuid
+			 HAVING SUM(paid_amount) = 0
+			 ORDER BY tournament_uuid"
+		);
+		$out = array();
+		foreach ( (array) $rows as $r ) {
+			$post_id = (int) $wpdb->get_var(
+				$wpdb->prepare( "SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key='tournament_uuid' AND meta_value=%s LIMIT 1", $r->tournament_uuid )
+			);
+			$out[] = array(
+				'tournament_uuid' => $r->tournament_uuid,
+				'name'            => $post_id ? get_the_title( $post_id ) : $r->tournament_uuid,
+				'entries'         => (int) $r->entries,
+				'players'         => (int) $r->players,
+			);
+		}
+		return $out;
+	}
+
+	/**
+	 * Apply a curated per-entry buy-in to an imported tournament: sets paid_amount on its canonical
+	 * import rows (= buy-in × that entry's import_buyins) and rebuilds the ROI mart for it from the
+	 * corrected figures. ROI-only — participation counts/winnings are unchanged (tdwp-npe).
+	 *
+	 * @param string $tournament_uuid Tournament UUID.
+	 * @param float  $per_entry_buyin Curated buy-in per entry.
+	 * @return int Number of canonical rows updated.
+	 */
+	public static function apply_import_buyin( $tournament_uuid, $per_entry_buyin ) {
+		global $wpdb;
+		$tournament_uuid = (string) $tournament_uuid;
+		$per_entry_buyin = (float) $per_entry_buyin;
+		if ( '' === $tournament_uuid || $per_entry_buyin < 0 ) {
+			return 0;
+		}
+		$src = $wpdb->prefix . 'tdwp_tournament_players';
+		if ( ! self::table_exists( $src ) ) {
+			return 0;
+		}
+
+		// paid_amount per row = buy-in × the entry's carried buy-in count (min 1 so 0-buyin rows still cost the buy-in once? no — keep faithful: use import_buyins).
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Curation write.
+		$updated = $wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$src} SET paid_amount = %f * GREATEST(import_buyins, 1)
+				 WHERE tournament_uuid = %s AND source = 'import'",
+				$per_entry_buyin,
+				$tournament_uuid
+			)
+		);
+
+		// Rebuild the ROI mart for this tournament from the corrected canonical figures.
+		$roi_table = $wpdb->prefix . 'poker_player_roi';
+		if ( self::table_exists( $roi_table ) ) {
+			$rows = self::compute_rows( $tournament_uuid );
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Idempotent ROI rebuild.
+			$wpdb->delete( $roi_table, array( 'tournament_id' => $tournament_uuid ), array( '%s' ) );
+			foreach ( $rows['roi'] as $r ) {
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- ROI write.
+				$wpdb->replace( $roi_table, $r, array( '%s', '%s', '%f', '%f', '%f', '%f', '%d', '%s' ) );
+			}
+		}
+
+		return $updated ? (int) $updated : 0;
+	}
+
 	/* ---- helpers (mirrors of TDWP_Stats_Bridge, sourced from stored columns) ---- */
 
 	/**

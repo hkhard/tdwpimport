@@ -36,6 +36,7 @@ class TDWP_Data_Consolidation_Admin {
 		add_action( 'admin_post_tdwp_eil_disable', array( __CLASS__, 'handle_disable' ) );
 		add_action( 'admin_post_tdwp_eil_rollback', array( __CLASS__, 'handle_rollback' ) );
 		add_action( 'admin_post_tdwp_eil_export', array( __CLASS__, 'handle_export' ) );
+		add_action( 'admin_post_tdwp_eil_curate', array( __CLASS__, 'handle_curate' ) );
 	}
 
 	/**
@@ -169,6 +170,42 @@ class TDWP_Data_Consolidation_Admin {
 				<div id="tdwp-eil-reconcile-progress" style="margin-top:10px;"></div>
 				<div id="tdwp-eil-reconcile-result" style="margin-top:10px;"></div>
 			</div>
+
+			<?php
+			$uncurated = class_exists( 'TDWP_Stats_Rollup' ) ? TDWP_Stats_Rollup::list_uncurated_imports() : array();
+			if ( ! empty( $uncurated ) ) :
+				?>
+				<div class="card" style="max-width:820px;margin-top:20px;">
+					<h2><?php esc_html_e( 'Step 2b — Curate missing buy-ins', 'poker-tournament-import' ); ?></h2>
+					<p><?php esc_html_e( 'These imported tournaments had no prize pool to derive a buy-in from, so ROI shows 0 invested. Enter the real per-entry buy-in to correct ROI (participation and winnings are unchanged).', 'poker-tournament-import' ); ?></p>
+					<table class="widefat striped" style="margin-top:8px;">
+						<thead><tr>
+							<th><?php esc_html_e( 'Tournament', 'poker-tournament-import' ); ?></th>
+							<th><?php esc_html_e( 'Players', 'poker-tournament-import' ); ?></th>
+							<th><?php esc_html_e( 'Entries', 'poker-tournament-import' ); ?></th>
+							<th><?php esc_html_e( 'Per-entry buy-in', 'poker-tournament-import' ); ?></th>
+						</tr></thead>
+						<tbody>
+						<?php foreach ( $uncurated as $t ) : ?>
+							<tr>
+								<td><?php echo esc_html( $t['name'] ); ?></td>
+								<td><?php echo esc_html( (string) $t['players'] ); ?></td>
+								<td><?php echo esc_html( (string) $t['entries'] ); ?></td>
+								<td>
+									<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:flex;gap:6px;">
+										<input type="hidden" name="action" value="tdwp_eil_curate" />
+										<input type="hidden" name="tournament_uuid" value="<?php echo esc_attr( $t['tournament_uuid'] ); ?>" />
+										<?php wp_nonce_field( 'tdwp_eil_curate' ); ?>
+										<input type="number" step="0.01" min="0" name="buyin" required style="width:110px;" />
+										<button type="submit" class="button"><?php esc_html_e( 'Save', 'poker-tournament-import' ); ?></button>
+									</form>
+								</td>
+							</tr>
+						<?php endforeach; ?>
+						</tbody>
+					</table>
+				</div>
+			<?php endif; ?>
 
 			<div class="card" style="max-width:820px;margin-top:20px;">
 				<h2><?php esc_html_e( 'Step 3 — Cutover', 'poker-tournament-import' ); ?></h2>
@@ -412,6 +449,22 @@ class TDWP_Data_Consolidation_Admin {
 		$removed = $wpdb->query( "DELETE FROM {$src} WHERE source = 'import'" );
 		delete_option( self::REVIEW_FLAG );
 		self::redirect_notice( 'success', sprintf( __( 'Rolled back: cutover disabled, %d imported rows removed.', 'poker-tournament-import' ), (int) $removed ) );
+	}
+
+	/**
+	 * Apply a curated per-entry buy-in to one imported tournament and rebuild its ROI (tdwp-npe).
+	 *
+	 * @return void
+	 */
+	public static function handle_curate() {
+		self::verify_post( 'tdwp_eil_curate' );
+		$uuid  = isset( $_POST['tournament_uuid'] ) ? sanitize_text_field( wp_unslash( $_POST['tournament_uuid'] ) ) : '';
+		$buyin = isset( $_POST['buyin'] ) ? (float) wp_unslash( $_POST['buyin'] ) : 0.0;
+		if ( '' === $uuid || $buyin < 0 ) {
+			self::redirect_notice( 'error', __( 'Provide a tournament and a non-negative buy-in.', 'poker-tournament-import' ) );
+		}
+		$updated = TDWP_Stats_Rollup::apply_import_buyin( $uuid, $buyin );
+		self::redirect_notice( 'success', sprintf( __( 'Buy-in applied to %d rows and ROI rebuilt.', 'poker-tournament-import' ), (int) $updated ) );
 	}
 
 	/**
