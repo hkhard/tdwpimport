@@ -1,5 +1,14 @@
 # Poker Tournament Import Changelog
 
+## Version 3.9.7 - (July 2, 2026)
+
+### 🧹 Retire the legacy stats bridge (tdwp-eil Phase F)
+
+- `TDWP_Stats_Rollup` is now the single, unconditional writer that projects finished live tournaments into the statistics data marts. The old `TDWP_Stats_Bridge` and the `tdwp_eil_rollup_enabled` opt-in flag have been removed — there is no cutover step; the rollup is always active.
+- The finish handler is now fully guarded so a projection error can never interrupt a tournament finish.
+- Data Consolidation admin page: removed the now-moot Enable/Disable cutover controls; Backfill, Reconcile, Export, and buy-in Curation remain, and "Rollback" now simply removes imported canonical rows.
+- Verified: with the flag absent (fresh-install state), finishing a live tournament rebuilds its mart rows via the rollup — no regression from removing the bridge.
+
 ## Version 3.9.6 - (July 2, 2026)
 
 ### 🐛 Points adjustments now reflect everywhere + working dashboard links

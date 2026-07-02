@@ -3,7 +3,7 @@
  * Plugin Name: Poker Tournament Import
  * Plugin URI: https://nikielhard.se/tdwpimport
  * Description: Import and display poker tournament results from Tournament Director (.tdt) files. Now with Tournament Manager for creating tournaments without TD software!
- * Version: 3.9.6
+ * Version: 3.9.7
  * Author: Hans Kästel Hård
  * Author URI: https://nikielhard.se
  * License: GPL v2 or later
@@ -20,7 +20,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('POKER_TOURNAMENT_IMPORT_VERSION', '3.9.6');
+define('POKER_TOURNAMENT_IMPORT_VERSION', '3.9.7');
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -187,18 +187,12 @@ class Poker_Tournament_Import {
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/class-bulk-import.php';
         Poker_Tournament_Bulk_Import::get_instance();
 
-        // Stats mart bridge: project finished LIVE tournaments into the legacy
-        // statistics data-mart so leaderboards include live-run tournaments.
-        // Loaded OUTSIDE is_admin() so both the finish hook (admin-ajax) and the
-        // async refresh hook (cron) are registered. See bead tdwp-iwc (Option A).
-        // Stats rollup (tdwp-eil): single derived-mart writer sourced from the canonical
-        // per-entry table. Required BEFORE the bridge so the bridge can check whether the
-        // rollup has taken over. Registers finish hooks only when tdwp_eil_rollup_enabled is
-        // set (dormant + no-op otherwise); reconcile_report() is always read-only.
+        // Stats rollup (tdwp-eil): the single derived-mart writer. On a live tournament finish it
+        // stamps canonical UUIDs and rebuilds poker_tournament_players + poker_player_roi from the
+        // canonical per-entry source. Loaded OUTSIDE is_admin() so both the finish hook (admin-ajax)
+        // and the async refresh hook (cron) register. Phase F retired the old TDWP_Stats_Bridge; the
+        // rollup is now unconditional (no opt-in flag).
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-stats-rollup.php';
-
-        require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-stats-bridge.php';
-        TDWP_Stats_Bridge::init();
         TDWP_Stats_Rollup::init();
 
         // Data Consolidation cutover UI (tdwp-eil): admin page + batched AJAX + actions. Admin/AJAX

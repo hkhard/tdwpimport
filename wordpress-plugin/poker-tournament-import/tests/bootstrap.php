@@ -32,7 +32,6 @@ $GLOBALS['wpdb'] = new TDWP_Fake_WPDB();
  * Classes under test. These are plain class files guarded by `if ( ! defined(
  * 'ABSPATH' ) ) exit;` — safe to require directly once ABSPATH is defined.
  */
-require $plugin_dir . 'includes/tournament-manager/class-stats-bridge.php';
 require $plugin_dir . 'includes/security/class-ajax-guards.php';
 
 // Formula validator (standalone), and the .tdt parser chain (debug -> formula ->

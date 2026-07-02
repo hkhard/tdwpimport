@@ -44,30 +44,30 @@ class TDWP_Stats_Rollup {
 	/**
 	 * Whether the rollup is the active mart writer.
 	 *
+	 * tdwp-eil Phase F: the rollup is now the UNCONDITIONAL live-projection writer (it replaced and
+	 * retired TDWP_Stats_Bridge), so this always returns true. Retained for back-compat callers; the
+	 * tdwp_eil_rollup_enabled option is no longer consulted.
+	 *
 	 * @return bool
 	 */
 	public static function is_enabled() {
-		return (bool) get_option( self::ENABLED_OPTION, false );
+		return true;
 	}
 
 	/**
-	 * Register finish-hook handlers — ONLY when enabled. Until cutover this is a no-op, so
-	 * TDWP_Stats_Bridge remains the sole projector; after cutover the rollup takes over and the
-	 * bridge stands down (see TDWP_Stats_Bridge::init).
+	 * Register the live-tournament finish handlers and the import-sync listeners.
+	 *
+	 * Phase F: always registered — the rollup is the sole projector (no bridge, no opt-in flag).
 	 *
 	 * @return void
 	 */
 	public static function init() {
-		// tdwp-4o2: keep the canonical source in sync with imports regardless of cutover state, so
-		// canonical stays the complete record and a later cutover is ready. Additive listeners on the
-		// batch importer's completion hooks; never touch the stats mart. (The single-import path in
+		// tdwp-4o2: keep the canonical source in sync with imports. Additive listeners on the batch
+		// importer's completion hooks; never touch the stats mart. (The single-import path in
 		// class-admin calls sync_import_by_uuid() directly since it fires no hook.)
 		add_action( 'poker_tournament_imported', array( __CLASS__, 'sync_import_by_post' ), 20, 1 );
 		add_action( 'poker_tournament_updated', array( __CLASS__, 'sync_import_by_post' ), 20, 1 );
 
-		if ( ! self::is_enabled() ) {
-			return;
-		}
 		// Priority 20 so other finish listeners run first; rebuild is idempotent on double-fire.
 		add_action( self::FINISH_HOOK, array( __CLASS__, 'on_tournament_finished' ), 20, 1 );
 		add_action( self::COMPLETE_HOOK, array( __CLASS__, 'on_tournament_finished' ), 20, 1 );
@@ -130,15 +130,22 @@ class TDWP_Stats_Rollup {
 			return;
 		}
 
-		$tournament_uuid = self::ensure_live_uuids( $tournament_id );
-		if ( '' === $tournament_uuid ) {
-			return;
-		}
+		// As the sole live-projection writer, this must never fatal a tournament finish.
+		try {
+			$tournament_uuid = self::ensure_live_uuids( $tournament_id );
+			if ( '' === $tournament_uuid ) {
+				return;
+			}
 
-		self::rebuild_tournament( $tournament_uuid );
+			self::rebuild_tournament( $tournament_uuid );
 
-		if ( ! wp_next_scheduled( self::REFRESH_HOOK ) ) {
-			wp_schedule_single_event( time() + 5, self::REFRESH_HOOK );
+			if ( ! wp_next_scheduled( self::REFRESH_HOOK ) ) {
+				wp_schedule_single_event( time() + 5, self::REFRESH_HOOK );
+			}
+		} catch ( \Throwable $e ) {
+			if ( class_exists( 'TDWP_Debug_Logger' ) ) {
+				TDWP_Debug_Logger::log( 'StatsRollup', 'on_tournament_finished failed', array( 'tournament_id' => $tournament_id, 'error' => $e->getMessage() ) );
+			}
 		}
 	}
 
@@ -377,19 +384,14 @@ class TDWP_Stats_Rollup {
 	/**
 	 * Rebuild the derived marts for one tournament from the canonical source.
 	 *
-	 * No-op unless the rollup is enabled (OFF until cutover). Idempotent: delete-then-insert
-	 * the mart on tournament_uuid, and $wpdb->replace the ROI rows (safe now that Phase B added
-	 * UNIQUE(player_id, tournament_id)).
+	 * Idempotent: delete-then-insert the mart on tournament_uuid, and $wpdb->replace the ROI rows
+	 * (safe since Phase B added UNIQUE(player_id, tournament_id)).
 	 *
 	 * @param string $tournament_uuid Tournament UUID.
-	 * @return int Number of mart rows written (0 if disabled / nothing to write).
+	 * @return int Number of mart rows written (0 if nothing to write).
 	 */
 	public static function rebuild_tournament( $tournament_uuid ) {
 		global $wpdb;
-
-		if ( ! self::is_enabled() ) {
-			return 0;
-		}
 
 		$tournament_uuid = (string) $tournament_uuid;
 		if ( '' === $tournament_uuid ) {

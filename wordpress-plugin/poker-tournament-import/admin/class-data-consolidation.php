@@ -32,8 +32,6 @@ class TDWP_Data_Consolidation_Admin {
 		add_action( 'admin_menu', array( __CLASS__, 'register_menu' ), 20 );
 		add_action( 'wp_ajax_tdwp_eil_backfill_batch', array( __CLASS__, 'ajax_backfill_batch' ) );
 		add_action( 'wp_ajax_tdwp_eil_reconcile_batch', array( __CLASS__, 'ajax_reconcile_batch' ) );
-		add_action( 'admin_post_tdwp_eil_enable', array( __CLASS__, 'handle_enable' ) );
-		add_action( 'admin_post_tdwp_eil_disable', array( __CLASS__, 'handle_disable' ) );
 		add_action( 'admin_post_tdwp_eil_rollback', array( __CLASS__, 'handle_rollback' ) );
 		add_action( 'admin_post_tdwp_eil_export', array( __CLASS__, 'handle_export' ) );
 		add_action( 'admin_post_tdwp_eil_curate', array( __CLASS__, 'handle_curate' ) );
@@ -95,7 +93,6 @@ class TDWP_Data_Consolidation_Admin {
 
 		global $wpdb;
 		$schema_ready = self::schema_ready();
-		$enabled      = class_exists( 'TDWP_Stats_Rollup' ) && TDWP_Stats_Rollup::is_enabled();
 		$reviewed     = (bool) get_option( self::REVIEW_FLAG, false );
 		$src          = $wpdb->prefix . 'tdwp_tournament_players';
 		$live_ct      = 0;
@@ -138,7 +135,7 @@ class TDWP_Data_Consolidation_Admin {
 					<li><?php echo esc_html( sprintf( __( 'Schema ready: %s', 'poker-tournament-import' ), $schema_ready ? __( 'yes', 'poker-tournament-import' ) : __( 'no', 'poker-tournament-import' ) ) ); ?></li>
 					<li><?php echo esc_html( sprintf( __( 'Canonical source rows — live: %1$d, imported: %2$d', 'poker-tournament-import' ), $live_ct, $import_ct ) ); ?></li>
 					<li><?php echo esc_html( sprintf( __( 'Imported tournaments in mart: %d', 'poker-tournament-import' ), $import_tournaments ) ); ?></li>
-					<li><strong><?php echo esc_html( sprintf( __( 'Rollup cutover: %s', 'poker-tournament-import' ), $enabled ? __( 'ENABLED', 'poker-tournament-import' ) : __( 'disabled', 'poker-tournament-import' ) ) ); ?></strong></li>
+					<li><strong><?php esc_html_e( 'Live projection: rollup (always active — bridge retired)', 'poker-tournament-import' ); ?></strong></li>
 					<li><?php echo esc_html( sprintf( __( 'Last reconcile clean: %s', 'poker-tournament-import' ), $reviewed ? __( 'yes', 'poker-tournament-import' ) : __( 'not yet', 'poker-tournament-import' ) ) ); ?></li>
 				</ul>
 			</div>
@@ -208,31 +205,17 @@ class TDWP_Data_Consolidation_Admin {
 			<?php endif; ?>
 
 			<div class="card" style="max-width:820px;margin-top:20px;">
-				<h2><?php esc_html_e( 'Step 3 — Cutover', 'poker-tournament-import' ); ?></h2>
-				<p><?php esc_html_e( 'Enable the rollup as the single mart writer for live tournaments; the stats bridge stands down. Only available after a clean reconcile.', 'poker-tournament-import' ); ?></p>
-				<?php if ( ! $enabled ) : ?>
-					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;" onsubmit="return confirm('<?php echo esc_js( __( 'Enable the rollup cutover now?', 'poker-tournament-import' ) ); ?>');">
-						<input type="hidden" name="action" value="tdwp_eil_enable" />
-						<?php wp_nonce_field( 'tdwp_eil_enable' ); ?>
-						<button type="submit" class="button button-primary" <?php disabled( ! $reviewed ); ?>><?php esc_html_e( 'Enable Cutover', 'poker-tournament-import' ); ?></button>
-						<?php if ( ! $reviewed ) : ?><span class="description"><?php esc_html_e( '(run a clean reconcile first)', 'poker-tournament-import' ); ?></span><?php endif; ?>
-					</form>
-				<?php else : ?>
-					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;" onsubmit="return confirm('<?php echo esc_js( __( 'Disable the cutover? The stats bridge resumes.', 'poker-tournament-import' ) ); ?>');">
-						<input type="hidden" name="action" value="tdwp_eil_disable" />
-						<?php wp_nonce_field( 'tdwp_eil_disable' ); ?>
-						<button type="submit" class="button"><?php esc_html_e( 'Disable Cutover', 'poker-tournament-import' ); ?></button>
-					</form>
-				<?php endif; ?>
+				<h2><?php esc_html_e( 'Live projection', 'poker-tournament-import' ); ?></h2>
+				<p><?php esc_html_e( 'The rollup is the single mart writer for finished live tournaments — it is always active (the legacy stats bridge has been retired). Backfill and reconcile above keep the canonical source complete and let you verify the derived marts; no enable step is required.', 'poker-tournament-import' ); ?></p>
 			</div>
 
 			<div class="card" style="max-width:820px;margin-top:20px;border-left:4px solid #d63638;">
-				<h2><?php esc_html_e( 'Rollback', 'poker-tournament-import' ); ?></h2>
-				<p><?php esc_html_e( 'Disable the cutover and remove all imported synthetic rows from the canonical source (live rows are never touched). The stats mart is unaffected.', 'poker-tournament-import' ); ?></p>
-				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" onsubmit="return confirm('<?php echo esc_js( __( 'Roll back: disable cutover and delete imported canonical rows?', 'poker-tournament-import' ) ); ?>');">
+				<h2><?php esc_html_e( 'Remove imported canonical rows', 'poker-tournament-import' ); ?></h2>
+				<p><?php esc_html_e( 'Delete all imported synthetic rows from the canonical source (live rows and the stats mart are never touched). Use this to undo a backfill; re-run Step 1 to repopulate.', 'poker-tournament-import' ); ?></p>
+				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" onsubmit="return confirm('<?php echo esc_js( __( 'Delete all imported canonical rows?', 'poker-tournament-import' ) ); ?>');">
 					<input type="hidden" name="action" value="tdwp_eil_rollback" />
 					<?php wp_nonce_field( 'tdwp_eil_rollback' ); ?>
-					<button type="submit" class="button button-link-delete"><?php esc_html_e( 'Roll Back Consolidation', 'poker-tournament-import' ); ?></button>
+					<button type="submit" class="button button-link-delete"><?php esc_html_e( 'Remove Imported Rows', 'poker-tournament-import' ); ?></button>
 				</form>
 			</div>
 		</div>
@@ -411,44 +394,19 @@ class TDWP_Data_Consolidation_Admin {
 	/* ------------------------------------------------------------ admin-post */
 
 	/**
-	 * Enable the rollup cutover.
-	 *
-	 * @return void
-	 */
-	public static function handle_enable() {
-		self::verify_post( 'tdwp_eil_enable' );
-		if ( ! get_option( self::REVIEW_FLAG, false ) ) {
-			self::redirect_notice( 'error', __( 'Run a clean reconcile before enabling the cutover.', 'poker-tournament-import' ) );
-		}
-		update_option( 'tdwp_eil_rollup_enabled', 1 );
-		self::redirect_notice( 'success', __( 'Cutover enabled — the rollup now owns the live projection.', 'poker-tournament-import' ) );
-	}
-
-	/**
-	 * Disable the rollup cutover (bridge resumes).
-	 *
-	 * @return void
-	 */
-	public static function handle_disable() {
-		self::verify_post( 'tdwp_eil_disable' );
-		update_option( 'tdwp_eil_rollup_enabled', 0 );
-		self::redirect_notice( 'success', __( 'Cutover disabled — the stats bridge has resumed.', 'poker-tournament-import' ) );
-	}
-
-	/**
-	 * Roll back: disable + delete imported canonical rows (live rows untouched).
+	 * Remove all imported synthetic rows from the canonical source (live rows untouched).
+	 * Phase F: the rollup is always active, so there is no cutover flag to toggle.
 	 *
 	 * @return void
 	 */
 	public static function handle_rollback() {
 		self::verify_post( 'tdwp_eil_rollback' );
 		global $wpdb;
-		update_option( 'tdwp_eil_rollup_enabled', 0 );
 		$src = $wpdb->prefix . 'tdwp_tournament_players';
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Rollback removes only import rows.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Removes only import rows.
 		$removed = $wpdb->query( "DELETE FROM {$src} WHERE source = 'import'" );
 		delete_option( self::REVIEW_FLAG );
-		self::redirect_notice( 'success', sprintf( __( 'Rolled back: cutover disabled, %d imported rows removed.', 'poker-tournament-import' ), (int) $removed ) );
+		self::redirect_notice( 'success', sprintf( __( '%d imported canonical rows removed.', 'poker-tournament-import' ), (int) $removed ) );
 	}
 
 	/**

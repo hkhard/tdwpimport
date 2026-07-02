@@ -3,7 +3,7 @@ Contributors: hanshard
 Tags: poker, tournament, import, results, bulk-import
 Requires at least: 6.0
 Tested up to: 6.8
-Stable tag: 3.9.6
+Stable tag: 3.9.7
 Requires PHP: 8.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -77,6 +77,9 @@ Use the following shortcodes:
 6. **NEW: Interactive leaderboard with sorting**
 
 == Changelog ==
+
+= 3.9.7 - July 2, 2026 =
+* Retired the legacy stats bridge: the rollup is now the single, always-on writer that projects finished live tournaments into the stats marts (no cutover flag). The finish handler is fully guarded so it can never interrupt a tournament finish. Removed the moot Enable/Disable cutover controls from the Data Consolidation page.
 
 = 3.9.6 - July 2, 2026 =
 * Fixed manual points adjustments not showing on the tournament page, player page, or stats dashboard — the override is now written to the canonical points column, stats are rebuilt, and caches (object + LiteSpeed) are purged. Re-verifying a formula no longer clobbers an override.
