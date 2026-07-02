@@ -1,5 +1,11 @@
 # Poker Tournament Import Changelog
 
+## Version 3.9.5 - (July 2, 2026)
+
+### 🐛 Admin notices rendered as raw HTML
+
+- **Refresh Statistics** result and the **post-import summary** displayed their HTML markup as literal text. Both were passing already-built, safely-escaped HTML through `esc_html()` (which escapes the tags again). Switched to `wp_kses_post()` so the success notice and the "Edit Tournament/Series/Season" links render correctly.
+
 ## Version 3.9.4 - (July 2, 2026)
 
 ### 🧱 Live/legacy data consolidation (epic tdwp-3lg, Option C — tdwp-eil)

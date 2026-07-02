@@ -3,7 +3,7 @@ Contributors: hanshard
 Tags: poker, tournament, import, results, bulk-import
 Requires at least: 6.0
 Tested up to: 6.8
-Stable tag: 3.9.4
+Stable tag: 3.9.5
 Requires PHP: 8.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -77,6 +77,9 @@ Use the following shortcodes:
 6. **NEW: Interactive leaderboard with sorting**
 
 == Changelog ==
+
+= 3.9.5 - July 2, 2026 =
+* Fixed the Refresh Statistics result and the post-import summary showing raw HTML tags instead of a formatted notice/links (they were double-escaped; now rendered with wp_kses_post).
 
 = 3.9.4 - July 2, 2026 =
 Live/legacy data consolidation (epic tdwp-3lg, Option C — tdwp-eil).

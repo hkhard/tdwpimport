@@ -1789,19 +1789,19 @@ class Poker_Tournament_Import_Admin {
 
         if (isset($created_posts['tournament'])) {
             /* translators: %s: URL to edit tournament */
-            echo '<li>' . esc_html(sprintf(esc_html__('Tournament created: <a href="%s">Edit Tournament</a>', 'poker-tournament-import'),
+            echo '<li>' . wp_kses_post(sprintf(__('Tournament created: <a href="%s">Edit Tournament</a>', 'poker-tournament-import'),
                 esc_url(get_edit_post_link($created_posts['tournament'])))) . '</li>';
         }
 
         if (isset($created_posts['series'])) {
             /* translators: %s: URL to edit series */
-            echo '<li>' . esc_html(sprintf(esc_html__('Series: <a href="%s">Edit Series</a>', 'poker-tournament-import'),
+            echo '<li>' . wp_kses_post(sprintf(__('Series: <a href="%s">Edit Series</a>', 'poker-tournament-import'),
                 esc_url(get_edit_post_link($created_posts['series'])))) . '</li>';
         }
 
         if (isset($created_posts['season'])) {
             /* translators: %s: URL to edit season */
-            echo '<li>' . esc_html(sprintf(esc_html__('Season: <a href="%s">Edit Season</a>', 'poker-tournament-import'),
+            echo '<li>' . wp_kses_post(sprintf(__('Season: <a href="%s">Edit Season</a>', 'poker-tournament-import'),
                 esc_url(get_edit_post_link($created_posts['season'])))) . '</li>';
         }
 
@@ -2480,7 +2480,9 @@ class Poker_Tournament_Import_Admin {
             // Clean output buffer and add to admin notices
             $message = ob_get_clean();
             add_action('admin_notices', function() use ($message) {
-                echo esc_html($message);
+                // $message is trusted admin-notice HTML assembled above with esc_*() on every
+                // dynamic value; wp_kses_post renders it (esc_html would show raw tags as text).
+                echo wp_kses_post($message);
             });
         }
     }
