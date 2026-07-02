@@ -320,6 +320,18 @@ class Poker_Tournament_Import {
                 }
             }
 
+            // tdwp-46s: one-time repair of the participation mart on upgrade —
+            // reconcile orphaned rows, dedup, and enforce the UNIQUE index so historical
+            // duplicate tournaments stop rendering on player profiles.
+            $orphans_removed = $this->reconcile_orphan_participation_rows();
+            if ($orphans_removed > 0) {
+                error_log("Poker Import: reconciled {$orphans_removed} orphaned participation rows on upgrade");
+            }
+            $this->ensure_participation_unique_index();
+            if (class_exists('Poker_Statistics_Engine')) {
+                Poker_Statistics_Engine::get_instance()->calculate_all_statistics();
+            }
+
             // Update the stored version
             update_option('tdwp_import_last_version', POKER_TOURNAMENT_IMPORT_VERSION);
 
@@ -964,6 +976,113 @@ class Poker_Tournament_Import {
     /**
      * Create custom database tables
      */
+    /**
+     * Collapse duplicate participation rows in poker_tournament_players.
+     *
+     * tdwp-46s: repeated import->delete historically appended duplicate
+     * (tournament_id, player_id) rows. This keeps the lowest-id row per pair and
+     * removes the rest, so aggregates converge and the UNIQUE index can apply.
+     *
+     * @return int Number of duplicate rows removed.
+     */
+    public function dedup_participation_mart() {
+        global $wpdb;
+        $table = $wpdb->prefix . 'poker_tournament_players';
+
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- table existence check
+        if ($wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table)) !== $table) {
+            return 0;
+        }
+
+        // Delete every row that is not the minimum id for its (tournament_id, player_id) pair.
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- one-time dedup migration
+        $removed = $wpdb->query(
+            "DELETE tp FROM {$table} tp
+             INNER JOIN (
+                 SELECT tournament_id, player_id, MIN(id) AS keep_id
+                 FROM {$table}
+                 GROUP BY tournament_id, player_id
+                 HAVING COUNT(*) > 1
+             ) dup
+             ON tp.tournament_id = dup.tournament_id
+             AND tp.player_id = dup.player_id
+             AND tp.id <> dup.keep_id"
+        );
+
+        return $removed ? (int) $removed : 0;
+    }
+
+    /**
+     * Remove participation rows whose tournament no longer exists as a post.
+     *
+     * tdwp-46s: permanent deletes prior to the delete-cleanup hook left orphaned
+     * UUID-keyed rows that still rendered on player profiles. Reconcile them.
+     *
+     * @return int Number of orphaned rows removed.
+     */
+    public function reconcile_orphan_participation_rows() {
+        global $wpdb;
+        $table = $wpdb->prefix . 'poker_tournament_players';
+
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- table existence check
+        if ($wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table)) !== $table) {
+            return 0;
+        }
+
+        // A row is orphaned when its tournament_id (UUID) has no matching
+        // 'tournament_uuid' postmeta pointing at a live tournament post.
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- orphan reconciliation
+        $removed = $wpdb->query(
+            "DELETE tp FROM {$table} tp
+             LEFT JOIN {$wpdb->postmeta} pm
+                 ON pm.meta_key = 'tournament_uuid' AND pm.meta_value = tp.tournament_id
+             LEFT JOIN {$wpdb->posts} p
+                 ON p.ID = pm.post_id AND p.post_type = 'tournament'
+             WHERE p.ID IS NULL"
+        );
+
+        return $removed ? (int) $removed : 0;
+    }
+
+    /**
+     * Dedup the participation mart, then ensure the UNIQUE(tournament_id, player_id) index.
+     *
+     * Guarded by an option so it only performs the ALTER once. Safe to call on every
+     * activation/upgrade.
+     */
+    public function ensure_participation_unique_index() {
+        global $wpdb;
+        $table = $wpdb->prefix . 'poker_tournament_players';
+
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- table existence check
+        if ($wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table)) !== $table) {
+            return;
+        }
+
+        // Already present? Nothing to do.
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- index introspection
+        $has_index = $wpdb->get_var("SHOW INDEX FROM {$table} WHERE Key_name = 'tournament_player'");
+        if ($has_index) {
+            update_option('poker_participation_unique_index_v1', 1);
+            return;
+        }
+
+        // Must dedup before a UNIQUE index can be added.
+        $removed = $this->dedup_participation_mart();
+        if ($removed > 0) {
+            error_log("Poker Import: deduped {$removed} duplicate participation rows before adding UNIQUE index");
+        }
+
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- one-time schema upgrade
+        $added = $wpdb->query("ALTER TABLE {$table} ADD UNIQUE KEY tournament_player (tournament_id, player_id)");
+        if ($added !== false) {
+            update_option('poker_participation_unique_index_v1', 1);
+            error_log('Poker Import: added UNIQUE(tournament_id, player_id) to poker_tournament_players');
+        } else {
+            error_log('Poker Import: failed to add UNIQUE index to poker_tournament_players: ' . $wpdb->last_error);
+        }
+    }
+
     private function create_database_tables() {
         global $wpdb;
 
@@ -984,12 +1103,17 @@ class Poker_Tournament_Import {
             points decimal(10,2) DEFAULT 0,
             created_at datetime DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY  (id),
+            UNIQUE KEY tournament_player (tournament_id, player_id),
             KEY tournament_id (tournament_id),
             KEY player_id (player_id)
         ) $charset_collate;";
 
         require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
         dbDelta($sql);
+
+        // tdwp-46s: existing installs may already hold duplicate participation rows, which
+        // would make the UNIQUE KEY above fail to apply via dbDelta. Dedup then enforce.
+        $this->ensure_participation_unique_index();
 
         // Table for dashboard statistics (data mart)
         $stats_table_name = $wpdb->prefix . 'poker_statistics';
