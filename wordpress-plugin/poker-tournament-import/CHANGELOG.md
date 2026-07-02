@@ -1,5 +1,28 @@
 # Poker Tournament Import Changelog
 
+## Version 3.9.3 - (July 2, 2026)
+
+### 🐛 Data integrity — duplicate tournaments & robust statistics (epic tdwp-3lg)
+
+**Duplicate tournaments on player profiles (tdwp-48e)**
+- Root cause fixed: `poker_tournament_players` was append-only on import with no cleanup on delete, so repeatedly importing and deleting the same `.tdt` left multiple copies of every participation row — showing the same tournament twice on a player profile.
+- Imports are now idempotent: participation rows are deleted-then-reinserted per tournament UUID, mirroring the ROI mart.
+- Tournament posts are found-and-updated by UUID instead of blindly recreated on every re-import.
+- Permanently deleting a tournament now purges its rows from `poker_tournament_players`, `poker_player_roi`, and `poker_tournament_costs`.
+- Player profile listings collapse duplicates (`GROUP BY tournament_id`) and count wins/final tables with `COUNT(DISTINCT tournament_id)`.
+
+**Robust statistics recalculation (tdwp-46s)**
+- New `UNIQUE(tournament_id, player_id)` index on `poker_tournament_players` makes duplicate rows structurally impossible.
+- One-time upgrade migration reconciles orphaned rows, de-duplicates, enforces the index, and recalculates — automatically cleaning historical damage.
+- `calculate_all_statistics()` self-heals the participation mart before aggregating, so recalculation is idempotent.
+
+**Negative tournament points (tdwp-brj)**
+- Rebuy and add-on fees are now extracted from their `.tdt` `BuyConfig` blocks (previously never set, so rebuy/add-on money was always 0). Combines with the existing buy-in inference fallback and negative-points clamp to protect the prize-pool-driven points formula.
+
+**Data Operations menu (tdwp-7br)**
+- New **Data Operations** submenu consolidates Refresh Statistics, a new **Repair Participation Mart** tool, and links to the Data Mart Cleaner and Migration Tools.
+- Data Mart Cleaner moved from the Tournaments menu into the Poker Import menu.
+
 ## Version 3.9.2 - (July 1, 2026)
 
 ### 📖 Admin help overhaul

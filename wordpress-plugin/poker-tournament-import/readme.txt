@@ -3,7 +3,7 @@ Contributors: hanshard
 Tags: poker, tournament, import, results, bulk-import
 Requires at least: 6.0
 Tested up to: 6.8
-Stable tag: 3.9.2
+Stable tag: 3.9.3
 Requires PHP: 8.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -77,6 +77,13 @@ Use the following shortcodes:
 6. **NEW: Interactive leaderboard with sorting**
 
 == Changelog ==
+
+= 3.9.3 - July 2, 2026 =
+Data integrity release (epic tdwp-3lg).
+* Fixed duplicate tournaments on player profiles: imports are now idempotent (delete-then-insert per tournament UUID), tournament posts are updated-by-UUID instead of recreated, and permanent deletes purge the data-mart rows (tdwp-48e).
+* Robust statistics: UNIQUE(tournament_id, player_id) index, a one-time upgrade migration that reconciles orphans + de-duplicates historical rows, and self-healing recalculation (tdwp-46s).
+* Fixed negative tournament points by extracting rebuy/add-on fees from the .tdt BuyConfig blocks (tdwp-brj).
+* New Data Operations admin submenu consolidating Refresh Statistics, a Repair Participation Mart tool, the Data Mart Cleaner, and Migration Tools (tdwp-7br).
 
 = 3.8.0 - June 30, 2026 =
 Phase 1 Foundation gap closure complete (epic tdwp-cma) — P2/P3 across Prizes, Blinds, Players, and the creation wizard.
