@@ -98,10 +98,15 @@ $archive_url = get_post_type_archive_link($post_type);
                     if ($player_uuid) {
                         // Get tournament history for chart
                         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
+                        // tdwp-48e: GROUP BY tp.tournament_id so any duplicate participation
+                        // rows for the same tournament collapse to a single line (defense in
+                        // depth; imports are now idempotent and a UNIQUE index enforces this).
                         $tournaments = $wpdb->get_results($wpdb->prepare(
-                            "SELECT tp.finish_position, tp.winnings, tp.points,
-                                    p.post_title as tournament_name,
-                                    pm.meta_value as tournament_date
+                            "SELECT MAX(tp.finish_position) as finish_position,
+                                    MAX(tp.winnings) as winnings,
+                                    MAX(tp.points) as points,
+                                    MAX(p.post_title) as tournament_name,
+                                    MAX(pm.meta_value) as tournament_date
                              FROM $table_name tp
                              LEFT JOIN {$wpdb->postmeta} pm ON pm.post_id = (
                                  SELECT post_id FROM {$wpdb->postmeta}
@@ -110,7 +115,8 @@ $archive_url = get_post_type_archive_link($post_type);
                              ) AND pm.meta_key = 'tournament_date'
                              LEFT JOIN {$wpdb->posts} p ON pm.post_id = p.ID
                              WHERE tp.player_id = %s
-                             ORDER BY pm.meta_value DESC
+                             GROUP BY tp.tournament_id
+                             ORDER BY tournament_date DESC
                              LIMIT 20",
                             $player_uuid
                         ));
@@ -284,12 +290,12 @@ $archive_url = get_post_type_archive_link($post_type);
                                 if ($player_uuid) {
                                     // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
                                     $wins = $wpdb->get_var($wpdb->prepare(
-                                        "SELECT COUNT(*) FROM $table_name WHERE player_id = %s AND finish_position = 1",
+                                        "SELECT COUNT(DISTINCT tournament_id) FROM $table_name WHERE player_id = %s AND finish_position = 1",
                                         $player_uuid
                                     ));
                                     // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
                                     $final_tables = $wpdb->get_var($wpdb->prepare(
-                                        "SELECT COUNT(*) FROM $table_name WHERE player_id = %s AND finish_position <= 9",
+                                        "SELECT COUNT(DISTINCT tournament_id) FROM $table_name WHERE player_id = %s AND finish_position <= 9",
                                         $player_uuid
                                     ));
 
@@ -322,9 +328,12 @@ $archive_url = get_post_type_archive_link($post_type);
                                 <?php
                                 if ($player_uuid) {
                                     // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table query
+                                    // tdwp-48e: collapse any duplicate participation rows per tournament.
                                     $recent_tournaments = $wpdb->get_results($wpdb->prepare(
-                                        "SELECT tp.finish_position, tp.winnings, p.post_title as tournament_name,
-                                                pm.meta_value as tournament_date
+                                        "SELECT MAX(tp.finish_position) as finish_position,
+                                                MAX(tp.winnings) as winnings,
+                                                MAX(p.post_title) as tournament_name,
+                                                MAX(pm.meta_value) as tournament_date
                                          FROM $table_name tp
                                          LEFT JOIN {$wpdb->postmeta} pm ON pm.post_id = (
                                              SELECT post_id FROM {$wpdb->postmeta}
@@ -333,7 +342,8 @@ $archive_url = get_post_type_archive_link($post_type);
                                          ) AND pm.meta_key = 'tournament_date'
                                          LEFT JOIN {$wpdb->posts} p ON pm.post_id = p.ID
                                          WHERE tp.player_id = %s
-                                         ORDER BY pm.meta_value DESC
+                                         GROUP BY tp.tournament_id
+                                         ORDER BY tournament_date DESC
                                          LIMIT 10",
                                         $player_uuid
                                     ));

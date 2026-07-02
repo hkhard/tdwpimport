@@ -1495,6 +1495,38 @@ class Poker_Tournament_Import_Admin {
     }
 
     /**
+     * Find an existing tournament post by its .tdt UUID.
+     *
+     * Used for import idempotency (tdwp-48e) so re-importing the same file updates the
+     * existing tournament instead of creating a duplicate. Includes trashed posts so a
+     * re-import of a trashed tournament reuses the same post rather than orphaning it.
+     *
+     * @param string $uuid Tournament UUID from the .tdt metadata.
+     * @return int Post ID if found, 0 otherwise.
+     */
+    private function find_tournament_by_uuid($uuid) {
+        if (empty($uuid)) {
+            return 0;
+        }
+
+        $existing = get_posts(array(
+            'post_type'      => 'tournament',
+            'post_status'    => array('publish', 'draft', 'pending', 'private', 'future', 'trash'),
+            'meta_query'     => array(
+                array(
+                    'key'     => 'tournament_uuid',
+                    'value'   => $uuid,
+                    'compare' => '=',
+                ),
+            ),
+            'posts_per_page' => 1,
+            'fields'         => 'ids',
+        ));
+
+        return !empty($existing) ? (int) $existing[0] : 0;
+    }
+
+    /**
      * Create tournament post
      */
     private function create_tournament_post($tournament_data, $series_id = 0, $season_id = 0, $player_ids = array(), $status = 'draft', $parser = null) {
@@ -1533,6 +1565,21 @@ class Poker_Tournament_Import_Admin {
             $post_data['post_date'] = gmdate('Y-m-d H:i:s', strtotime($metadata['start_time']));
             $post_data['post_date_gmt'] = get_gmt_from_date($post_data['post_date']);
             Poker_Tournament_Import_Debug::log('Tournament date set', $post_data['post_date']);
+        }
+
+        // **DEDUP FIX (tdwp-48e)**: Find-or-update an existing tournament post by UUID instead of
+        // always creating a new one. Series/season/player all find-or-create; tournament did not,
+        // so every re-import of the same .tdt spawned a duplicate post. Update-in-place preserves
+        // the post ID and permalink; we never delete-recreate.
+        if (!empty($metadata['uuid'])) {
+            $existing_tournament = $this->find_tournament_by_uuid($metadata['uuid']);
+            if ($existing_tournament > 0) {
+                $post_data['ID'] = $existing_tournament;
+                Poker_Tournament_Import_Debug::log('Existing tournament found by UUID, updating in place', array(
+                    'uuid' => $metadata['uuid'],
+                    'post_id' => $existing_tournament,
+                ));
+            }
         }
 
         Poker_Tournament_Import_Debug::log_wp_operation('wp_insert_post', $post_data);
@@ -2964,6 +3011,24 @@ class Poker_Tournament_Import_Admin {
                 $structure_info[] = $column->Field . ' (' . $column->Type . ')';
             }
             Poker_Tournament_Import_Debug::log('Table structure', $structure_info);
+        }
+
+        // **IDEMPOTENCY FIX (tdwp-48e)**: Remove any existing participation rows for this
+        // tournament UUID before (re-)inserting. Without this, re-importing the same .tdt
+        // appends a second full set of rows, producing duplicate tournaments on player
+        // profiles and inflated COUNT(*) aggregates. Mirrors the ROI mart's delete-then-insert
+        // pattern (class-statistics-engine.php process_player_roi_data()).
+        if ($table_check && !empty($tournament_uuid)) {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table cleanup before idempotent re-insert
+            $deleted_rows = $wpdb->delete($table_name, array('tournament_id' => $tournament_uuid), array('%s'));
+            if ($deleted_rows === false) {
+                Poker_Tournament_Import_Debug::log_error('Failed to clear existing participation rows before re-insert', array(
+                    'tournament_uuid' => $tournament_uuid,
+                    'wpdb_error' => $wpdb->last_error,
+                ));
+            } elseif ($deleted_rows > 0) {
+                Poker_Tournament_Import_Debug::log('Cleared existing participation rows before re-insert', $deleted_rows . ' rows removed for UUID ' . $tournament_uuid);
+            }
         }
 
         foreach ($tournament_data['players'] as $player_uuid => $player_data) {

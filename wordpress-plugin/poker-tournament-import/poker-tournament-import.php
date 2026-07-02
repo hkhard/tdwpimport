@@ -263,6 +263,9 @@ class Poker_Tournament_Import {
         add_action('save_post_tournament', array($this, 'on_tournament_save'), 10, 3);
         add_action('wp_trash_post', array($this, 'on_tournament_delete'));
         add_action('untrash_post', array($this, 'on_tournament_restore'));
+        // tdwp-48e: permanently deleting a tournament must also purge its per-tournament
+        // data-mart rows, otherwise orphaned participation rows linger on player profiles.
+        add_action('before_delete_post', array($this, 'on_tournament_permanent_delete'));
 
         // Clear overall standings cache on tournament changes
         if (class_exists('Poker_Series_Standings_Calculator')) {
@@ -2322,6 +2325,53 @@ class Poker_Tournament_Import {
             // Refresh statistics asynchronously
             wp_schedule_single_event(time(), 'poker_refresh_statistics_async', array($post_id));
         }
+    }
+
+    /**
+     * Handle permanent tournament deletion - purge per-tournament data-mart rows.
+     *
+     * tdwp-48e: on trash we keep the mart rows (so a restore isn't lossy), but on a
+     * permanent delete the tournament is gone for good and its UUID-keyed rows must be
+     * removed from every per-tournament mart, otherwise they orphan and keep rendering
+     * on player profiles / inflating aggregates.
+     *
+     * @param int $post_id Post being permanently deleted.
+     */
+    public function on_tournament_permanent_delete($post_id) {
+        $post = get_post($post_id);
+        if (!$post || $post->post_type !== 'tournament') {
+            return;
+        }
+
+        $uuid = get_post_meta($post_id, 'tournament_uuid', true);
+        if (empty($uuid)) {
+            return;
+        }
+
+        global $wpdb;
+
+        // Per-tournament marts keyed on the .tdt UUID string.
+        $marts = array(
+            'poker_tournament_players',
+            'poker_player_roi',
+            'poker_tournament_costs',
+        );
+
+        foreach ($marts as $mart) {
+            $table = $wpdb->prefix . $mart;
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- table existence check
+            if ($wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table)) !== $table) {
+                continue;
+            }
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- orphan cleanup on permanent delete
+            $removed = $wpdb->delete($table, array('tournament_id' => $uuid), array('%s'));
+            if ($removed) {
+                error_log("Poker Import: purged {$removed} rows from {$mart} for deleted tournament UUID {$uuid}");
+            }
+        }
+
+        // Recompute aggregates now that the mart rows are gone.
+        wp_schedule_single_event(time(), 'poker_refresh_statistics_async', array($post_id));
     }
 
     /**
