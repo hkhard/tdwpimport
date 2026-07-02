@@ -58,6 +58,13 @@ class TDWP_Stats_Rollup {
 	 * @return void
 	 */
 	public static function init() {
+		// tdwp-4o2: keep the canonical source in sync with imports regardless of cutover state, so
+		// canonical stays the complete record and a later cutover is ready. Additive listeners on the
+		// batch importer's completion hooks; never touch the stats mart. (The single-import path in
+		// class-admin calls sync_import_by_uuid() directly since it fires no hook.)
+		add_action( 'poker_tournament_imported', array( __CLASS__, 'sync_import_by_post' ), 20, 1 );
+		add_action( 'poker_tournament_updated', array( __CLASS__, 'sync_import_by_post' ), 20, 1 );
+
 		if ( ! self::is_enabled() ) {
 			return;
 		}
@@ -65,6 +72,46 @@ class TDWP_Stats_Rollup {
 		add_action( self::FINISH_HOOK, array( __CLASS__, 'on_tournament_finished' ), 20, 1 );
 		add_action( self::COMPLETE_HOOK, array( __CLASS__, 'on_tournament_finished' ), 20, 1 );
 		add_action( self::REFRESH_HOOK, array( __CLASS__, 'refresh_stats_mart' ) );
+	}
+
+	/**
+	 * Sync one imported tournament into the canonical source, resolved from a tournament post ID.
+	 * Additive: writes only source='import' canonical rows (idempotent); never touches the mart.
+	 *
+	 * @param int $post_id Tournament post ID.
+	 * @return void
+	 */
+	public static function sync_import_by_post( $post_id ) {
+		$uuid = get_post_meta( absint( $post_id ), 'tournament_uuid', true );
+		if ( ! empty( $uuid ) ) {
+			self::sync_import_by_uuid( (string) $uuid );
+		}
+	}
+
+	/**
+	 * Sync one imported tournament (by UUID) into the canonical source. No-op until the canonical
+	 * columns exist. Idempotent (delete-then-insert of that tournament's source='import' rows).
+	 *
+	 * @param string $tournament_uuid Tournament UUID.
+	 * @return void
+	 */
+	public static function sync_import_by_uuid( $tournament_uuid ) {
+		global $wpdb;
+		$tournament_uuid = (string) $tournament_uuid;
+		if ( '' === $tournament_uuid ) {
+			return;
+		}
+		$src = $wpdb->prefix . 'tdwp_tournament_players';
+		if ( ! self::table_exists( $src ) ) {
+			return;
+		}
+		// Guard: canonical columns must exist (v3.6.4 migration applied).
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Schema guard.
+		$cols = $wpdb->get_col( "SHOW COLUMNS FROM {$src}" );
+		if ( ! in_array( 'source', (array) $cols, true ) || ! in_array( 'import_buyins', (array) $cols, true ) ) {
+			return;
+		}
+		self::backfill_imports( $src, 0, 0, $tournament_uuid );
 	}
 
 	/**
@@ -540,7 +587,7 @@ class TDWP_Stats_Rollup {
 	 * @param string $target_table Fully-qualified destination table.
 	 * @return array Summary: inserted, tournaments, flagged_no_buyin[].
 	 */
-	public static function backfill_imports( $target_table, $limit = 0, $offset = 0 ) {
+	public static function backfill_imports( $target_table, $limit = 0, $offset = 0, $only_uuid = '' ) {
 		global $wpdb;
 
 		$mart     = $wpdb->prefix . 'poker_tournament_players';
@@ -562,14 +609,19 @@ class TDWP_Stats_Rollup {
 		$live_uuids = $wpdb->get_col( "SELECT DISTINCT tournament_uuid FROM {$live_src} WHERE tournament_uuid <> '' AND source = 'live'" );
 		$live_set   = array_fill_keys( (array) $live_uuids, true );
 
-		// Batching (tdwp-77n): deterministic ORDER BY + LIMIT/OFFSET so the admin UI can backfill
-		// large datasets one bounded chunk per request.
-		$limit_sql = '';
-		if ( $limit > 0 ) {
-			$limit_sql = $wpdb->prepare( ' LIMIT %d OFFSET %d', (int) $limit, (int) $offset );
+		if ( '' !== $only_uuid ) {
+			// tdwp-4o2: single-tournament sync (called after an import to keep canonical complete).
+			$tournament_uuids = array( (string) $only_uuid );
+		} else {
+			// Batching (tdwp-77n): deterministic ORDER BY + LIMIT/OFFSET so the admin UI can backfill
+			// large datasets one bounded chunk per request.
+			$limit_sql = '';
+			if ( $limit > 0 ) {
+				$limit_sql = $wpdb->prepare( ' LIMIT %d OFFSET %d', (int) $limit, (int) $offset );
+			}
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Migration read; LIMIT prepared above.
+			$tournament_uuids = $wpdb->get_col( "SELECT DISTINCT tournament_id FROM {$mart} ORDER BY tournament_id" . $limit_sql );
 		}
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Migration read; LIMIT prepared above.
-		$tournament_uuids = $wpdb->get_col( "SELECT DISTINCT tournament_id FROM {$mart} ORDER BY tournament_id" . $limit_sql );
 
 		foreach ( (array) $tournament_uuids as $tuuid ) {
 			if ( isset( $live_set[ $tuuid ] ) ) {

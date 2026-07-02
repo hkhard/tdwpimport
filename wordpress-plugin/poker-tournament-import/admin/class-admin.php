@@ -1302,6 +1302,13 @@ class Poker_Tournament_Import_Admin {
                     }
                 }
 
+                // tdwp-eil (tdwp-4o2): keep the canonical per-entry source in sync with this import
+                // so it stays the complete record for the consolidation cutover. Additive and
+                // idempotent — writes only source='import' canonical rows, never the stats mart.
+                if (class_exists('TDWP_Stats_Rollup') && !empty($tournament_uuid)) {
+                    TDWP_Stats_Rollup::sync_import_by_uuid($tournament_uuid);
+                }
+
                 // **CRITICAL**: Trigger statistics calculation after tournament import
                 Poker_Tournament_Import_Debug::log('Triggering statistics calculation after tournament import');
                 if (class_exists('Poker_Statistics_Engine')) {
