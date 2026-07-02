@@ -2426,7 +2426,7 @@ class Poker_Tournament_Import {
         }
 
         // Refresh statistics asynchronously to avoid blocking save
-        wp_schedule_single_event(time(), 'poker_refresh_statistics_async', array($post_id));
+        $this->schedule_statistics_refresh($post_id);
     }
 
     /**
@@ -2436,7 +2436,7 @@ class Poker_Tournament_Import {
         $post = get_post($post_id);
         if ($post && $post->post_type === 'tournament') {
             // Refresh statistics asynchronously
-            wp_schedule_single_event(time(), 'poker_refresh_statistics_async', array($post_id));
+            $this->schedule_statistics_refresh($post_id);
         }
     }
 
@@ -2447,7 +2447,7 @@ class Poker_Tournament_Import {
         $post = get_post($post_id);
         if ($post && $post->post_type === 'tournament') {
             // Refresh statistics asynchronously
-            wp_schedule_single_event(time(), 'poker_refresh_statistics_async', array($post_id));
+            $this->schedule_statistics_refresh($post_id);
         }
     }
 
@@ -2495,7 +2495,24 @@ class Poker_Tournament_Import {
         }
 
         // Recompute aggregates now that the mart rows are gone.
-        wp_schedule_single_event(time(), 'poker_refresh_statistics_async', array($post_id));
+        $this->schedule_statistics_refresh($post_id);
+    }
+
+    /**
+     * Schedule a single, debounced statistics refresh.
+     *
+     * tdwp-g3i: calculate_all_statistics() is a full rebuild. Saving or deleting tournaments
+     * in bulk (e.g. selecting many on the All Tournaments list and deleting) previously
+     * scheduled one recalc PER post — an O(N) storm. Guard on wp_next_scheduled() so any
+     * number of changes in one request coalesce into a single recalc a few seconds later,
+     * mirroring TDWP_Stats_Bridge's debounce.
+     *
+     * @param int|null $post_id Tournament triggering the refresh (for logging only).
+     */
+    public function schedule_statistics_refresh($post_id = null) {
+        if (!wp_next_scheduled('poker_refresh_statistics_async')) {
+            wp_schedule_single_event(time() + 5, 'poker_refresh_statistics_async');
+        }
     }
 
     /**
