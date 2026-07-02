@@ -545,7 +545,13 @@ class TDWP_Stats_Rollup {
 
 		$mart     = $wpdb->prefix . 'poker_tournament_players';
 		$live_src = $wpdb->prefix . 'tdwp_tournament_players';
-		$summary  = array( 'inserted' => 0, 'tournaments' => 0, 'flagged_no_buyin' => array() );
+		$summary  = array(
+			'inserted'         => 0,
+			'tournaments'      => 0,
+			'flagged_no_buyin' => array(),
+			'ambiguous'        => array(), // uuid -> post mapping was not 1:1 (merged/duplicate); skipped for review
+			'skipped_missing'  => array(), // uuid has no matching post (trashed/deleted); skipped
+		);
 
 		if ( ! self::table_exists( $mart ) || ! self::table_exists( $target_table ) ) {
 			return $summary;
@@ -570,10 +576,19 @@ class TDWP_Stats_Rollup {
 				continue; // Live tournament — skip.
 			}
 
-			$tournament_post_id = (int) $wpdb->get_var(
-				$wpdb->prepare( "SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key='tournament_uuid' AND meta_value=%s LIMIT 1", $tuuid )
+			// tdwp-5xm: resolve to exactly one post. Ambiguous (merged/duplicate UUID) or missing
+			// (trashed post) mappings are flagged and skipped rather than silently mis-resolved.
+			$t_ids = $wpdb->get_col(
+				$wpdb->prepare( "SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key='tournament_uuid' AND meta_value=%s", $tuuid )
 			);
-			if ( ! $tournament_post_id ) {
+			$t_ids = array_values( array_unique( array_map( 'intval', (array) $t_ids ) ) );
+			if ( count( $t_ids ) > 1 ) {
+				$summary['ambiguous'][] = 'tournament:' . $tuuid;
+				continue;
+			}
+			$tournament_post_id = isset( $t_ids[0] ) ? (int) $t_ids[0] : 0;
+			if ( ! $tournament_post_id || 'trash' === get_post_status( $tournament_post_id ) ) {
+				$summary['skipped_missing'][] = 'tournament:' . $tuuid;
 				continue;
 			}
 
@@ -609,10 +624,18 @@ class TDWP_Stats_Rollup {
 			);
 
 			foreach ( $rows as $r ) {
-				$player_post_id = (int) $wpdb->get_var(
-					$wpdb->prepare( "SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key='player_uuid' AND meta_value=%s LIMIT 1", $r->player_id )
+				// tdwp-5xm: same unique-resolution guard for the player post.
+				$p_ids = $wpdb->get_col(
+					$wpdb->prepare( "SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key='player_uuid' AND meta_value=%s", $r->player_id )
 				);
-				if ( ! $player_post_id ) {
+				$p_ids = array_values( array_unique( array_map( 'intval', (array) $p_ids ) ) );
+				if ( count( $p_ids ) > 1 ) {
+					$summary['ambiguous'][] = 'player:' . $r->player_id;
+					continue;
+				}
+				$player_post_id = isset( $p_ids[0] ) ? (int) $p_ids[0] : 0;
+				if ( ! $player_post_id || 'trash' === get_post_status( $player_post_id ) ) {
+					$summary['skipped_missing'][] = 'player:' . $r->player_id;
 					continue;
 				}
 

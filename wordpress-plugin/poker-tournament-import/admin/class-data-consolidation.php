@@ -212,7 +212,9 @@ class TDWP_Data_Consolidation_Admin {
 					runBatches( 'tdwp_eil_backfill_batch', document.getElementById( 'tdwp-eil-backfill-progress' ), function( d ) {
 						document.getElementById( 'tdwp-eil-backfill-progress' ).textContent =
 							'<?php echo esc_js( __( 'Backfill complete. Inserted rows: ', 'poker-tournament-import' ) ); ?>' + ( d.acc && d.acc.inserted || 0 ) +
-							' · <?php echo esc_js( __( 'flagged (no buy-in): ', 'poker-tournament-import' ) ); ?>' + ( d.acc && d.acc.flagged || 0 );
+							' · <?php echo esc_js( __( 'flagged (no buy-in): ', 'poker-tournament-import' ) ); ?>' + ( d.acc && d.acc.flagged || 0 ) +
+							' · <?php echo esc_js( __( 'ambiguous: ', 'poker-tournament-import' ) ); ?>' + ( d.acc && d.acc.ambiguous || 0 ) +
+							' · <?php echo esc_js( __( 'skipped (missing): ', 'poker-tournament-import' ) ); ?>' + ( d.acc && d.acc.skipped || 0 );
 						bf.disabled = false;
 					} );
 				} );
@@ -273,12 +275,14 @@ class TDWP_Data_Consolidation_Admin {
 
 		$acc = get_transient( 'tdwp_eil_backfill_acc' );
 		if ( 0 === $offset || ! is_array( $acc ) ) {
-			$acc = array( 'inserted' => 0, 'flagged' => 0 );
+			$acc = array( 'inserted' => 0, 'flagged' => 0, 'ambiguous' => 0, 'skipped' => 0 );
 		}
 
 		$res = TDWP_Stats_Rollup::backfill_imports( $src, self::BATCH_SIZE, $offset );
-		$acc['inserted'] += (int) $res['inserted'];
-		$acc['flagged']  += count( $res['flagged_no_buyin'] );
+		$acc['inserted']  += (int) $res['inserted'];
+		$acc['flagged']   += count( $res['flagged_no_buyin'] );
+		$acc['ambiguous'] += isset( $res['ambiguous'] ) ? count( $res['ambiguous'] ) : 0;
+		$acc['skipped']   += isset( $res['skipped_missing'] ) ? count( $res['skipped_missing'] ) : 0;
 
 		$next = $offset + self::BATCH_SIZE;
 		$done = $next >= $total;
