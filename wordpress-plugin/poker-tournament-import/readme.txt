@@ -3,7 +3,7 @@ Contributors: hanshard
 Tags: poker, tournament, import, results, bulk-import
 Requires at least: 6.0
 Tested up to: 6.8
-Stable tag: 3.9.5
+Stable tag: 3.9.6
 Requires PHP: 8.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -77,6 +77,10 @@ Use the following shortcodes:
 6. **NEW: Interactive leaderboard with sorting**
 
 == Changelog ==
+
+= 3.9.6 - July 2, 2026 =
+* Fixed manual points adjustments not showing on the tournament page, player page, or stats dashboard — the override is now written to the canonical points column, stats are rebuilt, and caches (object + LiteSpeed) are purged. Re-verifying a formula no longer clobbers an override.
+* Fixed dashboard "Recent Tournaments" links doing nothing (now real anchors that survive LiteSpeed JS optimization) and player-profile tournament links that had an empty URL (now use the tournament post ID). Purge LiteSpeed after updating.
 
 = 3.9.5 - July 2, 2026 =
 * Fixed the Refresh Statistics result and the post-import summary showing raw HTML tags instead of a formatted notice/links (they were double-escaped; now rendered with wp_kses_post).

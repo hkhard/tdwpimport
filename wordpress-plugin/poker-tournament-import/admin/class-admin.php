@@ -5297,6 +5297,27 @@ class Poker_Tournament_Import_Admin {
             wp_send_json_error(array('message' => __('Could not save the adjustment.', 'poker-tournament-import')), 500);
         }
 
+        // Propagate the override into the canonical points column so every raw read surface
+        // (single-tournament, single-player, stats dashboard) reflects it — the adjustment table
+        // alone is not read by those pages. Then debounce a stats rebuild and purge caches so the
+        // change is visible (incl. LiteSpeed page cache) without waiting for a TTL.
+        $wpdb->update(
+            $table,
+            array('points' => $new_points),
+            array('tournament_id' => $uuid, 'player_id' => $player_uuid),
+            array('%f'),
+            array('%s', '%s')
+        );
+        if (!wp_next_scheduled('poker_refresh_statistics_async')) {
+            wp_schedule_single_event(time() + 5, 'poker_refresh_statistics_async');
+        }
+        // Bust the per-query object cache used by the front-end read surfaces (group flush is a
+        // no-op on backends that do not support it) and purge LiteSpeed so cached HTML is rebuilt.
+        if (function_exists('wp_cache_flush_group')) {
+            wp_cache_flush_group('poker_tournament');
+        }
+        do_action('litespeed_purge_all');
+
         wp_send_json_success(array(
             'id' => $insert_id,
             'message' => sprintf(

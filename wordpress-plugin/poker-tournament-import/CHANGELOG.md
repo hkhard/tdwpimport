@@ -1,5 +1,19 @@
 # Poker Tournament Import Changelog
 
+## Version 3.9.6 - (July 2, 2026)
+
+### 🐛 Points adjustments now reflect everywhere + working dashboard links
+
+**Manual points overrides were stored but invisible**
+- Adjusting a player's tournament points saved an audit row in `tdwp_points_adjustments` but never updated the canonical `poker_tournament_players.points` column, so the single-tournament page, single-player page, and stats dashboard (all of which read the raw column) kept showing the old value.
+- The save handler now writes the override into the points column, schedules a debounced statistics rebuild, and purges the object cache + LiteSpeed page cache so the change is visible immediately.
+- Re-running "verify/apply formula" no longer clobbers a manual override — overrides are re-applied on top of the recomputed formula values.
+
+**Dashboard tournament links did nothing**
+- The dashboard "Recent Tournaments" tiles were hrefless `<div>`s that relied entirely on inline JavaScript (which LiteSpeed's JS deferral/combine could break); they are now real `<a href>` anchors that work with JS disabled.
+- The player-profile "Recent Tournament Results" links were built from a tournament UUID (so `get_permalink()` returned an empty href); they now use the actual tournament post ID.
+- Note: after updating, Purge All in LiteSpeed. The permalink/rewrite flush already runs automatically on update; only re-save Permalinks if pretty tournament URLs 404.
+
 ## Version 3.9.5 - (July 2, 2026)
 
 ### 🐛 Admin notices rendered as raw HTML

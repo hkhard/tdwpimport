@@ -435,6 +435,14 @@ class Poker_Tournament_Points_Verifier {
 		$fin   = $this->get_financials( $post_id, $count );
 		$table = $wpdb->prefix . 'poker_tournament_players';
 
+		// Manual points overrides for this tournament (absolute values, keyed "uuid|player_uuid").
+		// Applied inside the loop so re-verification never clobbers an intentional override.
+		$override_map = array();
+		if ( class_exists( 'Poker_Points_Adjustment_Manager' ) ) {
+			$mgr          = new Poker_Points_Adjustment_Manager();
+			$override_map = $mgr->get_adjustment_map( array( $uuid ) );
+		}
+
 		$updated   = 0;
 		$negatives = 0;
 		foreach ( $rows as $row ) {
@@ -445,6 +453,13 @@ class Poker_Tournament_Points_Verifier {
 			if ( $value < 0 ) {
 				$value = 0;
 				++$negatives;
+			}
+			// A manual points override (tdwp_points_adjustments) is an intentional operator action
+			// and must survive re-verification — otherwise recomputing from the formula silently
+			// clobbers it. Overrides are absolute values, so use the override in place of $value.
+			$okey = $uuid . '|' . $row['player_id'];
+			if ( isset( $override_map[ $okey ] ) ) {
+				$value = $override_map[ $okey ];
 			}
 			$wpdb->update(
 				$table,
