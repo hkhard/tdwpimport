@@ -462,7 +462,41 @@ class Poker_Tournament_Parser {
             }
         }
 
+        // tdwp-brj: extract rebuy and add-on fees from their BuyConfig blocks. These were
+        // referenced downstream (total_rebuys_amount / total_addons_amount) but never set,
+        // so rebuy/add-on money was always 0 and could corrupt the prize-pool-driven formula.
+        $financial['rebuy_amount'] = $this->extract_buyconfig_fee($content, 'Rebuys');
+        $financial['addon_amount'] = $this->extract_buyconfig_fee($content, 'AddOns');
+        if ($financial['rebuy_amount'] > 0) {
+            Poker_Tournament_Import_Debug::log("Extracted rebuy fee: \${$financial['rebuy_amount']}");
+        }
+        if ($financial['addon_amount'] > 0) {
+            Poker_Tournament_Import_Debug::log("Extracted add-on fee: \${$financial['addon_amount']}");
+        }
+
         return $financial;
+    }
+
+    /**
+     * Extract the default fee for a Rebuys/AddOns BuyConfig block.
+     *
+     * The .tdt format nests fee profiles inside a BuyConfig, e.g.
+     *   Rebuys: new BuyConfig({Allow: true, Profiles: [new FeeProfile({Name: "Double", ... Fee: 200, ...
+     * We take the first FeeProfile's Fee within the named block as the representative fee.
+     *
+     * @param string $content Raw .tdt content.
+     * @param string $block   'Rebuys' or 'AddOns'.
+     * @return int Fee amount, or 0 if not found.
+     */
+    private function extract_buyconfig_fee($content, $block) {
+        // Locate "<block>: new BuyConfig({ ... " and grab the first Fee within its Profiles.
+        if (!preg_match('/' . preg_quote($block, '/') . ':\s*new BuyConfig\(\{.*?Profiles:\s*\[(.*?)\]/s', $content, $m)) {
+            return 0;
+        }
+        if (preg_match('/Fee:\s*(\d+)/', $m[1], $fee)) {
+            return intval($fee[1]);
+        }
+        return 0;
     }
 
     /**
