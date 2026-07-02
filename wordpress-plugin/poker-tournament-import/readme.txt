@@ -3,7 +3,7 @@ Contributors: hanshard
 Tags: poker, tournament, import, results, bulk-import
 Requires at least: 6.0
 Tested up to: 6.8
-Stable tag: 3.9.3
+Stable tag: 3.9.4
 Requires PHP: 8.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -77,6 +77,12 @@ Use the following shortcodes:
 6. **NEW: Interactive leaderboard with sorting**
 
 == Changelog ==
+
+= 3.9.4 - July 2, 2026 =
+Live/legacy data consolidation (epic tdwp-3lg, Option C — tdwp-eil).
+* Consolidated the two parallel player-participation stores onto one canonical per-entry source; new TDWP_Stats_Rollup replaces the stats bridge as the single derived-mart writer, and imports stay in sync automatically.
+* Fixed silent duplicate ROI rows with a UNIQUE(player_id, tournament_id) index (applied on update, not just activation), and repointed four broken player-stats readers that were returning nothing.
+* Added a no-database-CLI cutover UI (Data Consolidation page): CSV export, batched idempotent backfill, a reconcile review that gates the cutover on zero mismatches, enable/disable, rollback, and buy-in curation — additive and reversible throughout.
 
 = 3.9.3 - July 2, 2026 =
 Data integrity release (epic tdwp-3lg).

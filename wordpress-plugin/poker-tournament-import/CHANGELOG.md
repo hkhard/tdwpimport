@@ -1,5 +1,24 @@
 # Poker Tournament Import Changelog
 
+## Version 3.9.4 - (July 2, 2026)
+
+### 🧱 Live/legacy data consolidation (epic tdwp-3lg, Option C — tdwp-eil)
+
+Collapses the two parallel player-participation stores onto one canonical per-entry source so the stats bridge is no longer needed — with a full production cutover path that requires **no database CLI**.
+
+**Consolidation engine**
+- `tdwp_tournament_players` becomes the canonical per-entry source, carrying stored `tournament_uuid`/`player_uuid`/`source` keys (schema v3.6.3) plus `import_buyins`/`import_hits` carry columns (v3.6.4).
+- New `TDWP_Stats_Rollup` is the single derived-mart writer: on a live tournament finish it stamps the stored UUIDs and rebuilds `poker_tournament_players` + `poker_player_roi` from the canonical source. `TDWP_Stats_Bridge` stands down when the rollup is enabled.
+- Imported tournaments are represented as one synthetic entry per player and kept in sync automatically on every import.
+
+**Bug fixes surfaced along the way**
+- ROI mart now has `UNIQUE(player_id, tournament_id)` (fixes silent duplicate ROI rows inflating leaderboards); applied on plugin update, not just activation.
+- Four broken player-stats readers repointed (all-players dashboard ranking, season players, live leaderboard, and live "players remaining") — they queried the wrong table/columns and returned nothing.
+
+**No-DB-CLI cutover UI** (Admin → Poker Tournament Import → Data Consolidation)
+- CSV export of the affected tables, batched idempotent backfill, read-only reconcile that gates the cutover on zero mismatches, one-click enable/disable, rollback, ambiguous/missing-mapping flagging, and buy-in curation for imports without a stored prize pool.
+- Additive and reversible throughout: enabling is inert until a live tournament finishes, and the backfill never writes the stats mart.
+
 ## Version 3.9.3 - (July 2, 2026)
 
 ### 🐛 Data integrity — duplicate tournaments & robust statistics (epic tdwp-3lg)
