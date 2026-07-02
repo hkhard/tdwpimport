@@ -413,7 +413,7 @@ class TDWP_Stats_Rollup {
 	 * @param string|null $tournament_uuid Limit to one tournament, or null for every UUID in the source.
 	 * @return array<int,array> One entry per tournament with mismatches[] and summary counts.
 	 */
-	public static function reconcile_report( $tournament_uuid = null, $source_table = null ) {
+	public static function reconcile_report( $tournament_uuid = null, $source_table = null, $limit = 0, $offset = 0 ) {
 		global $wpdb;
 
 		$source     = $source_table ? $source_table : $wpdb->prefix . 'tdwp_tournament_players';
@@ -425,19 +425,24 @@ class TDWP_Stats_Rollup {
 		if ( null !== $tournament_uuid ) {
 			$uuids = array( (string) $tournament_uuid );
 		} else {
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Read-only reconcile.
+			// Batching (tdwp-77n): a deterministic ORDER BY + LIMIT/OFFSET cursor lets the admin UI
+			// reconcile large datasets in bounded chunks without a PHP timeout.
+			$limit_sql = '';
+			if ( $limit > 0 ) {
+				$limit_sql = $wpdb->prepare( ' LIMIT %d OFFSET %d', (int) $limit, (int) $offset );
+			}
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Read-only reconcile; LIMIT clause prepared above.
 			$uuids = $wpdb->get_col(
-				"SELECT DISTINCT tournament_uuid FROM {$source} WHERE tournament_uuid <> ''"
+				"SELECT DISTINCT tournament_uuid FROM {$source} WHERE tournament_uuid <> '' ORDER BY tournament_uuid" . $limit_sql
 			);
 		}
 
 		$report = array();
 		foreach ( (array) $uuids as $uuid ) {
-			$computed = self::compute_rows( $uuid, $source );
-			$expected = array();
-			foreach ( $computed['mart'] as $m ) {
-				$expected[ $m['player_id'] ] = $m;
-			}
+			// Use the cheap aggregate (no points formula / override / date lookups): reconcile only
+			// needs winnings/buyins/hits/finish, so this avoids the per-tournament formula cost.
+			$agg      = self::aggregate_from_source( $uuid, $source );
+			$expected = $agg['rows'];
 
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Read-only reconcile.
 			$actual_rows = $wpdb->get_results(
@@ -465,8 +470,8 @@ class TDWP_Stats_Rollup {
 				if ( (int) $m['buyins'] !== (int) $a->buyins ) {
 					$mismatches[] = array( 'player' => $puuid, 'issue' => 'buyins', 'rollup' => $m['buyins'], 'mart' => $a->buyins );
 				}
-				if ( (int) $m['finish_position'] !== (int) $a->finish_position ) {
-					$mismatches[] = array( 'player' => $puuid, 'issue' => 'finish', 'rollup' => $m['finish_position'], 'mart' => $a->finish_position );
+				if ( (int) $m['finish'] !== (int) $a->finish_position ) {
+					$mismatches[] = array( 'player' => $puuid, 'issue' => 'finish', 'rollup' => $m['finish'], 'mart' => $a->finish_position );
 				}
 				if ( (int) $m['hits'] !== (int) $a->hits ) {
 					$mismatches[] = array( 'player' => $puuid, 'issue' => 'hits', 'rollup' => $m['hits'], 'mart' => $a->hits );
@@ -490,6 +495,37 @@ class TDWP_Stats_Rollup {
 	}
 
 	/**
+	 * Count distinct tournaments in the canonical source (for the batched-reconcile cursor).
+	 *
+	 * @param string|null $source_table Optional source override.
+	 * @return int
+	 */
+	public static function count_source_tournaments( $source_table = null ) {
+		global $wpdb;
+		$source = $source_table ? $source_table : $wpdb->prefix . 'tdwp_tournament_players';
+		if ( ! self::table_exists( $source ) ) {
+			return 0;
+		}
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Count for batching cursor.
+		return (int) $wpdb->get_var( "SELECT COUNT(DISTINCT tournament_uuid) FROM {$source} WHERE tournament_uuid <> ''" );
+	}
+
+	/**
+	 * Count distinct tournaments in the legacy mart (for the batched-backfill cursor).
+	 *
+	 * @return int
+	 */
+	public static function count_import_tournaments() {
+		global $wpdb;
+		$mart = $wpdb->prefix . 'poker_tournament_players';
+		if ( ! self::table_exists( $mart ) ) {
+			return 0;
+		}
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Count for batching cursor.
+		return (int) $wpdb->get_var( "SELECT COUNT(DISTINCT tournament_id) FROM {$mart}" );
+	}
+
+	/**
 	 * Backfill imported tournaments into the canonical per-entry source as synthetic entries.
 	 *
 	 * Each imported mart row becomes ONE synthetic entry (source='import', entry_number=1) carrying
@@ -504,7 +540,7 @@ class TDWP_Stats_Rollup {
 	 * @param string $target_table Fully-qualified destination table.
 	 * @return array Summary: inserted, tournaments, flagged_no_buyin[].
 	 */
-	public static function backfill_imports( $target_table ) {
+	public static function backfill_imports( $target_table, $limit = 0, $offset = 0 ) {
 		global $wpdb;
 
 		$mart     = $wpdb->prefix . 'poker_tournament_players';
@@ -520,8 +556,14 @@ class TDWP_Stats_Rollup {
 		$live_uuids = $wpdb->get_col( "SELECT DISTINCT tournament_uuid FROM {$live_src} WHERE tournament_uuid <> '' AND source = 'live'" );
 		$live_set   = array_fill_keys( (array) $live_uuids, true );
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Migration read.
-		$tournament_uuids = $wpdb->get_col( "SELECT DISTINCT tournament_id FROM {$mart}" );
+		// Batching (tdwp-77n): deterministic ORDER BY + LIMIT/OFFSET so the admin UI can backfill
+		// large datasets one bounded chunk per request.
+		$limit_sql = '';
+		if ( $limit > 0 ) {
+			$limit_sql = $wpdb->prepare( ' LIMIT %d OFFSET %d', (int) $limit, (int) $offset );
+		}
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Migration read; LIMIT prepared above.
+		$tournament_uuids = $wpdb->get_col( "SELECT DISTINCT tournament_id FROM {$mart} ORDER BY tournament_id" . $limit_sql );
 
 		foreach ( (array) $tournament_uuids as $tuuid ) {
 			if ( isset( $live_set[ $tuuid ] ) ) {
@@ -558,6 +600,13 @@ class TDWP_Stats_Rollup {
 			}
 
 			$summary['tournaments']++;
+
+			// Idempotency: clear this tournament's prior import rows so a re-run/batch retry never
+			// duplicates. Only source='import' rows are removed — live rows are never touched.
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Idempotent backfill.
+			$wpdb->query(
+				$wpdb->prepare( "DELETE FROM {$target_table} WHERE tournament_uuid = %s AND source = 'import'", $tuuid )
+			);
 
 			foreach ( $rows as $r ) {
 				$player_post_id = (int) $wpdb->get_var(

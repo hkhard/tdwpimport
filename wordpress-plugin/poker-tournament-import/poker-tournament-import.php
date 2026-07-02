@@ -201,6 +201,13 @@ class Poker_Tournament_Import {
         TDWP_Stats_Bridge::init();
         TDWP_Stats_Rollup::init();
 
+        // Data Consolidation cutover UI (tdwp-eil): admin page + batched AJAX + actions. Admin/AJAX
+        // context only. Registering menu/ajax/admin-post hooks is inert on the front end.
+        if ( is_admin() || wp_doing_ajax() ) {
+            require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/class-data-consolidation.php';
+            TDWP_Data_Consolidation_Admin::init();
+        }
+
         // AJAX handlers for tabbed interface
         add_action('wp_ajax_tdwp_series_tab_content', array($this, 'ajax_series_tab_content'));
         add_action('wp_ajax_nopriv_tdwp_series_tab_content', array($this, 'ajax_series_tab_content'));
