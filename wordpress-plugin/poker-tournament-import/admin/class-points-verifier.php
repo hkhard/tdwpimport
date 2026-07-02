@@ -494,6 +494,9 @@ class Poker_Tournament_Points_Verifier {
 			// Poker_Statistics_Engine is a singleton (private constructor).
 			Poker_Statistics_Engine::get_instance()->calculate_all_statistics();
 		}
+		if ( class_exists( 'Poker_Cache_Purge' ) ) {
+			Poker_Cache_Purge::purge_public();
+		}
 
 		return array(
 			'updated'   => $updated,
