@@ -111,3 +111,6 @@ eas-build-metadata.json
 
 # Build artifacts — distribute via GitHub Releases, never commit
 *.zip
+
+# Generated admin-page previews (local only)
+help-preview.html
