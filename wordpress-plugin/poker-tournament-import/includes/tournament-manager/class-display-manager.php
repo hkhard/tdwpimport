@@ -69,7 +69,7 @@ class TDWP_Display_Manager {
 	 * @since 3.4.0
 	 */
 	private function __construct() {
-		error_log( 'TDWP Display Manager: Constructor called - Display Manager instance created' );
+		TDWP_Debug_Logger::trace( 'DISPLAY', 'Constructor called - Display Manager instance created' );
 
 		// Initialize dependencies immediately when classes are available
 		$this->init_dependencies();
@@ -89,7 +89,7 @@ class TDWP_Display_Manager {
 
 		// Register display endpoint rewrite rules at proper WordPress timing
 		add_action( 'init', array( $this, 'register_display_endpoints' ), 11 );
-		error_log( 'TDWP Display Manager: Hook registered register_display_endpoints to init action with priority 11' );
+		TDWP_Debug_Logger::trace( 'DISPLAY', 'Hook registered register_display_endpoints to init action with priority 11' );
 
 		add_filter( 'query_vars', array( $this, 'add_display_query_vars' ) );
 		add_action( 'template_redirect', array( $this, 'handle_display_request' ) );
@@ -97,7 +97,7 @@ class TDWP_Display_Manager {
 		// Initialize heartbeat synchronization
 		add_action( 'init', array( $this, 'init_heartbeat_sync' ) );
 
-		error_log( 'TDWP Display Manager: Constructor completed - All hooks registered successfully' );
+		TDWP_Debug_Logger::trace( 'DISPLAY', 'Constructor completed - All hooks registered successfully' );
 	}
 
 	/**
@@ -109,17 +109,17 @@ class TDWP_Display_Manager {
 		// Load template engine if available
 		if ( class_exists( 'TDWP_Template_Engine' ) ) {
 			$this->template_engine = TDWP_Template_Engine::get_instance();
-			error_log( 'TDWP Display Manager: Template engine loaded successfully' );
+			TDWP_Debug_Logger::trace( 'DISPLAY', 'Template engine loaded successfully' );
 		} else {
-			error_log( 'TDWP Display Manager: Template engine class not found - display rendering will use fallback' );
+			TDWP_Debug_Logger::trace( 'DISPLAY', 'Template engine class not found - display rendering will use fallback' );
 		}
 
 		// Load layout builder if available
 		if ( class_exists( 'TDWP_Layout_Builder' ) ) {
 			$this->layout_builder = TDWP_Layout_Builder::get_instance();
-			error_log( 'TDWP Display Manager: Layout builder loaded successfully' );
+			TDWP_Debug_Logger::trace( 'DISPLAY', 'Layout builder loaded successfully' );
 		} else {
-			error_log( 'TDWP Display Manager: Layout builder class not found - layout features will be limited' );
+			TDWP_Debug_Logger::trace( 'DISPLAY', 'Layout builder class not found - layout features will be limited' );
 		}
 	}
 
@@ -130,7 +130,7 @@ class TDWP_Display_Manager {
 	 */
 	public function register_display_endpoints() {
 		try {
-			error_log( 'TDWP Display Manager: Starting rewrite rule registration process' );
+			TDWP_Debug_Logger::trace( 'DISPLAY', 'Starting rewrite rule registration process' );
 
 			$rules_registered = 0;
 
@@ -141,7 +141,7 @@ class TDWP_Display_Manager {
 				'top'
 			);
 			$rules_registered++;
-			error_log( 'TDWP Display Manager: Main display endpoint rule registered' );
+			TDWP_Debug_Logger::trace( 'DISPLAY', 'Main display endpoint rule registered' );
 
 			// Tournament-specific display endpoints
 			add_rewrite_rule(
@@ -150,7 +150,7 @@ class TDWP_Display_Manager {
 				'top'
 			);
 			$rules_registered++;
-			error_log( 'TDWP Display Manager: Tournament display endpoint rule registered' );
+			TDWP_Debug_Logger::trace( 'DISPLAY', 'Tournament display endpoint rule registered' );
 
 			// Screen preview endpoints
 			add_rewrite_rule(
@@ -159,31 +159,31 @@ class TDWP_Display_Manager {
 				'top'
 			);
 			$rules_registered++;
-			error_log( 'TDWP Display Manager: Screen preview endpoint rule registered' );
+			TDWP_Debug_Logger::trace( 'DISPLAY', 'Screen preview endpoint rule registered' );
 
-			error_log( 'TDWP Display Manager: Total rewrite rules registered: ' . $rules_registered . '/3' );
+			TDWP_Debug_Logger::trace( 'DISPLAY', 'Total rewrite rules registered: ' . $rules_registered . '/3' );
 
 			// Flush rewrite rules once
 			if ( ! get_option( 'tdwp_display_endpoints_flushed' ) ) {
-				error_log( 'TDWP Display Manager: Flushing rewrite rules for first time' );
+				TDWP_Debug_Logger::trace( 'DISPLAY', 'Flushing rewrite rules for first time' );
 
 				$flush_result = flush_rewrite_rules();
 
 				if ($flush_result !== false) {
 					update_option( 'tdwp_display_endpoints_flushed', true );
-					error_log( 'TDWP Display Manager: Rewrite rules flushed successfully and option set' );
+					TDWP_Debug_Logger::trace( 'DISPLAY', 'Rewrite rules flushed successfully and option set' );
 				} else {
-					error_log( 'TDWP Display Manager: WARNING - Rewrite rules flush returned false' );
+					TDWP_Debug_Logger::log( 'DISPLAY', 'WARNING - Rewrite rules flush returned false' );
 				}
 			} else {
-				error_log( 'TDWP Display Manager: Rewrite rules already flushed previously' );
+				TDWP_Debug_Logger::trace( 'DISPLAY', 'Rewrite rules already flushed previously' );
 			}
 
-			error_log( 'TDWP Display Manager: Rewrite rule registration process completed successfully' );
+			TDWP_Debug_Logger::trace( 'DISPLAY', 'Rewrite rule registration process completed successfully' );
 
 		} catch ( Exception $e ) {
-			error_log( 'TDWP Display Manager: ERROR in register_display_endpoints: ' . $e->getMessage() );
-			error_log( 'TDWP Display Manager: Error trace: ' . $e->getTraceAsString() );
+			TDWP_Debug_Logger::log( 'DISPLAY', 'ERROR in register_display_endpoints: ' . $e->getMessage() );
+			TDWP_Debug_Logger::trace( 'DISPLAY', 'Error trace: ' . $e->getTraceAsString() );
 		}
 	}
 
@@ -195,7 +195,7 @@ class TDWP_Display_Manager {
 	 */
 	public function manual_flush_rewrite_rules() {
 		try {
-			error_log( 'TDWP Display Manager: Starting manual rewrite rule flush' );
+			TDWP_Debug_Logger::trace( 'DISPLAY', 'Starting manual rewrite rule flush' );
 
 			// Clear the option to force re-flush
 			delete_option( 'tdwp_display_endpoints_flushed' );
@@ -225,12 +225,12 @@ class TDWP_Display_Manager {
 				'message' => 'Manual rewrite rule flush completed successfully'
 			);
 
-			error_log( 'TDWP Display Manager: Manual flush result - Rules found: ' . count( $found_rules ) );
+			TDWP_Debug_Logger::trace( 'DISPLAY', 'Manual flush result - Rules found: ' . count( $found_rules ) );
 
 			return $result;
 
 		} catch ( Exception $e ) {
-			error_log( 'TDWP Display Manager: ERROR in manual_flush_rewrite_rules: ' . $e->getMessage() );
+			TDWP_Debug_Logger::log( 'DISPLAY', 'ERROR in manual_flush_rewrite_rules: ' . $e->getMessage() );
 			return array(
 				'success' => false,
 				'error' => $e->getMessage(),
@@ -548,7 +548,7 @@ class TDWP_Display_Manager {
 
 		// Log health check results
 		if ( ! empty( $stale_screens ) ) {
-			error_log( "TDWP Display: Marked " . count( $stale_screens ) . " screens as offline due to stale ping" );
+			TDWP_Debug_Logger::trace( 'DISPLAY', "Marked " . count( $stale_screens ) . " screens as offline due to stale ping" );
 		}
 	}
 
@@ -968,16 +968,16 @@ class TDWP_Display_Manager {
 
 		// Validate required fields
 		if ( empty( $screen_data['screen_name'] ) ) {
-			error_log( 'TDWP Display Manager: Screen registration failed - screen_name is empty' );
+			TDWP_Debug_Logger::log( 'DISPLAY', 'Screen registration failed - screen_name is empty' );
 			return false;
 		}
 
 		if ( empty( $screen_data['endpoint_url'] ) ) {
-			error_log( 'TDWP Display Manager: Screen registration failed - endpoint_url is empty for screen: ' . $screen_data['screen_name'] );
+			TDWP_Debug_Logger::log( 'DISPLAY', 'Screen registration failed - endpoint_url is empty for screen: ' . $screen_data['screen_name'] );
 			return false;
 		}
 
-		error_log( 'TDWP Display Manager: Registering screen: ' . $screen_data['screen_name'] . ' with endpoint: ' . $screen_data['endpoint_url'] );
+		TDWP_Debug_Logger::trace( 'DISPLAY', 'Registering screen: ' . $screen_data['screen_name'] . ' with endpoint: ' . $screen_data['endpoint_url'] );
 
 		// Generate unique endpoint URL if not provided
 		if ( empty( $screen_data['endpoint_url'] ) ) {
@@ -991,7 +991,7 @@ class TDWP_Display_Manager {
 		) );
 
 		if ( $existing ) {
-			error_log( 'TDWP Display Manager: Screen registration failed - endpoint URL already exists: ' . $screen_data['endpoint_url'] );
+			TDWP_Debug_Logger::log( 'DISPLAY', 'Screen registration failed - endpoint URL already exists: ' . $screen_data['endpoint_url'] );
 			return false;
 		}
 
@@ -1015,15 +1015,15 @@ class TDWP_Display_Manager {
 			array( '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%s', '%s' )
 		);
 
-		error_log( 'TDWP Display Manager: Database insert result: ' . ($result ? 'SUCCESS' : 'FAILED') );
+		TDWP_Debug_Logger::log( 'DISPLAY', 'Database insert result: ' . ($result ? 'SUCCESS' : 'FAILED') );
 
 		if ( ! $result ) {
-			error_log( 'TDWP Display Manager: Screen registration failed - database insert error: ' . $wpdb->last_error );
+			TDWP_Debug_Logger::log( 'DISPLAY', 'Screen registration failed - database insert error: ' . $wpdb->last_error );
 			return false;
 		}
 
 		$screen_id = $wpdb->insert_id;
-		error_log( 'TDWP Display Manager: Screen registered successfully with ID: ' . $screen_id );
+		TDWP_Debug_Logger::trace( 'DISPLAY', 'Screen registered successfully with ID: ' . $screen_id );
 
 		// Trigger registration action
 		do_action( 'tdwp_screen_registered', $screen_id, $screen_data );
@@ -1078,13 +1078,13 @@ class TDWP_Display_Manager {
 		}
 
 		if ( empty( $update_data ) ) {
-			error_log( "TDWP Display Manager: Update screen {$screen_id} failed - no valid data provided" );
+			TDWP_Debug_Logger::log( 'DISPLAY', "Update screen {$screen_id} failed - no valid data provided" );
 			return false;
 		}
 
 		// Log tournament assignment attempts
 		if ( isset( $update_data['tournament_id'] ) ) {
-			error_log( "TDWP Display Manager: Assigning screen {$screen_id} to tournament {$update_data['tournament_id']}" );
+			TDWP_Debug_Logger::trace( 'DISPLAY', "Assigning screen {$screen_id} to tournament {$update_data['tournament_id']}" );
 		}
 
 		$update_data['updated_at'] = current_time( 'mysql' );
@@ -1101,14 +1101,14 @@ class TDWP_Display_Manager {
 		if ( $result !== false ) {
 			// Log successful assignment
 			if ( isset( $update_data['tournament_id'] ) ) {
-				error_log( "TDWP Display Manager: Successfully assigned screen {$screen_id} to tournament {$update_data['tournament_id']}" );
+				TDWP_Debug_Logger::trace( 'DISPLAY', "Successfully assigned screen {$screen_id} to tournament {$update_data['tournament_id']}" );
 			}
 			// Trigger update action
 			do_action( 'tdwp_screen_updated', $screen_id, $update_data );
 		} else {
 			// Log failed assignment
 			if ( isset( $update_data['tournament_id'] ) ) {
-				error_log( "TDWP Display Manager: Failed to assign screen {$screen_id} to tournament {$update_data['tournament_id']}" );
+				TDWP_Debug_Logger::log( 'DISPLAY', "Failed to assign screen {$screen_id} to tournament {$update_data['tournament_id']}" );
 			}
 		}
 
@@ -1392,12 +1392,12 @@ class TDWP_Display_Manager {
 	 */
 	private function check_rewrite_rules_status() {
 		try {
-			error_log( 'TDWP Display Manager: Starting rewrite rules status check' );
+			TDWP_Debug_Logger::trace( 'DISPLAY', 'Starting rewrite rules status check' );
 
 			// Method 1: Check if the option was set (our original fix)
 			$option_check = get_option( 'tdwp_display_endpoints_flushed', false );
 			if ( $option_check ) {
-				error_log( 'TDWP Display Manager: Rewrite rules status OK via option check' );
+				TDWP_Debug_Logger::trace( 'DISPLAY', 'Rewrite rules status OK via option check' );
 				return true;
 			}
 
@@ -1406,7 +1406,7 @@ class TDWP_Display_Manager {
 			if ( is_array( $rewrite_rules ) ) {
 				foreach ( $rewrite_rules as $pattern => $substitution ) {
 					if ( strpos( $pattern, 'tdwp-display' ) !== false ) {
-						error_log( 'TDWP Display Manager: Rewrite rules status OK via pattern detection' );
+						TDWP_Debug_Logger::trace( 'DISPLAY', 'Rewrite rules status OK via pattern detection' );
 						return true;
 					}
 				}
@@ -1416,7 +1416,7 @@ class TDWP_Display_Manager {
 			global $wp;
 			if ( isset( $wp->public_query_vars ) && is_array( $wp->public_query_vars ) ) {
 				if ( in_array( 'tdwp_display', $wp->public_query_vars ) ) {
-					error_log( 'TDWP Display Manager: Rewrite rules status OK via public query vars detection' );
+					TDWP_Debug_Logger::trace( 'DISPLAY', 'Rewrite rules status OK via public query vars detection' );
 					return true;
 				}
 			}
@@ -1426,18 +1426,18 @@ class TDWP_Display_Manager {
 			if ( isset( $wp_rewrite->rules ) && is_array( $wp_rewrite->rules ) ) {
 				foreach ( $wp_rewrite->rules as $pattern => $substitution ) {
 					if ( strpos( $pattern, 'tdwp-display' ) !== false ) {
-						error_log( 'TDWP Display Manager: Rewrite rules status OK via WP_Rewrite rules detection' );
+						TDWP_Debug_Logger::trace( 'DISPLAY', 'Rewrite rules status OK via WP_Rewrite rules detection' );
 						return true;
 					}
 				}
 			}
 
-			error_log( 'TDWP Display Manager: Rewrite rules status FAILED - no evidence of registration' );
+			TDWP_Debug_Logger::log( 'DISPLAY', 'Rewrite rules status FAILED - no evidence of registration' );
 			return false;
 
 		} catch ( Exception $e ) {
-			error_log( 'TDWP Display Manager: Rewrite rules check error: ' . $e->getMessage() );
-			error_log( 'TDWP Display Manager: Error trace: ' . $e->getTraceAsString() );
+			TDWP_Debug_Logger::log( 'DISPLAY', 'Rewrite rules check error: ' . $e->getMessage() );
+			TDWP_Debug_Logger::trace( 'DISPLAY', 'Error trace: ' . $e->getTraceAsString() );
 			return false; // Safe fallback
 		}
 	}
@@ -1450,11 +1450,11 @@ class TDWP_Display_Manager {
 	 */
 	private function check_shortcode_registration_status() {
 		try {
-			error_log( 'TDWP Display Manager: Starting shortcode registration status check' );
+			TDWP_Debug_Logger::trace( 'DISPLAY', 'Starting shortcode registration status check' );
 
 			// Method 1: Primary check - Direct shortcode existence
 			if ( shortcode_exists( 'tdwp_tournament_display' ) ) {
-				error_log( 'TDWP Display Manager: Shortcode status OK via direct check' );
+				TDWP_Debug_Logger::trace( 'DISPLAY', 'Shortcode status OK via direct check' );
 				return true;
 			}
 
@@ -1462,14 +1462,14 @@ class TDWP_Display_Manager {
 			global $shortcode_tags;
 			if ( isset( $shortcode_tags ) && is_array( $shortcode_tags ) ) {
 				if ( isset( $shortcode_tags['tdwp_tournament_display'] ) && is_callable( $shortcode_tags['tdwp_tournament_display'] ) ) {
-					error_log( 'TDWP Display Manager: Shortcode status OK via tags array check' );
+					TDWP_Debug_Logger::trace( 'DISPLAY', 'Shortcode status OK via tags array check' );
 					return true;
 				}
 			}
 
 			// Method 3: Check if Display Shortcode class exists and is instantiated
 			if ( class_exists( 'TDWP_Display_Shortcode' ) ) {
-				error_log( 'TDWP Display Manager: Shortcode status OK via Display Shortcode class existence' );
+				TDWP_Debug_Logger::trace( 'DISPLAY', 'Shortcode status OK via Display Shortcode class existence' );
 				return true;
 			}
 
@@ -1478,20 +1478,20 @@ class TDWP_Display_Manager {
 				try {
 					$display_manager = TDWP_Display_Manager::get_instance();
 					if ( method_exists( $display_manager, 'register_display_shortcodes' ) ) {
-						error_log( 'TDWP Display Manager: Shortcode status OK via method existence check' );
+						TDWP_Debug_Logger::trace( 'DISPLAY', 'Shortcode status OK via method existence check' );
 						return true;
 					}
 				} catch ( Exception $e ) {
-					error_log( 'TDWP Display Manager: Warning - Display Manager instantiation failed: ' . $e->getMessage() );
+					TDWP_Debug_Logger::log( 'DISPLAY', 'Warning - Display Manager instantiation failed: ' . $e->getMessage() );
 				}
 			}
 
-			error_log( 'TDWP Display Manager: Shortcode status FAILED - no evidence of registration' );
+			TDWP_Debug_Logger::log( 'DISPLAY', 'Shortcode status FAILED - no evidence of registration' );
 			return false;
 
 		} catch ( Exception $e ) {
-			error_log( 'TDWP Display Manager: Shortcode registration check error: ' . $e->getMessage() );
-			error_log( 'TDWP Display Manager: Error trace: ' . $e->getTraceAsString() );
+			TDWP_Debug_Logger::log( 'DISPLAY', 'Shortcode registration check error: ' . $e->getMessage() );
+			TDWP_Debug_Logger::trace( 'DISPLAY', 'Error trace: ' . $e->getTraceAsString() );
 			return false; // Safe fallback
 		}
 	}
@@ -1758,7 +1758,7 @@ class TDWP_Display_Manager {
 			}
 		}
 
-		error_log( 'TDWP Display Manager: Found ' . count( $tournaments ) . ' tournaments for display assignment' );
+		TDWP_Debug_Logger::trace( 'DISPLAY', 'Found ' . count( $tournaments ) . ' tournaments for display assignment' );
 		return $tournaments;
 	}
 
@@ -1824,25 +1824,25 @@ class TDWP_Display_Manager {
 	 * @return bool True on success
 	 */
 	public function auto_assign_to_running_tournament( $screen_id ) {
-		error_log( "TDWP Display Manager: Auto-assigning screen {$screen_id} to running tournament" );
+		TDWP_Debug_Logger::trace( 'DISPLAY', "Auto-assigning screen {$screen_id} to running tournament" );
 		$running_tournaments = $this->get_running_tournaments_for_display();
 
-		error_log( "TDWP Display Manager: Found " . count( $running_tournaments ) . " tournaments for auto-assignment" );
+		TDWP_Debug_Logger::trace( 'DISPLAY', "Found " . count( $running_tournaments ) . " tournaments for auto-assignment" );
 		foreach ( $running_tournaments as $tournament ) {
-			error_log( "TDWP Display Manager: Available tournament: ID {$tournament['id']}, Title '{$tournament['title']}', Status '{$tournament['status']}', Running: " . ($tournament['is_running'] ? 'YES' : 'NO') );
+			TDWP_Debug_Logger::trace( 'DISPLAY', "Available tournament: ID {$tournament['id']}, Title '{$tournament['title']}', Status '{$tournament['status']}', Running: " . ($tournament['is_running'] ? 'YES' : 'NO') );
 		}
 
 		if ( empty( $running_tournaments ) ) {
-			error_log( "TDWP Display Manager: Auto-assign failed - no running tournaments available" );
+			TDWP_Debug_Logger::log( 'DISPLAY', "Auto-assign failed - no running tournaments available" );
 			return false;
 		}
 
 		// Priority: 1) Running tournaments (most active), 2) Paused tournaments (temporarily stopped), 3) Setup tournaments (not started yet), 4) Any available tournament
 		foreach ( $running_tournaments as $tournament ) {
 			if ( $tournament['is_running'] && $tournament['status'] === 'running' ) {
-				error_log( "TDWP Display Manager: Auto-assigning to RUNNING tournament {$tournament['id']} ({$tournament['title']})" );
+				TDWP_Debug_Logger::trace( 'DISPLAY', "Auto-assigning to RUNNING tournament {$tournament['id']} ({$tournament['title']})" );
 				$result = $this->update_screen( $screen_id, array( 'tournament_id' => $tournament['id'] ) );
-				error_log( "TDWP Display Manager: Auto-assign to running tournament result: " . ($result ? 'SUCCESS' : 'FAILED') );
+				TDWP_Debug_Logger::log( 'DISPLAY', "Auto-assign to running tournament result: " . ($result ? 'SUCCESS' : 'FAILED') );
 				return $result;
 			}
 		}
@@ -1850,9 +1850,9 @@ class TDWP_Display_Manager {
 		// Then prefer paused tournaments (active but temporarily stopped)
 		foreach ( $running_tournaments as $tournament ) {
 			if ( $tournament['is_running'] && $tournament['status'] === 'paused' ) {
-				error_log( "TDWP Display Manager: Auto-assigning to PAUSED tournament {$tournament['id']} ({$tournament['title']})" );
+				TDWP_Debug_Logger::trace( 'DISPLAY', "Auto-assigning to PAUSED tournament {$tournament['id']} ({$tournament['title']})" );
 				$result = $this->update_screen( $screen_id, array( 'tournament_id' => $tournament['id'] ) );
-				error_log( "TDWP Display Manager: Auto-assign to paused tournament result: " . ($result ? 'SUCCESS' : 'FAILED') );
+				TDWP_Debug_Logger::log( 'DISPLAY', "Auto-assign to paused tournament result: " . ($result ? 'SUCCESS' : 'FAILED') );
 				return $result;
 			}
 		}
@@ -1860,18 +1860,18 @@ class TDWP_Display_Manager {
 		// Finally fallback to setup tournaments (not started yet)
 		foreach ( $running_tournaments as $tournament ) {
 			if ( $tournament['is_running'] && $tournament['status'] === 'setup' ) {
-				error_log( "TDWP Display Manager: Auto-assigning to SETUP tournament {$tournament['id']} ({$tournament['title']})" );
+				TDWP_Debug_Logger::trace( 'DISPLAY', "Auto-assigning to SETUP tournament {$tournament['id']} ({$tournament['title']})" );
 				$result = $this->update_screen( $screen_id, array( 'tournament_id' => $tournament['id'] ) );
-				error_log( "TDWP Display Manager: Auto-assign to setup tournament result: " . ($result ? 'SUCCESS' : 'FAILED') );
+				TDWP_Debug_Logger::log( 'DISPLAY', "Auto-assign to setup tournament result: " . ($result ? 'SUCCESS' : 'FAILED') );
 				return $result;
 			}
 		}
 
 		// If no running/paused/setup tournament, use the first available one
 		$first_tournament = reset( $running_tournaments );
-		error_log( "TDWP Display Manager: Auto-assigning to FALLBACK tournament {$first_tournament['id']} ({$first_tournament['title']})" );
+		TDWP_Debug_Logger::trace( 'DISPLAY', "Auto-assigning to FALLBACK tournament {$first_tournament['id']} ({$first_tournament['title']})" );
 		$result = $this->update_screen( $screen_id, array( 'tournament_id' => $first_tournament['id'] ) );
-		error_log( "TDWP Display Manager: Auto-assign to fallback tournament result: " . ($result ? 'SUCCESS' : 'FAILED') );
+		TDWP_Debug_Logger::log( 'DISPLAY', "Auto-assign to fallback tournament result: " . ($result ? 'SUCCESS' : 'FAILED') );
 		return $result;
 	}
 
@@ -1908,7 +1908,7 @@ class TDWP_Display_Manager {
 		$table_name = $wpdb->prefix . 'poker_display_screens';
 
 		// Log tournament status changes for debugging
-		error_log( "TDWP Display Manager: Tournament {$tournament_id} status changed from {$old_status} to {$new_status}" );
+		TDWP_Debug_Logger::trace( 'DISPLAY', "Tournament {$tournament_id} status changed from {$old_status} to {$new_status}" );
 
 		// Get all screens assigned to this tournament
 		$screens = $wpdb->get_results( $wpdb->prepare(

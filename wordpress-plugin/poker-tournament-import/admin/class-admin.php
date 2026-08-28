@@ -315,8 +315,10 @@ class Poker_Tournament_Import_Admin {
      * Enqueue admin scripts and styles
      */
     public function enqueue_admin_scripts($hook) {
-        // Debug: Log the actual hook value to identify why scripts aren't loading
-        error_log('Poker Import - Admin Scripts Hook: ' . $hook);
+        // Diagnostic breadcrumb. Gated: this fires on EVERY admin page load.
+        if (class_exists('TDWP_Debug_Logger')) {
+            TDWP_Debug_Logger::trace('ADMIN', 'Admin Scripts Hook: ' . $hook);
+        }
 
         // Load tournament import scripts on main tournament pages and migration tools
         $is_tournament_page = strpos($hook, 'poker-tournament-import') !== false;

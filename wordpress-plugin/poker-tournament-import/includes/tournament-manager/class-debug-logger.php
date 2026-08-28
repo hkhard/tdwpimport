@@ -49,6 +49,56 @@ class TDWP_Debug_Logger {
 	}
 
 	/**
+	 * Cached result of the trace-enabled check for this request.
+	 *
+	 * @var bool|null
+	 */
+	private static $trace_enabled = null;
+
+	/**
+	 * Whether verbose subsystem tracing is enabled.
+	 *
+	 * Tracing is OFF unless explicitly switched on, because these call sites run on
+	 * EVERY request (including anonymous front-end traffic and REST callbacks). Left
+	 * unconditional they produced ~19 error_log() writes per request in production.
+	 *
+	 * Enable with either:
+	 *   define( 'TDWP_TRACE', true );  // wp-config.php
+	 *   update_option( 'tdwp_trace_enabled', true );
+	 *
+	 * @since 3.9.9
+	 * @return bool
+	 */
+	public static function trace_enabled() {
+		if ( null === self::$trace_enabled ) {
+			self::$trace_enabled = ( defined( 'TDWP_TRACE' ) && TDWP_TRACE )
+				|| (bool) get_option( 'tdwp_trace_enabled', false );
+		}
+
+		return self::$trace_enabled;
+	}
+
+	/**
+	 * Verbose subsystem trace — a no-op unless tracing is explicitly enabled.
+	 *
+	 * Use for high-frequency diagnostic breadcrumbs (constructor reached, hook
+	 * registered, query executed). Never use for real errors; those should stay
+	 * unconditional so they remain visible in production.
+	 *
+	 * @since 3.9.9
+	 * @param string $context Context (e.g. 'DISPLAY', 'TEMPLATE_ENGINE').
+	 * @param string $message Trace message.
+	 * @param array  $data    Optional data to include.
+	 */
+	public static function trace( $context, $message, $data = array() ) {
+		if ( ! self::trace_enabled() ) {
+			return;
+		}
+
+		self::log( $context, $message, $data );
+	}
+
+	/**
 	 * Log a message
 	 *
 	 * @since 3.1.0

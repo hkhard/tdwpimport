@@ -36,9 +36,9 @@ class TDWP_Dependency_Manager {
     public static function init() {
         if (self::$instance === null) {
             self::$instance = new self();
-            error_log('TDWP Dependency Manager: Initialized');
+            TDWP_Debug_Logger::trace( 'DEPENDENCY', 'Initialized' );
         } else {
-            error_log('TDWP Dependency Manager: Already initialized, skipping');
+            TDWP_Debug_Logger::trace( 'DEPENDENCY', 'Already initialized, skipping' );
         }
     }
 

@@ -34,6 +34,10 @@ $GLOBALS['wpdb'] = new TDWP_Fake_WPDB();
  */
 require $plugin_dir . 'includes/security/class-ajax-guards.php';
 
+// Debug logger. Loaded early because the TM subsystem routes all of its
+// diagnostics through it (trace() is gated OFF by default — see 3.9.9).
+require $plugin_dir . 'includes/tournament-manager/class-debug-logger.php';
+
 // Formula validator (standalone), and the .tdt parser chain (debug -> formula ->
 // lexer -> ast -> domain-mapper -> parser), and the statistics engine. Load order
 // matters: the parser depends on the debug class and the formula validator.

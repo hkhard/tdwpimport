@@ -2035,6 +2035,14 @@ class TDWP_Database_Schema {
 
 		$result = dbDelta( $sql );
 
+		// The template engine caches this table's rows; drop the cache so newly
+		// created/renamed token rows are picked up immediately.
+		if ( class_exists( 'TDWP_Template_Engine' ) ) {
+			TDWP_Template_Engine::flush_token_cache();
+		} else {
+			delete_transient( 'tdwp_display_token_registry' );
+		}
+
 		return ! empty( $result );
 	}
 

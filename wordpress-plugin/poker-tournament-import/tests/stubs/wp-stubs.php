@@ -190,7 +190,28 @@ if ( ! function_exists( 'get_option' ) ) {
 }
 
 if ( ! function_exists( 'update_option' ) ) {
-	function update_option( $name, $value ) {
+	/**
+	 * @param string    $name     Option name.
+	 * @param mixed     $value    Option value.
+	 * @param bool|null $autoload Matches WP's third parameter; ignored in-memory.
+	 */
+	function update_option( $name, $value, $autoload = null ) {
+		$GLOBALS['tdwp_test_options'][ $name ] = $value;
+		return true;
+	}
+}
+
+if ( ! function_exists( 'add_option' ) ) {
+	/**
+	 * @param string    $name     Option name.
+	 * @param mixed     $value    Option value.
+	 * @param string    $depr     Deprecated placeholder, matches WP's signature.
+	 * @param bool|null $autoload Matches WP's fourth parameter; ignored in-memory.
+	 */
+	function add_option( $name, $value = '', $depr = '', $autoload = null ) {
+		if ( array_key_exists( $name, $GLOBALS['tdwp_test_options'] ) ) {
+			return false;
+		}
 		$GLOBALS['tdwp_test_options'][ $name ] = $value;
 		return true;
 	}
