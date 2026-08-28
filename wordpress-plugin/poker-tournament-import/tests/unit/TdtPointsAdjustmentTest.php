@@ -243,4 +243,58 @@ final class TdtPointsAdjustmentTest extends TestCase {
 			'A tournament with no re-entries, adjustments or surrenders must keep its existing point total.'
 		);
 	}
+
+	/**
+	 * The surrender contribution is a house rule, so it must be filterable.
+	 *
+	 * 100 per surrender is what reconciles against TD 3.7.2, but a league using
+	 * a different stake has to be able to change it without editing the plugin.
+	 * This drives the documented hook and asserts the points actually move,
+	 * which a filter that was declared but never dispatched would fail.
+	 */
+	public function test_surrender_contribution_is_filterable(): void {
+		remove_all_filters( 'poker_tournament_surrender_contribution' );
+
+		// Baseline: the default 100 per surrender gives TD's figure.
+		$baseline = $this->parseFixture( 'ORF_Poker_20260827.tdt' );
+		$this->assertSame( 399, $this->winnerPoints( $baseline ), 'Baseline must match TD.' );
+
+		// Setting the contribution to zero removes it from the pot, which must
+		// lower the winner's points. This is the pre-3.9.10 behaviour.
+		add_filter( 'poker_tournament_surrender_contribution', static fn() => 0.0 );
+		$without = $this->parseFixture( 'ORF_Poker_20260827.tdt' );
+		remove_all_filters( 'poker_tournament_surrender_contribution' );
+
+		$this->assertLessThan(
+			399,
+			$this->winnerPoints( $without ),
+			'Zeroing the surrender contribution must reduce the winner\'s points.'
+		);
+
+		// A larger stake must push the points the other way.
+		add_filter( 'poker_tournament_surrender_contribution', static fn() => 500.0 );
+		$larger = $this->parseFixture( 'ORF_Poker_20260827.tdt' );
+		remove_all_filters( 'poker_tournament_surrender_contribution' );
+
+		$this->assertGreaterThan(
+			399,
+			$this->winnerPoints( $larger ),
+			'A larger surrender contribution must increase the winner\'s points.'
+		);
+	}
+
+	/**
+	 * Winner's points from a parsed fixture.
+	 *
+	 * @param array $data Parsed tournament data.
+	 * @return int
+	 */
+	private function winnerPoints( array $data ): int {
+		foreach ( $data['players'] as $player ) {
+			if ( 1 === (int) ( $player['finish_position'] ?? 0 ) ) {
+				return (int) round( (float) ( $player['points'] ?? 0 ) );
+			}
+		}
+		$this->fail( 'No winner found in parsed data.' );
+	}
 }

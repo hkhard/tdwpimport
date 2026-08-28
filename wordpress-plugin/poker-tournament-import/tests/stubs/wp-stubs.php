@@ -308,9 +308,50 @@ if ( ! function_exists( 'esc_html_e' ) ) {
 }
 
 if ( ! function_exists( 'apply_filters' ) ) {
-	// No registered filters in the harness; return the value unchanged.
+	/**
+	 * Minimal filter dispatch.
+	 *
+	 * Previously this returned the value unchanged, which meant a test could
+	 * never prove that a documented filter hook actually works. Callbacks
+	 * registered through add_filter() are now applied in priority order.
+	 */
 	function apply_filters( $hook, $value, ...$args ) {
+		global $tdwp_test_filters;
+
+		if ( empty( $tdwp_test_filters[ $hook ] ) ) {
+			return $value;
+		}
+
+		$callbacks = $tdwp_test_filters[ $hook ];
+		ksort( $callbacks );
+
+		foreach ( $callbacks as $priority_group ) {
+			foreach ( $priority_group as $callback ) {
+				$value = call_user_func_array( $callback, array_merge( array( $value ), $args ) );
+			}
+		}
+
 		return $value;
+	}
+}
+
+if ( ! function_exists( 'add_filter' ) ) {
+	function add_filter( $hook, $callback, $priority = 10, $accepted_args = 1 ) {
+		global $tdwp_test_filters;
+		$tdwp_test_filters[ $hook ][ $priority ][] = $callback;
+		return true;
+	}
+}
+
+if ( ! function_exists( 'remove_all_filters' ) ) {
+	function remove_all_filters( $hook = null ) {
+		global $tdwp_test_filters;
+		if ( null === $hook ) {
+			$tdwp_test_filters = array();
+		} else {
+			unset( $tdwp_test_filters[ $hook ] );
+		}
+		return true;
 	}
 }
 
