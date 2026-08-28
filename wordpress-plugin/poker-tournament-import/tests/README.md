@@ -63,3 +63,32 @@ mkdir -p ~/dev/actions-runner-tdwp && cd ~/dev/actions-runner-tdwp
 ```
 
 Until then, run the suite locally with `./run-tests.sh`.
+
+## Real-WordPress acceptance checks
+
+`tests/integration/wp-acceptance.sh` runs the **built plugin zip** against a real
+WordPress install. The PHPUnit suite uses stubs and a fake `$wpdb`, which cannot
+see plugin activation, `dbDelta` schema creation, actual shortcode registration,
+or what genuinely reaches `debug.log`. This script covers that gap.
+
+```bash
+./tests/integration/wp-acceptance.sh                       # newest built zip
+./tests/integration/wp-acceptance.sh ../poker-...-v3.9.8.zip
+```
+
+It downloads WordPress and the SQLite database drop-in into a work directory
+(`/tmp/tdwp-wp-acceptance` by default, override with `TDWP_WP_TEST_DIR`), so it
+needs **no MySQL server and no Docker** — only `php` with `pdo_sqlite`, `curl`
+and `unzip`. The download is cached, so re-runs take a few seconds.
+
+It asserts twelve behaviours: the plugin activates without a fatal, the
+Tournament Manager gate defaults to OFF, the rollup-critical `tdwp_*` tables are
+created with the module off, a real `.tdt` imports and populates both statistics
+marts with no negative points, statistics shortcodes survive while live/display
+ones disappear, `debug.log` stays clean in both gate states, and disabling the
+module measurably lowers peak memory.
+
+**Sanity-check it against an older build.** Run it on `v3.9.8` and it reports six
+failures naming the defects that release actually had (no gate, live shortcodes
+leaking, 60 diagnostic log lines over three admin requests, no memory saving).
+A check that passes on everything proves nothing.
