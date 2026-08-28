@@ -28,6 +28,30 @@ $pa_rows    = $pa_manager->get_audit_log(
 	$pa_offset
 );
 
+/* -------------------------------------------------------------------------
+ * Recalculate imported points (3.9.10).
+ *
+ * Handled inline rather than via admin-post so the preview renders on this same
+ * screen. Both actions are nonce-protected and capability-checked above.
+ * ---------------------------------------------------------------------- */
+$pa_recalc_preview = null;
+$pa_recalc_applied = null;
+
+if ( isset( $_POST['tdwp_recalc_action'] ) && check_admin_referer( 'tdwp_recalc_points', 'tdwp_recalc_nonce' ) ) {
+	$pa_recalc_action = sanitize_key( wp_unslash( $_POST['tdwp_recalc_action'] ) );
+
+	if ( ! class_exists( 'Poker_Points_Recalculator' ) ) {
+		require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/class-points-recalculator.php';
+	}
+	$pa_recalculator = new Poker_Points_Recalculator();
+
+	if ( 'preview' === $pa_recalc_action ) {
+		$pa_recalc_preview = $pa_recalculator->recalculate_all( true );
+	} elseif ( 'apply' === $pa_recalc_action ) {
+		$pa_recalc_applied = $pa_recalculator->recalculate_all( false );
+	}
+}
+
 // Tournaments for the select control (newest first).
 $pa_tournaments = get_posts(
 	array(
@@ -70,6 +94,146 @@ function tdwp_pa_player_name( $uuid ) {
 <div class="wrap tdwp-pv-wrap">
 	<h1><?php esc_html_e( 'Points Adjustments', 'poker-tournament-import' ); ?></h1>
 	<p class="description"><?php esc_html_e( 'Manually override a player\'s points for a tournament. Overrides are an insert-only audit log, survive re-imports, and are applied to season standings automatically.', 'poker-tournament-import' ); ?></p>
+
+	<?php
+	/* Recalculate imported points — preview then apply. */
+	$pa_report = $pa_recalc_applied ? $pa_recalc_applied : $pa_recalc_preview;
+	$pa_is_applied = (bool) $pa_recalc_applied;
+	?>
+	<div class="tdwp-pv-selector tdwp-pa-form" style="border-left:4px solid #72aee6;">
+		<h2><?php esc_html_e( 'Recalculate imported points', 'poker-tournament-import' ); ?></h2>
+
+		<p>
+			<?php esc_html_e( 'Version 3.9.10 corrected three errors in how points were calculated when importing a Tournament Director file:', 'poker-tournament-import' ); ?>
+		</p>
+		<ul style="list-style:disc;margin-left:22px;">
+			<li><?php esc_html_e( 'A player\'s manual points adjustment, set by the tournament director in TD, was ignored entirely.', 'poker-tournament-import' ); ?></li>
+			<li><?php esc_html_e( 'Tournaments with re-entries counted players instead of entries, which lowered everyone\'s score.', 'poker-tournament-import' ); ?></li>
+			<li><?php esc_html_e( 'A surrendered stake was left out of the prize pool.', 'poker-tournament-import' ); ?></li>
+		</ul>
+
+		<p>
+			<strong><?php esc_html_e( 'What this button does:', 'poker-tournament-import' ); ?></strong>
+			<?php esc_html_e( 'it re-reads the original .tdt content stored with each tournament, recalculates every player\'s points with the corrected rules, and updates the statistics tables. Season and series standings are refreshed and caches cleared afterwards.', 'poker-tournament-import' ); ?>
+		</p>
+		<p>
+			<strong><?php esc_html_e( 'What it does not do:', 'poker-tournament-import' ); ?></strong>
+			<?php esc_html_e( 'it never touches your manual overrides. Any player with an override on this page keeps that value, and nothing on the audit log below is altered or deleted. Tournament posts, players, prizes and finishing positions are all left as they are — only the points figure changes.', 'poker-tournament-import' ); ?>
+		</p>
+		<p class="description">
+			<?php esc_html_e( 'Always press Preview first. It shows exactly which players would change and by how much, without writing anything. Points will go up, not down, for tournaments that had re-entries. A tournament imported by a much older version may not have its original file stored — those are listed as skipped and need re-importing to correct.', 'poker-tournament-import' ); ?>
+		</p>
+
+		<form method="post" style="margin-top:14px;">
+			<?php wp_nonce_field( 'tdwp_recalc_points', 'tdwp_recalc_nonce' ); ?>
+			<button type="submit" name="tdwp_recalc_action" value="preview" class="button">
+				<?php esc_html_e( 'Preview changes', 'poker-tournament-import' ); ?>
+			</button>
+			<?php if ( $pa_recalc_preview && ! empty( $pa_recalc_preview['tournaments'] ) ) : ?>
+				<button type="submit" name="tdwp_recalc_action" value="apply" class="button button-primary"
+					onclick="return confirm('<?php echo esc_js( __( 'Apply the recalculated points to your statistics? Manual overrides are preserved. This cannot be undone automatically, though re-importing a .tdt always restores that tournament.', 'poker-tournament-import' ) ); ?>');">
+					<?php esc_html_e( 'Apply these changes', 'poker-tournament-import' ); ?>
+				</button>
+			<?php endif; ?>
+		</form>
+
+		<?php if ( $pa_report ) : ?>
+			<?php if ( $pa_is_applied ) : ?>
+				<div class="notice notice-success inline" style="margin-top:14px;">
+					<p>
+						<?php
+						printf(
+							/* translators: 1: tournament count, 2: player count */
+							esc_html__( 'Applied. Updated %1$d tournament(s) and %2$d player result(s). Statistics have been rebuilt.', 'poker-tournament-import' ),
+							(int) $pa_report['totals']['tournaments'],
+							(int) $pa_report['totals']['players_changed']
+						);
+						?>
+					</p>
+				</div>
+			<?php elseif ( empty( $pa_report['tournaments'] ) ) : ?>
+				<div class="notice notice-success inline" style="margin-top:14px;">
+					<p><?php esc_html_e( 'Nothing to change — every imported tournament already has correct points.', 'poker-tournament-import' ); ?></p>
+				</div>
+			<?php else : ?>
+				<div class="notice notice-warning inline" style="margin-top:14px;">
+					<p>
+						<?php
+						printf(
+							/* translators: 1: tournament count, 2: player count, 3: skipped count */
+							esc_html__( 'Preview only — nothing has been saved. %1$d tournament(s) and %2$d player result(s) would change. %3$d tournament(s) cannot be recalculated.', 'poker-tournament-import' ),
+							(int) $pa_report['totals']['tournaments'],
+							(int) $pa_report['totals']['players_changed'],
+							(int) $pa_report['totals']['skipped']
+						);
+						?>
+					</p>
+				</div>
+			<?php endif; ?>
+
+			<?php if ( ! empty( $pa_report['tournaments'] ) ) : ?>
+				<table class="widefat striped" style="margin-top:10px;">
+					<thead>
+						<tr>
+							<th><?php esc_html_e( 'Tournament', 'poker-tournament-import' ); ?></th>
+							<th><?php esc_html_e( 'Player', 'poker-tournament-import' ); ?></th>
+							<th><?php esc_html_e( 'Points now', 'poker-tournament-import' ); ?></th>
+							<th><?php esc_html_e( 'Points after', 'poker-tournament-import' ); ?></th>
+							<th><?php esc_html_e( 'Change', 'poker-tournament-import' ); ?></th>
+							<th><?php esc_html_e( 'Note', 'poker-tournament-import' ); ?></th>
+						</tr>
+					</thead>
+					<tbody>
+					<?php foreach ( $pa_report['tournaments'] as $pa_tr ) : ?>
+						<?php if ( 'skipped' === $pa_tr['status'] || 'error' === $pa_tr['status'] ) : ?>
+							<tr>
+								<td><strong><?php echo esc_html( $pa_tr['title'] ); ?></strong></td>
+								<td colspan="5"><em><?php echo esc_html( $pa_tr['message'] ); ?></em></td>
+							</tr>
+						<?php else : ?>
+							<?php foreach ( $pa_tr['changes'] as $pa_i => $pa_ch ) : ?>
+								<tr>
+									<td><?php echo 0 === $pa_i ? '<strong>' . esc_html( $pa_tr['title'] ) . '</strong>' : ''; ?></td>
+									<td><?php echo esc_html( $pa_ch['player'] ); ?></td>
+									<td><?php echo esc_html( number_format_i18n( $pa_ch['from'], 0 ) ); ?></td>
+									<td><?php echo esc_html( number_format_i18n( $pa_ch['to'], 0 ) ); ?></td>
+									<td>
+										<?php
+										$pa_delta = $pa_ch['to'] - $pa_ch['from'];
+										if ( abs( $pa_delta ) >= 0.005 ) {
+											printf(
+												'<span style="color:%s;">%s%s</span>',
+												$pa_delta > 0 ? '#007017' : '#b32d2e',
+												$pa_delta > 0 ? '+' : '',
+												esc_html( number_format_i18n( $pa_delta, 0 ) )
+											);
+										} else {
+											echo '—';
+										}
+										?>
+									</td>
+									<td>
+										<?php
+										if ( '' !== $pa_ch['note'] ) {
+											echo esc_html( $pa_ch['note'] );
+										} elseif ( abs( (float) $pa_ch['adjustment'] ) > 0 ) {
+											printf(
+												/* translators: %s: signed adjustment value */
+												esc_html__( 'includes a %s adjustment from the .tdt', 'poker-tournament-import' ),
+												esc_html( ( $pa_ch['adjustment'] > 0 ? '+' : '' ) . number_format_i18n( $pa_ch['adjustment'], 0 ) )
+											);
+										}
+										?>
+									</td>
+								</tr>
+							<?php endforeach; ?>
+						<?php endif; ?>
+					<?php endforeach; ?>
+					</tbody>
+				</table>
+			<?php endif; ?>
+		<?php endif; ?>
+	</div>
 
 	<div class="tdwp-pv-selector tdwp-pa-form">
 		<h2><?php esc_html_e( 'Add an override', 'poker-tournament-import' ); ?></h2>

@@ -1751,7 +1751,9 @@ class Poker_Tournament_Import_Admin {
             // CRITICAL FIX: Store raw TDT content for real-time chronological processing
             if ($parser) {
                 $raw_content = $parser->get_raw_content();
-                update_post_meta($tournament_id, '_tournament_raw_content', $raw_content);
+                // wp_slash() is required: update_post_meta() unslashes, which would
+                // corrupt the .tdt's own \" \n and \\ escapes (3.9.10).
+                update_post_meta($tournament_id, '_tournament_raw_content', wp_slash($raw_content));
                 Poker_Tournament_Import_Debug::log('Stored raw TDT content for real-time processing');
             } else {
                 Poker_Tournament_Import_Debug::log_warning('Parser not available, skipping raw content storage');

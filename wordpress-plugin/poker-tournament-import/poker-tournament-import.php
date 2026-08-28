@@ -3,7 +3,7 @@
  * Plugin Name: Poker Tournament Import
  * Plugin URI: https://nikielhard.se/tdwpimport
  * Description: Import and display poker tournament results from Tournament Director (.tdt) files. Now with Tournament Manager for creating tournaments without TD software!
- * Version: 3.9.9
+ * Version: 3.9.10
  * Author: Hans Kästel Hård
  * Author URI: https://nikielhard.se
  * License: GPL v2 or later
@@ -20,7 +20,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('POKER_TOURNAMENT_IMPORT_VERSION', '3.9.9');
+define('POKER_TOURNAMENT_IMPORT_VERSION', '3.9.10');
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -754,6 +754,7 @@ class Poker_Tournament_Import {
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/class-active-formula-manager.php';
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/class-cache-purge.php';
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/class-points-adjustment-manager.php';
+        require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/class-points-recalculator.php';
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/class-series-standings.php';
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/class-statistics-engine.php';
 
@@ -3045,8 +3046,11 @@ class Poker_Tournament_Import {
                 ));
             }
 
-            // Store raw TDT content for real-time processing
-            update_post_meta($tournament_id, '_tournament_raw_content', $file_content);
+            // Store raw TDT content for real-time processing.
+            // wp_slash() is required: update_post_meta() runs the value through
+            // wp_unslash(), which would strip the backslashes in the .tdt's own
+            // \" \n and \\ escapes and store an unparseable copy (3.9.10).
+            update_post_meta($tournament_id, '_tournament_raw_content', wp_slash($file_content));
 
             // Get tournament UUID
             $tournament_uuid = get_post_meta($tournament_id, 'tournament_uuid', true);

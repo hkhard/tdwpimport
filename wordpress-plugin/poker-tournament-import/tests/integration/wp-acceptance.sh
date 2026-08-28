@@ -208,6 +208,113 @@ if [ -n "$FIXTURE" ] && [ -f "$FIXTURE" ]; then
 	fi
 	[[ "$out" == *"negative=0"* ]] && ok "no negative points written (tdwp-brj regression)" \
 	                              || bad "negative points found ($out)"
+
+	# -----------------------------------------------------------------------
+	# 4b. Raw content survives the meta round-trip, and points match TD (3.9.10).
+	#
+	# Before 3.9.10 update_post_meta() unslashed the stored .tdt, stripping the
+	# \" and \n escapes and leaving a copy that could never be parsed again.
+	# -----------------------------------------------------------------------
+	out="$(wp_php '
+	$_SERVER["HTTP_HOST"]="localhost"; $_SERVER["REQUEST_URI"]="/";
+	require $argv[1]."/wp-load.php";
+	global $wpdb;
+	$file = $argv[2];
+	$post = get_posts(["post_type"=>"tournament","numberposts"=>1,"post_status"=>"any"]);
+	if (empty($post)) { echo "NO_TOURNAMENT"; exit; }
+	$id  = $post[0]->ID;
+	$raw = (string) get_post_meta($id,"_tournament_raw_content",true);
+	$identical = ($raw === file_get_contents($file)) ? 1 : 0;
+
+	// The stored copy must still be parseable.
+	$parseable = 0;
+	try { $p = new Poker_Tournament_Parser(); ob_start(); $p->parse_content($raw); ob_end_clean();
+	      $parseable = empty($p->get_tournament_data()["players"]) ? 0 : 1; }
+	catch (Throwable $e) { $parseable = 0; }
+
+	// TD 3.7.2 reports 368 as the winning score for this fixture.
+	$uuid = get_post_meta($id,"tournament_uuid",true);
+	$top  = (int) round((float) $wpdb->get_var($wpdb->prepare(
+	        "SELECT points FROM {$wpdb->prefix}poker_tournament_players
+	         WHERE tournament_id=%s ORDER BY finish_position ASC LIMIT 1", $uuid)));
+	printf("identical=%d parseable=%d top=%d", $identical, $parseable, $top);
+	' "$FIXTURE")"
+
+	[[ "$out" == *"identical=1"* ]] && ok "stored .tdt is byte-identical to the imported file (slash round-trip)" \
+	                               || bad "stored raw content was corrupted on write ($out)"
+	[[ "$out" == *"parseable=1"* ]] && ok "stored .tdt can be re-parsed for recalculation" \
+	                               || bad "stored raw content is not parseable ($out)"
+	# TD stores Points: 0 in the file (it computes them for display), so the
+	# expected figure comes from what TD 3.7.2 actually displayed for these
+	# tournaments. Only assert for files whose totals were verified by hand.
+	case "$(basename "$FIXTURE")" in
+		ORF_Poker_20260521.tdt) TD_WINNER=368 ;;
+		ORF_Poker_20260604.tdt) TD_WINNER=290 ;;
+		ORF_Poker_20260617.tdt) TD_WINNER=321 ;;
+		ORF_Poker_20260704.tdt) TD_WINNER=298 ;;
+		ORF_Poker_20260827.tdt) TD_WINNER=399 ;;
+		*)                      TD_WINNER=""  ;;
+	esac
+
+	if [ -n "$TD_WINNER" ]; then
+		[[ "$out" == *"top=$TD_WINNER"* ]] \
+			&& ok "winner's points match Tournament Director exactly ($TD_WINNER)" \
+			|| bad "points do not match TD, expected $TD_WINNER ($out)"
+	else
+		info "no verified TD total for this fixture; skipping the exact-points check"
+	fi
+
+	# -----------------------------------------------------------------------
+	# 4c. The recalculator is a safe no-op on a correct import, and never
+	#     overrides a manual adjustment.
+	# -----------------------------------------------------------------------
+	out="$(wp_php '
+	$_SERVER["HTTP_HOST"]="localhost"; $_SERVER["REQUEST_URI"]="/";
+	require $argv[1]."/wp-load.php";
+	global $wpdb;
+	$post = get_posts(["post_type"=>"tournament","numberposts"=>1,"post_status"=>"any"]);
+	$id   = $post[0]->ID;
+	$uuid = get_post_meta($id,"tournament_uuid",true);
+	$rc   = new Poker_Points_Recalculator();
+
+	// A freshly imported tournament is already correct: nothing to change.
+	$r = $rc->recalculate_tournament($id, true);
+	$noop = ($r["status"] === "preview" && count($r["changes"]) === 0) ? 1 : 0;
+
+	// A dry run must not write.
+	$before = $wpdb->get_var($wpdb->prepare("SELECT ROUND(SUM(points)) FROM {$wpdb->prefix}poker_tournament_players WHERE tournament_id=%s",$uuid));
+	$rc->recalculate_tournament($id, true);
+	$after  = $wpdb->get_var($wpdb->prepare("SELECT ROUND(SUM(points)) FROM {$wpdb->prefix}poker_tournament_players WHERE tournament_id=%s",$uuid));
+	$drysafe = ((string)$before === (string)$after) ? 1 : 0;
+
+	// Mismatched stored content must be refused, not applied.
+	$saved = get_post_meta($id,"_tournament_raw_content",true);
+	update_post_meta($id,"_tournament_raw_content", wp_slash(str_replace($uuid,"00000000-0000-4000-8000-000000000000",$saved)));
+	$r2 = $rc->recalculate_tournament($id, false);
+	$guard = ($r2["status"] === "error") ? 1 : 0;
+	update_post_meta($id,"_tournament_raw_content", wp_slash($saved));
+
+	// A damaged (pre-3.9.10) copy is recognised and explained.
+	update_post_meta($id,"_tournament_raw_content", stripslashes($saved));
+	$r3 = $rc->recalculate_tournament($id, false);
+	$detect = ($r3["status"] === "error" && stripos($r3["message"],"earlier version") !== false) ? 1 : 0;
+	update_post_meta($id,"_tournament_raw_content", wp_slash($saved));
+
+	$final = $wpdb->get_var($wpdb->prepare("SELECT ROUND(SUM(points)) FROM {$wpdb->prefix}poker_tournament_players WHERE tournament_id=%s",$uuid));
+	$intact = ((string)$before === (string)$final) ? 1 : 0;
+	printf("noop=%d drysafe=%d guard=%d detect=%d intact=%d", $noop,$drysafe,$guard,$detect,$intact);
+	')"
+
+	[[ "$out" == *"noop=1"* ]]    && ok "recalculating a correct import changes nothing" \
+	                             || bad "recalculator wants to change a correct import ($out)"
+	[[ "$out" == *"drysafe=1"* ]] && ok "a dry-run preview writes nothing to the database" \
+	                             || bad "dry run mutated the database ($out)"
+	[[ "$out" == *"guard=1"* ]]   && ok "raw content from a different tournament is refused" \
+	                             || bad "recalculator accepted foreign raw content ($out)"
+	[[ "$out" == *"detect=1"* ]]  && ok "a pre-3.9.10 damaged copy is detected and explained" \
+	                             || bad "damaged raw content not detected ($out)"
+	[[ "$out" == *"intact=1"* ]]  && ok "points survive the refused recalculations unchanged" \
+	                             || bad "points changed despite refusals ($out)"
 else
 	info "no .tdt fixture found; skipping the import check"
 fi

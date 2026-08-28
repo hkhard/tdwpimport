@@ -1,5 +1,35 @@
 # Poker Tournament Import Changelog
 
+## Version 3.9.10 - (August 28, 2026)
+
+### 🏆 Imported points now match Tournament Director exactly
+
+Points calculated at import did not match what The Tournament Director shows. Verified against TD 3.7.2 using five real tournament files, all five totals now agree exactly (368 / 290 / 321 / 298 / 399). Four separate defects contributed:
+
+- **A player's manual points adjustment was ignored.** TD's `PointsAdjustment` field — the director's manual correction, applied *after* the points formula — was not read anywhere in the codebase. A winner awarded +50 in TD received none of it here.
+- **Re-entries were counted wrongly.** The `n` term in the points formula must be the number of **entries**, not the number of distinct players. This was proved by exhaustive search over the real files: no other value of `n` can reproduce TD's totals. The separate `buyins` term correctly remains the player count. In a 14-player / 20-entry event this alone cost the winner 49 points.
+- **A surrendered stake was left out of the prize pool.** A bust-out with no hitman (a surrender) contributes its buy-in to the pot. The amount is filterable via `poker_tournament_surrender_contribution`.
+- **Bonus fees were read from only one place.** Fee profiles were read from `Financials.Buyins` alone, ignoring `Rebuys`, `AddOns` and `Bounties`, understating the pool by 1500 in one event.
+
+### 🐛 The stored copy of every imported .tdt file was corrupted
+
+Each import saves the original file to `_tournament_raw_content` so points can be recalculated later without the file. That value was passed straight to `update_post_meta()`, which runs `wp_unslash()` on it — stripping one level of backslash escaping. Since a `.tdt` escapes the quotes and newlines inside its `Description` and `UserFormula` values, **every stored copy lost those escapes and could no longer be parsed.** Measured across 21 real tournament files: all 21 parse pristine, all 21 fail after the round-trip, losing 207–223 bytes each.
+
+Both write sites now apply `wp_slash()` first, making the round-trip byte-identical. The damage is **not repairable after the fact** — once stored, an `n` is indistinguishable from a lost `\n` — so tournaments imported before this release must be re-imported to be recalculated. The recalculator detects this specific corruption and says so, rather than showing a parser error.
+
+### ✨ Recalculate imported points, from Poker Import → Points Adjustments
+
+A new section re-reads each tournament's stored `.tdt`, recalculates every player's points with the corrected rules, and rebuilds the statistics.
+
+- **Preview first.** A dry run lists every player that would change, with before, after, and the delta, and writes nothing.
+- **Manual overrides always win.** Any player with an override on that page keeps that value, and the audit log is never modified.
+- Only the points figure changes; tournament posts, players, prizes and finishing positions are untouched.
+- Tournaments whose stored file is missing, damaged, or belongs to a different tournament are reported and skipped rather than guessed at.
+
+### 🛡️ Recalculated points survive a statistics rebuild
+
+Added `import_points` to `tdwp_tournament_players` (DB version 3.9.10) so a rollup rebuild cannot silently revert corrected points. Verified end to end on a real WordPress install: imported 399 → manual override of 500 takes precedence → override removed → back to 399.
+
 ## Version 3.9.9 - (August 28, 2026)
 
 ### ⚙️ Tournament Manager is now an optional module (default OFF)
