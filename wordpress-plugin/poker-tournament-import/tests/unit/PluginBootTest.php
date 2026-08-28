@@ -192,6 +192,52 @@ final class PluginBootTest extends TestCase {
 	}
 
 	/**
+	 * The settings page is the surface this release changes most, and it is the
+	 * only place the new toggle is exposed. Render it for real: a fatal or a
+	 * missing control there would be invisible to a hooks-only boot.
+	 */
+	#[PHPUnit\Framework\Attributes\DataProvider( 'gateStates' )]
+	public function test_settings_page_renders_with_the_toggle( bool $tm_enabled ): void {
+		$report = $this->boot( $tm_enabled );
+
+		$this->assertNull(
+			$report['settings_page_error'],
+			sprintf(
+				'Rendering the settings page failed with the module %s: %s',
+				$tm_enabled ? 'ON' : 'OFF',
+				(string) $report['settings_page_error']
+			)
+		);
+
+		$this->assertGreaterThan(
+			1000,
+			$report['settings_page_bytes'],
+			'The settings page rendered suspiciously little markup.'
+		);
+
+		$this->assertTrue(
+			$report['settings_has_toggle'],
+			'The Tournament Manager toggle must be present on the settings page, '
+			. 'otherwise the feature cannot be turned back on through the UI.'
+		);
+
+		$this->assertTrue(
+			$report['settings_has_memory'],
+			'The memory readout must render so operators can see their real headroom.'
+		);
+	}
+
+	/**
+	 * @return array<string,array{bool}>
+	 */
+	public static function gateStates(): array {
+		return array(
+			'module off' => array( false ),
+			'module on'  => array( true ),
+		);
+	}
+
+	/**
 	 * The live_tournament post type belongs to the module and should not appear
 	 * as an orphan admin menu when it is off.
 	 */

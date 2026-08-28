@@ -1964,6 +1964,28 @@ class Poker_Tournament_Import_Admin {
                             <?php endif; ?>
                         </td>
                     </tr>
+                    <tr>
+                        <th scope="row"><?php esc_html_e( 'Memory on this request', 'poker-tournament-import' ); ?></th>
+                        <td>
+                            <?php
+                            $limit_raw = (string) ini_get( 'memory_limit' );
+                            $limit     = wp_convert_hr_to_bytes( $limit_raw );
+                            $peak      = memory_get_peak_usage( true );
+                            $pct       = ( $limit > 0 ) ? ( $peak / $limit * 100 ) : 0;
+                            ?>
+                            <p>
+                                <code><?php echo esc_html( size_format( $peak ) ); ?></code>
+                                <?php esc_html_e( 'peak, against a PHP limit of', 'poker-tournament-import' ); ?>
+                                <code><?php echo esc_html( $limit_raw ); ?></code>
+                                <?php if ( $limit > 0 ) : ?>
+                                    (<?php echo esc_html( number_format_i18n( $pct, 1 ) ); ?>%)
+                                <?php endif; ?>
+                            </p>
+                            <p class="description">
+                                <?php esc_html_e( 'Measured while rendering this page, so it covers WordPress, your theme, and every active plugin — not this plugin alone. If this sits close to the limit, "Allowed memory size exhausted" errors are likely, and turning the Tournament Manager off is only part of the remedy.', 'poker-tournament-import' ); ?>
+                            </p>
+                        </td>
+                    </tr>
                 </table>
 
                 <h2><?php esc_html_e('Import Settings', 'poker-tournament-import'); ?></h2>
