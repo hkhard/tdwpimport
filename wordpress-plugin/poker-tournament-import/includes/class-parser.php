@@ -341,6 +341,15 @@ class Poker_Tournament_Parser {
                 $player['hits'] = 0;
             }
 
+            // Manual points correction entered in Tournament Director. TD applies
+            // this AFTER its points formula, so it is carried separately here and
+            // added post-calculation. Signed: a director may deduct points too.
+            if (preg_match('/PointsAdjustment:\s*(-?[\d.]+)/', $player_data, $matches)) {
+                $player['points_adjustment'] = floatval($matches[1]);
+            } else {
+                $player['points_adjustment'] = 0.0;
+            }
+
             if (!empty($player['uuid']) && !empty($player['nickname'])) {
                 $players[$player['uuid']] = $player;
             }
@@ -1490,6 +1499,7 @@ class Poker_Tournament_Parser {
         $total_buyins = 0;
         $total_rebuys = 0;
         $total_addons = 0;
+        $total_surrenders = 0;
 
         // CRITICAL FIX v2.4.8: Calculate total money using ACTUAL dollar amounts from each buyin
         // Each buyin may have different ProfileName (e.g., "Standard", "Double") with different fees
@@ -1516,6 +1526,12 @@ class Poker_Tournament_Parser {
                         $dollar_amount = $buy_in_amount; // Fallback to default
                     }
                     $total_money += $dollar_amount;
+
+                    // A surrender (bust-out with no hitman) forfeits a stake into
+                    // the pot that the buy-in fees alone do not account for.
+                    if (!empty($buyin['is_surrender'])) {
+                        $total_surrenders++;
+                    }
                 }
 
                 Poker_Tournament_Import_Debug::log("  → {$player['nickname']}: {$player_buyin_count} buyins, total invested: \${$player['total_invested']}");
@@ -1541,6 +1557,35 @@ class Poker_Tournament_Parser {
         Poker_Tournament_Import_Debug::log("  Default buy-in amount: \${$buy_in_amount}");
         Poker_Tournament_Import_Debug::log("  Total buyins (including re-entries): {$total_buyins}");
         Poker_Tournament_Import_Debug::log("  Total money (sum of all buyin dollar amounts): \${$total_money}");
+
+        // Surrender contribution to the pot.
+        //
+        // When a player surrenders (busts out with no hitman — they walked away or
+        // were blinded out rather than being eliminated), Tournament Director adds
+        // a fixed stake to the prize pool that the buy-in fees do not cover. This
+        // feeds `monies` in the points formula, so omitting it makes every player's
+        // points slightly low for any tournament containing a surrender.
+        //
+        // Verified against Tournament Director 3.7.2 on two tournaments that each
+        // contain exactly one surrender (ORF_Poker_20260827 and ORF_Poker_20260521);
+        // both reconcile exactly at 100 per surrender.
+        //
+        // Filterable because the amount is a house rule, not a property of the
+        // .tdt format.
+        $surrender_contribution = (float) apply_filters(
+            'poker_tournament_surrender_contribution',
+            100.0,
+            $financial,
+            $players
+        );
+
+        if ($total_surrenders > 0 && $surrender_contribution != 0.0) {
+            $surrender_total = $total_surrenders * $surrender_contribution;
+            $total_money += $surrender_total;
+            Poker_Tournament_Import_Debug::log("  Surrenders: {$total_surrenders} x \${$surrender_contribution} = \${$surrender_total} added to pot");
+            Poker_Tournament_Import_Debug::log("  Total money (with surrenders): \${$total_money}");
+        }
+
         Poker_Tournament_Import_Debug::log("=================================");
 
         // Initialize formula validator
@@ -1639,6 +1684,9 @@ class Poker_Tournament_Parser {
             // Prepare tournament data for formula calculation
             $tournament_data = array(
                 'total_players' => $total_players,
+                // Entry count including re-entries. Backs the formula's `n`,
+                // which TD defines as entries rather than distinct players.
+                'total_entries' => $total_buyins > 0 ? $total_buyins : $total_players,
                 'finish_position' => $player['finish_position'],
                 'hits' => $player['hits'],
                 'total_money' => $total_money,
@@ -1676,11 +1724,27 @@ class Poker_Tournament_Parser {
                     $computed_points = 0;
                     $players[$uuid]['points_anomaly'] = true;
                 }
+
+                // Apply the director's manual PointsAdjustment from the .tdt.
+                // Tournament Director applies this AFTER the formula (its own
+                // PointsForPlaying script never references it), so it is added
+                // here rather than passed in as a formula variable. Kept as a
+                // separate field so the verification view can explain a total
+                // that does not match the raw formula output.
+                $formula_points = $computed_points;
+                $points_adjustment = floatval($player['points_adjustment'] ?? 0);
+                if (0.0 !== $points_adjustment) {
+                    $computed_points = $formula_points + $points_adjustment;
+                    Poker_Tournament_Import_Debug::log("Applied PointsAdjustment for {$player['nickname']}: {$formula_points} + {$points_adjustment} = {$computed_points}");
+                }
+
                 $players[$uuid]['points'] = $computed_points;
                 $players[$uuid]['points_calculation'] = array(
                     'formula_used' => $formula_source,
                     'formula_description' => $formula_data['description'] ?? 'Tournament points calculation',
                     'variables' => $result['variables'],
+                    'formula_points' => $formula_points,
+                    'points_adjustment' => $points_adjustment,
                     'final_points' => $computed_points,
                     'warnings' => $result['warnings'] ?? array()
                 );

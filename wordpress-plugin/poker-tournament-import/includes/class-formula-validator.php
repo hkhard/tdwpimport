@@ -833,7 +833,21 @@ class Poker_Tournament_Formula_Validator {
 
         // Add all official TD aliases from specification
         // Tournament Information Variable Aliases
-        $variables['n'] = $variables['buyins'];                    // Alias for buyins
+
+        // `n` is the ENTRY count, not the player count. With re-entries the two
+        // differ (e.g. 14 players across 20 entries), and Tournament Director
+        // feeds the entry count to the points formula. Historically we aliased
+        // `n` to `buyins`, which silently under-scored every tournament that had
+        // a re-entry. Verified against TD 3.7.2 — see TdtPointsAdjustmentTest.
+        //
+        // `buyins` remains the number of players who bought in. Callers that do
+        // not supply an entry count keep the old behaviour, so existing formulas
+        // and the formula-tester UI are unaffected.
+        if (isset($data['total_entries']) && intval($data['total_entries']) > 0) {
+            $variables['n'] = intval($data['total_entries']);
+        } else {
+            $variables['n'] = $variables['buyins'];
+        }
         $variables['numberofplayers'] = $variables['buyins'];      // Alias for buyins
         $variables['r'] = $variables['rank'];                      // Alias for rank
         $variables['nh'] = $variables['numberOfHits'];             // Alias for numberOfHits

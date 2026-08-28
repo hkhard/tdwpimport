@@ -178,39 +178,66 @@ class Poker_Tournament_Domain_Mapper {
         $fin_obj = $this->expect_object($financials_node['arg']);
         $fin_entries = $fin_obj['entries'];
 
-        // Extract Buyins config
-        if (isset($fin_entries['Buyins'])) {
-            $buyins_node = $fin_entries['Buyins'];
-            if ($this->is_new_with_ctor($buyins_node, 'BuyConfig')) {
-                $buy_obj = $this->expect_object($buyins_node['arg']);
-                $buy_entries = $buy_obj['entries'];
+        // Collect fee profiles from EVERY buy-config block, not just Buyins.
+        //
+        // Tournament Director stores separate BuyConfig sections for Buyins,
+        // Rebuys, AddOns and Bounties, and a GameBuyin may reference a profile
+        // defined in any of them (e.g. ORF_Poker_20260704 has entries on a "500"
+        // profile that lives under Rebuys). Reading only Buyins left those
+        // profiles unknown, so the per-entry fee silently fell back to the
+        // default buy-in and understated `monies` — which feeds the points
+        // formula. Buyins is processed first so it still wins the default
+        // buy-in and any name collision.
+        foreach (array('Buyins', 'Rebuys', 'AddOns', 'Bounties') as $config_key) {
+            if (!isset($fin_entries[$config_key])) {
+                continue;
+            }
 
-                // Extract FeeProfile array
-                if (isset($buy_entries['Profiles'])) {
-                    $profiles_node = $buy_entries['Profiles'];
-                    if ($this->is_type($profiles_node, 'Array')) {
-                        foreach ($profiles_node['items'] as $profile_item) {
-                            if ($this->is_new_with_ctor($profile_item, 'FeeProfile')) {
-                                $profile = $this->extract_fee_profile($profile_item);
-                                if ($profile) {
-                                    $financial['fee_profiles'][$profile['name']] = $profile;
+            $config_node = $fin_entries[$config_key];
+            if (!$this->is_new_with_ctor($config_node, 'BuyConfig')) {
+                continue;
+            }
 
-                                    // Set the default buy-in. buy_in is initialised
-                                    // to 0, so the old `!isset()` test never fired and
-                                    // files whose profiles are not literally named
-                                    // "Standard" (e.g. "ORF Deepstack") were left at 0,
-                                    // which later zeroed monies and corrupted points.
-                                    // Use the first profile as the default, then prefer
-                                    // any profile whose name contains "Standard" (the
-                                    // conventional main buy-in) when one is present.
-                                    if (empty($financial['buy_in']) || false !== stripos($profile['name'], 'Standard')) {
-                                        $financial['buy_in'] = $profile['fee'];
-                                        Poker_Tournament_Import_Debug::log("Extracted buy-in amount from FeeProfile '{$profile['name']}': \${$profile['fee']} (AST parser)");
-                                    }
-                                }
-                            }
-                        }
-                    }
+            $buy_obj = $this->expect_object($config_node['arg']);
+            $buy_entries = $buy_obj['entries'];
+
+            if (!isset($buy_entries['Profiles'])) {
+                continue;
+            }
+
+            $profiles_node = $buy_entries['Profiles'];
+            if (!$this->is_type($profiles_node, 'Array')) {
+                continue;
+            }
+
+            foreach ($profiles_node['items'] as $profile_item) {
+                if (!$this->is_new_with_ctor($profile_item, 'FeeProfile')) {
+                    continue;
+                }
+
+                $profile = $this->extract_fee_profile($profile_item);
+                if (!$profile) {
+                    continue;
+                }
+
+                // First definition wins, so a Buyins profile is never displaced
+                // by a same-named profile in a later block.
+                if (!isset($financial['fee_profiles'][$profile['name']])) {
+                    $financial['fee_profiles'][$profile['name']] = $profile;
+                }
+
+                // The default buy-in is a property of the Buyins block only.
+                // buy_in is initialised to 0, so the old `!isset()` test never
+                // fired and files whose profiles are not literally named
+                // "Standard" (e.g. "ORF Deepstack") were left at 0, which later
+                // zeroed monies and corrupted points. Use the first profile as
+                // the default, then prefer any profile whose name contains
+                // "Standard" (the conventional main buy-in) when one is present.
+                if ('Buyins' === $config_key
+                    && (empty($financial['buy_in']) || false !== stripos($profile['name'], 'Standard'))
+                ) {
+                    $financial['buy_in'] = $profile['fee'];
+                    Poker_Tournament_Import_Debug::log("Extracted buy-in amount from FeeProfile '{$profile['name']}': \${$profile['fee']} (AST parser)");
                 }
             }
         }
@@ -359,7 +386,12 @@ class Poker_Tournament_Domain_Mapper {
             'buyins' => array(),
             'buyins_count' => 0,
             'total_invested' => 0,
-            'hits' => intval($this->get_scalar($p_entries, 'HitsAdjustment') ?? 0)
+            'hits' => intval($this->get_scalar($p_entries, 'HitsAdjustment') ?? 0),
+            // Manual points correction the tournament director entered in TD.
+            // TD applies this AFTER its points formula (the formula script never
+            // references it), so we carry it separately and add it post-calculation
+            // rather than feeding it in as a formula variable. May be negative.
+            'points_adjustment' => floatval($this->get_scalar($p_entries, 'PointsAdjustment') ?? 0),
         );
 
         if (empty($player['uuid']) || empty($player['nickname'])) {
@@ -414,6 +446,7 @@ class Poker_Tournament_Domain_Mapper {
 
                 $buyin['bust_out_time'] = intval($this->get_scalar($bo_entries, 'Time') ?? 0);
                 $buyin['bust_out_round'] = intval($this->get_scalar($bo_entries, 'Round') ?? 0);
+                $buyin['busted_out'] = true;
 
                 // Extract HitmanUUID array
                 if (isset($bo_entries['HitmanUUID'])) {
@@ -428,6 +461,14 @@ class Poker_Tournament_Domain_Mapper {
                         $buyin['eliminated_by'] = $hitman_uuids;
                     }
                 }
+
+                // A bust-out with no hitman is a SURRENDER: the player knocked
+                // themselves out (walked away / was blinded out) rather than
+                // being eliminated by an opponent. Nobody is credited a hit, and
+                // Tournament Director treats the forfeited stake as an extra
+                // contribution to the pot — see the surrender handling in
+                // Poker_Tournament_Parser::calculate_tournament_points().
+                $buyin['is_surrender'] = empty($buyin['eliminated_by']);
             }
         }
 
