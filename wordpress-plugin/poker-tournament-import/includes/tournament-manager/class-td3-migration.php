@@ -43,6 +43,15 @@ class TDWP_TD3_Migration {
 	 * @return bool True on success
 	 */
 	public static function run_migrations() {
+		// Every migration here builds TD3 display schema through
+		// TDWP_TD3_Database_Schema, which is only loaded with the Tournament
+		// Manager module enabled. Bail before touching it rather than fataling,
+		// and leave the version option untouched so the migration still runs
+		// when the module is switched on.
+		if ( ! class_exists( 'TDWP_TD3_Database_Schema' ) ) {
+			return false;
+		}
+
 		$current_version = get_option( 'tdwp_td3_migration_version', '0.0.0' );
 
 		if ( version_compare( $current_version, self::TD3_MIGRATION_VERSION, '>=' ) ) {
@@ -355,6 +364,12 @@ class TDWP_TD3_Migration {
 	 */
 	public static function uninstall_td3() {
 		global $wpdb;
+
+		// Needs the TD3 schema class, which only loads with the Tournament
+		// Manager module enabled.
+		if ( ! class_exists( 'TDWP_TD3_Database_Schema' ) ) {
+			return false;
+		}
 
 		// Start transaction
 		$wpdb->query( 'START TRANSACTION' );

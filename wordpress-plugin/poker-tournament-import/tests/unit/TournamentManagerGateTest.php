@@ -143,6 +143,24 @@ final class TournamentManagerGateTest extends TestCase {
 	}
 
 	/**
+	 * Loading a file is only half the problem: code that stays loaded must not
+	 * CALL a class that is no longer loaded, or the site fatals with
+	 * "Class not found". Every such reference needs a class_exists() guard.
+	 */
+	public function test_no_unguarded_runtime_reference_to_a_gated_class(): void {
+		$problems = $this->sim->unguarded_references( false );
+
+		$this->assertSame(
+			array(),
+			$problems,
+			"These call sites remain loaded but reference a class that is not, so they\n"
+			. "would fatal with 'Class not found' while the module is disabled.\n"
+			. "Wrap each in a class_exists() guard:\n  "
+			. implode( "\n  ", $problems )
+		);
+	}
+
+	/**
 	 * The whole point of the gate is a materially smaller load. Assert a real,
 	 * conservative reduction so a future refactor that quietly re-links the
 	 * subsystem is caught.

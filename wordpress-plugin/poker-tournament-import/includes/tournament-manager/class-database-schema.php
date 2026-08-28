@@ -246,11 +246,24 @@ class TDWP_Database_Schema {
 			// Include TD3 migration class
 			require_once __DIR__ . '/class-td3-migration.php';
 
-			// Run TD3 migrations
-			$td3_migration_success = TDWP_TD3_Migration::run_migrations();
+			// TDWP_TD3_Migration builds the TD3 display schema via
+			// TDWP_TD3_Database_Schema, which is only loaded when the Tournament
+			// Manager module is enabled. Skip the migration when it is off: the
+			// display tables serve no purpose without the module, and it will run
+			// on the next schema pass after the module is switched on (the version
+			// option is only advanced by the migration itself).
+			if ( ! class_exists( 'TDWP_TD3_Database_Schema' ) ) {
+				TDWP_Debug_Logger::trace(
+					'SCHEMA',
+					'Skipping TD3 migration: Tournament Manager module is disabled'
+				);
+			} else {
+				// Run TD3 migrations
+				$td3_migration_success = TDWP_TD3_Migration::run_migrations();
 
-			if ( ! $td3_migration_success ) {
-				error_log( 'TD3 migration failed during database schema update' );
+				if ( ! $td3_migration_success ) {
+					error_log( 'TD3 migration failed during database schema update' );
+				}
 			}
 		}
 
