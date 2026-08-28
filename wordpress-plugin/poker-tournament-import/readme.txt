@@ -3,7 +3,7 @@ Contributors: hanshard
 Tags: poker, tournament, import, results, bulk-import
 Requires at least: 6.0
 Tested up to: 6.8
-Stable tag: 3.9.8
+Stable tag: 3.9.9
 Requires PHP: 8.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -77,6 +77,11 @@ Use the following shortcodes:
 6. **NEW: Interactive leaderboard with sorting**
 
 == Changelog ==
+
+= 3.9.9 - August 28, 2026 =
+* New setting, Poker Import → Settings → Feature Modules, to turn the Tournament Manager on or off. It is OFF by default. With it off the plugin skips loading the entire live-play and display-screen subsystem, which is about 2.9 MB of PHP per request — a large saving on hosts with a low PHP memory limit, where that weight could cause "Allowed memory size exhausted" errors in the admin. Importing .tdt files, the dashboard, leaderboards, season and series standings, and player profiles are unaffected. No data is deleted: your live tournament tables are kept, so you can switch the module back on at any time.
+* Fixed excessive error-log writing: the display subsystem wrote roughly 19 diagnostic lines to the server error log on every single page view, including visits from logged-out visitors. Diagnostics are now off unless you turn them on.
+* Fixed a needless database query that ran on every page view to load display tokens; the result is now cached.
 
 = 3.9.8 - July 2, 2026 =
 * No more manual cache/permalink steps after data changes: every stats-changing action (import, live tournament finish, Refresh Statistics, bulk save/delete, points adjustments, formula re-verify) now automatically purges the LiteSpeed page cache, the plugin object cache, and its stat transients. After an import, rewrite rules are flushed automatically so new tournament permalinks resolve without re-saving Permalinks.

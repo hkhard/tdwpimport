@@ -161,6 +161,55 @@ final class TournamentManagerGateTest extends TestCase {
 	}
 
 	/**
+	 * The import -> data mart path must survive the gate intact.
+	 *
+	 * TDWP_Stats_Rollup is the sole writer of poker_tournament_players and
+	 * poker_player_roi. Every collaborator it names must therefore also be
+	 * loaded when the module is off, or importing a .tdt would fatal instead of
+	 * updating the statistics.
+	 */
+	public function test_stats_rollup_collaborators_are_available_when_disabled(): void {
+		$rollup = 'includes/tournament-manager/class-stats-rollup.php';
+
+		$available = $this->sim->classes_in( $this->sim->reachable_files( false ) );
+		$source    = (string) file_get_contents( $this->root . '/' . $rollup );
+
+		// Strip comments/strings so docblock mentions are not counted.
+		$code = '';
+		foreach ( token_get_all( $source ) as $token ) {
+			if ( is_array( $token ) ) {
+				if ( in_array( $token[0], array( T_COMMENT, T_DOC_COMMENT, T_CONSTANT_ENCAPSED_STRING ), true ) ) {
+					$code .= "\n";
+					continue;
+				}
+				$code .= $token[1];
+				continue;
+			}
+			$code .= $token;
+		}
+
+		preg_match_all( '/\b((?:TDWP|Poker)_[A-Za-z0-9_]+)\s*(?:::|\()/', $code, $matches );
+
+		$referenced = array_unique( $matches[1] );
+		$this->assertNotEmpty( $referenced, 'Expected the rollup to reference collaborators.' );
+
+		$missing = array();
+		foreach ( $referenced as $class ) {
+			if ( ! isset( $available[ $class ] ) ) {
+				$missing[] = $class;
+			}
+		}
+
+		$this->assertSame(
+			array(),
+			$missing,
+			'The statistics rollup references classes that are not loaded when the '
+			. 'Tournament Manager module is disabled, which would break .tdt import: '
+			. implode( ', ', $missing )
+		);
+	}
+
+	/**
 	 * The whole point of the gate is a materially smaller load. Assert a real,
 	 * conservative reduction so a future refactor that quietly re-links the
 	 * subsystem is caught.

@@ -1,5 +1,33 @@
 # Poker Tournament Import Changelog
 
+## Version 3.9.9 - (August 28, 2026)
+
+### ⚙️ Tournament Manager is now an optional module (default OFF)
+
+**Poker Import → Settings → Feature Modules** has a single switch for the Tournament Manager.
+
+- **What it covers:** live play (clock, tables, seating, blinds, prize calculator, chip-up, leagues), the TD3 display/screen system, and frontend player self-registration, plus the `live_tournament` post type and the ~60 live AJAX handlers.
+- **What is unaffected:** importing `.tdt` files, the statistics data marts, dashboard, leaderboards, season/series standings, and player profiles. `TDWP_Stats_Rollup` remains the single, always-on writer of `poker_tournament_players` and `poker_player_roi`, so imports keep updating statistics exactly as before.
+- **Why it defaults to OFF:** loading the module costs ~2.9 MB of PHP on *every* request. On a host with a 128 MB PHP limit that weight contributed to `Allowed memory size exhausted` fatals in `wp-admin`. Measured with the module off, the reachable file set drops from 93 files to 40, and compiled class memory from 6859 KB to 3976 KB — **2883 KB less per request**.
+- **No data is deleted.** The `tdwp_*` tables are left intact, so the switch is fully reversible. Toggling it rebuilds rewrite rules once and purges public caches.
+- With the module off, live-tournament shortcodes (`[tournament_clock]`, `[tdwp_leaderboard]`, `[tdwp_tournament_display]`, `[tdwp_player_registration]`) do not render. Administrators see a short explanatory note in place of `[tdwp_player_registration]`; visitors see nothing.
+
+### 🐛 Per-request error-log spam and a wasted query
+
+- The TD3 display subsystem wrote ~19 unconditional `error_log()` lines on **every** request, including anonymous front-end traffic, Jetpack REST calls, and third-party callbacks. All 85 breadcrumb calls in `class-display-manager`, `class-template-engine` and `class-dependency-manager` (plus the `Admin Scripts Hook` line that fired on every admin page) now route through a new `TDWP_Debug_Logger::trace()`, which is a no-op unless `TDWP_TRACE` or the `tdwp_trace_enabled` option is set. Genuine errors still log unconditionally.
+- `TDWP_Template_Engine::init_token_registry()` ran a `SHOW TABLES` plus a `SELECT` on every request, returning zero rows every time. The registry is now cached in a transient and invalidated on token-table writes; fallback table creation is attempted once rather than on every miss. The `SHOW TABLES` lookup is now `$wpdb->prepare()`d.
+
+### 🛡️ Correctness
+
+- `TDWP_Database_Schema::create_tables()` reached `TDWP_TD3_Migration → TDWP_TD3_Database_Schema`, which would fatal with the module disabled. Guarded at the call site and defensively inside `TDWP_TD3_Migration` itself, without advancing the migration version, so the migration still runs if the module is later enabled.
+- New `ensure_rollup_tables_exist()` checks only the two tables the rollup needs when the module is off, instead of the full hourly `dbDelta` pass over the live/display schema.
+
+### ✅ Tests
+
+- `TournamentManagerGateTest` + `TmLoadSimulator` statically walk `require`/`include` honouring the gate, and assert: no gated file is reachable when off, the stats-critical files load in both states, the rollup's collaborators are all available when off, no loaded code calls an unloaded class, and the load is materially smaller.
+- Both new guards were negative-verified by injecting a leak and a fatal and confirming the suite fails and names the offending file, line, and class.
+- `DebugTraceGateTest` pins the log-spam fix. Suite: 460 tests, 1360 assertions.
+
 ## Version 3.9.8 - (July 2, 2026)
 
 ### 🚀 Automatic cache purge + permalink flush after stats changes
