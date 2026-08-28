@@ -92,6 +92,10 @@ rows, tables or posts.
 
 **Sanity-check it against an older build.** Run it on `v3.9.8` and it reports nine
 failures naming the defects that release actually had (no gate, live shortcodes
-leaking, 60 diagnostic log lines over three admin requests, no working toggle,
+leaking, ~326 diagnostic log lines over three admin requests, no working toggle,
 no memory saving).
+
+Note: the diagnostic-line count depends on install state. On a *fresh* install
+3.9.8 emits ~108 lines per admin request; on an install where the display tables
+already exist it is ~19. Always compare fresh-vs-fresh.
 A check that passes on everything proves nothing.
