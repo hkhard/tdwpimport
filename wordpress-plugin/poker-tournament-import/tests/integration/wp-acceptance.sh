@@ -421,6 +421,183 @@ if [ -n "$FIXTURE" ] && [ -f "$FIXTURE" ]; then
 	else
 		info "no verified TD total for this fixture; skipping the rebuild-preservation check"
 	fi
+	# The UUID of the tournament just imported, used by the admin-page checks.
+	TOURNEY_UUID="$(wp_php '
+	$_SERVER["HTTP_HOST"]="localhost"; $_SERVER["REQUEST_URI"]="/";
+	require $argv[1]."/wp-load.php";
+	foreach (get_posts(["post_type"=>"tournament","numberposts"=>-1,"post_status"=>"any"]) as $t) {
+		$u = get_post_meta($t->ID,"tournament_uuid",true);
+		if ($u) { echo $u; break; }
+	}
+	')"
+
+	# -----------------------------------------------------------------------
+	# 4e. The admin page itself, driven as a browser would (3.9.10).
+	#
+	# Everything above calls the recalculator directly. This renders the real
+	# Points Adjustments screen and submits its form, so a broken nonce,
+	# capability check, or template would be caught. Each request runs in its
+	# own PHP process, exactly as WordPress serves it.
+	# -----------------------------------------------------------------------
+	PA_REQ="$WORK/pa_request.php"
+	cat > "$PA_REQ" <<'PAPHP'
+<?php
+// One admin request against the Points Adjustments screen.
+// argv: 1=ABSPATH  2=GET|POST  3=preview|apply  4=optional uuid to sabotage
+define( 'WP_ADMIN', true );
+$_SERVER['HTTP_HOST']      = 'localhost';
+$_SERVER['REQUEST_URI']    = '/wp-admin/admin.php?page=poker-points-adjustments';
+$_SERVER['REQUEST_METHOD'] = $argv[2];
+$_GET['page']              = 'poker-points-adjustments';
+
+require $argv[1] . '/wp-load.php';
+require_once ABSPATH . 'wp-admin/includes/plugin.php';
+wp_set_current_user( 1 );
+
+// Simulate a pre-3.9.10 import by reverting the winner to the old figure.
+if ( ! empty( $argv[4] ) ) {
+	global $wpdb;
+	$wpdb->query( $wpdb->prepare(
+		"UPDATE {$wpdb->prefix}poker_tournament_players SET points = 299
+		 WHERE tournament_id = %s AND finish_position = 1", $argv[4] ) );
+}
+
+if ( 'POST' === $argv[2] ) {
+	/*
+	 * Submit what the *rendered form* actually contains, rather than a nonce
+	 * this script invents. Otherwise renaming or dropping the form's nonce
+	 * field would still "pass" here while breaking the real page.
+	 *
+	 * The GET render runs in a separate process because the page file declares
+	 * a function at top level and cannot be included twice in one request.
+	 */
+	$form = shell_exec( sprintf( '%s %s %s GET 2>/dev/null',
+		escapeshellarg( PHP_BINARY ),
+		escapeshellarg( __FILE__ ),
+		escapeshellarg( $argv[1] ) ) );
+
+	$fields = array();
+	if ( preg_match_all( '/<input[^>]*type=["\']hidden["\'][^>]*>/i', (string) $form, $inputs ) ) {
+		foreach ( $inputs[0] as $tag ) {
+			if ( preg_match( '/name=["\']([^"\']+)["\']/i', $tag, $n )
+			  && preg_match( '/value=["\']([^"\']*)["\']/i', $tag, $v ) ) {
+				$fields[ $n[1] ] = $v[1];
+			}
+		}
+	}
+	if ( empty( $fields ) ) { echo 'NO_FORM_FIELDS'; exit; }
+
+	$fields['tdwp_recalc_action'] = $argv[3];
+	$_POST    = $fields;
+	$_REQUEST = $_POST;
+}
+
+ob_start();
+include ABSPATH . 'wp-content/plugins/poker-tournament-import/admin/class-points-adjustments-page.php';
+$html = ob_get_clean();
+
+// A bare GET render is used by the POST path above to harvest the real form
+// fields, so emit the raw HTML in that case.
+if ( 'GET' === $argv[2] && empty( $argv[3] ) ) {
+	echo $html;
+	exit;
+}
+
+$flags = array();
+$flags[] = ( false !== strpos( $html, 'Recalculate imported points' ) ) ? 'section=1' : 'section=0';
+$flags[] = ( false !== strpos( $html, 'Apply these changes' ) )        ? 'applybtn=1' : 'applybtn=0';
+$flags[] = ( preg_match( '/Preview only/', $html ) )                    ? 'previewed=1' : 'previewed=0';
+$flags[] = ( preg_match( '/Applied\./', $html ) )                       ? 'applied=1' : 'applied=0';
+$flags[] = ( preg_match( '/Nothing to change/', $html ) )               ? 'clean=1' : 'clean=0';
+
+// The before -> after pair must be visible in the preview table. The
+// sabotaged value is always 299; the corrected one varies by fixture, so
+// match "299 <number>" rather than hard-coding a single tournament's total.
+$txt = preg_replace( '/\s+/', ' ', strip_tags( $html ) );
+$flags[] = preg_match( '/\b299\s+[\d,]+\s+\+/', $txt ) ? 'delta=1' : 'delta=0';
+
+echo implode( ' ', $flags );
+PAPHP
+
+	# A plain page load must render the section and offer no Apply button.
+	out="$(php "$PA_REQ" "$WP" GET flags 2>&1)"
+	[[ "$out" == *"section=1"* ]] && ok "the Points Adjustments screen renders the recalculation section" \
+	                             || bad "recalculation section missing from the admin page ($out)"
+	[[ "$out" == *"applybtn=0"* ]] && ok "no Apply button before a preview has been run" \
+	                              || bad "Apply offered without a preview ($out)"
+
+	# Preview must report the change, show the before -> after, and write nothing.
+	out="$(php "$PA_REQ" "$WP" POST preview "$TOURNEY_UUID" 2>&1)"
+	[[ "$out" == *"previewed=1"* ]] && ok "submitting Preview reports the pending change" \
+	                               || bad "Preview produced no result notice ($out)"
+	[[ "$out" == *"delta=1"* ]]     && ok "the preview table shows the before and after points with a delta" \
+	                               || bad "preview table missing the before/after row ($out)"
+	[[ "$out" == *"applybtn=1"* ]]  && ok "Apply is offered once a preview finds changes" \
+	                               || bad "Apply not offered after a preview with changes ($out)"
+
+	after_preview="$(wp_php '
+	$_SERVER["HTTP_HOST"]="localhost"; $_SERVER["REQUEST_URI"]="/";
+	require $argv[1]."/wp-load.php"; global $wpdb;
+	echo (int) $wpdb->get_var($wpdb->prepare("SELECT ROUND(points) FROM {$wpdb->prefix}poker_tournament_players WHERE tournament_id=%s AND finish_position=1", $argv[2]));
+	' "$TOURNEY_UUID")"
+	[ "$after_preview" = "299" ] && ok "Preview left the database untouched (still 299)" \
+	                             || bad "Preview wrote to the database (points=$after_preview)"
+
+	# Apply must persist, and a second preview must then find nothing to do.
+	out="$(php "$PA_REQ" "$WP" POST apply "" 2>&1)"
+	[[ "$out" == *"applied=1"* ]] && ok "submitting Apply reports success" \
+	                             || bad "Apply produced no success notice ($out)"
+
+	after_apply="$(wp_php '
+	$_SERVER["HTTP_HOST"]="localhost"; $_SERVER["REQUEST_URI"]="/";
+	require $argv[1]."/wp-load.php"; global $wpdb;
+	echo (int) $wpdb->get_var($wpdb->prepare("SELECT ROUND(points) FROM {$wpdb->prefix}poker_tournament_players WHERE tournament_id=%s AND finish_position=1", $argv[2]));
+	' "$TOURNEY_UUID")"
+	if [ -n "$TD_WINNER" ]; then
+		[ "$after_apply" = "$TD_WINNER" ] && ok "Apply persisted the corrected points ($TD_WINNER)" \
+		                                  || bad "Apply did not persist (points=$after_apply, expected $TD_WINNER)"
+	fi
+
+	out="$(php "$PA_REQ" "$WP" POST preview "" 2>&1)"
+	[[ "$out" == *"clean=1"* ]] && ok "pressing Preview again finds nothing to change (idempotent)" \
+	                            || bad "recalculation is not idempotent ($out)"
+
+	# -----------------------------------------------------------------------
+	# 4f. A manual override outranks the recalculated value.
+	# -----------------------------------------------------------------------
+	out="$(wp_php '
+	$_SERVER["HTTP_HOST"]="localhost"; $_SERVER["REQUEST_URI"]="/";
+	require $argv[1]."/wp-load.php"; global $wpdb;
+	wp_set_current_user(1);
+	$u = $argv[2];
+	$stats = $wpdb->prefix."poker_tournament_players";
+	$row = $wpdb->get_row($wpdb->prepare("SELECT player_id, points FROM {$stats} WHERE tournament_id=%s AND finish_position=1", $u));
+
+	$m = new Poker_Points_Adjustment_Manager();
+	$m->apply_adjustment($u, $row->player_id, $row->points, 500, "acceptance override", 1);
+
+	// Sabotage the imported figure, then recalculate: the override must hold.
+	$wpdb->query($wpdb->prepare("UPDATE {$stats} SET points=299 WHERE tournament_id=%s AND finish_position=1", $u));
+	$post = 0;
+	foreach (get_posts(["post_type"=>"tournament","numberposts"=>-1,"post_status"=>"any"]) as $t) {
+		if (get_post_meta($t->ID,"tournament_uuid",true) === $u) { $post = $t->ID; break; }
+	}
+	$rc = new Poker_Points_Recalculator();
+	$pv = $rc->recalculate_tournament($post, true);
+	$skipped = 0;
+	foreach ($pv["changes"] as $c) { if (stripos($c["note"], "override") !== false) { $skipped = 1; } }
+	$rc->recalculate_tournament($post, false);
+
+	// Standings resolve the override at aggregation time, keyed tournament|player.
+	$map = $m->get_adjustment_map(array($u));
+	$eff = $map[$u."|".$row->player_id] ?? null;
+	printf("noted=%d effective=%d", $skipped, (int) $eff);
+	' "$TOURNEY_UUID")"
+
+	[[ "$out" == *"noted=1"* ]] && ok "the preview explains that an overridden player is left alone" \
+	                            || bad "override not called out in the preview ($out)"
+	[[ "$out" == *"effective=500"* ]] && ok "standings use the manual override (500) over the imported value" \
+	                                  || bad "override does not take precedence ($out)"
 else
 	info "no .tdt fixture found; skipping the import check"
 fi
