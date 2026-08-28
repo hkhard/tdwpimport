@@ -256,10 +256,18 @@ class TDWP_Stats_Rollup {
 			return $out;
 		}
 
+		// import_points (v3.9.10) carries the importer's final points, including the
+		// director's PointsAdjustment. Selected only when present so the rollup keeps
+		// working on installs that have not run the migration yet.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Schema probe.
+		$source_cols   = (array) $wpdb->get_col( "SHOW COLUMNS FROM {$source}" );
+		$has_import_pts = in_array( 'import_points', $source_cols, true );
+		$points_select  = $has_import_pts ? ', import_points' : '';
+
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table read.
 		$entries = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT player_uuid, finish_position, prize_amount, paid_amount, source, import_buyins, import_hits
+				"SELECT player_uuid, finish_position, prize_amount, paid_amount, source, import_buyins, import_hits{$points_select}
 				 FROM {$source}
 				 WHERE tournament_uuid = %s AND player_uuid <> ''",
 				$tournament_uuid
@@ -286,6 +294,12 @@ class TDWP_Stats_Rollup {
 			$row_hits   = $is_import ? (int) $e->import_hits : 0;
 			$out['total_money'] += $winnings;
 
+			// Imported points, when carried, are authoritative: they include the
+			// .tdt PointsAdjustment, which cannot be re-derived from the formula.
+			$row_points = ( $is_import && isset( $e->import_points ) && null !== $e->import_points )
+				? (float) $e->import_points
+				: null;
+
 			if ( ! isset( $out['rows'][ $puuid ] ) ) {
 				$out['rows'][ $puuid ] = array(
 					'finish'         => $finish,
@@ -293,6 +307,7 @@ class TDWP_Stats_Rollup {
 					'buyins'         => $row_buyins,
 					'hits'           => $row_hits,
 					'total_invested' => $invested,
+					'import_points'  => $row_points,
 				);
 				continue;
 			}
@@ -340,16 +355,23 @@ class TDWP_Stats_Rollup {
 			$invested = (float) $row['total_invested'];
 
 			// Points: active formula, then apply a manual override if one exists (decision #4).
-			$points = self::compute_points(
-				$points_formula,
-				array(
-					'finish_position' => $finish,
-					'total_players'   => $entrant_count,
-					'total_money'     => $total_money,
-					'winnings'        => $winnings,
-					'buyin_amount'    => $entrant_count > 0 ? ( $invested / max( 1, $buyins ) ) : 0,
-				)
-			);
+			if ( isset( $row['import_points'] ) && null !== $row['import_points'] ) {
+				// Reuse the importer's figure verbatim. Recomputing here would drop
+				// the director's PointsAdjustment, which is source data rather than
+				// a formula input, so a rebuild would silently change the score.
+				$points = (float) $row['import_points'];
+			} else {
+				$points = self::compute_points(
+					$points_formula,
+					array(
+						'finish_position' => $finish,
+						'total_players'   => $entrant_count,
+						'total_money'     => $total_money,
+						'winnings'        => $winnings,
+						'buyin_amount'    => $entrant_count > 0 ? ( $invested / max( 1, $buyins ) ) : 0,
+					)
+				);
+			}
 			$override_key = $tournament_uuid . '|' . $player_uuid;
 			if ( isset( $overrides[ $override_key ] ) ) {
 				$points = (float) $overrides[ $override_key ];
@@ -653,7 +675,7 @@ class TDWP_Stats_Rollup {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Migration read.
 			$rows = $wpdb->get_results(
 				$wpdb->prepare(
-					"SELECT player_id, finish_position, winnings, buyins, hits FROM {$mart} WHERE tournament_id = %s",
+					"SELECT player_id, finish_position, winnings, buyins, hits, points FROM {$mart} WHERE tournament_id = %s",
 					$tuuid
 				)
 			);
@@ -715,8 +737,12 @@ class TDWP_Stats_Rollup {
 						'source'          => 'import',
 						'import_buyins'   => $buyins,
 						'import_hits'     => (int) $r->hits,
+						// Carry the mart's points verbatim. For imports this already
+						// includes the director's PointsAdjustment from the .tdt, which
+						// the rollup cannot re-derive from the formula alone.
+						'import_points'   => isset( $r->points ) ? (float) $r->points : null,
 					),
-					array( '%d', '%d', '%d', '%s', '%d', '%f', '%f', '%s', '%s', '%s', '%d', '%d' )
+					array( '%d', '%d', '%d', '%s', '%d', '%f', '%f', '%s', '%s', '%s', '%d', '%d', '%f' )
 				);
 				if ( false !== $res ) {
 					$summary['inserted']++;

@@ -44,7 +44,7 @@ class TDWP_Database_Schema {
 	 *
 	 * @var string
 	 */
-	const DB_VERSION = '3.6.4';
+	const DB_VERSION = '3.9.10';
 
 	/**
 	 * Option name for storing database version
@@ -290,6 +290,11 @@ class TDWP_Database_Schema {
 		// Run v3.6.4 import-aggregate carry columns on tdwp_tournament_players (tdwp-eil Phase E)
 		if ( version_compare( $from_version, '3.6.4', '<' ) ) {
 			self::migrate_import_aggregate_columns_v364();
+		}
+
+		// Run v3.9.10 imported-points carry column on tdwp_tournament_players
+		if ( version_compare( $from_version, '3.9.10', '<' ) ) {
+			self::migrate_import_points_column_v3910();
 		}
 	}
 
@@ -850,6 +855,7 @@ class TDWP_Database_Schema {
 			source varchar(16) NOT NULL DEFAULT 'live',
 			import_buyins int NOT NULL DEFAULT 0,
 			import_hits int NOT NULL DEFAULT 0,
+			import_points decimal(10,2) NULL DEFAULT NULL,
 			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 			PRIMARY KEY  (id),
@@ -1788,6 +1794,40 @@ class TDWP_Database_Schema {
 				$wpdb->query( "ALTER TABLE `{$table}` {$sql}" );
 				error_log( "tdwp-eil v364: Added column {$column} to {$table}" );
 			}
+		}
+
+		return true;
+	}
+
+	/**
+	 * Add the imported-points carry column to tdwp_tournament_players (v3.9.10).
+	 *
+	 * The importer's points total includes the tournament director's manual
+	 * PointsAdjustment from the .tdt file. That value is source data, not a
+	 * formula input, so the rollup cannot re-derive it: recomputing from the
+	 * formula alone would silently drop it on every rebuild. Carrying the final
+	 * imported figure here lets rebuild_tournament() reuse it verbatim.
+	 *
+	 * NULL means "no imported value for this row" — the rollup then recomputes
+	 * exactly as before, so live rows and pre-existing import rows are unaffected.
+	 *
+	 * Idempotent. @since 3.9.10
+	 * @return bool
+	 */
+	private static function migrate_import_points_column_v3910() {
+		global $wpdb;
+		$table = $wpdb->prefix . 'tdwp_tournament_players';
+
+		if ( $wpdb->get_var( "SHOW TABLES LIKE '{$table}'" ) !== $table ) {
+			return true;
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$exists = $wpdb->get_results( $wpdb->prepare( 'SHOW COLUMNS FROM `' . $table . '` LIKE %s', 'import_points' ) );
+		if ( empty( $exists ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$wpdb->query( "ALTER TABLE `{$table}` ADD COLUMN import_points decimal(10,2) NULL DEFAULT NULL" );
+			error_log( "v3.9.10: Added column import_points to {$table}" );
 		}
 
 		return true;
