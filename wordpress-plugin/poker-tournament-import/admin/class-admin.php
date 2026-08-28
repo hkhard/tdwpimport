@@ -1959,7 +1959,7 @@ class Poker_Tournament_Import_Admin {
                             </p>
                             <?php if (!$tm_enabled) : ?>
                                 <p class="description" style="color:#996800;">
-                                    <?php esc_html_e('While disabled, live-tournament shortcodes such as [tournament_clock], [tdwp_leaderboard] and [tdwp_tournament_display] will not render, and the Tournament Manager admin menu is hidden.', 'poker-tournament-import'); ?>
+                                    <?php esc_html_e( 'While disabled, these shortcodes will not render: [tournament_clock], [tdwp_tournament_clock], [tdwp_live_clock], [tdwp_leaderboard], [tdwp_tournament_display], [tdwp_current_blinds], [tdwp_player_count], [tdwp_prize_pool], [tdwp_screen_preview] and [tdwp_player_registration]. The Tournament Manager admin menu and the Live Tournaments post type are also hidden.', 'poker-tournament-import' ); ?>
                                 </p>
                             <?php endif; ?>
                         </td>

@@ -8,9 +8,9 @@
 
 - **What it covers:** live play (clock, tables, seating, blinds, prize calculator, chip-up, leagues), the TD3 display/screen system, and frontend player self-registration, plus the `live_tournament` post type and the ~60 live AJAX handlers.
 - **What is unaffected:** importing `.tdt` files, the statistics data marts, dashboard, leaderboards, season/series standings, and player profiles. `TDWP_Stats_Rollup` remains the single, always-on writer of `poker_tournament_players` and `poker_player_roi`, so imports keep updating statistics exactly as before.
-- **Why it defaults to OFF:** loading the module costs ~2.9 MB of PHP on *every* request. On a host with a 128 MB PHP limit that weight contributed to `Allowed memory size exhausted` fatals in `wp-admin`. Measured with the module off, the reachable file set drops from 93 files to 40, and compiled class memory from 6859 KB to 3976 KB — **2883 KB less per request**.
+- **Why it defaults to OFF:** loading the module costs ~1.1 MB of extra PHP on *every* request. On a host with a 128 MB PHP limit that weight contributed to `Allowed memory size exhausted` fatals in `wp-admin`. Measured by booting the shipped plugin end to end: reachable files drop from 93 to 40, compiled classes from 393 to 341, and **peak memory from 14336 KB to 10240 KB — 4 MB less per admin request**.
 - **No data is deleted.** The `tdwp_*` tables are left intact, so the switch is fully reversible. Toggling it rebuilds rewrite rules once and purges public caches.
-- With the module off, live-tournament shortcodes (`[tournament_clock]`, `[tdwp_leaderboard]`, `[tdwp_tournament_display]`, `[tdwp_player_registration]`) do not render. Administrators see a short explanatory note in place of `[tdwp_player_registration]`; visitors see nothing.
+- With the module off, nine shortcodes stop rendering: `[tournament_clock]`, `[tdwp_tournament_clock]`, `[tdwp_live_clock]`, `[tdwp_leaderboard]`, `[tdwp_tournament_display]`, `[tdwp_current_blinds]`, `[tdwp_player_count]`, `[tdwp_prize_pool]` and `[tdwp_screen_preview]`, plus `[tdwp_player_registration]`. All 39 statistics shortcodes keep working. Administrators see a short explanatory note in place of `[tdwp_player_registration]`; visitors see nothing.
 
 ### 🐛 Per-request error-log spam and a wasted query
 
@@ -24,9 +24,11 @@
 
 ### ✅ Tests
 
+- `PluginBootTest` boots the real plugin entry point in a subprocess across all four combinations of the gate and request context, asserting no fatal, which shortcodes and post types register, and that peak memory actually drops. This is the check that would have caught the TD3 schema crash.
 - `TournamentManagerGateTest` + `TmLoadSimulator` statically walk `require`/`include` honouring the gate, and assert: no gated file is reachable when off, the stats-critical files load in both states, the rollup's collaborators are all available when off, no loaded code calls an unloaded class, and the load is materially smaller.
-- Both new guards were negative-verified by injecting a leak and a fatal and confirming the suite fails and names the offending file, line, and class.
-- `DebugTraceGateTest` pins the log-spam fix. Suite: 460 tests, 1360 assertions.
+- Every new guard was negative-verified by fault injection — an ungated require, an ungated call into a gated class, and a reintroduced `error_log()` — confirming each fails and names the offending file, line, and class.
+- `DebugTraceGateTest` is the primary proof for the log-spam fix: it asserts zero raw `error_log()` in the hot-path files and that `trace()` writes nothing while disabled.
+- Suite: 472 tests, 1417 assertions.
 
 ## Version 3.9.8 - (July 2, 2026)
 
