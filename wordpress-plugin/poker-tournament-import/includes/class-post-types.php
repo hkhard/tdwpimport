@@ -20,7 +20,14 @@ class Poker_Tournament_Import_Post_Types {
         $this->register_series_post_type();
         $this->register_season_post_type();
         $this->register_player_post_type();
-        $this->register_live_tournament_post_type();
+
+        // Live tournaments belong to the Tournament Manager module. Registering the
+        // CPT while the module is off would leave an admin menu whose screens are
+        // not loaded, so it is gated with the rest of the subsystem. Existing posts
+        // are untouched and reappear when the module is switched back on.
+        if ( ! class_exists( 'Poker_Tournament_Import' ) || Poker_Tournament_Import::tm_enabled() ) {
+            $this->register_live_tournament_post_type();
+        }
     }
 
     /**

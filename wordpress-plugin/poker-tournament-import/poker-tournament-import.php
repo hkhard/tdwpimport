@@ -49,6 +49,60 @@ class Poker_Tournament_Import {
     private $statistics_engine;
 
     /**
+     * Option controlling whether the Tournament Manager subsystem loads.
+     *
+     * @since 3.9.9
+     */
+    const TM_ENABLED_OPTION = 'tdwp_tournament_manager_enabled';
+
+    /**
+     * Memoised Tournament Manager gate result for this request.
+     *
+     * @var bool|null
+     */
+    private static $tm_enabled = null;
+
+    /**
+     * Whether the Tournament Manager subsystem is enabled.
+     *
+     * The plugin ships two independent subsystems:
+     *
+     *   - Import + statistics (always on): .tdt parsing, the poker_* data marts,
+     *     shortcodes, dashboard, standings, player profiles.
+     *   - Tournament Manager (this gate): live play (clock, tables, seats, blinds,
+     *     prizes, chip-up, leagues), the TD3 display/screen system, and player
+     *     self-registration.
+     *
+     * Loading Tournament Manager costs ~1.2 MB of PHP on EVERY request. Sites that
+     * only import results never need it, so it defaults to OFF. Disabling it hides
+     * the features and stops the code loading; it never deletes data, and the
+     * tdwp_* tables are left intact so the setting can be toggled back freely.
+     *
+     * TDWP_Stats_Rollup, TDWP_Database_Schema and TDWP_Debug_Logger live under the
+     * tournament-manager/ directory but are NOT gated: the rollup is the sole writer
+     * of the statistics marts and runs on every .tdt import.
+     *
+     * @since 3.9.9
+     * @return bool
+     */
+    public static function tm_enabled() {
+        if (null === self::$tm_enabled) {
+            self::$tm_enabled = (bool) get_option(self::TM_ENABLED_OPTION, false);
+        }
+
+        return self::$tm_enabled;
+    }
+
+    /**
+     * Reset the memoised gate. Called after the setting is saved, and by tests.
+     *
+     * @since 3.9.9
+     */
+    public static function reset_tm_enabled_cache() {
+        self::$tm_enabled = null;
+    }
+
+    /**
      * Get singleton instance
      */
     public static function get_instance() {
@@ -79,8 +133,11 @@ class Poker_Tournament_Import {
         }
 
 
-        // Ensure database schema is up to date (has built-in version checking)
-        if (class_exists('TDWP_Database_Schema')) {
+        // Ensure database schema is up to date (has built-in version checking).
+        // With Tournament Manager disabled we still need the tdwp_* tables the
+        // stats rollup reads, but not the full live/display schema, so table
+        // creation and the debug helpers below are gated.
+        if (self::tm_enabled() && class_exists('TDWP_Database_Schema')) {
             TDWP_Database_Schema::create_tables();
 
             // Force create display tables if they don't exist (for debugging)
@@ -100,16 +157,20 @@ class Poker_Tournament_Import {
             }
         }
 
-        // Initialize TD3 display system options if not set
-        $this->init_td3_display_options();
+        // TD3 display system: options, display manager, and its rewrite endpoints.
+        // All of this is Tournament Manager surface — skip it entirely when off.
+        if (self::tm_enabled()) {
+            // Initialize TD3 display system options if not set
+            $this->init_td3_display_options();
 
-        // Initialize TD3 Display Manager for screen management and URL rewriting
-        // Use earlier priority to prevent hook timing race conditions
-        add_action('init', function() {
-            if (class_exists('TDWP_Display_Manager')) {
-                TDWP_Display_Manager::get_instance();
-            }
-        }, 8); // Run before rewrite rule registration (priority 11)
+            // Initialize TD3 Display Manager for screen management and URL rewriting
+            // Use earlier priority to prevent hook timing race conditions
+            add_action('init', function() {
+                if (class_exists('TDWP_Display_Manager')) {
+                    TDWP_Display_Manager::get_instance();
+                }
+            }, 8); // Run before rewrite rule registration (priority 11)
+        }
 
         $this->init_post_types();
         $this->init_taxonomies();
@@ -158,28 +219,34 @@ class Poker_Tournament_Import {
             require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/class-data-mart-cleaner.php';
             new Poker_Data_Mart_Cleaner();
 
-            // **PHASE 1: Tournament Manager admin pages**
-            require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/tournament-manager/tournament-templates-page.php';
-            require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/tournament-manager/layout-builder-page.php';
-            require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/tournament-manager/blind-builder-page.php';
-            require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/tournament-manager/prize-calculator-page.php';
-            require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/tournament-manager/player-management-page.php';
+            // Tournament Manager admin pages (Phases 1-4) + the live AJAX router.
+            // All gated: these register the Tournament Manager menu, its subpages
+            // and ~60 wp_ajax handlers, none of which are reachable when the
+            // module is off.
+            if (self::tm_enabled()) {
+                // **PHASE 1: Tournament Manager admin pages**
+                require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/tournament-manager/tournament-templates-page.php';
+                require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/tournament-manager/layout-builder-page.php';
+                require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/tournament-manager/blind-builder-page.php';
+                require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/tournament-manager/prize-calculator-page.php';
+                require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/tournament-manager/player-management-page.php';
 
-            // **PHASE 2: Live Operations admin**
-            require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/tournament-manager/live-control-page.php';
+                // **PHASE 2: Live Operations admin**
+                require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/tournament-manager/live-control-page.php';
 
-            // **PHASE 3: Live Tournament Wizard & Converter**
-            require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/tournament-manager/live-tournament-wizard.php';
-            require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/tournament-manager/live-tournament-converter.php';
-            new TDWP_Live_Tournament_Wizard();
+                // **PHASE 3: Live Tournament Wizard & Converter**
+                require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/tournament-manager/live-tournament-wizard.php';
+                require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/tournament-manager/live-tournament-converter.php';
+                new TDWP_Live_Tournament_Wizard();
 
-            // **PHASE 4: TD3 Display System - Screen Management**
-            if (file_exists(POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/tournament-manager/screen-management-page.php')) {
-                require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/tournament-manager/screen-management-page.php';
+                // **PHASE 4: TD3 Display System - Screen Management**
+                if (file_exists(POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/tournament-manager/screen-management-page.php')) {
+                    require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/tournament-manager/screen-management-page.php';
+                }
+
+                // **PHASE 2 Week 2-3: Tournament Manager AJAX & Control Page**
+                require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/class-tournament-manager-ajax.php';
             }
-
-            // **PHASE 2 Week 2-3: Tournament Manager AJAX & Control Page**
-            require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/class-tournament-manager-ajax.php';
         }
 
         // Initialize bulk import (OUTSIDE is_admin() for REST API access)
@@ -452,6 +519,15 @@ class Poker_Tournament_Import {
      * @since 3.1.0 Updated to check Phase 2 tables
      */
     private function ensure_all_tables_exist() {
+        // With Tournament Manager disabled, only the tables the stats rollup reads
+        // matter. Skip the live/display schema entirely: it is a large dbDelta pass
+        // per hour, and migrate_schema() reaches TDWP_TD3_Migration ->
+        // TDWP_TD3_Database_Schema, which is not loaded when the module is off.
+        if (!self::tm_enabled()) {
+            $this->ensure_rollup_tables_exist();
+            return;
+        }
+
         // Run schema migration FIRST (has its own completion check, runs until done)
         if (class_exists('TDWP_Database_Schema')) {
             TDWP_Database_Schema::migrate_schema();
@@ -516,6 +592,57 @@ class Poker_Tournament_Import {
 
         // Set transient to check again in 1 hour
         set_transient('tdwp_all_tables_checked', true, HOUR_IN_SECONDS);
+    }
+
+    /**
+     * Ensure the tables the statistics rollup depends on exist.
+     *
+     * The Tournament Manager module owns the tdwp_* schema, but two of its tables
+     * are read/written by the always-on statistics path:
+     *
+     *   - tdwp_tournament_players  — the canonical per-entry source the rollup
+     *     aggregates into poker_tournament_players / poker_player_roi.
+     *   - tdwp_points_adjustments  — manual points overrides, re-applied on every
+     *     rebuild so a recompute never discards them.
+     *
+     * With the module disabled we still need these, but not the ~14 live/display
+     * tables. TDWP_Database_Schema only exposes create_tables() publicly and that
+     * is version-gated and idempotent, so we call it once when either table is
+     * actually missing, rather than running the full dbDelta pass hourly.
+     *
+     * @since 3.9.9
+     * @return void
+     */
+    private function ensure_rollup_tables_exist() {
+        if (get_transient('tdwp_rollup_tables_checked')) {
+            return;
+        }
+
+        // Re-check hourly, matching the full check's cadence.
+        set_transient('tdwp_rollup_tables_checked', true, HOUR_IN_SECONDS);
+
+        if (!class_exists('TDWP_Database_Schema')) {
+            return;
+        }
+
+        global $wpdb;
+
+        $required = array(
+            $wpdb->prefix . 'tdwp_tournament_players',
+            $wpdb->prefix . 'tdwp_points_adjustments',
+        );
+
+        foreach ($required as $table) {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Table existence check
+            if ($wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table)) === $table) {
+                continue;
+            }
+
+            // Missing: force the (idempotent, version-gated) schema pass once.
+            delete_option('tdwp_db_version');
+            TDWP_Database_Schema::create_tables();
+            break;
+        }
     }
 
     /**
@@ -633,9 +760,30 @@ class Poker_Tournament_Import {
         // Active Formula Manager - handles formula selection for tournaments and seasons
         new Poker_Active_Formula_Manager();
 
-        // **PHASE 1: Tournament Manager**
+        // ---------------------------------------------------------------------
+        // TIER B — lives under tournament-manager/ but is required by the
+        // import/statistics subsystem, so it loads regardless of the TM gate.
+        //   - Database_Schema: owns the tdwp_* tables the rollup reads, and its
+        //     migrations must keep running even with TM off.
+        //   - Debug_Logger: the diagnostics sink used across both subsystems.
+        //   - Stats_Rollup: the SOLE writer of poker_tournament_players +
+        //     poker_player_roi. Runs on every .tdt import (see class-admin.php
+        //     sync_import_by_uuid) as well as on live-tournament finish.
+        // ---------------------------------------------------------------------
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-database-schema.php';
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-debug-logger.php';
+
+        // ---------------------------------------------------------------------
+        // TIER C — the Tournament Manager subsystem. Gated: ~1.2 MB of PHP that
+        // only sites running tournaments live in WordPress need. Off by default.
+        // ---------------------------------------------------------------------
+        if ( ! self::tm_enabled() ) {
+            // Dashboard shortcode is import/stats-side and must still register.
+            require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/class-poker-dashboard-shortcode.php';
+            return;
+        }
+
+        // **PHASE 1: Tournament Manager**
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-tournament-template.php';
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-blind-schedule.php';
         require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/tournament-manager/class-blind-level.php';
@@ -795,8 +943,14 @@ class Poker_Tournament_Import {
 
     /**
      * Initialize tournament clock shortcode
+     *
+     * Tournament Manager surface — skipped when the module is disabled.
      */
     private function init_tournament_clock_shortcode() {
+        if (!self::tm_enabled() || !class_exists('TDWP_Tournament_Clock_Shortcode')) {
+            return;
+        }
+
         new TDWP_Tournament_Clock_Shortcode();
     }
 
@@ -808,6 +962,10 @@ class Poker_Tournament_Import {
      * @since 3.1.0
      */
     private function init_admin_bar_widget() {
+        if (!self::tm_enabled() || !class_exists('TDWP_Admin_Bar_Widget')) {
+            return;
+        }
+
         if (is_admin_bar_showing()) {
             new TDWP_Admin_Bar_Widget();
         }
@@ -825,6 +983,11 @@ class Poker_Tournament_Import {
      * @since 3.1.0
      */
     public function enqueue_global_heartbeat() {
+        // Live-clock surface; nothing to keep ticking with the module disabled.
+        if (!self::tm_enabled() || !class_exists('TDWP_Active_Tournament_Manager')) {
+            return;
+        }
+
         // Only for users who can manage tournaments
         if (!current_user_can('manage_options')) {
             return;
@@ -877,6 +1040,11 @@ class Poker_Tournament_Import {
      * @return array Modified response.
      */
     public function global_heartbeat_handler($response, $data) {
+        // Live-clock surface; the TM classes below are not loaded when disabled.
+        if (!self::tm_enabled() || !class_exists('TDWP_Tournament_Live')) {
+            return $response;
+        }
+
         // Check if this is tournament heartbeat from global script
         if (empty($data['tdwp_tournament_id'])) {
             return $response;
@@ -987,13 +1155,21 @@ class Poker_Tournament_Import {
         $this->create_database_tables();
 
         // **PHASE 1: Create Tournament Manager tables**
+        // Run on activation regardless of the feature gate: the statistics rollup
+        // reads tdwp_tournament_players / tdwp_points_adjustments even when the
+        // Tournament Manager module is off, and creating the schema once here is
+        // cheaper than discovering it missing later. create_tables() is idempotent.
         if (class_exists('TDWP_Database_Schema')) {
             TDWP_Database_Schema::create_tables();
-            TDWP_Database_Schema::insert_default_templates();
 
-            // **PHASE 2: Create TD3 Display System tables**
-            TDWP_Database_Schema::force_create_display_tables();
-            error_log('TDWP Plugin Activation: TD3 Display tables creation completed');
+            // Template seeding and the TD3 display tables are Tournament Manager
+            // surface — only build them when the module is actually enabled.
+            if (self::tm_enabled()) {
+                TDWP_Database_Schema::insert_default_templates();
+
+                // **PHASE 2: Create TD3 Display System tables**
+                TDWP_Database_Schema::force_create_display_tables();
+            }
         }
 
         // Force statistics table creation and initial calculation

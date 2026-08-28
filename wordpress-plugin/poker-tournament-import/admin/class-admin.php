@@ -170,6 +170,19 @@ class Poker_Tournament_Import_Admin {
      * Register plugin settings
      */
     public function register_settings() {
+        // Feature module gate: the Tournament Manager / TD3 display subsystem.
+        // Defaults to OFF — see Poker_Tournament_Import::tm_enabled() for why.
+        register_setting(
+            'poker_tournament_import_settings',
+            Poker_Tournament_Import::TM_ENABLED_OPTION,
+            array(
+                'type' => 'boolean',
+                'description' => 'Load the Tournament Manager (live play + display screens) subsystem',
+                'sanitize_callback' => array($this, 'sanitize_tournament_manager_enabled'),
+                'default' => false,
+            )
+        );
+
         register_setting(
             'poker_tournament_import_settings',
             'poker_import_default_buyin',
@@ -278,6 +291,42 @@ class Poker_Tournament_Import_Admin {
                 'default' => 'auto',
             )
         );
+    }
+
+    /**
+     * Sanitize the Tournament Manager feature gate.
+     *
+     * Also handles the side effects of a toggle: the TM subsystem registers three
+     * rewrite endpoints and a custom post type, so the rules must be rebuilt when
+     * it comes or goes, and the memoised gate must be dropped so the rest of this
+     * request sees the new value.
+     *
+     * @since 3.9.9
+     * @param mixed $value Raw submitted value.
+     * @return bool
+     */
+    public function sanitize_tournament_manager_enabled($value) {
+        $enabled = (bool) rest_sanitize_boolean($value);
+        $previous = (bool) get_option(Poker_Tournament_Import::TM_ENABLED_OPTION, false);
+
+        if ($enabled !== $previous) {
+            // Endpoints/CPT appear or disappear; rebuild permalinks on next load.
+            if (class_exists('Poker_Tournament_Import')) {
+                Poker_Tournament_Import::reset_tm_enabled_cache();
+            }
+
+            // Reuse the coalesced flush from 3.9.8: rules are rebuilt once on the
+            // next admin load, not now, because the gated code for the NEW state
+            // has not been loaded in this request and cannot register its rules yet.
+            update_option('tdwp_needs_rewrite_flush', 1, false);
+
+            // Menus, shortcodes and endpoints all change; drop cached pages.
+            if (class_exists('Poker_Cache_Purge')) {
+                Poker_Cache_Purge::purge_public();
+            }
+        }
+
+        return $enabled;
     }
 
     /**
@@ -1880,7 +1929,44 @@ class Poker_Tournament_Import_Admin {
                 <?php
                 settings_fields('poker_tournament_import_settings');
                 do_settings_sections('poker-tournament-import-settings');
+
+                $tm_enabled = Poker_Tournament_Import::tm_enabled();
                 ?>
+
+                <h2><?php esc_html_e('Feature Modules', 'poker-tournament-import'); ?></h2>
+
+                <table class="form-table">
+                    <tr>
+                        <th scope="row"><?php esc_html_e('Tournament Manager', 'poker-tournament-import'); ?></th>
+                        <td>
+                            <?php // Unchecked checkboxes submit nothing, so pair it with a hidden 0. ?>
+                            <input type="hidden" name="<?php echo esc_attr(Poker_Tournament_Import::TM_ENABLED_OPTION); ?>" value="0">
+                            <label>
+                                <input type="checkbox"
+                                       name="<?php echo esc_attr(Poker_Tournament_Import::TM_ENABLED_OPTION); ?>"
+                                       value="1" <?php checked($tm_enabled); ?>>
+                                <?php esc_html_e('Enable the Tournament Manager and display screens', 'poker-tournament-import'); ?>
+                            </label>
+                            <p class="description">
+                                <?php esc_html_e('Turn this on only if you run tournaments live in WordPress. It adds live play (clock, tables, seating, blinds, prize calculator, chip-up, leagues), the TD3 display/screen system, and frontend player self-registration.', 'poker-tournament-import'); ?>
+                            </p>
+                            <p class="description">
+                                <strong><?php esc_html_e('Importing and statistics are unaffected.', 'poker-tournament-import'); ?></strong>
+                                <?php esc_html_e('Importing .tdt files, the dashboard, leaderboards, season and series standings, and player profiles all keep working with this off.', 'poker-tournament-import'); ?>
+                            </p>
+                            <p class="description">
+                                <?php esc_html_e('Leaving it off makes every page load lighter, which matters on hosts with a low PHP memory limit. No data is deleted either way: your live tournament tables are kept, so you can switch this back on at any time.', 'poker-tournament-import'); ?>
+                            </p>
+                            <?php if (!$tm_enabled) : ?>
+                                <p class="description" style="color:#996800;">
+                                    <?php esc_html_e('While disabled, live-tournament shortcodes such as [tournament_clock], [tdwp_leaderboard] and [tdwp_tournament_display] will not render, and the Tournament Manager admin menu is hidden.', 'poker-tournament-import'); ?>
+                                </p>
+                            <?php endif; ?>
+                        </td>
+                    </tr>
+                </table>
+
+                <h2><?php esc_html_e('Import Settings', 'poker-tournament-import'); ?></h2>
 
                 <table class="form-table">
                     <tr>

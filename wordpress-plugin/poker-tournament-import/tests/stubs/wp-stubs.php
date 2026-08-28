@@ -217,6 +217,24 @@ if ( ! function_exists( 'add_option' ) ) {
 	}
 }
 
+if ( ! function_exists( 'rest_sanitize_boolean' ) ) {
+	/**
+	 * Mirrors WordPress core: only the listed spellings are false, everything
+	 * else follows PHP truthiness. Notably the string '0' and '' are false,
+	 * which is what the paired hidden checkbox field relies on.
+	 */
+	function rest_sanitize_boolean( $value ) {
+		if ( is_string( $value ) ) {
+			$value = strtolower( $value );
+			if ( in_array( $value, array( 'false', '0', '' ), true ) ) {
+				return false;
+			}
+		}
+
+		return (bool) $value;
+	}
+}
+
 if ( ! function_exists( 'delete_option' ) ) {
 	function delete_option( $name ) {
 		unset( $GLOBALS['tdwp_test_options'][ $name ] );

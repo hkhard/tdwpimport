@@ -5329,6 +5329,13 @@ class Poker_Tournament_Import_Shortcodes {
      * @return string Form HTML.
      */
     public function player_registration_shortcode( $atts ) {
+        // Player self-registration is part of the Tournament Manager module.
+        // Render nothing public-facing when it is disabled rather than lazily
+        // pulling the class back in behind the setting's back.
+        if ( class_exists( 'Poker_Tournament_Import' ) && ! Poker_Tournament_Import::tm_enabled() ) {
+            return $this->tm_disabled_notice( 'tdwp_player_registration' );
+        }
+
         // Ensure registration class is loaded
         if ( ! class_exists( 'TDWP_Player_Registration' ) ) {
             require_once POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'includes/class-player-registration.php';
@@ -5336,6 +5343,33 @@ class Poker_Tournament_Import_Shortcodes {
 
         $registration = new TDWP_Player_Registration();
         return $registration->render_registration_form( $atts );
+    }
+
+    /**
+     * Placeholder shown where a Tournament Manager shortcode would have rendered.
+     *
+     * Visitors see nothing at all. Users who can manage the site get a short note
+     * naming the shortcode and how to re-enable it, so a blank patch of page is
+     * never a mystery.
+     *
+     * @since 3.9.9
+     * @param string $shortcode Shortcode tag that was skipped.
+     * @return string
+     */
+    private function tm_disabled_notice( $shortcode ) {
+        if ( ! current_user_can( 'manage_options' ) ) {
+            return '';
+        }
+
+        return sprintf(
+            '<div class="poker-notice poker-notice-info" style="padding:12px 16px;border-left:4px solid #72aee6;background:#f6f7f7;margin:12px 0;">%s</div>',
+            sprintf(
+                /* translators: 1: shortcode tag, 2: settings page URL */
+                wp_kses_post( __( 'The <code>[%1$s]</code> shortcode needs the Tournament Manager module, which is currently disabled. Enable it under <a href="%2$s">Poker Import &rarr; Settings</a>. Only site administrators can see this message.', 'poker-tournament-import' ) ),
+                esc_html( $shortcode ),
+                esc_url( admin_url( 'admin.php?page=poker-tournament-import-settings' ) )
+            )
+        );
     }
 
     /**
