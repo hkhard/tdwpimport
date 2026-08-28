@@ -81,14 +81,17 @@ It downloads WordPress and the SQLite database drop-in into a work directory
 needs **no MySQL server and no Docker** — only `php` with `pdo_sqlite`, `curl`
 and `unzip`. The download is cached, so re-runs take a few seconds.
 
-It asserts twelve behaviours: the plugin activates without a fatal, the
+It asserts seventeen behaviours: the plugin activates without a fatal, the
 Tournament Manager gate defaults to OFF, the rollup-critical `tdwp_*` tables are
 created with the module off, a real `.tdt` imports and populates both statistics
 marts with no negative points, statistics shortcodes survive while live/display
 ones disappear, `debug.log` stays clean in both gate states, and disabling the
-module measurably lowers peak memory.
+module measurably lowers peak memory. It also drives the toggle through
+WordPress's own settings API and confirms a full ON->OFF round trip loses no
+rows, tables or posts.
 
-**Sanity-check it against an older build.** Run it on `v3.9.8` and it reports six
+**Sanity-check it against an older build.** Run it on `v3.9.8` and it reports nine
 failures naming the defects that release actually had (no gate, live shortcodes
-leaking, 60 diagnostic log lines over three admin requests, no memory saving).
+leaking, 60 diagnostic log lines over three admin requests, no working toggle,
+no memory saving).
 A check that passes on everything proves nothing.

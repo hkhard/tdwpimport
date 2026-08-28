@@ -271,7 +271,97 @@ for state in off on; do
 done
 
 # ---------------------------------------------------------------------------
-# 7. Memory: the module must measurably cost something.
+# 7. The toggle itself: saving it through WordPress's settings API must flip the
+#    option, schedule exactly one rewrite flush, and lose no data either way.
+# ---------------------------------------------------------------------------
+out="$(wp_php '
+define("WP_ADMIN", true);
+$_SERVER["HTTP_HOST"]="localhost"; $_SERVER["REQUEST_URI"]="/wp-admin/options.php"; $_SERVER["REQUEST_METHOD"]="POST";
+require $argv[1]."/wp-load.php";
+wp_set_current_user(1);
+$opt = Poker_Tournament_Import::TM_ENABLED_OPTION;
+
+// Establish a known starting state BEFORE admin_init, so the OFF->ON transition
+// is unambiguous. (On a fresh install the option is absent, and admin_init also
+// consumes any pending flush flag, which would mask the result.)
+update_option($opt, false);
+do_action("admin_init");                      // registers settings + sanitizers
+
+// Drive the REAL sanitize_option_{$opt} filter, the way options.php does.
+delete_option("tdwp_needs_rewrite_flush");
+update_option($opt, apply_filters("sanitize_option_{$opt}", "1", $opt, "1"));
+$on_val = get_option($opt); $on_flush = (bool) get_option("tdwp_needs_rewrite_flush");
+
+delete_option("tdwp_needs_rewrite_flush");
+update_option($opt, apply_filters("sanitize_option_{$opt}", "0", $opt, "0"));
+$off_val = get_option($opt); $off_flush = (bool) get_option("tdwp_needs_rewrite_flush");
+
+// A save that changes nothing must not schedule a flush.
+delete_option("tdwp_needs_rewrite_flush");
+apply_filters("sanitize_option_{$opt}", "0", $opt, "0");
+$noop_flush = (bool) get_option("tdwp_needs_rewrite_flush");
+
+printf("on=%s off=%s onflush=%s offflush=%s noop=%s",
+	var_export((bool)$on_val,true), var_export((bool)$off_val,true),
+	var_export($on_flush,true), var_export($off_flush,true), var_export($noop_flush,true));
+')"
+[[ "$out" == *"on=true"* && "$out" == *"off=false"* ]] 	&& ok "the toggle saves correctly through the WordPress settings API" 	|| bad "toggle did not round-trip through the settings API ($out)"
+[[ "$out" == *"onflush=true"* && "$out" == *"offflush=true"* ]] 	&& ok "changing the toggle schedules a rewrite flush" 	|| bad "toggle did not schedule a rewrite flush ($out)"
+[[ "$out" == *"noop=false"* ]] 	&& ok "a no-op save does not schedule a needless rewrite flush" 	|| bad "a no-op save scheduled a flush ($out)"
+
+# The scheduled flush must actually be consumed on the next admin load.
+out="$(wp_php '
+define("WP_ADMIN", true);
+$_SERVER["HTTP_HOST"]="localhost"; $_SERVER["REQUEST_URI"]="/wp-admin/"; $_SERVER["REQUEST_METHOD"]="GET";
+require $argv[1]."/wp-load.php";
+wp_set_current_user(1);
+update_option("tdwp_needs_rewrite_flush", 1);
+do_action("admin_init");
+echo get_option("tdwp_needs_rewrite_flush") ? "PENDING" : "CONSUMED";
+')"
+[[ "$out" == *CONSUMED* ]] && ok "the pending rewrite flush is consumed on the next admin load"                           || bad "rewrite flush was never consumed ($out)"
+
+# ---------------------------------------------------------------------------
+# 8. Reversibility: a full ON -> OFF round trip must not lose a single row.
+#    This is the "no data is deleted" promise in the changelog and settings page.
+# ---------------------------------------------------------------------------
+snapshot() {
+	wp_php '
+	$_SERVER["HTTP_HOST"]="localhost"; $_SERVER["REQUEST_URI"]="/";
+	require $argv[1]."/wp-load.php";
+	global $wpdb;
+	$t = $wpdb->get_col("SELECT name FROM sqlite_master WHERE type=\"table\" AND (name LIKE \"%poker_%\" OR name LIKE \"%tdwp_%\")");
+	sort($t);
+	$rows = 0; foreach ($t as $x) { $rows += (int) $wpdb->get_var("SELECT COUNT(*) FROM $x"); }
+	$posts = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_type IN (\"tournament\",\"player\",\"tournament_series\",\"tournament_season\")");
+	printf("tables=%d rows=%d posts=%d", count($t), $rows, $posts);
+	'
+}
+
+before="$(snapshot)"
+for s in on off; do
+	wp_php '
+	$_SERVER["HTTP_HOST"]="localhost"; $_SERVER["REQUEST_URI"]="/";
+	require $argv[1]."/wp-load.php";
+	update_option("tdwp_tournament_manager_enabled", $argv[2] === "on");
+	' "$s" >/dev/null 2>&1
+	wp_php '
+	define("WP_ADMIN", true);
+	$_SERVER["HTTP_HOST"]="localhost"; $_SERVER["REQUEST_URI"]="/wp-admin/"; $_SERVER["REQUEST_METHOD"]="GET";
+	require $argv[1]."/wp-load.php";
+	do_action("admin_init");
+	' >/dev/null 2>&1
+done
+after="$(snapshot)"
+
+if [ "$before" = "$after" ]; then
+	ok "no data lost across an ON->OFF round trip ($after)"
+else
+	bad "data changed across the round trip: before[$before] after[$after]"
+fi
+
+# ---------------------------------------------------------------------------
+# 9. Memory: the module must measurably cost something.
 # ---------------------------------------------------------------------------
 peak_for() {
 	wp_php '

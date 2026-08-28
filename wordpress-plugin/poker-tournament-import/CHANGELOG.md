@@ -29,13 +29,14 @@
 
 ### ✅ Tests
 
-- **`tests/integration/wp-acceptance.sh` runs the built zip against a real WordPress install.** It provisions WordPress with the SQLite database drop-in (no MySQL or Docker needed), activates the plugin, imports a real `.tdt`, and asserts the twelve behaviours this release is responsible for. Against 3.9.9 all twelve pass; run against 3.9.8 it reports six failures naming the exact defects — no gate, live shortcodes leaking, **60 diagnostic log lines over three admin requests**, and no memory saving. That contrast is what makes the result meaningful rather than self-confirming.
+- **`tests/integration/wp-acceptance.sh` runs the built zip against a real WordPress install.** It provisions WordPress with the SQLite database drop-in (no MySQL or Docker needed), activates the plugin, imports a real `.tdt`, and asserts the seventeen behaviours this release is responsible for. Against 3.9.9 all seventeen pass; run against 3.9.8 it reports nine failures naming the exact defects — no gate, live shortcodes leaking, **60 diagnostic log lines over three admin requests**, no working toggle, and no memory saving. That contrast is what makes the result meaningful rather than self-confirming.
 - Verified there: the plugin activates without a fatal, the gate defaults to OFF, the rollup tables are created with the module off, a real `.tdt` import populates `poker_tournament_players` (15 rows) and `poker_player_roi` (15 rows) with no negative points, statistics shortcodes keep working while live/display ones disappear, and the error log stays completely clean in both gate states.
+- Also verified through WordPress's own settings API: saving the toggle flips the option and schedules exactly one rewrite flush, a no-op save schedules none, the pending flush is consumed on the next admin load, and **a full ON→OFF round trip loses nothing** — 25 tables, 111 rows and 3 tournament/player posts all identical before and after. That is the "no data is deleted" promise, measured rather than asserted.
 - `PluginBootTest` boots the real plugin entry point in a subprocess across all four combinations of the gate and request context, asserting no fatal, which shortcodes and post types register, and that peak memory actually drops. It also renders the settings page and asserts the toggle and memory readout are present.
 - `TournamentManagerGateTest` + `TmLoadSimulator` statically walk `require`/`include` honouring the gate, and assert: no gated file is reachable when off, the stats-critical files load in both states, the rollup's collaborators are all available when off, no loaded code calls an unloaded class, and the load is materially smaller.
 - Every new guard was negative-verified by fault injection — an ungated require, an ungated call into a gated class, a reintroduced `error_log()`, and a broken settings page — confirming each fails and names the offending file, line, and class.
 - `DebugTraceGateTest` is the primary unit-level proof for the log-spam fix: zero raw `error_log()` in the hot-path files, and `trace()` writes nothing while disabled.
-- Suite: 474 tests, 1429 assertions, plus the 12 real-WordPress acceptance checks.
+- Suite: 474 tests, 1429 assertions, plus 17 real-WordPress acceptance checks.
 
 ## Version 3.9.8 - (July 2, 2026)
 
