@@ -124,6 +124,26 @@ if [ ! -f "$WP/wp-settings.php" ]; then
 	exit 1
 fi
 
+# ---------------------------------------------------------------------------
+# 2b. Reset site content between runs.
+#
+# The WordPress download is reused for speed, but the *database* must start
+# clean: a second run would otherwise re-import the same tournament, create a
+# duplicate set of player posts, and make every player resolve ambiguously
+# during the mart backfill. Dropping the SQLite file forces a fresh install
+# without paying for another download.
+# ---------------------------------------------------------------------------
+if [ -f "$WP/wp-content/database/.ht.sqlite" ]; then
+	rm -f "$WP/wp-content/database/.ht.sqlite"
+	php -r '
+	define("WP_INSTALLING", true);
+	$_SERVER["HTTP_HOST"]="localhost"; $_SERVER["REQUEST_URI"]="/"; $_SERVER["REQUEST_METHOD"]="GET";
+	require $argv[1]."/wp-load.php";
+	require ABSPATH."wp-admin/includes/upgrade.php";
+	wp_install("TDWP Acceptance","admin","admin@example.com",true,"","adminpass123");
+	' "$WP" >/dev/null 2>&1
+fi
+
 # Helper: run PHP inside the WordPress runtime.
 wp_php() { php -r "$1" "$WP" "${@:2}" 2>&1; }
 
@@ -315,6 +335,92 @@ if [ -n "$FIXTURE" ] && [ -f "$FIXTURE" ]; then
 	                             || bad "damaged raw content not detected ($out)"
 	[[ "$out" == *"intact=1"* ]]  && ok "points survive the refused recalculations unchanged" \
 	                             || bad "points changed despite refusals ($out)"
+
+	# -----------------------------------------------------------------------
+	# 4d. A statistics rebuild must not revert corrected points (3.9.10).
+	#
+	# TDWP_Stats_Rollup is the sole writer of the stats marts, so if it
+	# recomputed points from scratch it would undo the import-time correction.
+	# `import_points` on the participation row is what prevents that. This
+	# populates the mart first, because a rebuild over an empty mart is a
+	# no-op and would prove nothing.
+	# -----------------------------------------------------------------------
+	out="$(wp_php '
+	define("WP_ADMIN", true);
+	$_SERVER["HTTP_HOST"]="localhost"; $_SERVER["REQUEST_URI"]="/wp-admin/";
+	require $argv[1]."/wp-load.php";
+	global $wpdb;
+	wp_set_current_user(1);
+
+	// The real admin form posts this; without it no player posts are created
+	// and the mart backfill cannot resolve any player.
+	//
+	// Import only if this tournament is not already present. Section 4 already
+	// imported it *without* create_players, so re-importing here would create a
+	// second set of player posts and every player would resolve ambiguously.
+	$_POST["create_players"] = "1";
+	$p = new Poker_Tournament_Parser($argv[2]);
+	if (!$p->parse_file()) { echo "PARSE_FAIL"; exit; }
+	$data = $p->get_tournament_data();
+	$file_uuid = (string) ($data["metadata"]["uuid"] ?? "");
+
+	// Create the player posts the earlier import skipped, without re-importing.
+	foreach (array_keys($data["players"]) as $puuid) {
+		$found = get_posts([
+			"post_type"      => "player",
+			"post_status"    => "any",
+			"posts_per_page" => 1,
+			"meta_key"       => "player_uuid",
+			"meta_value"     => $puuid,
+		]);
+		if (empty($found)) {
+			$pid = wp_insert_post([
+				"post_title"  => (string) ($data["players"][$puuid]["nickname"] ?? $puuid),
+				"post_type"   => "player",
+				"post_status" => "draft",
+			]);
+			if ($pid && !is_wp_error($pid)) { update_post_meta($pid, "player_uuid", $puuid); }
+		}
+	}
+
+	$id = 0;
+	foreach (get_posts(["post_type"=>"tournament","numberposts"=>-1,"post_status"=>"any"]) as $t) {
+		if (get_post_meta($t->ID,"tournament_uuid",true) === $file_uuid) { $id = $t->ID; break; }
+	}
+	if (!$id) { echo "NO_TOURNAMENT"; exit; }
+	$u  = get_post_meta($id,"tournament_uuid",true);
+	$stats = $wpdb->prefix."poker_tournament_players";
+	$mart  = $wpdb->prefix."tdwp_tournament_players";
+	$q = $wpdb->prepare("SELECT ROUND(points) FROM {$stats} WHERE tournament_id=%s ORDER BY finish_position LIMIT 1", $u);
+
+	TDWP_Stats_Rollup::backfill_imports($mart, 0, 0, $u);
+	$rows = (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$mart} WHERE tournament_uuid=%s", $u));
+	$imp  = (int) round((float) $wpdb->get_var($wpdb->prepare(
+	        "SELECT import_points FROM {$mart} WHERE tournament_uuid=%s ORDER BY CAST(import_points AS REAL) DESC LIMIT 1", $u)));
+
+	$before = (int) $wpdb->get_var($q);
+	TDWP_Stats_Rollup::rebuild_tournament($u);
+	$after  = (int) $wpdb->get_var($q);
+
+	printf("martrows=%d imported=%d before=%d after=%d", $rows, $imp, $before, $after);
+	' "$FIXTURE")"
+
+	if [[ "$out" =~ martrows=([0-9]+) ]] && [ "${BASH_REMATCH[1]}" -gt 0 ]; then
+		ok "participation mart populated (${BASH_REMATCH[1]} rows) so the rebuild check is meaningful"
+	else
+		bad "mart empty; the rebuild check would be a no-op ($out)"
+	fi
+
+	if [ -n "$TD_WINNER" ]; then
+		[[ "$out" == *"imported=$TD_WINNER"* ]] \
+			&& ok "import_points persisted on the participation row ($TD_WINNER)" \
+			|| bad "import_points not persisted, expected $TD_WINNER ($out)"
+		[[ "$out" == *"before=$TD_WINNER"* && "$out" == *"after=$TD_WINNER"* ]] \
+			&& ok "a statistics rebuild preserves the corrected points ($TD_WINNER)" \
+			|| bad "rebuild reverted the corrected points ($out)"
+	else
+		info "no verified TD total for this fixture; skipping the rebuild-preservation check"
+	fi
 else
 	info "no .tdt fixture found; skipping the import check"
 fi
