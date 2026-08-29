@@ -22,7 +22,7 @@ Added a check that rolls a site back to 3.6.2, drops the six columns, leaves the
 
 ### ℹ️ Separately: memory exhaustion
 
-The same log showed four `Allowed memory size of 134217728 bytes exhausted` fatals in `wp-includes/class-wpdb.php`. These are **not** caused by the bug above — the first fatal precedes the first column error — and are tracked separately as unbounded `posts_per_page => -1` queries that load every matching post at once. Not addressed in this release.
+The same log showed four `Allowed memory size of 134217728 bytes exhausted` fatals in `wp-includes/class-wpdb.php`. These are **not** caused by the bug above: two occurred before the first column error and two after the last one, so neither triggers the other. **This release does not address them**, and their cause is not yet established — the leading suspect is a set of unbounded `posts_per_page => -1` queries that load every matching post at once, but that has not been measured on a dataset the size of a real site. Tracked separately.
 
 ## Version 3.9.10 - (August 28, 2026)
 
