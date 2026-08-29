@@ -164,6 +164,15 @@ class Poker_Tournament_Import_Admin {
             'poker-points-adjustments',
             array($this, 'render_points_adjustments_page')
         );
+
+        add_submenu_page(
+            'poker-tournament-import',
+            __('Diagnostics', 'poker-tournament-import'),
+            __('Diagnostics', 'poker-tournament-import'),
+            'manage_options',
+            'poker-tournament-diagnostics',
+            array($this, 'render_tournament_diagnostics_page')
+        );
     }
 
     /**
@@ -3993,11 +4002,21 @@ class Poker_Tournament_Import_Admin {
 
         $content .= '</div>';
 
-        // Add shortcode for full results
-        $content .= '<div class="full-tournament-results">';
-        $content .= '<h4>' . esc_html__('Complete Tournament Results', 'poker-tournament-import') . '</h4>';
-        $content .= '[tournament_results show_players="true" show_structure="true"]';
-        $content .= '</div>';
+        /*
+         * No [tournament_results] shortcode here.
+         *
+         * Until 3.9.12 this appended:
+         *     [tournament_results show_players="true" show_structure="true"]
+         * with no id attribute. The shortcode requires one (class-shortcodes.php),
+         * so on every imported tournament it rendered the literal text
+         * "Please specify a tournament ID" in the page body.
+         *
+         * It was redundant as well as broken: templates/single-tournament.php
+         * already renders the full results under "Official Results", passing
+         * get_the_ID() correctly. The post ID does not exist at this point
+         * anyway -- this content is generated before wp_insert_post() -- so the
+         * id could not have been filled in here.
+         */
 
         return $content;
     }
@@ -5336,6 +5355,23 @@ class Poker_Tournament_Import_Admin {
             wp_die(esc_html__('You do not have permission to access this page.', 'poker-tournament-import'));
         }
         require POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/class-points-adjustments-page.php';
+    }
+
+    /**
+     * Render the read-only Tournament Diagnostics report.
+     *
+     * Exists because a tournament can render correctly on its own page while
+     * being absent from every aggregate: the page re-parses the stored .tdt,
+     * whereas standings, player cards and the points adjuster read only the
+     * participation mart. Without this report that state is invisible.
+     *
+     * @since 3.9.12
+     */
+    public function render_tournament_diagnostics_page() {
+        if (!current_user_can('manage_options')) {
+            wp_die(esc_html__('You do not have permission to access this page.', 'poker-tournament-import'));
+        }
+        require POKER_TOURNAMENT_IMPORT_PLUGIN_DIR . 'admin/class-tournament-diagnostics-page.php';
     }
 
     /**

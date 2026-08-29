@@ -1,5 +1,38 @@
 # Poker Tournament Import Changelog
 
+## Version 3.9.12 - (August 29, 2026)
+
+### 🔍 New: Poker Import → Diagnostics
+
+A read-only report that answers "why is this tournament missing from my statistics?". It changes nothing.
+
+**Why it exists.** A tournament can look perfectly healthy on its own page while contributing nothing to season standings, player cards or the points adjuster — and until now, nothing anywhere told you. The two surfaces read different sources:
+
+- The **tournament page** re-parses the original `.tdt` stored with the post and renders from that, falling back to the database only if the parse fails.
+- **Season standings, player profiles and the Points Adjustments player list** read only the participation mart, joined on the tournament's UUID.
+
+So if a tournament has no rows in that mart, its own page still looks correct while it silently vanishes from every total.
+
+For every tournament the report shows post ID, status, UUID, season and series links, participation and ROI row counts, points total, and whether the stored `.tdt` is present and undamaged. It flags:
+
+- **No participation rows** — the usual cause of "the page works but the stats are empty".
+- **UUID stored under the wrong key** (`_tournament_uuid` rather than `tournament_uuid`), which breaks every statistics join.
+- **Missing season or series link** — standings never consider the tournament, even though its page may display the season name read straight from the imported file.
+- **A `.tdt` that is missing or was damaged by the pre-3.9.10 write bug**, so points cannot be recalculated in place.
+- **Orphaned rows**: statistics belonging to a UUID with no matching tournament post, which inflate aggregates while being unreachable from the admin.
+
+Each finding names the remedy. In most cases re-importing that tournament's `.tdt` rebuilds everything.
+
+### 🐛 "Please specify a tournament ID" on tournament pages
+
+Since v2.0.1 the importer wrote this into every tournament's content:
+
+    [tournament_results show_players="true" show_structure="true"]
+
+The shortcode requires an `id` attribute, so it could never resolve and rendered the literal text **"Please specify a tournament ID"** in the page body. It could not have worked: the content is generated *before* the post is created, so no ID exists yet to insert.
+
+It was also redundant — the tournament template already renders the complete results below, under "Official Results", passing the correct ID. The broken line is now gone. Existing tournaments keep the old text in their stored content until re-imported, which clears it.
+
 ## Version 3.9.11 - (August 29, 2026)
 
 ### 🚨 Fixes a 3.9.9 regression that silently broke statistics on upgraded sites

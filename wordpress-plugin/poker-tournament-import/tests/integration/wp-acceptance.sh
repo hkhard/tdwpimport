@@ -698,6 +698,92 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# 4h. Generated post content must not carry an unresolvable shortcode (3.9.12).
+#
+# Until 3.9.12 the importer appended [tournament_results ...] with no id, which
+# the shortcode requires, so every imported tournament rendered the literal
+# text "Please specify a tournament ID" in its page body. The post ID does not
+# exist when this content is generated, so the attribute could never have been
+# filled in; the template already renders full results with the correct id.
+# ---------------------------------------------------------------------------
+out="$(wp_php '
+$_SERVER["HTTP_HOST"]="localhost"; $_SERVER["REQUEST_URI"]="/";
+require $argv[1]."/wp-load.php";
+$posts = get_posts(["post_type"=>"tournament","numberposts"=>-1,"post_status"=>"any"]);
+if (empty($posts)) { echo "NO_TOURNAMENT"; exit; }
+
+$bare = 0;
+foreach ($posts as $p) {
+	// A [tournament_results] with no id= attribute can never resolve.
+	if (preg_match("/\[tournament_results(?![^\]]*\bid=)[^\]]*\]/", $p->post_content)) { $bare++; }
+}
+
+// And confirm the rendered body carries no such error text.
+global $post;
+$post = $posts[0];
+setup_postdata($post);
+$rendered = apply_filters("the_content", $post->post_content);
+$err = (false !== strpos($rendered, "Please specify a tournament ID")) ? 1 : 0;
+
+printf("bare=%d rendererr=%d", $bare, $err);
+')"
+[[ "$out" == *"bare=0"* ]]      && ok "generated content carries no id-less [tournament_results] shortcode" \
+                               || bad "an unresolvable [tournament_results] is baked into post content ($out)"
+[[ "$out" == *"rendererr=0"* ]] && ok "a tournament page renders without 'Please specify a tournament ID'" \
+                               || bad "the tournament page still shows the shortcode error ($out)"
+
+# ---------------------------------------------------------------------------
+# 4i. Diagnostics page: surfaces a tournament that is invisible to statistics.
+#
+# The failure this catches is silent by nature -- the tournament page re-parses
+# the stored .tdt and renders fine, while season standings, player cards and
+# the points adjuster (all mart-backed) show nothing at all.
+# ---------------------------------------------------------------------------
+# Healthy state first: the report must not cry wolf.
+out="$(wp_php '
+define("WP_ADMIN", true);
+$_SERVER["HTTP_HOST"]="localhost"; $_SERVER["REQUEST_URI"]="/wp-admin/";
+$_GET["page"] = "poker-tournament-diagnostics";
+require $argv[1]."/wp-load.php";
+wp_set_current_user(1);
+ob_start();
+include ABSPATH."wp-content/plugins/poker-tournament-import/admin/class-tournament-diagnostics-page.php";
+$html = ob_get_clean();
+printf("clean=%d flagged=%d",
+	(false !== strpos($html, "correctly linked")) ? 1 : 0,
+	(false !== strpos($html, "have a problem")) ? 1 : 0);
+')"
+[[ "$out" == *"clean=1"* ]] && ok "diagnostics reports a healthy install as having nothing to report" \
+                           || bad "diagnostics flags a healthy install ($out)"
+
+# Now reproduce the reported fault: delete the mart rows, keep everything else.
+out="$(wp_php '
+define("WP_ADMIN", true);
+$_SERVER["HTTP_HOST"]="localhost"; $_SERVER["REQUEST_URI"]="/wp-admin/";
+$_GET["page"] = "poker-tournament-diagnostics";
+require $argv[1]."/wp-load.php";
+wp_set_current_user(1);
+global $wpdb;
+
+$posts = get_posts(["post_type"=>"tournament","numberposts"=>1,"post_status"=>"any"]);
+$id = $posts[0]->ID;
+$u  = get_post_meta($id, "tournament_uuid", true);
+$wpdb->query($wpdb->prepare("DELETE FROM {$wpdb->prefix}poker_tournament_players WHERE tournament_id=%s", $u));
+
+ob_start();
+include ABSPATH."wp-content/plugins/poker-tournament-import/admin/class-tournament-diagnostics-page.php";
+$html = ob_get_clean();
+
+printf("flagged=%d named=%d",
+	(false !== strpos($html, "have a problem")) ? 1 : 0,
+	(false !== strpos($html, "No rows in the participation mart")) ? 1 : 0);
+')"
+[[ "$out" == *"flagged=1"* ]] && ok "diagnostics detects a tournament with no participation rows" \
+                             || bad "diagnostics missed a tournament that is invisible to statistics ($out)"
+[[ "$out" == *"named=1"* ]]   && ok "diagnostics names the specific finding, not just a warning" \
+                             || bad "diagnostics does not explain the finding ($out)"
+
+# ---------------------------------------------------------------------------
 # 5. Shortcode surface.
 # ---------------------------------------------------------------------------
 out="$(wp_php '
