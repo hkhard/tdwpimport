@@ -23,6 +23,22 @@ For every tournament the report shows post ID, status, UUID, season and series l
 
 Each finding names the remedy. In most cases re-importing that tournament's `.tdt` rebuilds everything.
 
+### 🛠️ Repairing a tournament that has vanished from statistics
+
+When Diagnostics reports **"No rows in the participation mart"**, the fix is
+**Poker Import → Settings → Repair Player Data**. It rebuilds the missing rows from
+the tournament data stored on the post, and skips any tournament that already has
+rows, so it is safe to run with other tournaments present.
+
+Verified end to end: a tournament with zero rows is restored, its players reappear
+in the Points Adjustments list, it is counted in season standings again, and
+Diagnostics stops flagging it. Note the tool only processes **published**
+tournaments — a draft is silently skipped.
+
+If Diagnostics also reports the stored `.tdt` as **damaged**, that is separate and
+does not stop the repair: it only means points cannot be recalculated in place.
+Re-importing that `.tdt` fixes both at once.
+
 ### 🐛 "Please specify a tournament ID" on tournament pages
 
 Since v2.0.1 the importer wrote this into every tournament's content:

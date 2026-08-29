@@ -784,6 +784,94 @@ printf("flagged=%d named=%d",
                              || bad "diagnostics does not explain the finding ($out)"
 
 # ---------------------------------------------------------------------------
+# 4j. Repair Player Data restores a tournament that vanished from statistics.
+#
+# This is the remedy the diagnostics page recommends, verified end to end
+# rather than assumed: rebuild the mart from the tournament_data post meta,
+# then confirm the tournament is once again visible to the points adjuster and
+# to season standings, and that diagnostics stops flagging it.
+#
+# Note the tool only scans post_status=publish, so the fixture is published
+# first — a draft would silently be skipped and the check would prove nothing.
+# ---------------------------------------------------------------------------
+out="$(wp_php '
+define("WP_ADMIN", true);
+$_SERVER["HTTP_HOST"]="localhost"; $_SERVER["REQUEST_URI"]="/wp-admin/";
+require $argv[1]."/wp-load.php";
+wp_set_current_user(1);
+global $wpdb;
+
+$posts = get_posts(["post_type"=>"tournament","numberposts"=>1,"post_status"=>"any"]);
+$id = $posts[0]->ID;
+$u  = get_post_meta($id, "tournament_uuid", true);
+wp_update_post(["ID" => $id, "post_status" => "publish"]);
+
+// Section 4i deleted the rows for this tournament; confirm the fault persists.
+$before = (int) $wpdb->get_var($wpdb->prepare(
+	"SELECT COUNT(*) FROM {$wpdb->prefix}poker_tournament_players WHERE tournament_id=%s", $u));
+
+ob_start();
+(new Poker_Tournament_Import_Admin())->handle_player_data_repair();
+ob_end_clean();
+
+$after = (int) $wpdb->get_var($wpdb->prepare(
+	"SELECT COUNT(*) FROM {$wpdb->prefix}poker_tournament_players WHERE tournament_id=%s", $u));
+
+// The adjuster query, verbatim from ajax_get_tournament_players_for_adjustment().
+$adj = $wpdb->get_results($wpdb->prepare(
+	"SELECT player_id, finish_position, points FROM {$wpdb->prefix}poker_tournament_players
+	 WHERE tournament_id = %s ORDER BY finish_position ASC", $u), ARRAY_A);
+
+// Season discovery, verbatim from get_season_tournaments().
+$season = get_post_meta($id, "_season_id", true);
+$in_season = 0;
+if ($season) {
+	$ts = get_posts(["post_type"=>"tournament","posts_per_page"=>-1,
+		"meta_query"=>[["key"=>"_season_id","value"=>$season,"compare"=>"="]]]);
+	foreach ($ts as $t) { if ((int) $t->ID === (int) $id) { $in_season = 1; } }
+}
+
+printf("before=%d after=%d adjuster=%d inseason=%d", $before, $after, count($adj), $in_season);
+')"
+
+[[ "$out" == *"before=0"* ]] && ok "precondition: the tournament still has no participation rows" \
+                            || bad "expected the tournament to start with zero rows ($out)"
+if [[ "$out" =~ after=([0-9]+) ]] && [ "${BASH_REMATCH[1]}" -gt 0 ]; then
+	ok "Repair Player Data rebuilds the participation rows (${BASH_REMATCH[1]})"
+else
+	bad "Repair Player Data did not restore any rows ($out)"
+fi
+if [[ "$out" =~ adjuster=([0-9]+) ]] && [ "${BASH_REMATCH[1]}" -gt 0 ]; then
+	ok "the points adjuster now lists the players for that tournament (${BASH_REMATCH[1]})"
+else
+	bad "the adjuster still shows no players after repair ($out)"
+fi
+[[ "$out" == *"inseason=1"* ]] && ok "the repaired tournament is included in season standings again" \
+                              || bad "the tournament is still excluded from its season ($out)"
+
+# And the report must agree that the problem is gone.
+out="$(wp_php '
+define("WP_ADMIN", true);
+$_SERVER["HTTP_HOST"]="localhost"; $_SERVER["REQUEST_URI"]="/wp-admin/";
+$_GET["page"] = "poker-tournament-diagnostics";
+require $argv[1]."/wp-load.php";
+wp_set_current_user(1);
+ob_start();
+include ABSPATH."wp-content/plugins/poker-tournament-import/admin/class-tournament-diagnostics-page.php";
+$html = ob_get_clean();
+// Inspect the table body only; the page legend also mentions these phrases.
+$body = "";
+$lo = strpos($html, "<tbody>");
+$hi = strpos($html, "</tbody>");
+if (false !== $lo && false !== $hi) { $body = strip_tags(substr($html, $lo, $hi - $lo)); }
+printf("rowok=%d stillflagged=%d",
+	(false !== strpos($body, "OK")) ? 1 : 0,
+	(false !== strpos($body, "No rows in the participation mart")) ? 1 : 0);
+')"
+[[ "$out" == *"stillflagged=0"* ]] && ok "diagnostics stops flagging the tournament once repaired" \
+                                  || bad "diagnostics still reports the repaired tournament ($out)"
+
+# ---------------------------------------------------------------------------
 # 5. Shortcode surface.
 # ---------------------------------------------------------------------------
 out="$(wp_php '
