@@ -632,6 +632,17 @@ class TDWP_Stats_Rollup {
 			return $summary;
 		}
 
+		/*
+		 * Defence in depth: only write the columns the target table actually has.
+		 *
+		 * compute_rows() already guards its read of import_points this way, but the
+		 * write did not, so on a site whose schema migration had not run every
+		 * insert failed with "Unknown column ... in 'field list'" and the backfill
+		 * silently reported zero rows. Degrade to writing what exists instead.
+		 */
+		$target_cols   = (array) $wpdb->get_col( "SHOW COLUMNS FROM {$target_table}" );
+		$has_import_pt = in_array( 'import_points', $target_cols, true );
+
 		// Live tournament UUIDs are canonical — never overwrite them with an import projection.
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Migration read.
 		$live_uuids = $wpdb->get_col( "SELECT DISTINCT tournament_uuid FROM {$live_src} WHERE tournament_uuid <> '' AND source = 'live'" );
@@ -721,29 +732,32 @@ class TDWP_Stats_Rollup {
 
 				$buyins = (int) $r->buyins;
 
-				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Migration write.
-				$res = $wpdb->insert(
-					$target_table,
-					array(
-						'tournament_id'   => $tournament_post_id,
-						'player_id'       => $player_post_id,
-						'entry_number'    => 1,
-						'status'          => 'busted',
-						'finish_position' => (int) $r->finish_position,
-						'prize_amount'    => (float) $r->winnings,
-						'paid_amount'     => (float) $per_entry_buyin * $buyins,
-						'tournament_uuid' => $tuuid,
-						'player_uuid'     => $r->player_id,
-						'source'          => 'import',
-						'import_buyins'   => $buyins,
-						'import_hits'     => (int) $r->hits,
-						// Carry the mart's points verbatim. For imports this already
-						// includes the director's PointsAdjustment from the .tdt, which
-						// the rollup cannot re-derive from the formula alone.
-						'import_points'   => isset( $r->points ) ? (float) $r->points : null,
-					),
-					array( '%d', '%d', '%d', '%s', '%d', '%f', '%f', '%s', '%s', '%s', '%d', '%d', '%f' )
+				$data = array(
+					'tournament_id'   => $tournament_post_id,
+					'player_id'       => $player_post_id,
+					'entry_number'    => 1,
+					'status'          => 'busted',
+					'finish_position' => (int) $r->finish_position,
+					'prize_amount'    => (float) $r->winnings,
+					'paid_amount'     => (float) $per_entry_buyin * $buyins,
+					'tournament_uuid' => $tuuid,
+					'player_uuid'     => $r->player_id,
+					'source'          => 'import',
+					'import_buyins'   => $buyins,
+					'import_hits'     => (int) $r->hits,
 				);
+				$format = array( '%d', '%d', '%d', '%s', '%d', '%f', '%f', '%s', '%s', '%s', '%d', '%d' );
+
+				if ( $has_import_pt ) {
+					// Carry the mart's points verbatim. For imports this already
+					// includes the director's PointsAdjustment from the .tdt, which
+					// the rollup cannot re-derive from the formula alone.
+					$data['import_points'] = isset( $r->points ) ? (float) $r->points : null;
+					$format[]              = '%f';
+				}
+
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Migration write.
+				$res = $wpdb->insert( $target_table, $data, $format );
 				if ( false !== $res ) {
 					$summary['inserted']++;
 				}

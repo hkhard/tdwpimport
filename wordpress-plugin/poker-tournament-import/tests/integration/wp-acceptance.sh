@@ -603,6 +603,101 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# 4g. The UPGRADE path: an older site with the module OFF must still migrate.
+#
+# Every check above provisions a *fresh* install, which is always created at the
+# current DB version and therefore never exercises a migration. That blind spot
+# shipped a real production defect in 3.9.9: create_tables() — the sole caller of
+# run_migrations() — was gated behind the Tournament Manager module, which
+# defaults to OFF. On an upgraded site no migration ever ran, while the
+# always-on stats rollup kept writing columns that were never added, so every
+# insert failed with "Unknown column ... in 'field list'".
+#
+# This simulates that exact site: roll the version back, drop the columns the
+# migrations add, leave the module off, then load one admin page.
+# ---------------------------------------------------------------------------
+out="$(wp_php '
+$_SERVER["HTTP_HOST"]="localhost"; $_SERVER["REQUEST_URI"]="/";
+require $argv[1]."/wp-load.php";
+global $wpdb;
+$t = $wpdb->prefix."tdwp_tournament_players";
+foreach (array("import_points","import_hits","import_buyins","source","player_uuid","tournament_uuid") as $c) {
+	$wpdb->query("ALTER TABLE `{$t}` DROP COLUMN `{$c}`");
+}
+update_option("tdwp_db_version", "3.6.2");
+update_option("tdwp_tournament_manager_enabled", 0);
+$cols = (array) $wpdb->get_col("SHOW COLUMNS FROM {$t}");
+$missing = 0;
+foreach (array("import_points","import_hits","import_buyins","source","player_uuid","tournament_uuid") as $c) {
+	if (!in_array($c, $cols, true)) { $missing++; }
+}
+echo "premissing=".$missing;
+')"
+[[ "$out" == *"premissing=6"* ]] && ok "upgrade simulation: 6 rollup columns removed and version rolled back to 3.6.2" \
+                                || bad "could not simulate the pre-upgrade schema ($out)"
+
+# One ordinary admin request must repair the schema with the module still off.
+out="$(wp_php '
+define("WP_ADMIN", true);
+$_SERVER["HTTP_HOST"]="localhost"; $_SERVER["REQUEST_URI"]="/wp-admin/"; $_SERVER["REQUEST_METHOD"]="GET";
+require $argv[1]."/wp-load.php";
+global $wpdb;
+$t = $wpdb->prefix."tdwp_tournament_players";
+$cols = (array) $wpdb->get_col("SHOW COLUMNS FROM {$t}");
+$present = 0;
+foreach (array("import_points","import_hits","import_buyins","source","player_uuid","tournament_uuid") as $c) {
+	if (in_array($c, $cols, true)) { $present++; }
+}
+printf("healed=%d version=%s tm=%s", $present, get_option("tdwp_db_version"), get_option("tdwp_tournament_manager_enabled") ? "on" : "off");
+')"
+[[ "$out" == *"healed=6"* ]]     && ok "a single admin load migrates the schema with the module OFF (self-heal)" \
+                                 || bad "schema not repaired on an upgraded site ($out)"
+# Compare against the schema class's own constant rather than a literal, so a
+# future DB_VERSION bump does not silently turn this into a no-op assertion.
+DB_VER="$(grep -oE "const DB_VERSION += +'[0-9.]+'" "$PLUGIN_DIR/includes/tournament-manager/class-database-schema.php" | grep -oE "[0-9]+\.[0-9]+\.[0-9]+")"
+[[ "$out" == *"version=$DB_VER"* ]] && ok "the DB version advances to $DB_VER on an upgraded site" \
+                                   || bad "DB version did not advance to $DB_VER ($out)"
+[[ "$out" == *"tm=off"* ]]       && ok "repairing the schema does not silently enable the Tournament Manager" \
+                                 || bad "the module was switched on as a side effect ($out)"
+
+# The operation that failed in production must now succeed.
+out="$(wp_php '
+$_SERVER["HTTP_HOST"]="localhost"; $_SERVER["REQUEST_URI"]="/";
+require $argv[1]."/wp-load.php";
+global $wpdb;
+$t = $wpdb->prefix."tdwp_tournament_players";
+$wpdb->query("DELETE FROM `{$t}`");
+$r = TDWP_Stats_Rollup::backfill_imports($t, 0, 0, "");
+printf("inserted=%d dberror=%s", (int) $r["inserted"], $wpdb->last_error ? "yes" : "no");
+')"
+if [[ "$out" =~ inserted=([0-9]+) ]] && [ "${BASH_REMATCH[1]}" -gt 0 ]; then
+	ok "the backfill that failed in production now inserts rows (${BASH_REMATCH[1]})"
+else
+	bad "backfill still inserts nothing after the upgrade ($out)"
+fi
+[[ "$out" == *"dberror=no"* ]] && ok "no 'Unknown column' database error during the backfill" \
+                              || bad "the backfill still raises a database error ($out)"
+
+# Defence in depth: with the column absent and no migration pending, the write
+# must degrade rather than fail every row.
+out="$(wp_php '
+$_SERVER["HTTP_HOST"]="localhost"; $_SERVER["REQUEST_URI"]="/";
+require $argv[1]."/wp-load.php";
+global $wpdb;
+$t = $wpdb->prefix."tdwp_tournament_players";
+$wpdb->query("DELETE FROM `{$t}`");
+$wpdb->query("ALTER TABLE `{$t}` DROP COLUMN `import_points`");
+update_option("tdwp_db_version", "3.9.10"); // pin: no migration will re-add it
+$r = TDWP_Stats_Rollup::backfill_imports($t, 0, 0, "");
+printf("inserted=%d dberror=%s", (int) $r["inserted"], $wpdb->last_error ? "yes" : "no");
+')"
+if [[ "$out" =~ inserted=([0-9]+) ]] && [ "${BASH_REMATCH[1]}" -gt 0 ] && [[ "$out" == *"dberror=no"* ]]; then
+	ok "backfill degrades gracefully when import_points is absent (${BASH_REMATCH[1]} rows)"
+else
+	bad "backfill does not tolerate a missing import_points column ($out)"
+fi
+
+# ---------------------------------------------------------------------------
 # 5. Shortcode surface.
 # ---------------------------------------------------------------------------
 out="$(wp_php '

@@ -3,7 +3,7 @@
  * Plugin Name: Poker Tournament Import
  * Plugin URI: https://nikielhard.se/tdwpimport
  * Description: Import and display poker tournament results from Tournament Director (.tdt) files. Now with Tournament Manager for creating tournaments without TD software!
- * Version: 3.9.10
+ * Version: 3.9.11
  * Author: Hans Kästel Hård
  * Author URI: https://nikielhard.se
  * License: GPL v2 or later
@@ -20,7 +20,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('POKER_TOURNAMENT_IMPORT_VERSION', '3.9.10');
+define('POKER_TOURNAMENT_IMPORT_VERSION', '3.9.11');
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('POKER_TOURNAMENT_IMPORT_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -134,14 +134,23 @@ class Poker_Tournament_Import {
 
 
         // Ensure database schema is up to date (has built-in version checking).
-        // With Tournament Manager disabled we still need the tdwp_* tables the
-        // stats rollup reads, but not the full live/display schema, so table
-        // creation and the debug helpers below are gated.
-        if (self::tm_enabled() && class_exists('TDWP_Database_Schema')) {
+        //
+        // NOT gated on the Tournament Manager module. TDWP_Stats_Rollup is always
+        // on and is the sole writer of tdwp_tournament_players, so that table's
+        // schema must be maintained even when the live/display module is off.
+        //
+        // 3.9.9 gated this call, which stranded every migration on sites running
+        // with the module disabled (the default): the rollup kept writing columns
+        // such as import_points, tournament_uuid and source that were never added,
+        // so each insert failed with "Unknown column ... in 'field list'" and the
+        // statistics marts silently stopped filling. run_migrations() already
+        // skips the TD3 display migration internally when the module is off, so
+        // no display schema is created here as a side effect.
+        if (class_exists('TDWP_Database_Schema')) {
             TDWP_Database_Schema::create_tables();
 
             // Force create display tables if they don't exist (for debugging)
-            if (isset($_GET['tdwp_force_display_tables']) && current_user_can('manage_options')) {
+            if (self::tm_enabled() && isset($_GET['tdwp_force_display_tables']) && current_user_can('manage_options')) {
                 TDWP_Database_Schema::force_create_display_tables();
                 add_action('admin_notices', function() {
                     echo '<div class="notice notice-success is-dismissible"><p>TDWP Display System: Forced table creation completed. Check debug.log for details.</p></div>';
@@ -149,7 +158,7 @@ class Poker_Tournament_Import {
             }
 
             // Reset database version if requested (for debugging)
-            if (isset($_GET['tdwp_reset_db_version']) && current_user_can('manage_options')) {
+            if (self::tm_enabled() && isset($_GET['tdwp_reset_db_version']) && current_user_can('manage_options')) {
                 TDWP_Database_Schema::reset_database_version();
                 add_action('admin_notices', function() {
                     echo '<div class="notice notice-warning is-dismissible"><p>TDWP Display System: Database version reset. Tables will be re-created on next page load.</p></div>';

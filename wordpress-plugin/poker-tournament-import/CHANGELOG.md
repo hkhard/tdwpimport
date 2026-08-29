@@ -1,5 +1,29 @@
 # Poker Tournament Import Changelog
 
+## Version 3.9.11 - (August 29, 2026)
+
+### 🚨 Fixes a 3.9.9 regression that silently broke statistics on upgraded sites
+
+If Points Verification or Points Adjustments stopped working after 3.9.9, this release fixes it. **Install it and load any admin page — the repair is automatic.**
+
+**What went wrong.** `TDWP_Database_Schema::create_tables()` is the only thing that runs database migrations. In 3.9.9 it was placed behind the new Tournament Manager switch, which defaults to **off**. On any site that upgraded with the module off, no migration ran again. Meanwhile the statistics rollup — deliberately always on, and the sole writer of `tdwp_tournament_players` — kept writing columns that were never created. Every insert failed with `Unknown column ... in 'field list'`, the statistics tables stopped filling, and both admin screens had nothing to read.
+
+**It was broader than the visible error.** Measured on a simulated 3.6.2 site with the module off, **six** columns the rollup depends on were missing, not one: `tournament_uuid`, `player_uuid`, `source`, `import_buyins`, `import_hits` and `import_points`. A site only hits the first one its data reaches.
+
+**The fix.** Schema migrations no longer depend on the Tournament Manager switch. The rollup is always on, so the table it owns must be maintained whether or not you run tournaments live. This does **not** create any live/display tables as a side effect: `run_migrations()` already skips the TD3 display migration on its own when the module is off, and the module stays off. Verified: on a simulated upgrade the backfill went from 0 rows inserted with a database error, to 15 rows inserted cleanly, repaired by a single admin page load with the module still off.
+
+**Defence in depth.** `backfill_imports()` now writes `import_points` only when the column exists, mirroring the guard the read path already had. A missing column now degrades instead of failing every row.
+
+### 🧪 The test gap that allowed this
+
+The acceptance suite only ever provisioned **fresh** WordPress installs. A fresh install is created at the current database version, so it never runs a migration — the entire upgrade path was untested, which is precisely where this defect lived.
+
+Added a check that rolls a site back to 3.6.2, drops the six columns, leaves the module off, and asserts that one ordinary admin request repairs the schema, advances the version, does not switch the module on, and lets the backfill succeed. Restoring the 3.9.9 gate fails five checks, including the exact `inserted=0` with a database error seen in production.
+
+### ℹ️ Separately: memory exhaustion
+
+The same log showed four `Allowed memory size of 134217728 bytes exhausted` fatals in `wp-includes/class-wpdb.php`. These are **not** caused by the bug above — the first fatal precedes the first column error — and are tracked separately as unbounded `posts_per_page => -1` queries that load every matching post at once. Not addressed in this release.
+
 ## Version 3.9.10 - (August 28, 2026)
 
 ### 🏆 Imported points now match Tournament Director exactly
