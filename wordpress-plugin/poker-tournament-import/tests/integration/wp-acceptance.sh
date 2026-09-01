@@ -907,7 +907,13 @@ $wpdb->query($wpdb->prepare("DELETE FROM {$wpdb->prefix}poker_tournament_players
 $a = $body();
 $says_repair = (false !== strpos($a, "Repair Player Data.")) ? 1 : 0;
 
-// Case B: the stored player data is gone too -> Repair would do nothing.
+// Case B: data is present but the post is a draft -> Repair skips it silently.
+wp_update_post(["ID" => $id, "post_status" => "draft"]);
+$d = $body();
+$says_publish = (false !== strpos($d, "Publish it first")) ? 1 : 0;
+wp_update_post(["ID" => $id, "post_status" => "publish"]);
+
+// Case C: the stored player data is gone too -> Repair would do nothing.
 $saved = get_post_meta($id, "tournament_data", true);
 delete_post_meta($id, "tournament_data");
 $saved_tp = get_post_meta($id, "tournament_players", true);
@@ -930,11 +936,13 @@ if (!empty($saved))    { update_post_meta($id, "tournament_data", $saved); }
 if (!empty($saved_tp)) { update_post_meta($id, "tournament_players", $saved_tp); }
 if (!empty($saved_pr)) { update_post_meta($id, "player_results", $saved_pr); }
 
-printf("repair=%d reimport=%d rowsafter=%d", $says_repair, $says_reimport, $rows_after);
+printf("repair=%d publish=%d reimport=%d rowsafter=%d", $says_repair, $says_publish, $says_reimport, $rows_after);
 ')"
 
 [[ "$out" == *"repair=1"* ]]   && ok "diagnostics points at Repair Player Data when the stored data can rebuild it" \
                               || bad "diagnostics did not name the repair route ($out)"
+[[ "$out" == *"publish=1"* ]]  && ok "diagnostics says publish first for a draft the repair would skip silently" \
+                              || bad "diagnostics promises a repair for a draft the tool ignores ($out)"
 [[ "$out" == *"reimport=1"* ]] && ok "diagnostics demands a re-import when nothing remains to rebuild from" \
                               || bad "diagnostics wrongly implies Repair would work ($out)"
 [[ "$out" == *"rowsafter=0"* ]] && ok "and that claim is true: the repair genuinely restores nothing in that state" \

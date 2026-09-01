@@ -32,6 +32,9 @@ column tells you which remedy will actually work:
   **Poker Import → Settings → Repair Player Data** rebuilds the missing rows. It skips
   any tournament that already has rows, so it is safe to run with other tournaments
   present.
+- **Repairable: publish first** — the data to rebuild from is there, but Repair Player
+  Data only processes *published* tournaments and skips drafts in silence. Publish the
+  tournament, then run the repair.
 - **Repairable: re-import** — nothing remains to rebuild from. Repair Player Data
   would run and change nothing, reporting nothing, so the `.tdt` must be re-imported
   instead. Knowing this in advance saves pressing a button that cannot help.
