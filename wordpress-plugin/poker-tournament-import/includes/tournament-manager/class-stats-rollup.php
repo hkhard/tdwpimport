@@ -716,8 +716,22 @@ class TDWP_Stats_Rollup {
 
 			foreach ( $rows as $r ) {
 				// tdwp-5xm: same unique-resolution guard for the player post.
+				//
+				// Trashed posts are excluded deliberately. The duplicate cleanup on
+				// the Diagnostics page trashes redundant player posts rather than
+				// deleting them, so counting trash here would report every cleaned-up
+				// player as ambiguous and the backfill would insert nothing.
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Migration read.
 				$p_ids = $wpdb->get_col(
-					$wpdb->prepare( "SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key='player_uuid' AND meta_value=%s", $r->player_id )
+					$wpdb->prepare(
+						"SELECT pm.post_id
+						   FROM {$wpdb->postmeta} pm
+						   JOIN {$wpdb->posts} p ON p.ID = pm.post_id
+						  WHERE pm.meta_key = 'player_uuid'
+						    AND pm.meta_value = %s
+						    AND p.post_status <> 'trash'",
+						$r->player_id
+					)
 				);
 				$p_ids = array_values( array_unique( array_map( 'intval', (array) $p_ids ) ) );
 				if ( count( $p_ids ) > 1 ) {

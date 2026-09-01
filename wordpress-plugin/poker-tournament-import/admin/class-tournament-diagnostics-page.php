@@ -37,6 +37,116 @@ $tdwp_diag_mart  = $wpdb->prefix . 'poker_tournament_players';
 $tdwp_diag_roi   = $wpdb->prefix . 'poker_player_roi';
 $tdwp_diag_adj   = $wpdb->prefix . 'tdwp_points_adjustments';
 
+/* -------------------------------------------------------------------------
+ * Duplicate players, seasons and series (3.9.12).
+ *
+ * Before this release the find-or-create lookups used get_posts() without a
+ * post_status argument, which defaults to `publish`. Those posts are created
+ * as drafts, so an existing one was never found and every imported file minted
+ * a new copy: a 14-file season produced 174 player posts for 24 people, and 14
+ * identical season posts. That also left the stats rollup unable to map a
+ * player UUID to a single post.
+ *
+ * The importer is fixed, but posts already created stay until cleaned up.
+ * Cleanup keeps the OLDEST post of each group (the one other data is most
+ * likely to reference), re-points participation rows at it, and trashes the
+ * rest rather than deleting them, so the step is reversible.
+ * ---------------------------------------------------------------------- */
+
+/**
+ * Group duplicate posts by their UUID meta.
+ *
+ * @param string $post_type Post type.
+ * @param string $meta_key  UUID meta key.
+ * @return array<string,int[]> uuid => post IDs, oldest first, only groups > 1.
+ */
+$tdwp_diag_find_dupes = static function ( $post_type, $meta_key ) use ( $wpdb ) {
+	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Diagnostic read.
+	$rows = $wpdb->get_results(
+		$wpdb->prepare(
+			"SELECT pm.meta_value AS uuid, p.ID
+			   FROM {$wpdb->posts} p
+			   JOIN {$wpdb->postmeta} pm ON pm.post_id = p.ID AND pm.meta_key = %s
+			  WHERE p.post_type = %s AND p.post_status <> 'trash' AND pm.meta_value <> ''
+			  ORDER BY pm.meta_value, p.ID ASC",
+			$meta_key,
+			$post_type
+		)
+	);
+
+	$groups = array();
+	foreach ( (array) $rows as $row ) {
+		$groups[ $row->uuid ][] = (int) $row->ID;
+	}
+
+	return array_filter(
+		$groups,
+		static function ( $ids ) {
+			return count( $ids ) > 1;
+		}
+	);
+};
+
+$tdwp_diag_dupe_types = array(
+	'player'            => array( 'player_uuid', __( 'Players', 'poker-tournament-import' ) ),
+	'tournament_season' => array( 'season_uuid', __( 'Seasons', 'poker-tournament-import' ) ),
+	'tournament_series' => array( 'series_uuid', __( 'Series', 'poker-tournament-import' ) ),
+);
+
+$tdwp_diag_dupes = array();
+foreach ( $tdwp_diag_dupe_types as $tdwp_diag_pt => $tdwp_diag_cfg ) {
+	$tdwp_diag_dupes[ $tdwp_diag_pt ] = $tdwp_diag_find_dupes( $tdwp_diag_pt, $tdwp_diag_cfg[0] );
+}
+
+$tdwp_diag_dupe_total = 0;
+foreach ( $tdwp_diag_dupes as $tdwp_diag_groups ) {
+	foreach ( $tdwp_diag_groups as $tdwp_diag_ids ) {
+		$tdwp_diag_dupe_total += count( $tdwp_diag_ids ) - 1;
+	}
+}
+
+$tdwp_diag_cleaned = null;
+
+if ( isset( $_POST['tdwp_diag_dedupe'] ) && check_admin_referer( 'tdwp_diag_dedupe', 'tdwp_diag_dedupe_nonce' ) ) {
+	$tdwp_diag_cleaned = array( 'trashed' => 0, 'repointed' => 0 );
+
+	foreach ( $tdwp_diag_dupes as $tdwp_diag_pt => $tdwp_diag_groups ) {
+		foreach ( $tdwp_diag_groups as $tdwp_diag_ids ) {
+			$tdwp_diag_keep = array_shift( $tdwp_diag_ids ); // Oldest ID wins.
+
+			foreach ( $tdwp_diag_ids as $tdwp_diag_drop ) {
+				// Re-point anything referencing the duplicate before trashing it.
+				if ( 'tournament_season' === $tdwp_diag_pt || 'tournament_series' === $tdwp_diag_pt ) {
+					$tdwp_diag_meta = ( 'tournament_season' === $tdwp_diag_pt ) ? '_season_id' : '_series_id';
+					// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Targeted repair.
+					$tdwp_diag_cleaned['repointed'] += (int) $wpdb->query(
+						$wpdb->prepare(
+							"UPDATE {$wpdb->postmeta} SET meta_value = %d WHERE meta_key = %s AND meta_value = %d",
+							$tdwp_diag_keep,
+							$tdwp_diag_meta,
+							$tdwp_diag_drop
+						)
+					);
+				}
+
+				wp_trash_post( $tdwp_diag_drop );
+				$tdwp_diag_cleaned['trashed']++;
+			}
+		}
+	}
+
+	// Recompute so the page reflects the result rather than the stale scan.
+	foreach ( $tdwp_diag_dupe_types as $tdwp_diag_pt => $tdwp_diag_cfg ) {
+		$tdwp_diag_dupes[ $tdwp_diag_pt ] = $tdwp_diag_find_dupes( $tdwp_diag_pt, $tdwp_diag_cfg[0] );
+	}
+	$tdwp_diag_dupe_total = 0;
+	foreach ( $tdwp_diag_dupes as $tdwp_diag_groups ) {
+		foreach ( $tdwp_diag_groups as $tdwp_diag_ids ) {
+			$tdwp_diag_dupe_total += count( $tdwp_diag_ids ) - 1;
+		}
+	}
+}
+
 /**
  * Does a table exist? Missing tables are a finding in themselves.
  *
@@ -215,8 +325,101 @@ foreach ( $tdwp_diag_mart_uuids as $tdwp_diag_u ) {
 	<h1><?php esc_html_e( 'Tournament Diagnostics', 'poker-tournament-import' ); ?></h1>
 
 	<p class="description" style="max-width:900px;">
-		<?php esc_html_e( 'A tournament can look perfectly healthy on its own page while contributing nothing to season standings, player cards or the points adjuster. The tournament page re-reads the original .tdt file, but every statistic reads the participation mart instead. When a tournament is missing from that mart, nothing anywhere reports it. This page is read-only and changes nothing.', 'poker-tournament-import' ); ?>
+		<?php esc_html_e( 'A tournament can look perfectly healthy on its own page while contributing nothing to season standings, player cards or the points adjuster. The tournament page re-reads the original .tdt file, but every statistic reads the participation mart instead. When a tournament is missing from that mart, nothing anywhere reports it. The report itself only reads; the one action on this page is the duplicate cleanup below, which asks for confirmation first.', 'poker-tournament-import' ); ?>
 	</p>
+
+	<?php if ( null !== $tdwp_diag_cleaned ) : ?>
+		<div class="notice notice-success">
+			<p>
+				<?php
+				printf(
+					/* translators: 1: trashed count, 2: re-pointed count */
+					esc_html__( 'Cleanup complete. Moved %1$d duplicate post(s) to Trash and re-pointed %2$d reference(s) at the original.', 'poker-tournament-import' ),
+					(int) $tdwp_diag_cleaned['trashed'],
+					(int) $tdwp_diag_cleaned['repointed']
+				);
+				?>
+			</p>
+		</div>
+	<?php endif; ?>
+
+	<?php if ( $tdwp_diag_dupe_total > 0 ) : ?>
+		<div class="tdwp-pv-selector" style="border-left:4px solid #dba617;padding:12px 16px;margin:14px 0;background:#fff;">
+			<h2 style="margin-top:4px;"><?php esc_html_e( 'Duplicate players, seasons and series', 'poker-tournament-import' ); ?></h2>
+
+			<p>
+				<?php
+				printf(
+					/* translators: %d: duplicate count */
+					esc_html__( '%d duplicate post(s) found. Until version 3.9.12 the importer failed to recognise an existing player, season or series, so every file you imported created another copy of each one. Importing a full season of 14 files could produce 14 copies of the same player.', 'poker-tournament-import' ),
+					(int) $tdwp_diag_dupe_total
+				);
+				?>
+			</p>
+
+			<table class="widefat striped" style="margin:10px 0;max-width:640px;">
+				<thead>
+					<tr>
+						<th><?php esc_html_e( 'Type', 'poker-tournament-import' ); ?></th>
+						<th><?php esc_html_e( 'Affected', 'poker-tournament-import' ); ?></th>
+						<th><?php esc_html_e( 'Duplicates to remove', 'poker-tournament-import' ); ?></th>
+						<th><?php esc_html_e( 'Example', 'poker-tournament-import' ); ?></th>
+					</tr>
+				</thead>
+				<tbody>
+				<?php foreach ( $tdwp_diag_dupe_types as $tdwp_diag_pt => $tdwp_diag_cfg ) : ?>
+					<?php
+					$tdwp_diag_g = $tdwp_diag_dupes[ $tdwp_diag_pt ];
+					if ( empty( $tdwp_diag_g ) ) {
+						continue;
+					}
+					$tdwp_diag_extra = 0;
+					foreach ( $tdwp_diag_g as $tdwp_diag_ids ) {
+						$tdwp_diag_extra += count( $tdwp_diag_ids ) - 1;
+					}
+					$tdwp_diag_first = reset( $tdwp_diag_g );
+					$tdwp_diag_ttl   = get_the_title( $tdwp_diag_first[0] );
+					?>
+					<tr>
+						<td><strong><?php echo esc_html( $tdwp_diag_cfg[1] ); ?></strong></td>
+						<td><?php echo esc_html( count( $tdwp_diag_g ) ); ?></td>
+						<td style="color:#b32d2e;font-weight:600;"><?php echo esc_html( $tdwp_diag_extra ); ?></td>
+						<td>
+							<?php
+							printf(
+								/* translators: 1: post title, 2: copy count */
+								esc_html__( '%1$s has %2$d copies', 'poker-tournament-import' ),
+								esc_html( $tdwp_diag_ttl ),
+								count( $tdwp_diag_first )
+							);
+							?>
+						</td>
+					</tr>
+				<?php endforeach; ?>
+				</tbody>
+			</table>
+
+			<p>
+				<strong><?php esc_html_e( 'What the button does:', 'poker-tournament-import' ); ?></strong>
+				<?php esc_html_e( 'for each duplicated player, season or series it keeps the original — the earliest one created — moves the extra copies to Trash, and re-points any tournament that referenced a copy at the original. Nothing is permanently deleted, so you can restore from Trash if needed.', 'poker-tournament-import' ); ?>
+			</p>
+			<p>
+				<strong><?php esc_html_e( 'What it does not touch:', 'poker-tournament-import' ); ?></strong>
+				<?php esc_html_e( 'no tournament is trashed, and no points, results or statistics rows are changed. Season standings and player cards read the statistics tables, which this does not modify.', 'poker-tournament-import' ); ?>
+			</p>
+			<p class="description">
+				<?php esc_html_e( 'Take a database backup first, as with any bulk change. Importing is already fixed, so this will not recur.', 'poker-tournament-import' ); ?>
+			</p>
+
+			<form method="post">
+				<?php wp_nonce_field( 'tdwp_diag_dedupe', 'tdwp_diag_dedupe_nonce' ); ?>
+				<button type="submit" name="tdwp_diag_dedupe" value="1" class="button button-primary"
+					onclick="return confirm('<?php echo esc_js( __( 'Move duplicate players, seasons and series to Trash and re-point references at the originals? Statistics are not affected.', 'poker-tournament-import' ) ); ?>');">
+					<?php esc_html_e( 'Merge duplicates', 'poker-tournament-import' ); ?>
+				</button>
+			</form>
+		</div>
+	<?php endif; ?>
 
 	<?php if ( ! $tdwp_diag_has_mart ) : ?>
 		<div class="notice notice-error">

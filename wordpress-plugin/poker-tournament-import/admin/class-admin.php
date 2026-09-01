@@ -1426,6 +1426,11 @@ class Poker_Tournament_Import_Admin {
         if (!empty($series_uuid)) {
             $args = array(
                 'post_type' => 'tournament_series',
+                // tdwp-dup: these posts are created as drafts, but get_posts()
+                // defaults to post_status=publish, so the lookup never matched and
+                // every import created a fresh duplicate. Trash is excluded on
+                // purpose: a deliberately trashed post must not be resurrected.
+                'post_status' => array('publish', 'draft', 'pending', 'private', 'future'),
                 'meta_query' => array(
                     array(
                         'key' => 'series_uuid',
@@ -1445,6 +1450,7 @@ class Poker_Tournament_Import_Admin {
         // Try to find by name if no UUID match
         $args = array(
             'post_type' => 'tournament_series',
+            'post_status' => array('publish', 'draft', 'pending', 'private', 'future'),
             'title' => $series_name,
             'posts_per_page' => 1
         );
@@ -1482,6 +1488,9 @@ class Poker_Tournament_Import_Admin {
         if (!empty($season_uuid)) {
             $args = array(
                 'post_type' => 'tournament_season',
+                // tdwp-dup: see create_or_find_series() -- drafts were invisible to
+                // the default get_posts() status filter, so each import made a new one.
+                'post_status' => array('publish', 'draft', 'pending', 'private', 'future'),
                 'meta_query' => array(
                     array(
                         'key' => 'season_uuid',
@@ -1501,6 +1510,7 @@ class Poker_Tournament_Import_Admin {
         // Try to find by name if no UUID match
         $args = array(
             'post_type' => 'tournament_season',
+            'post_status' => array('publish', 'draft', 'pending', 'private', 'future'),
             'title' => $season_name,
             'posts_per_page' => 1
         );
@@ -1537,6 +1547,12 @@ class Poker_Tournament_Import_Admin {
         // First, try to find existing player by UUID
         $args = array(
             'post_type' => 'player',
+            // tdwp-dup: players are created as drafts, so the default
+            // post_status=publish filter never matched an existing one. Every file
+            // in a season therefore minted a new post for the same person: 14 files
+            // x 24 players produced 174 posts. That also made the stats rollup
+            // unable to resolve a player UUID to a single post.
+            'post_status' => array('publish', 'draft', 'pending', 'private', 'future'),
             'meta_query' => array(
                 array(
                     'key' => 'player_uuid',
@@ -1555,6 +1571,7 @@ class Poker_Tournament_Import_Admin {
         // Try to find by name if no UUID match
         $args = array(
             'post_type' => 'player',
+            'post_status' => array('publish', 'draft', 'pending', 'private', 'future'),
             'title' => $player_name,
             'posts_per_page' => 1
         );

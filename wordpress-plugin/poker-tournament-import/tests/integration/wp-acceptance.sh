@@ -949,6 +949,195 @@ printf("repair=%d publish=%d reimport=%d rowsafter=%d", $says_repair, $says_publ
                                || bad "the repair did restore rows, so the re-import advice is wrong ($out)"
 
 # ---------------------------------------------------------------------------
+# 4l. Re-importing must not mint duplicate players, seasons or series.
+#
+# create_or_find_player/season/series looked up existing posts with get_posts(),
+# which defaults to post_status=publish. Those posts are created as DRAFTS, so
+# the lookup never matched and every file minted a fresh one. Measured on a real
+# 14-file season: 174 player posts for 24 people, 14 "2026" season posts, and
+# the stats rollup could then resolve none of them (174 ambiguous, 0 inserted).
+#
+# Tournaments already handled this correctly (find_tournament_by_uuid passes an
+# explicit status list); the other three post types had been missed.
+# ---------------------------------------------------------------------------
+out="$(wp_php '
+define("WP_ADMIN", true);
+$_SERVER["HTTP_HOST"]="localhost"; $_SERVER["REQUEST_URI"]="/wp-admin/"; $_SERVER["REQUEST_METHOD"]="POST";
+require $argv[1]."/wp-load.php";
+wp_set_current_user(1);
+global $wpdb;
+
+$_POST["create_players"] = "1";
+$admin = new Poker_Tournament_Import_Admin();
+
+$count = static function ($type) use ($wpdb) {
+	return (int) $wpdb->get_var($wpdb->prepare(
+		"SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_type=%s AND post_status<>\"trash\"", $type));
+};
+
+// Import the same file twice. The second pass must reuse every post.
+$p = new Poker_Tournament_Parser($argv[2]);
+if (!$p->parse_file()) { echo "PARSE_FAIL"; exit; }
+ob_start(); $admin->import_tournament_data($p->get_tournament_data(), $p); ob_end_clean();
+
+$players1 = $count("player");
+$seasons1 = $count("tournament_season");
+$series1  = $count("tournament_series");
+
+$p2 = new Poker_Tournament_Parser($argv[2]);
+$p2->parse_file();
+ob_start(); $admin->import_tournament_data($p2->get_tournament_data(), $p2); ob_end_clean();
+
+$players2 = $count("player");
+$seasons2 = $count("tournament_season");
+$series2  = $count("tournament_series");
+
+// Nobody should own more than one post.
+$maxdup = (int) $wpdb->get_var(
+	"SELECT MAX(c) FROM (SELECT COUNT(*) c FROM {$wpdb->posts}
+	 WHERE post_type=\"player\" AND post_status<>\"trash\" GROUP BY post_title) x");
+
+printf("p1=%d p2=%d se1=%d se2=%d sr1=%d sr2=%d maxdup=%d",
+	$players1, $players2, $seasons1, $seasons2, $series1, $series2, $maxdup);
+' "$FIXTURE")"
+
+if [[ "$out" =~ p1=([0-9]+)\ p2=([0-9]+) ]] && [ "${BASH_REMATCH[1]}" = "${BASH_REMATCH[2]}" ]; then
+	ok "re-importing reuses player posts instead of duplicating them (${BASH_REMATCH[1]})"
+else
+	bad "player posts multiplied across a re-import ($out)"
+fi
+if [[ "$out" =~ se1=([0-9]+)\ se2=([0-9]+) ]] && [ "${BASH_REMATCH[1]}" = "${BASH_REMATCH[2]}" ]; then
+	ok "re-importing reuses the season post (${BASH_REMATCH[1]})"
+else
+	bad "season posts multiplied across a re-import ($out)"
+fi
+if [[ "$out" =~ sr1=([0-9]+)\ sr2=([0-9]+) ]] && [ "${BASH_REMATCH[1]}" = "${BASH_REMATCH[2]}" ]; then
+	ok "re-importing reuses the series post (${BASH_REMATCH[1]})"
+else
+	bad "series posts multiplied across a re-import ($out)"
+fi
+[[ "$out" == *"maxdup=1"* ]] && ok "no player owns more than one post" \
+                            || bad "duplicate player posts exist ($out)"
+
+# The consequence that actually broke the rollup: ambiguous UUID -> post mapping.
+out="$(wp_php '
+$_SERVER["HTTP_HOST"]="localhost"; $_SERVER["REQUEST_URI"]="/";
+require $argv[1]."/wp-load.php";
+global $wpdb;
+$mart = $wpdb->prefix."tdwp_tournament_players";
+$wpdb->query("DELETE FROM {$mart}");
+$r = TDWP_Stats_Rollup::backfill_imports($mart, 0, 0, "");
+printf("inserted=%d ambiguous=%d", (int) $r["inserted"], count($r["ambiguous"]));
+')"
+if [[ "$out" =~ inserted=([0-9]+) ]] && [ "${BASH_REMATCH[1]}" -gt 0 ] && [[ "$out" == *"ambiguous=0"* ]]; then
+	ok "the stats rollup resolves every player to a single post (${BASH_REMATCH[1]} rows, 0 ambiguous)"
+else
+	bad "the rollup cannot resolve players to posts ($out)"
+fi
+
+# ---------------------------------------------------------------------------
+# 4m. The duplicate cleanup on the Diagnostics page.
+#
+# The importer fix stops NEW duplicates; posts already created stay until
+# cleaned up. This creates real duplicates the way the old importer did, then
+# drives the cleanup form and checks the outcome, including that statistics are
+# untouched and that no tournament is left pointing at a trashed season.
+# ---------------------------------------------------------------------------
+out="$(wp_php '
+define("WP_ADMIN", true);
+$_SERVER["HTTP_HOST"]="localhost"; $_SERVER["REQUEST_URI"]="/wp-admin/"; $_SERVER["REQUEST_METHOD"]="POST";
+$_GET["page"] = "poker-tournament-diagnostics";
+require $argv[1]."/wp-load.php";
+wp_set_current_user(1);
+global $wpdb;
+
+$count = static function ($type) use ($wpdb) {
+	return (int) $wpdb->get_var($wpdb->prepare(
+		"SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_type=%s AND post_status<>\"trash\"", $type));
+};
+
+// Recreate the pre-3.9.12 damage: clone each player and season post, UUID and all.
+$clones = 0;
+foreach (array("player" => "player_uuid", "tournament_season" => "season_uuid") as $type => $key) {
+	foreach (get_posts(["post_type"=>$type,"numberposts"=>-1,"post_status"=>"any"]) as $orig) {
+		$uuid = get_post_meta($orig->ID, $key, true);
+		if (!$uuid) { continue; }
+		$new = wp_insert_post(["post_title"=>$orig->post_title,"post_type"=>$type,"post_status"=>"draft"]);
+		if ($new && !is_wp_error($new)) { update_post_meta($new, $key, $uuid); $clones++; }
+	}
+}
+
+$before_stats  = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}poker_tournament_players");
+$before_points = (string) $wpdb->get_var("SELECT ROUND(SUM(points)) FROM {$wpdb->prefix}poker_tournament_players");
+$before_tourn  = $count("tournament");
+
+// Drive the cleanup form exactly as the browser would.
+$_POST    = ["tdwp_diag_dedupe" => "1", "tdwp_diag_dedupe_nonce" => wp_create_nonce("tdwp_diag_dedupe")];
+$_REQUEST = $_POST;
+ob_start();
+include ABSPATH."wp-content/plugins/poker-tournament-import/admin/class-tournament-diagnostics-page.php";
+$html = ob_get_clean();
+
+$maxdup = (int) $wpdb->get_var(
+	"SELECT MAX(c) FROM (SELECT COUNT(*) c FROM {$wpdb->postmeta} pm
+	   JOIN {$wpdb->posts} p ON p.ID = pm.post_id
+	  WHERE pm.meta_key=\"player_uuid\" AND p.post_status<>\"trash\"
+	  GROUP BY pm.meta_value) x");
+
+// No tournament may be left pointing at a trashed season or series.
+$dangling = 0;
+foreach (get_posts(["post_type"=>"tournament","numberposts"=>-1,"post_status"=>"any"]) as $t) {
+	foreach (["_season_id","_series_id"] as $k) {
+		$ref = get_post_meta($t->ID, $k, true);
+		if ($ref && "trash" === get_post_status($ref)) { $dangling++; }
+	}
+}
+
+printf("clones=%d reported=%d maxdup=%d dangling=%d stats=%d points=%s tourn=%d",
+	$clones,
+	(false !== strpos($html, "Cleanup complete")) ? 1 : 0,
+	$maxdup,
+	$dangling,
+	(int) $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}poker_tournament_players") - $before_stats,
+	((string) $wpdb->get_var("SELECT ROUND(SUM(points)) FROM {$wpdb->prefix}poker_tournament_players") === $before_points) ? "same" : "CHANGED",
+	$count("tournament") - $before_tourn);
+')"
+
+if [[ "$out" =~ clones=([0-9]+) ]] && [ "${BASH_REMATCH[1]}" -gt 0 ]; then
+	ok "seeded ${BASH_REMATCH[1]} duplicate post(s) the way the pre-3.9.12 importer did"
+else
+	bad "could not seed duplicates for the cleanup check ($out)"
+fi
+[[ "$out" == *"reported=1"* ]] && ok "the cleanup form runs and reports completion" \
+                              || bad "cleanup did not report completion ($out)"
+[[ "$out" == *"maxdup=1"* ]]   && ok "after cleanup no player UUID maps to more than one live post" \
+                              || bad "duplicates remain after cleanup ($out)"
+[[ "$out" == *"dangling=0"* ]] && ok "no tournament is left pointing at a trashed season or series" \
+                              || bad "cleanup left dangling season/series references ($out)"
+[[ "$out" == *"stats=0"* ]]    && ok "cleanup changed no statistics rows" \
+                              || bad "cleanup altered the statistics tables ($out)"
+[[ "$out" == *"points=same"* ]] && ok "cleanup changed no points totals" \
+                               || bad "cleanup altered points ($out)"
+[[ "$out" == *"tourn=0"* ]]    && ok "cleanup trashed no tournaments" \
+                              || bad "cleanup removed tournament posts ($out)"
+
+# The rollup must resolve players again once duplicates are trashed.
+out="$(wp_php '
+$_SERVER["HTTP_HOST"]="localhost"; $_SERVER["REQUEST_URI"]="/";
+require $argv[1]."/wp-load.php";
+global $wpdb;
+$mart = $wpdb->prefix."tdwp_tournament_players";
+$wpdb->query("DELETE FROM {$mart}");
+$r = TDWP_Stats_Rollup::backfill_imports($mart, 0, 0, "");
+printf("inserted=%d ambiguous=%d", (int) $r["inserted"], count($r["ambiguous"]));
+')"
+if [[ "$out" =~ inserted=([0-9]+) ]] && [ "${BASH_REMATCH[1]}" -gt 0 ] && [[ "$out" == *"ambiguous=0"* ]]; then
+	ok "the rollup ignores trashed duplicates and resolves every player (${BASH_REMATCH[1]} rows)"
+else
+	bad "trashed duplicates still make players ambiguous to the rollup ($out)"
+fi
+
+# ---------------------------------------------------------------------------
 # 5. Shortcode surface.
 # ---------------------------------------------------------------------------
 out="$(wp_php '

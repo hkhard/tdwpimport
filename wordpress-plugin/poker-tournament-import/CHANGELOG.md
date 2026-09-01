@@ -48,6 +48,41 @@ If Diagnostics also reports the stored `.tdt` as **damaged**, that is separate a
 does not stop the repair: it only means points cannot be recalculated in place.
 Re-importing that `.tdt` fixes both at once.
 
+### 🐛 Every import created duplicate players, seasons and series
+
+`create_or_find_player()`, `create_or_find_season()` and `create_or_find_series()`
+looked for an existing post with `get_posts()`, which defaults to
+`post_status => 'publish'`. Those posts are created as **drafts**, so the lookup
+never matched and each imported file minted a fresh copy of every person.
+
+Measured on a real 14-file season: **174 player posts for 24 actual players**, and
+14 identical "2026" season posts. Importing the same season again doubled the player
+posts to 348. Tournaments were never affected — they already passed an explicit
+status list — which is why this went unnoticed.
+
+Your statistics were never wrong because of this: points, results and standings key
+off UUIDs in the data marts, not post IDs. The real damage was that the rollup could
+no longer map a player UUID to a single post, so it treated every player as ambiguous
+and refused to build the canonical table.
+
+All six lookups now pass an explicit status list. `trash` is excluded on purpose, so a
+deliberately trashed post is never silently resurrected.
+
+### 🧹 Cleaning up duplicates that already exist
+
+The fix stops new duplicates; existing ones stay until removed. **Poker Import →
+Diagnostics** now lists them, with a **Merge duplicates** button that keeps the
+original of each group (the earliest created), moves the extra copies to Trash, and
+re-points any tournament that referenced a copy at the original.
+
+Nothing is permanently deleted, no tournament is trashed, and no points or statistics
+rows are touched. The stats rollup now also ignores trashed posts, so a cleaned-up
+player resolves correctly instead of still counting as ambiguous.
+
+Verified end to end on a real 14-tournament season: 348 players → 24, 28 seasons → 1,
+28 series → 1, with tournaments, participation rows and total points unchanged, and
+the rollup going from 0 rows built (174 ambiguous) to 174 rows built (0 ambiguous).
+
 ### 🐛 "Please specify a tournament ID" on tournament pages
 
 Since v2.0.1 the importer wrote this into every tournament's content:
