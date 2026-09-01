@@ -111,6 +111,21 @@ foreach ( $tdwp_diag_tournaments as $tdwp_diag_t ) {
 	$tdwp_diag_series = get_post_meta( $tdwp_diag_id, '_series_id', true );
 	$tdwp_diag_raw    = (string) get_post_meta( $tdwp_diag_id, '_tournament_raw_content', true );
 
+	/*
+	 * Can "Repair Player Data" actually rebuild this tournament?
+	 *
+	 * That tool reads the `tournament_data` post meta and, failing that, tries
+	 * to reconstruct from `tournament_players` / `player_results`. If none of
+	 * those hold players it inserts nothing and reports nothing, so without
+	 * this signal an operator would press the button and see no change with no
+	 * explanation. Knowing this in advance is the difference between "press
+	 * Repair" and "you must re-import the .tdt".
+	 */
+	$tdwp_diag_td   = get_post_meta( $tdwp_diag_id, 'tournament_data', true );
+	$tdwp_diag_tp   = get_post_meta( $tdwp_diag_id, 'tournament_players', true );
+	$tdwp_diag_pr   = get_post_meta( $tdwp_diag_id, 'player_results', true );
+	$tdwp_diag_repairable = ( ! empty( $tdwp_diag_td['players'] ) || ! empty( $tdwp_diag_tp ) || ! empty( $tdwp_diag_pr ) );
+
 	// Can the stored .tdt still be parsed? Only meaningful as a yes/no here; the
 	// recalculator reports the detail. Parsing every tournament would be slow, so
 	// this is a cheap structural check rather than a full parse.
@@ -133,7 +148,10 @@ foreach ( $tdwp_diag_tournaments as $tdwp_diag_t ) {
 			$tdwp_diag_problems[] = __( 'UUID is stored only as _tournament_uuid; standings read tournament_uuid.', 'poker-tournament-import' );
 		}
 		if ( $tdwp_diag_has_mart && 0 === $tdwp_diag_mart_rows ) {
-			$tdwp_diag_problems[] = __( 'No rows in the participation mart — invisible to season standings, player cards and the points adjuster.', 'poker-tournament-import' );
+			// Name the remedy that will actually work for this tournament.
+			$tdwp_diag_problems[] = $tdwp_diag_repairable
+				? __( 'No rows in the participation mart — invisible to season standings, player cards and the points adjuster. Fix: Settings → Repair Player Data.', 'poker-tournament-import' )
+				: __( 'No rows in the participation mart — invisible to season standings, player cards and the points adjuster. Repair Player Data cannot rebuild this one (no stored player data), so the .tdt must be re-imported.', 'poker-tournament-import' );
 		}
 		if ( $tdwp_diag_has_roi && 0 === $tdwp_diag_roi_rows && $tdwp_diag_mart_rows > 0 ) {
 			$tdwp_diag_problems[] = __( 'No ROI rows, though participation rows exist.', 'poker-tournament-import' );
@@ -169,6 +187,7 @@ foreach ( $tdwp_diag_tournaments as $tdwp_diag_t ) {
 		'roi'       => $tdwp_diag_roi_rows,
 		'points'    => $tdwp_diag_points,
 		'raw'       => $tdwp_diag_raw_state,
+		'repairable'=> $tdwp_diag_repairable,
 		'problems'  => $tdwp_diag_problems,
 	);
 }
@@ -250,6 +269,7 @@ foreach ( $tdwp_diag_mart_uuids as $tdwp_diag_u ) {
 				<th><?php esc_html_e( 'ROI rows', 'poker-tournament-import' ); ?></th>
 				<th><?php esc_html_e( 'Points', 'poker-tournament-import' ); ?></th>
 				<th><?php esc_html_e( '.tdt', 'poker-tournament-import' ); ?></th>
+				<th title="<?php esc_attr_e( 'Whether Repair Player Data has stored data to rebuild from', 'poker-tournament-import' ); ?>"><?php esc_html_e( 'Repairable', 'poker-tournament-import' ); ?></th>
 				<th><?php esc_html_e( 'Finding', 'poker-tournament-import' ); ?></th>
 			</tr>
 		</thead>
@@ -287,6 +307,18 @@ foreach ( $tdwp_diag_mart_uuids as $tdwp_diag_u ) {
 					}
 					?>
 				</td>
+				<td>
+					<?php
+					// Only meaningful when rows are actually missing.
+					if ( $tdwp_diag_r['mart'] > 0 ) {
+						echo '<span class="description">&mdash;</span>';
+					} elseif ( $tdwp_diag_r['repairable'] ) {
+						echo '<span style="color:#007017;">' . esc_html__( 'yes', 'poker-tournament-import' ) . '</span>';
+					} else {
+						echo '<span style="color:#b32d2e;">' . esc_html__( 're-import', 'poker-tournament-import' ) . '</span>';
+					}
+					?>
+				</td>
 				<td style="max-width:420px;">
 					<?php if ( empty( $tdwp_diag_r['problems'] ) ) : ?>
 						<span style="color:#007017;"><?php esc_html_e( 'OK', 'poker-tournament-import' ); ?></span>
@@ -305,7 +337,9 @@ foreach ( $tdwp_diag_mart_uuids as $tdwp_diag_u ) {
 
 	<h2 style="margin-top:26px;"><?php esc_html_e( 'How to read this', 'poker-tournament-import' ); ?></h2>
 	<ul style="list-style:disc;margin-left:22px;max-width:900px;">
-		<li><strong><?php esc_html_e( 'Stat rows = 0', 'poker-tournament-import' ); ?></strong> — <?php esc_html_e( 'the usual cause of a tournament that displays correctly but is missing from season totals, player cards and the points adjuster. Re-import that tournament\'s .tdt file to rebuild them.', 'poker-tournament-import' ); ?></li>
+		<li><strong><?php esc_html_e( 'Stat rows = 0', 'poker-tournament-import' ); ?></strong> — <?php esc_html_e( 'the usual cause of a tournament that displays correctly but is missing from season totals, player cards and the points adjuster. Check the Repairable column for the remedy.', 'poker-tournament-import' ); ?></li>
+		<li><strong><?php esc_html_e( 'Repairable = yes', 'poker-tournament-import' ); ?></strong> — <?php esc_html_e( 'the player data is still stored on the post, so Settings → Repair Player Data will rebuild the missing rows. It only processes published tournaments; a draft is skipped silently.', 'poker-tournament-import' ); ?></li>
+		<li><strong><?php esc_html_e( 'Repairable = re-import', 'poker-tournament-import' ); ?></strong> — <?php esc_html_e( 'nothing remains to rebuild from, so Repair Player Data would run and change nothing. Re-import that tournament\'s .tdt file instead.', 'poker-tournament-import' ); ?></li>
 		<li><strong><?php esc_html_e( 'UUID shown as _alt', 'poker-tournament-import' ); ?></strong> — <?php esc_html_e( 'the identifier is stored under the wrong key, so every statistics join misses. Re-importing rewrites it correctly.', 'poker-tournament-import' ); ?></li>
 		<li><strong><?php esc_html_e( 'Season or Series blank', 'poker-tournament-import' ); ?></strong> — <?php esc_html_e( 'the tournament is not linked to a season or series post, so standings never consider it, even though its own page may display the season name from the imported file.', 'poker-tournament-import' ); ?></li>
 		<li><strong><?php esc_html_e( '.tdt damaged or missing', 'poker-tournament-import' ); ?></strong> — <?php esc_html_e( 'points cannot be recalculated in place; re-import the file.', 'poker-tournament-import' ); ?></li>

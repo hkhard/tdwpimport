@@ -872,6 +872,75 @@ printf("rowok=%d stillflagged=%d",
                                   || bad "diagnostics still reports the repaired tournament ($out)"
 
 # ---------------------------------------------------------------------------
+# 4k. Diagnostics must name the remedy that will actually work.
+#
+# Repair Player Data rebuilds from the tournament_data post meta (falling back
+# to tournament_players / player_results). When none of those hold players it
+# inserts nothing AND reports nothing, so an operator following a blanket
+# "press Repair" instruction would see no change and no explanation. The report
+# therefore has to distinguish repairable from re-import-only.
+# ---------------------------------------------------------------------------
+out="$(wp_php '
+define("WP_ADMIN", true);
+$_SERVER["HTTP_HOST"]="localhost"; $_SERVER["REQUEST_URI"]="/wp-admin/";
+$_GET["page"] = "poker-tournament-diagnostics";
+require $argv[1]."/wp-load.php";
+wp_set_current_user(1);
+global $wpdb;
+
+$posts = get_posts(["post_type"=>"tournament","numberposts"=>1,"post_status"=>"any"]);
+$id = $posts[0]->ID;
+$u  = get_post_meta($id, "tournament_uuid", true);
+wp_update_post(["ID" => $id, "post_status" => "publish"]);
+
+$body = static function () {
+	ob_start();
+	include ABSPATH."wp-content/plugins/poker-tournament-import/admin/class-tournament-diagnostics-page.php";
+	$html = ob_get_clean();
+	$lo = strpos($html, "<tbody>");
+	$hi = strpos($html, "</tbody>");
+	return (false !== $lo && false !== $hi) ? strip_tags(substr($html, $lo, $hi - $lo)) : "";
+};
+
+// Case A: rows missing but the stored player data survives -> Repair works.
+$wpdb->query($wpdb->prepare("DELETE FROM {$wpdb->prefix}poker_tournament_players WHERE tournament_id=%s", $u));
+$a = $body();
+$says_repair = (false !== strpos($a, "Repair Player Data.")) ? 1 : 0;
+
+// Case B: the stored player data is gone too -> Repair would do nothing.
+$saved = get_post_meta($id, "tournament_data", true);
+delete_post_meta($id, "tournament_data");
+$saved_tp = get_post_meta($id, "tournament_players", true);
+$saved_pr = get_post_meta($id, "player_results", true);
+delete_post_meta($id, "tournament_players");
+delete_post_meta($id, "player_results");
+$b = $body();
+$says_reimport = (false !== strpos($b, "must be re-imported")) ? 1 : 0;
+
+// Prove the claim rather than trusting the label: run the repair and confirm
+// it really does restore nothing in this state.
+ob_start();
+(new Poker_Tournament_Import_Admin())->handle_player_data_repair();
+ob_end_clean();
+$rows_after = (int) $wpdb->get_var($wpdb->prepare(
+	"SELECT COUNT(*) FROM {$wpdb->prefix}poker_tournament_players WHERE tournament_id=%s", $u));
+
+// Restore the meta so later sections are unaffected.
+if (!empty($saved))    { update_post_meta($id, "tournament_data", $saved); }
+if (!empty($saved_tp)) { update_post_meta($id, "tournament_players", $saved_tp); }
+if (!empty($saved_pr)) { update_post_meta($id, "player_results", $saved_pr); }
+
+printf("repair=%d reimport=%d rowsafter=%d", $says_repair, $says_reimport, $rows_after);
+')"
+
+[[ "$out" == *"repair=1"* ]]   && ok "diagnostics points at Repair Player Data when the stored data can rebuild it" \
+                              || bad "diagnostics did not name the repair route ($out)"
+[[ "$out" == *"reimport=1"* ]] && ok "diagnostics demands a re-import when nothing remains to rebuild from" \
+                              || bad "diagnostics wrongly implies Repair would work ($out)"
+[[ "$out" == *"rowsafter=0"* ]] && ok "and that claim is true: the repair genuinely restores nothing in that state" \
+                               || bad "the repair did restore rows, so the re-import advice is wrong ($out)"
+
+# ---------------------------------------------------------------------------
 # 5. Shortcode surface.
 # ---------------------------------------------------------------------------
 out="$(wp_php '

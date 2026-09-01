@@ -25,10 +25,16 @@ Each finding names the remedy. In most cases re-importing that tournament's `.td
 
 ### 🛠️ Repairing a tournament that has vanished from statistics
 
-When Diagnostics reports **"No rows in the participation mart"**, the fix is
-**Poker Import → Settings → Repair Player Data**. It rebuilds the missing rows from
-the tournament data stored on the post, and skips any tournament that already has
-rows, so it is safe to run with other tournaments present.
+When Diagnostics reports **"No rows in the participation mart"**, the **Repairable**
+column tells you which remedy will actually work:
+
+- **Repairable: yes** — the player data is still stored on the post, so
+  **Poker Import → Settings → Repair Player Data** rebuilds the missing rows. It skips
+  any tournament that already has rows, so it is safe to run with other tournaments
+  present.
+- **Repairable: re-import** — nothing remains to rebuild from. Repair Player Data
+  would run and change nothing, reporting nothing, so the `.tdt` must be re-imported
+  instead. Knowing this in advance saves pressing a button that cannot help.
 
 Verified end to end: a tournament with zero rows is restored, its players reappear
 in the Points Adjustments list, it is counted in season standings again, and
