@@ -1298,6 +1298,62 @@ out="$(php "$PLUGIN_DIR/tests/tools/uuid-lookup-guard.php" "$PLUGIN_DIR" 2>&1)"
                              || bad "a UUID lookup omits post_status and will miss drafts: $out"
 
 # ---------------------------------------------------------------------------
+# 4p. The duplicate section must be visible even when there is nothing to merge,
+#     and must catch copies that carry no UUID meta.
+#
+# Reported by the user: "there is no Merge duplicates in Diagnostics." Two
+# causes, both real:
+#   - the whole section was hidden at zero, so "nothing to clean up" looked
+#     identical to "the feature is missing"
+#   - detection grouped only by UUID meta, so a copy created without it (name
+#     match, manual duplicate, older import) was invisible
+# ---------------------------------------------------------------------------
+out="$(wp_php '
+define("WP_ADMIN", true);
+$_SERVER["HTTP_HOST"]="localhost"; $_SERVER["REQUEST_URI"]="/wp-admin/";
+$_GET["page"] = "poker-tournament-diagnostics";
+require $argv[1]."/wp-load.php";
+wp_set_current_user(1);
+global $wpdb;
+
+$render = static function () {
+	ob_start();
+	include ABSPATH."wp-content/plugins/poker-tournament-import/admin/class-tournament-diagnostics-page.php";
+	return ob_get_clean();
+};
+
+// Clean state: the section must still be present and say so.
+$html = $render();
+$shown_when_clean = (false !== strpos($html, "Duplicate players, seasons and series")) ? 1 : 0;
+$says_none        = (false !== strpos($html, "No duplicates found")) ? 1 : 0;
+$button_when_clean = (false !== strpos($html, "Merge duplicates")) ? 1 : 0;
+
+// A copy with NO uuid meta, the case that was invisible.
+$orig = get_posts(["post_type"=>"player","numberposts"=>1,"post_status"=>"any"]);
+$clone = wp_insert_post(["post_title"=>$orig[0]->post_title,"post_type"=>"player","post_status"=>"draft"]);
+
+$html = $render();
+$detected = (false !== strpos($html, "duplicate post(s) found")) ? 1 : 0;
+$button   = (false !== strpos($html, "Merge duplicates")) ? 1 : 0;
+
+wp_delete_post($clone, true);
+
+printf("cleanshown=%d saysnone=%d cleanbutton=%d detected=%d button=%d",
+	$shown_when_clean, $says_none, $button_when_clean, $detected, $button);
+')"
+
+[[ "$out" == *"cleanshown=1"* ]]   && ok "the duplicate section is visible even with nothing to merge" \
+                                  || bad "the section vanishes at zero, so operators cannot tell it exists ($out)"
+[[ "$out" == *"saysnone=1"* ]]     && ok "it states plainly that no duplicates were found" \
+                                  || bad "no explicit no-duplicates message ($out)"
+[[ "$out" == *"cleanbutton=0"* ]]  && ok "no Merge button is offered when there is nothing to merge" \
+                                  || bad "a pointless Merge button is shown on a clean install ($out)"
+[[ "$out" == *"detected=1"* ]]     && ok "a duplicate carrying no UUID meta is still detected by title" \
+                                  || bad "a title-only duplicate goes undetected ($out)"
+[[ "$out" == *"button=1"* ]]       && ok "the Merge button appears once duplicates exist" \
+                                  || bad "duplicates found but no Merge button offered ($out)"
+
+# ---------------------------------------------------------------------------
 # 5. Shortcode surface.
 # ---------------------------------------------------------------------------
 out="$(wp_php '

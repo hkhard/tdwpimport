@@ -103,7 +103,13 @@ throughout.
 ### 🧹 Cleaning up duplicates that already exist
 
 The fix stops new duplicates; existing ones stay until removed. **Poker Import →
-Diagnostics** now lists them, with a **Merge duplicates** button that keeps the
+Diagnostics** always shows a *Duplicate players, seasons and series* section — if
+there is nothing to merge it says so plainly, so "nothing to clean up" is never
+mistaken for "the feature is missing". Duplicates are matched both by their stored
+identifier and by name, so a copy created without an identifier (by an older import,
+a name-only match, or by hand) is still found.
+
+When duplicates exist the section offers a **Merge duplicates** button that keeps the
 original of each group (the earliest created), moves the extra copies to Trash, and
 re-points any tournament that referenced a copy at the original.
 

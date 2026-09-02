@@ -79,6 +79,77 @@ $tdwp_diag_find_dupes = static function ( $post_type, $meta_key ) use ( $wpdb ) 
 		$groups[ $row->uuid ][] = (int) $row->ID;
 	}
 
+	/*
+	 * Also group by title.
+	 *
+	 * Grouping on the UUID meta alone misses any copy created without it — for
+	 * example by a name-only match, a manual duplicate, or an older import.
+	 * Those look identical to an operator ("why are there two Fredrik Y?") but
+	 * were invisible here, so the cleanup appeared to be missing entirely.
+	 *
+	 * Title groups are keyed separately so a post already covered by a UUID
+	 * group is not counted twice.
+	 */
+	$seen = array();
+	foreach ( $groups as $ids ) {
+		foreach ( $ids as $id ) {
+			$seen[ $id ] = true;
+		}
+	}
+
+	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Diagnostic read.
+	$by_title = $wpdb->get_results(
+		$wpdb->prepare(
+			"SELECT p.post_title AS title, p.ID
+			   FROM {$wpdb->posts} p
+			  WHERE p.post_type = %s AND p.post_status <> 'trash' AND p.post_title <> ''
+			  ORDER BY p.post_title, p.ID ASC",
+			$post_type
+		)
+	);
+
+	$title_groups = array();
+	foreach ( (array) $by_title as $row ) {
+		$title_groups[ $row->title ][] = (int) $row->ID;
+	}
+
+	foreach ( $title_groups as $title => $ids ) {
+		if ( count( $ids ) < 2 ) {
+			continue;
+		}
+
+		/*
+		 * Merge into an existing UUID group when one of these posts is already
+		 * in it, rather than skipping.
+		 *
+		 * The common real case is one post carrying the UUID and a second
+		 * created without it. Filtering out the already-seen post left a group
+		 * of one, so the pair was silently ignored and the operator saw no
+		 * duplicates despite two identically named posts.
+		 */
+		$existing_key = null;
+		foreach ( $ids as $id ) {
+			if ( ! empty( $seen[ $id ] ) ) {
+				foreach ( $groups as $gk => $gids ) {
+					if ( in_array( $id, $gids, true ) ) {
+						$existing_key = $gk;
+						break 2;
+					}
+				}
+			}
+		}
+
+		if ( null !== $existing_key ) {
+			// Fold the untracked copies into that group, keeping ID order.
+			$merged = array_unique( array_merge( $groups[ $existing_key ], $ids ) );
+			sort( $merged );
+			$groups[ $existing_key ] = array_values( $merged );
+			continue;
+		}
+
+		$groups[ 'title:' . $title ] = array_values( $ids );
+	}
+
 	return array_filter(
 		$groups,
 		static function ( $ids ) {
@@ -343,9 +414,26 @@ foreach ( $tdwp_diag_mart_uuids as $tdwp_diag_u ) {
 		</div>
 	<?php endif; ?>
 
-	<?php if ( $tdwp_diag_dupe_total > 0 ) : ?>
-		<div class="tdwp-pv-selector" style="border-left:4px solid #dba617;padding:12px 16px;margin:14px 0;background:#fff;">
-			<h2 style="margin-top:4px;"><?php esc_html_e( 'Duplicate players, seasons and series', 'poker-tournament-import' ); ?></h2>
+	<?php
+	/*
+	 * Always render this section, even at zero.
+	 *
+	 * It was previously hidden unless duplicates were found, which made "none
+	 * to clean up" indistinguishable from "the feature is missing" — an
+	 * operator told to look for a Merge duplicates button simply could not
+	 * find it. Showing the count either way answers the question directly.
+	 */
+	?>
+	<div class="tdwp-pv-selector" style="border-left:4px solid <?php echo $tdwp_diag_dupe_total > 0 ? '#dba617' : '#00a32a'; ?>;padding:12px 16px;margin:14px 0;background:#fff;">
+		<h2 style="margin-top:4px;"><?php esc_html_e( 'Duplicate players, seasons and series', 'poker-tournament-import' ); ?></h2>
+
+	<?php if ( 0 === $tdwp_diag_dupe_total ) : ?>
+		<p>
+			<strong style="color:#007017;"><?php esc_html_e( 'No duplicates found.', 'poker-tournament-import' ); ?></strong>
+			<?php esc_html_e( 'Every player, season and series has exactly one post, so there is nothing to merge and no button to press. Versions before 3.9.12 created a new copy of each player on every file you imported; if you have already cleaned those up, or only imported since upgrading, this is the expected result.', 'poker-tournament-import' ); ?>
+		</p>
+	</div>
+	<?php else : ?>
 
 			<p>
 				<?php
