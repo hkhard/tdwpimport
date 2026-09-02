@@ -88,6 +88,18 @@ season standings could find no tournaments at all.
 A guard script (`tests/tools/uuid-lookup-guard.php`) now fails the build if any such
 lookup omits its status list again.
 
+### 🐛 Season standings said "No series found for this season"
+
+The season page looked for a `tournament_series` post carrying a `_season_id` meta
+key and rendered that series instead of the season. The importer never writes
+`_season_id` onto a series — only onto tournaments — so the lookup always came back
+empty and the season page reported "No series found for this season", even with every
+tournament correctly linked and the standings calculating fine underneath.
+
+The season page now renders the season directly. Verified on a full 14-tournament
+2026 season: Planting 1,883, Joakim H 1,854, Mikael C 1,669, with real names
+throughout.
+
 ### 🧹 Cleaning up duplicates that already exist
 
 The fix stops new duplicates; existing ones stay until removed. **Poker Import →

@@ -2357,31 +2357,29 @@ class Poker_Tournament_Import_Shortcodes {
             </div>
             <?php endif; ?>
 
-            <!-- Use series standings for season -->
+            <!-- Season standings -->
             <?php
-            // Get series associated with this season and show standings
-            $series_query = new WP_Query(array(
-                'post_type' => 'tournament_series',
-                'meta_query' => array(
-                    array(
-                        'key' => '_season_id',
-                        'value' => $season_id,
-                        'compare' => '='
-                    )
-                ),
-                'posts_per_page' => 1
-            ));
-
-            if ($series_query->have_posts()) {
-                $series = $series_query->next_post();
-                $standings_calculator->display_series_standings_table(
-                    $series->ID,
-                    $formula_key,
-                    $atts['show_details'] === 'true'
-                );
-            } else {
-                echo '<p>' . esc_html__('No series found for this season.', 'poker-tournament-import') . '</p>';
-            }
+            /*
+             * Render the season directly.
+             *
+             * This previously looked for a tournament_series post carrying a
+             * `_season_id` meta key and rendered THAT series instead. The
+             * importer never writes `_season_id` onto a series (only onto
+             * tournaments), so the query always came back empty and the season
+             * page showed "No series found for this season" even when every
+             * tournament was correctly linked and the underlying standings
+             * calculated fine.
+             *
+             * Poker_Series_Standings_Calculator::calculate_season_standings()
+             * already aggregates a season by finding tournaments whose
+             * `_season_id` matches, which is the linkage the importer does
+             * create, so use it.
+             */
+            $standings_calculator->display_season_standings_table(
+                $season_id,
+                $formula_key,
+                $atts['show_details'] === 'true'
+            );
             ?>
         </div>
 

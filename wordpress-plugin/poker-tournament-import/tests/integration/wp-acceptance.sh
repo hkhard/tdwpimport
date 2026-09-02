@@ -1258,6 +1258,30 @@ printf("unknown=%d named=%d len=%d", substr_count($txt, "Unknown Player"), $name
 
 [[ "$out" == *"unknown=0"* ]] && ok "series standings render real player names, not Unknown Player" \
                              || bad "standings still show Unknown Player ($out)"
+
+# Season standings: the season page used to hunt for a tournament_series post
+# carrying _season_id, which the importer never writes, so it always said
+# "No series found for this season" even with every tournament linked.
+out="$(wp_php '
+$_SERVER["HTTP_HOST"]="localhost"; $_SERVER["REQUEST_URI"]="/";
+require $argv[1]."/wp-load.php";
+global $wpdb;
+$wpdb->query("DELETE FROM {$wpdb->options} WHERE option_name LIKE \"_transient%standings%\"");
+wp_cache_flush();
+$season = get_posts(["post_type"=>"tournament_season","numberposts"=>1,"post_status"=>"any"]);
+if (empty($season)) { echo "NO_SEASON"; exit; }
+$txt = preg_replace("/\s+/", " ", strip_tags(do_shortcode("[season_standings id=\"".$season[0]->ID."\"]")));
+printf("noseries=%d ranked=%d unknown=%d",
+	(false !== strpos($txt, "No series found")) ? 1 : 0,
+	preg_match("/Rank.*Player/", $txt) ? 1 : 0,
+	substr_count($txt, "Unknown Player"));
+')"
+[[ "$out" == *"noseries=0"* ]] && ok "the season page no longer reports No series found for this season" \
+                              || bad "season standings still cannot find its tournaments ($out)"
+[[ "$out" == *"ranked=1"* ]]   && ok "season standings render a ranked table" \
+                              || bad "season standings rendered no table ($out)"
+[[ "$out" == *"unknown=0"* ]]  && ok "season standings show real player names" \
+                              || bad "season standings show Unknown Player ($out)"
 # Only meaningful when the standings table actually rendered rows. Season
 # standings returning empty is a separate, pre-existing defect (confirmed by
 # stashing these changes and re-running: it returned 0 rows either way), so

@@ -1109,6 +1109,107 @@ class Poker_Series_Standings_Calculator {
     }
 
     /**
+     * Render a season's standings table.
+     *
+     * Mirrors display_series_standings_table() but aggregates by season. The
+     * season shortcode used to hunt for a tournament_series post carrying a
+     * `_season_id` meta key and render that series instead; the importer never
+     * writes that meta onto a series, so the season page always reported
+     * "No series found for this season".
+     *
+     * @param int         $season_id    Season post ID.
+     * @param string|null $formula_key  Formula key.
+     * @param bool        $show_details Show the extra detail columns.
+     */
+    public function display_season_standings_table($season_id, $formula_key = null, $show_details = false) {
+        $standings = $this->calculate_season_standings($season_id, $formula_key);
+
+        if (empty($standings)) {
+            echo '<p>' . esc_html__('No standings data available for this season yet. Import tournaments and make sure they are linked to this season.', 'poker-tournament-import') . '</p>';
+            return;
+        }
+
+              echo '<div class="series-standings-table" id="series-standings-' . esc_attr($series_id) . '">';
+        echo '<table class="wp-list-table widefat fixed striped">';
+        echo '<thead>';
+        echo '<tr>';
+        echo '<th>' . esc_html__('Rank', 'poker-tournament-import') . '</th>';
+        echo '<th>' . esc_html__('Player', 'poker-tournament-import') . '</th>';
+        echo '<th>' . esc_html__('Season Points', 'poker-tournament-import') . '</th>';
+        echo '<th>' . esc_html__('Tournaments', 'poker-tournament-import') . '</th>';
+        echo '<th>' . esc_html__('Best Finish', 'poker-tournament-import') . '</th>';
+        echo '<th>' . esc_html__('Avg Finish', 'poker-tournament-import') . '</th>';
+
+        if ($show_details) {
+            echo '<th>' . esc_html__('Total Winnings', 'poker-tournament-import') . '</th>';
+            echo '<th>' . esc_html__('First Places', 'poker-tournament-import') . '</th>';
+            echo '<th>' . esc_html__('Top 3', 'poker-tournament-import') . '</th>';
+            echo '<th>' . esc_html__('Top 5', 'poker-tournament-import') . '</th>';
+        }
+
+        echo '</tr>';
+        echo '</thead>';
+        echo '<tbody>';
+
+        foreach ($standings as $standing) {
+            $rank_display = $standing['rank'];
+            if ($standing['is_tied']) {
+                $rank_display .= 'T';
+            }
+
+            // Add position indicators for top ranks
+            $rank_class = '';
+            $rank_indicator = '';
+            if ($standing['rank'] === 1) {
+                $rank_class = ' rank-first';
+                $rank_indicator = ' 🥇';
+            } elseif ($standing['rank'] === 2) {
+                $rank_class = ' rank-second';
+                $rank_indicator = ' 🥈';
+            } elseif ($standing['rank'] === 3) {
+                $rank_class = ' rank-third';
+                $rank_indicator = ' 🥉';
+            }
+
+            echo '<tr class="' . esc_attr($rank_class) . '">';
+            echo '<td class="rank-cell">' . esc_html($rank_display) . esc_html($rank_indicator) . '</td>';
+
+            if ($standing['player_url']) {
+                echo '<td class="player-cell"><a href="' . esc_url($standing['player_url']) . '">' . esc_html($standing['player_name']) . '</a></td>';
+            } else {
+                echo '<td class="player-cell">' . esc_html($standing['player_name']) . '</td>';
+            }
+
+            echo '<td class="points-cell">' . esc_html(number_format($standing['season_points'], 1)) . '</td>';
+            echo '<td class="tournaments-cell">' . esc_html($standing['tournaments_played']) . '</td>';
+            echo '<td class="best-finish-cell">' . esc_html($standing['best_finish']) . '</td>';
+            echo '<td class="avg-finish-cell">' . esc_html(number_format($standing['avg_finish'], 1)) . '</td>';
+
+            if ($show_details) {
+                echo '<td class="winnings-cell">$' . esc_html(number_format($standing['total_winnings'], 0)) . '</td>';
+                echo '<td class="first-places-cell">' . esc_html($standing['tie_breakers']['first_places']) . '</td>';
+                echo '<td class="top3-cell">' . esc_html($standing['tie_breakers']['top3_finishes']) . '</td>';
+                echo '<td class="top5-cell">' . esc_html($standing['tie_breakers']['top5_finishes']) . '</td>';
+            }
+
+            echo '</tr>';
+        }
+
+        echo '</tbody>';
+        echo '</table>';
+        echo '</div>';
+
+        // Add CSS for ranking indicators
+        echo '<style>
+        .rank-first { background-color: #fff9e6 !important; }
+        .rank-second { background-color: #f0f8ff !important; }
+        .rank-third { background-color: #fff0f5 !important; }
+        .rank-cell { font-weight: bold; }
+        .points-cell { font-weight: bold; }
+        </style>';
+    }
+
+    /**
      * Cached database query helper
      * Wraps $wpdb queries with WordPress object cache
      *
