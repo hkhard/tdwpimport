@@ -149,6 +149,9 @@ class Poker_Series_Standings_Calculator {
     private function get_season_tournaments($season_id) {
         $tournaments = get_posts(array(
             'post_type' => 'tournament',
+            // tdwp-dup: posts are created as drafts; get_posts() defaults to
+            // publish only, so this silently matched nothing.
+            'post_status' => array('publish', 'draft', 'pending', 'private', 'future'),
             'posts_per_page' => -1,
             'meta_query' => array(
                 array(
@@ -170,6 +173,9 @@ class Poker_Series_Standings_Calculator {
     private function get_series_tournaments($series_id) {
         $tournaments = get_posts(array(
             'post_type' => 'tournament',
+            // tdwp-dup: posts are created as drafts; get_posts() defaults to
+            // publish only, so this silently matched nothing.
+            'post_status' => array('publish', 'draft', 'pending', 'private', 'future'),
             'posts_per_page' => -1,
             'meta_query' => array(
                 array(
@@ -341,6 +347,9 @@ class Poker_Series_Standings_Calculator {
         // Get player information
         $player_post = get_posts(array(
             'post_type' => 'player',
+            // tdwp-dup: these posts are drafts; get_posts() defaults to
+            // post_status=publish, so the lookup silently found nothing.
+            'post_status' => array('publish', 'draft', 'pending', 'private', 'future'),
             'meta_query' => array(
                 array(
                     'key' => 'player_uuid',
@@ -845,6 +854,9 @@ class Poker_Series_Standings_Calculator {
         // Get player information
         $player_post = get_posts(array(
             'post_type' => 'player',
+            // tdwp-dup: these posts are drafts; get_posts() defaults to
+            // post_status=publish, so the lookup silently found nothing.
+            'post_status' => array('publish', 'draft', 'pending', 'private', 'future'),
             'meta_query' => array(
                 array(
                     'key' => 'player_uuid',
@@ -1147,6 +1159,9 @@ class Poker_Series_Standings_Calculator {
     private function get_tournament_post_id($tournament_uuid) {
         $posts = get_posts(array(
             'post_type' => 'tournament',
+            // tdwp-dup: these posts are drafts; get_posts() defaults to
+            // post_status=publish, so the lookup silently found nothing.
+            'post_status' => array('publish', 'draft', 'pending', 'private', 'future'),
             'meta_query' => array(
                 array(
                     'key' => 'tournament_uuid',

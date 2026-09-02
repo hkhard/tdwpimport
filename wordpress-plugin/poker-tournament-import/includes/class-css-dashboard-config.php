@@ -270,6 +270,9 @@ class Poker_CSS_Dashboard_Config extends CSS_Dashboard_Base
             // Get tournament post IDs first
             $season_tournaments = get_posts(array(
                 'post_type' => 'tournament',
+                // tdwp-dup: posts are created as drafts; get_posts() defaults to
+                // publish only, so this silently matched nothing.
+                'post_status' => array('publish', 'draft', 'pending', 'private', 'future'),
                 'posts_per_page' => -1,
                 'fields' => 'ids',
                 'meta_query' => array(

@@ -189,6 +189,9 @@ class Poker_Tournament_Points_Verifier {
 		$posts = get_posts(
 			array(
 				'post_type'      => 'player',
+				// tdwp-dup: these posts are drafts; get_posts() defaults to
+				// post_status=publish, so the lookup silently found nothing.
+				'post_status' => array('publish', 'draft', 'pending', 'private', 'future'),
 				'posts_per_page' => 1,
 				'fields'         => 'all',
 				'meta_query'     => array(
@@ -532,6 +535,9 @@ class Poker_Tournament_Points_Verifier {
 		$tournaments = get_posts(
 			array(
 				'post_type'      => 'tournament',
+				// tdwp-dup: posts are created as drafts; get_posts() defaults to
+				// publish only, so this silently matched nothing.
+				'post_status' => array('publish', 'draft', 'pending', 'private', 'future'),
 				'posts_per_page' => -1,
 				'orderby'        => 'date',
 				'order'          => 'ASC',

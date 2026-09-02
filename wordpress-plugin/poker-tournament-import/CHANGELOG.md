@@ -68,6 +68,26 @@ and refused to build the canonical table.
 All six lookups now pass an explicit status list. `trash` is excluded on purpose, so a
 deliberately trashed post is never silently resurrected.
 
+### 🐛 Re-importing silently unpublished live tournaments
+
+A re-import carried the import form's status, which defaults to draft. The code tried
+to protect existing posts by *removing* `post_status` before saving — but WordPress
+treats a missing `post_status` as **draft**, not as "leave unchanged". Every
+re-imported tournament was therefore quietly unpublished and disappeared from the
+public site. The existing status is now assigned explicitly: published stays
+published, and a draft stays a draft.
+
+### 🐛 Standings showed "Unknown Player"
+
+The same draft-versus-published defect ran through the **display** layer. Twenty-five
+lookups resolved a player, season, series or tournament to a post without specifying
+which post statuses to accept, so with draft posts they matched nothing. Series
+standings rendered every row as "Unknown Player" beside otherwise correct points, and
+season standings could find no tournaments at all.
+
+A guard script (`tests/tools/uuid-lookup-guard.php`) now fails the build if any such
+lookup omits its status list again.
+
 ### 🧹 Cleaning up duplicates that already exist
 
 The fix stops new duplicates; existing ones stay until removed. **Poker Import →

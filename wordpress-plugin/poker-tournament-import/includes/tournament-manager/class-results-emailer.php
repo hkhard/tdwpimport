@@ -142,6 +142,9 @@ class TDWP_Results_Emailer {
 			$player = get_posts(
 				array(
 					'post_type'      => 'player',
+					// tdwp-dup: these posts are drafts; get_posts() defaults to
+					// post_status=publish, so the lookup silently found nothing.
+					'post_status' => array('publish', 'draft', 'pending', 'private', 'future'),
 					'posts_per_page' => 1,
 					'meta_query'     => array(
 						array(

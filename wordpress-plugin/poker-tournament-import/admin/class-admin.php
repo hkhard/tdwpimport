@@ -1694,7 +1694,13 @@ class Poker_Tournament_Import_Admin {
                     // tdwp-qag: preserve the existing publish/draft state — do NOT let a
                     // re-import (which may default to 'draft') silently unpublish a live
                     // tournament. Only a brand-new post uses the import form's status.
-                    unset($post_data['post_status']);
+                    //
+                    // This must ASSIGN the current status, not unset the key. wp_insert_post()
+                    // treats a missing post_status as 'draft' rather than "leave unchanged",
+                    // so unsetting it unpublished every re-imported tournament. Verified
+                    // against core: update a published post with no post_status and it
+                    // comes back as a draft.
+                    $post_data['post_status'] = $existing_status;
                 }
 
                 Poker_Tournament_Import_Debug::log('Existing tournament found by UUID, updating in place', array(
@@ -4780,6 +4786,9 @@ class Poker_Tournament_Import_Admin {
                 // Get tournament count
                 $tournament_count = count(get_posts(array(
                     'post_type' => 'tournament',
+                    // tdwp-dup: posts are created as drafts; get_posts() defaults to
+                    // publish only, so this silently matched nothing.
+                    'post_status' => array('publish', 'draft', 'pending', 'private', 'future'),
                     'meta_key' => '_season_id',
                     'meta_value' => $season->ID,
                     'posts_per_page' => -1,
@@ -5120,6 +5129,9 @@ class Poker_Tournament_Import_Admin {
 
         $tournaments = get_posts(array(
             'post_type' => 'tournament',
+            // tdwp-dup: posts are created as drafts; get_posts() defaults to
+            // publish only, so this silently matched nothing.
+            'post_status' => array('publish', 'draft', 'pending', 'private', 'future'),
             'meta_key' => '_season_id',
             'meta_value' => $season_id,
             'posts_per_page' => -1,
@@ -5421,6 +5433,9 @@ class Poker_Tournament_Import_Admin {
             $override = $adjustment_manager->get_adjustment($uuid, $row['player_id']);
             $player_post = get_posts(array(
                 'post_type' => 'player',
+                // tdwp-dup: these posts are drafts; get_posts() defaults to
+                // post_status=publish, so the lookup silently found nothing.
+                'post_status' => array('publish', 'draft', 'pending', 'private', 'future'),
                 'posts_per_page' => 1,
                 'meta_query' => array(array('key' => 'player_uuid', 'value' => $row['player_id'], 'compare' => '=')),
             ));

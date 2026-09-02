@@ -356,6 +356,9 @@ class Poker_Tournament_Import_Shortcodes {
             foreach ($players as $index => $player) {
                 $player_post = get_posts(array(
                     'post_type' => 'player',
+                    // tdwp-dup: these posts are drafts; get_posts() defaults to
+                    // post_status=publish, so the lookup silently found nothing.
+                    'post_status' => array('publish', 'draft', 'pending', 'private', 'future'),
                     'meta_key' => 'player_uuid',
                     'meta_value' => $player->player_id,
                     'numberposts' => 1
@@ -822,6 +825,9 @@ class Poker_Tournament_Import_Shortcodes {
         // Get series statistics
         $series_tournaments = get_posts(array(
             'post_type' => 'tournament',
+            // tdwp-dup: posts are created as drafts; get_posts() defaults to
+            // publish only, so this silently matched nothing.
+            'post_status' => array('publish', 'draft', 'pending', 'private', 'future'),
             'meta_key' => '_series_id',
             'meta_value' => $series_id,
             'posts_per_page' => -1,
@@ -1023,6 +1029,9 @@ class Poker_Tournament_Import_Shortcodes {
 
         $series_tournaments = get_posts(array(
             'post_type' => 'tournament',
+            // tdwp-dup: posts are created as drafts; get_posts() defaults to
+            // publish only, so this silently matched nothing.
+            'post_status' => array('publish', 'draft', 'pending', 'private', 'future'),
             'meta_key' => '_series_id',
             'meta_value' => $series_id,
             'posts_per_page' => $atts['show_all'] === 'true' ? -1 : intval($atts['limit']),
@@ -1140,6 +1149,9 @@ class Poker_Tournament_Import_Shortcodes {
         // Get tournament UUIDs for this series
         $series_tournaments = get_posts(array(
             'post_type' => 'tournament',
+            // tdwp-dup: posts are created as drafts; get_posts() defaults to
+            // publish only, so this silently matched nothing.
+            'post_status' => array('publish', 'draft', 'pending', 'private', 'future'),
             'meta_key' => '_series_id',
             'meta_value' => $series_id,
             'posts_per_page' => -1,
@@ -1274,6 +1286,9 @@ class Poker_Tournament_Import_Shortcodes {
         // Get tournament UUIDs for this series
         $series_tournaments = get_posts(array(
             'post_type' => 'tournament',
+            // tdwp-dup: posts are created as drafts; get_posts() defaults to
+            // publish only, so this silently matched nothing.
+            'post_status' => array('publish', 'draft', 'pending', 'private', 'future'),
             'meta_key' => '_series_id',
             'meta_value' => $series_id,
             'posts_per_page' => -1,
@@ -1487,6 +1502,9 @@ class Poker_Tournament_Import_Shortcodes {
         // Get season statistics
         $season_tournaments = get_posts(array(
             'post_type' => 'tournament',
+            // tdwp-dup: posts are created as drafts; get_posts() defaults to
+            // publish only, so this silently matched nothing.
+            'post_status' => array('publish', 'draft', 'pending', 'private', 'future'),
             'meta_key' => '_season_id',
             'meta_value' => $season_id,
             'posts_per_page' => -1,
@@ -1688,6 +1706,9 @@ class Poker_Tournament_Import_Shortcodes {
 
         $season_tournaments = get_posts(array(
             'post_type' => 'tournament',
+            // tdwp-dup: posts are created as drafts; get_posts() defaults to
+            // publish only, so this silently matched nothing.
+            'post_status' => array('publish', 'draft', 'pending', 'private', 'future'),
             'meta_key' => '_season_id',
             'meta_value' => $season_id,
             'posts_per_page' => $atts['show_all'] === 'true' ? -1 : intval($atts['limit']),
@@ -1797,6 +1818,9 @@ class Poker_Tournament_Import_Shortcodes {
         // Get tournament UUIDs for this season
         $season_tournaments = get_posts(array(
             'post_type' => 'tournament',
+            // tdwp-dup: posts are created as drafts; get_posts() defaults to
+            // publish only, so this silently matched nothing.
+            'post_status' => array('publish', 'draft', 'pending', 'private', 'future'),
             'meta_key' => '_season_id',
             'meta_value' => $season_id,
             'posts_per_page' => -1,
@@ -1931,6 +1955,9 @@ class Poker_Tournament_Import_Shortcodes {
         // Get tournament UUIDs for this season
         $season_tournaments = get_posts(array(
             'post_type' => 'tournament',
+            // tdwp-dup: posts are created as drafts; get_posts() defaults to
+            // publish only, so this silently matched nothing.
+            'post_status' => array('publish', 'draft', 'pending', 'private', 'future'),
             'meta_key' => '_season_id',
             'meta_value' => $season_id,
             'posts_per_page' => -1,
@@ -4950,6 +4977,9 @@ class Poker_Tournament_Import_Shortcodes {
             // Get tournament count with correct field name
             $tournament_posts = get_posts(array(
                 'post_type' => 'tournament',
+                // tdwp-dup: posts are created as drafts; get_posts() defaults to
+                // publish only, so this silently matched nothing.
+                'post_status' => array('publish', 'draft', 'pending', 'private', 'future'),
                 'meta_query' => array(
                     'relation' => 'OR',
                     array(
@@ -5014,6 +5044,9 @@ class Poker_Tournament_Import_Shortcodes {
             // Get tournament count
             $tournament_posts = get_posts(array(
                 'post_type' => 'tournament',
+                // tdwp-dup: posts are created as drafts; get_posts() defaults to
+                // publish only, so this silently matched nothing.
+                'post_status' => array('publish', 'draft', 'pending', 'private', 'future'),
                 'meta_key' => '_season_id',
                 'meta_value' => $season->ID,
                 'posts_per_page' => -1,
@@ -5553,6 +5586,9 @@ class Poker_Tournament_Import_Shortcodes {
     private function get_tournament_post_id($tournament_uuid) {
         $posts = get_posts(array(
             'post_type' => 'tournament',
+            // tdwp-dup: these posts are drafts; get_posts() defaults to
+            // post_status=publish, so the lookup silently found nothing.
+            'post_status' => array('publish', 'draft', 'pending', 'private', 'future'),
             'meta_query' => array(
                 array(
                     'key' => 'tournament_uuid',

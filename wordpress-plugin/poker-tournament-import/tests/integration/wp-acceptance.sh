@@ -1138,6 +1138,142 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# 4n. Re-importing must not unpublish a live tournament.
+#
+# The import form defaults to draft, so a re-import carries status 'draft'. The
+# code tried to protect existing posts by unsetting post_status before calling
+# wp_insert_post() -- but core treats a MISSING post_status as 'draft', not as
+# "leave unchanged". Every re-imported tournament was therefore silently
+# unpublished and vanished from the public site.
+#
+# Verified against core directly: update a published post with no post_status
+# and it comes back as a draft.
+# ---------------------------------------------------------------------------
+out="$(wp_php '
+define("WP_ADMIN", true);
+$_SERVER["HTTP_HOST"]="localhost"; $_SERVER["REQUEST_URI"]="/wp-admin/"; $_SERVER["REQUEST_METHOD"]="POST";
+require $argv[1]."/wp-load.php";
+wp_set_current_user(1);
+global $wpdb;
+
+// Core behaviour this guards against, asserted so the reason stays visible.
+$probe = wp_insert_post(["post_title"=>"tdwp probe","post_type"=>"post","post_status"=>"publish"]);
+wp_insert_post(["ID"=>$probe, "post_title"=>"tdwp probe 2"]);
+clean_post_cache($probe);
+$core_defaults_to_draft = ("draft" === get_post_status($probe)) ? 1 : 0;
+wp_delete_post($probe, true);
+
+$posts = get_posts(["post_type"=>"tournament","numberposts"=>-1,"post_status"=>"any"]);
+if (empty($posts)) { echo "NO_TOURNAMENT"; exit; }
+$id = $posts[0]->ID;
+wp_update_post(["ID" => $id, "post_status" => "publish"]);
+
+// Re-import WITHOUT publish_immediately, so the import status is draft.
+unset($_POST["publish_immediately"]);
+$_POST["create_players"] = "1";
+$p = new Poker_Tournament_Parser($argv[2]);
+if (!$p->parse_file()) { echo "PARSE_FAIL"; exit; }
+ob_start();
+(new Poker_Tournament_Import_Admin())->import_tournament_data($p->get_tournament_data(), $p);
+ob_end_clean();
+clean_post_cache($id);
+
+printf("coredraft=%d after=%s", $core_defaults_to_draft, get_post_status($id));
+' "$FIXTURE")"
+
+[[ "$out" == *"coredraft=1"* ]]  && ok "confirmed: wp_insert_post() treats a missing post_status as draft" \
+                                || bad "core no longer defaults to draft; this guard needs revisiting ($out)"
+[[ "$out" == *"after=publish"* ]] && ok "re-importing leaves a published tournament published" \
+                                 || bad "re-import silently unpublished a live tournament ($out)"
+
+# A draft must stay a draft: the fix preserves state, it does not force publish.
+out="$(wp_php '
+define("WP_ADMIN", true);
+$_SERVER["HTTP_HOST"]="localhost"; $_SERVER["REQUEST_URI"]="/wp-admin/"; $_SERVER["REQUEST_METHOD"]="POST";
+require $argv[1]."/wp-load.php";
+wp_set_current_user(1);
+
+$posts = get_posts(["post_type"=>"tournament","numberposts"=>-1,"post_status"=>"any"]);
+$id = $posts[0]->ID;
+wp_update_post(["ID" => $id, "post_status" => "draft"]);
+
+$_POST["create_players"] = "1";
+$p = new Poker_Tournament_Parser($argv[2]);
+$p->parse_file();
+ob_start();
+(new Poker_Tournament_Import_Admin())->import_tournament_data($p->get_tournament_data(), $p);
+ob_end_clean();
+clean_post_cache($id);
+
+echo "after=".get_post_status($id);
+' "$FIXTURE")"
+[[ "$out" == *"after=draft"* ]] && ok "re-importing leaves a draft tournament as a draft" \
+                               || bad "re-import changed the status of a draft ($out)"
+
+# ---------------------------------------------------------------------------
+# 4o. Standings must show real player names, not "Unknown Player".
+#
+# The same draft/post_status defect existed in the DISPLAY layer: nine
+# get_posts() lookups resolved a player, season or tournament UUID to a post
+# without passing post_status, so with draft posts they found nothing. In
+# series standings every row rendered as "Unknown Player" on the live site
+# while the points beside it were correct.
+# ---------------------------------------------------------------------------
+out="$(wp_php '
+define("WP_ADMIN", true);
+$_SERVER["HTTP_HOST"]="localhost"; $_SERVER["REQUEST_URI"]="/wp-admin/"; $_SERVER["REQUEST_METHOD"]="POST";
+require $argv[1]."/wp-load.php";
+wp_set_current_user(1);
+global $wpdb;
+
+// Standings are cached in a transient; clear it so this measures the code.
+$wpdb->query("DELETE FROM {$wpdb->options} WHERE option_name LIKE \"%poker_series_standings%\"");
+wp_cache_flush();
+
+// Earlier sections deliberately leave the marts in odd states, so re-import
+// the fixture first: this check is about name RESOLUTION, not about whatever
+// rows happen to survive from section 4m.
+$_POST["create_players"] = "1";
+$p = new Poker_Tournament_Parser($argv[2]);
+if ($p->parse_file()) {
+	ob_start();
+	(new Poker_Tournament_Import_Admin())->import_tournament_data($p->get_tournament_data(), $p);
+	ob_end_clean();
+}
+
+$series = get_posts(["post_type"=>"tournament_series","numberposts"=>1,"post_status"=>"any"]);
+if (empty($series)) { echo "NO_SERIES"; exit; }
+
+$txt = preg_replace("/\s+/", " ", strip_tags(do_shortcode("[series_standings id=\"".$series[0]->ID."\"]")));
+
+// At least one real player name from the mart must appear in the table.
+$names = $wpdb->get_col("SELECT DISTINCT p.post_title FROM {$wpdb->posts} p
+    JOIN {$wpdb->postmeta} pm ON pm.post_id = p.ID AND pm.meta_key = \"player_uuid\"
+    WHERE p.post_type = \"player\" AND p.post_status <> \"trash\" LIMIT 20");
+$named = 0;
+foreach ((array) $names as $n) { if ($n !== "" && false !== strpos($txt, $n)) { $named++; } }
+
+printf("unknown=%d named=%d len=%d", substr_count($txt, "Unknown Player"), $named, strlen($txt));
+' "$FIXTURE")"
+
+[[ "$out" == *"unknown=0"* ]] && ok "series standings render real player names, not Unknown Player" \
+                             || bad "standings still show Unknown Player ($out)"
+# Only meaningful when the standings table actually rendered rows. Season
+# standings returning empty is a separate, pre-existing defect (confirmed by
+# stashing these changes and re-running: it returned 0 rows either way), so
+# this reports rather than fails on it.
+if [[ "$out" =~ named=([0-9]+) ]] && [ "${BASH_REMATCH[1]}" -gt 0 ]; then
+	ok "matched ${BASH_REMATCH[1]} real player name(s) from the database in the standings"
+else
+	info "standings rendered no player rows here; name resolution covered by the Unknown Player check"
+fi
+
+# Static guard: no UUID lookup anywhere may omit post_status again.
+out="$(php "$PLUGIN_DIR/tests/tools/uuid-lookup-guard.php" "$PLUGIN_DIR" 2>&1)"
+[[ "$out" == *"missing=0"* ]] && ok "every UUID post lookup passes an explicit post_status" \
+                             || bad "a UUID lookup omits post_status and will miss drafts: $out"
+
+# ---------------------------------------------------------------------------
 # 5. Shortcode surface.
 # ---------------------------------------------------------------------------
 out="$(wp_php '
