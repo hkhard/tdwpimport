@@ -159,6 +159,10 @@ $tdwp_diag_find_dupes = static function ( $post_type, $meta_key ) use ( $wpdb ) 
 };
 
 $tdwp_diag_dupe_types = array(
+	// Tournaments first: a duplicated tournament inflates every player's totals,
+	// because the statistics marts aggregate per tournament and each copy carries
+	// its own participation rows. Bulk Import created these before 3.9.12.
+	'tournament'        => array( 'tournament_uuid', __( 'Tournaments', 'poker-tournament-import' ) ),
 	'player'            => array( 'player_uuid', __( 'Players', 'poker-tournament-import' ) ),
 	'tournament_season' => array( 'season_uuid', __( 'Seasons', 'poker-tournament-import' ) ),
 	'tournament_series' => array( 'series_uuid', __( 'Series', 'poker-tournament-import' ) ),

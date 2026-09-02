@@ -1167,6 +1167,8 @@ class Poker_Tournament_Import_Admin {
     private function check_duplicate_tournament($tournament_uuid) {
         $args = array(
             'post_type' => 'tournament',
+            // tdwp-dup: drafts are invisible to the default publish-only filter.
+            'post_status' => array('publish', 'draft', 'pending', 'private', 'future'),
             'meta_query' => array(
                 array(
                     'key' => 'tournament_uuid',

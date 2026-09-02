@@ -26,6 +26,8 @@ class Poker_Tournament_Migration_Tools {
     public function get_tournaments_needing_migration() {
         $args = array(
             'post_type' => 'tournament',
+            // tdwp-dup: drafts are invisible to the default publish-only filter.
+            'post_status' => array('publish', 'draft', 'pending', 'private', 'future'),
             'posts_per_page' => -1,
             'fields' => 'ids',
             'meta_query' => array(
@@ -335,6 +337,8 @@ class Poker_Tournament_Migration_Tools {
         if (!empty($series_uuid)) {
             $args = array(
                 'post_type' => 'tournament_series',
+                // tdwp-dup: drafts are invisible to the default publish-only filter.
+                'post_status' => array('publish', 'draft', 'pending', 'private', 'future'),
                 'meta_query' => array(
                     array(
                         'key' => 'series_uuid',
@@ -388,6 +392,8 @@ class Poker_Tournament_Migration_Tools {
         if (!empty($season_uuid)) {
             $args = array(
                 'post_type' => 'tournament_season',
+                // tdwp-dup: drafts are invisible to the default publish-only filter.
+                'post_status' => array('publish', 'draft', 'pending', 'private', 'future'),
                 'meta_query' => array(
                     array(
                         'key' => 'season_uuid',

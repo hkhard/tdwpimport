@@ -68,6 +68,40 @@ and refused to build the canonical table.
 All six lookups now pass an explicit status list. `trash` is excluded on purpose, so a
 deliberately trashed post is never silently resurrected.
 
+### 🚨 Season points were roughly double the correct value
+
+**If your standings look about twice what they should be, this is why — and this
+release repairs it automatically.**
+
+Two separate faults combined.
+
+**The duplicate rows.** The participation table `poker_tournament_players` is meant to
+carry a `UNIQUE(tournament_id, player_id)` index, so re-importing a tournament updates
+each player's row instead of adding another. That index is added by a migration — and
+as described in 3.9.11, sites upgraded from an older version never ran their
+migrations. On those installs the index was missing, so every re-import appended a
+second row per player per tournament. Season standings sum those rows, so points
+doubled. Measured on a copy of a real site: a player on 1608 points read 3216 with the
+duplicate rows present, across 24 tournaments instead of 12.
+
+**The repair ran too late.** A dedup-and-reindex routine already ran on upgrade, but it
+ran *after* the statistics rebuild in the same request. Statistics were therefore
+aggregated from the duplicated rows and stored while still inflated, and the cleanup
+that followed came too late to affect them. The numbers stayed wrong until something
+else triggered another rebuild. The repair now runs first, so statistics are only ever
+built from deduplicated data.
+
+Upgrading is enough — no button to press. The same repair is available on demand as
+**Repair participation mart** if you want to re-run it.
+
+Separately, Bulk Import created a new tournament post on every run rather than updating
+the existing one, because that screen uses a different importer from the single-file one
+and its tournament path had no duplicate check. This did not affect points — the unique
+index keys on the tournament's identifier, which all copies share — but it did leave
+redundant posts. Bulk import now finds and updates the existing tournament, preserving
+its published state, and Poker Import → Diagnostics lists duplicated tournaments so
+**Merge duplicates** can remove leftovers.
+
 ### 🐛 Re-importing silently unpublished live tournaments
 
 A re-import carried the import form's status, which defaults to draft. The code tried

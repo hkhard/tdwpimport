@@ -1354,6 +1354,70 @@ printf("cleanshown=%d saysnone=%d cleanbutton=%d detected=%d button=%d",
                                   || bad "duplicates found but no Merge button offered ($out)"
 
 # ---------------------------------------------------------------------------
+# 4q. Bulk import must not duplicate tournaments.
+#
+# The Bulk Import screen uses a SECOND importer (class-batch-processor.php)
+# with its own copies of the create-or-find helpers. Its tournament path had no
+# existence check at all -- it always inserted -- so every bulk re-import of the
+# same .tdt created another tournament post. Reported from production: 14 files
+# produced 31 tournament posts, and every player's season points roughly
+# doubled, because the marts aggregate per tournament UUID and each duplicate
+# post carried its own participation rows.
+#
+# The single-file importer was fixed for this long ago (tdwp-48e); this path
+# was missed, and the static guard could not see it because its queries are
+# built into a $args variable rather than passed inline.
+# ---------------------------------------------------------------------------
+out="$(wp_php '
+define("WP_ADMIN", true);
+$_SERVER["HTTP_HOST"]="localhost"; $_SERVER["REQUEST_URI"]="/wp-admin/";
+require $argv[1]."/wp-load.php";
+wp_set_current_user(1);
+global $wpdb;
+
+require_once ABSPATH."wp-content/plugins/poker-tournament-import/admin/class-batch-processor.php";
+$bp = new Poker_Tournament_Batch_Processor();
+$rc = new ReflectionClass($bp);
+$create = $rc->getMethod("create_tournament");
+$create->setAccessible(true);
+
+$count = static function ($type) use ($wpdb) {
+	return (int) $wpdb->get_var($wpdb->prepare(
+		"SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_type=%s AND post_status<>\"trash\"", $type));
+};
+
+$run = static function () use ($create, $bp, $argv) {
+	$p = new Poker_Tournament_Parser($argv[2]);
+	if (!$p->parse_file()) { return; }
+	ob_start();
+	try { $create->invoke($bp, $p->get_tournament_data()); } catch (Throwable $e) { /* reported below */ }
+	ob_end_clean();
+};
+
+$run();
+$t1 = $count("tournament");
+$run();
+$t2 = $count("tournament");
+
+// Publish state must survive a bulk re-import too.
+$posts = get_posts(["post_type"=>"tournament","numberposts"=>-1,"post_status"=>"any"]);
+$id = $posts[0]->ID;
+wp_update_post(["ID" => $id, "post_status" => "publish"]);
+$run();
+clean_post_cache($id);
+
+printf("t1=%d t2=%d status=%s", $t1, $t2, get_post_status($id));
+' "$FIXTURE")"
+
+if [[ "$out" =~ t1=([0-9]+)\ t2=([0-9]+) ]] && [ "${BASH_REMATCH[1]}" = "${BASH_REMATCH[2]}" ]; then
+	ok "bulk import reuses the existing tournament instead of duplicating it (${BASH_REMATCH[1]})"
+else
+	bad "bulk re-import created duplicate tournament posts ($out)"
+fi
+[[ "$out" == *"status=publish"* ]] && ok "bulk re-import leaves a published tournament published" \
+                                  || bad "bulk re-import changed the publish state ($out)"
+
+# ---------------------------------------------------------------------------
 # 5. Shortcode surface.
 # ---------------------------------------------------------------------------
 out="$(wp_php '

@@ -402,6 +402,18 @@ class Poker_Tournament_Import {
             // Plugin was updated, force refresh statistics
             error_log("Poker Import: Plugin updated from {$last_version} to " . POKER_TOURNAMENT_IMPORT_VERSION . ", refreshing statistics");
 
+            // tdwp-dup: repair the participation mart BEFORE the statistics refresh below.
+            // Sites upgraded from before 3.9.11 ran no migrations, so poker_tournament_players
+            // may lack UNIQUE(tournament_id, player_id) and hold a duplicate row per player per
+            // tournament — which doubles season points. The repair used to run after the refresh,
+            // so statistics were rebuilt from the duplicated rows and stayed inflated until the
+            // next rebuild. Dedup first, then aggregate from clean data.
+            $orphans_removed = $this->reconcile_orphan_participation_rows();
+            if ($orphans_removed > 0) {
+                error_log("Poker Import: reconciled {$orphans_removed} orphaned participation rows on upgrade");
+            }
+            $this->ensure_participation_unique_index();
+
             if (class_exists('Poker_Statistics_Engine')) {
                 $stats_engine = Poker_Statistics_Engine::get_instance();
                 $result = $stats_engine->calculate_all_statistics();
@@ -433,15 +445,6 @@ class Poker_Tournament_Import {
                     error_log("ROI Migration: Skipped - ROI table already has {$roi_count} records");
                 }
             }
-
-            // tdwp-46s: one-time repair of the participation mart on upgrade —
-            // reconcile orphaned rows, dedup, and enforce the UNIQUE index so historical
-            // duplicate tournaments stop rendering on player profiles.
-            $orphans_removed = $this->reconcile_orphan_participation_rows();
-            if ($orphans_removed > 0) {
-                error_log("Poker Import: reconciled {$orphans_removed} orphaned participation rows on upgrade");
-            }
-            $this->ensure_participation_unique_index();
 
             // tdwp-eil (tdwp-rqr): also enforce the ROI UNIQUE(player_id, tournament_id) index on
             // UPDATE, not just activation. Prod installs update in place (no deactivate/reactivate),

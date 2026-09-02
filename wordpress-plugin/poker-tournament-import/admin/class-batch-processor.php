@@ -421,7 +421,50 @@ class Poker_Tournament_Batch_Processor {
             $post_data['post_date_gmt'] = get_gmt_from_date($post_data['post_date']);
         }
 
-        // Create tournament post
+        /*
+         * Find-or-update by UUID, exactly as the single-file importer does.
+         *
+         * This path had NO existence check at all: it always inserted, so every
+         * bulk re-import of the same .tdt created another tournament post. On a
+         * live site that doubled every player's totals, because the statistics
+         * marts aggregate per tournament UUID and each duplicate post carried
+         * its own participation rows.
+         *
+         * Trash is included in the search so a deliberately trashed tournament
+         * is found and updated in place rather than silently re-created, and
+         * the existing publish/draft state is preserved: wp_insert_post()
+         * treats a missing post_status as 'draft', so it must be assigned.
+         */
+        if (!empty($metadata['uuid'])) {
+            $existing = get_posts(array(
+                'post_type'      => 'tournament',
+                'post_status'    => array('publish', 'draft', 'pending', 'private', 'future', 'trash'),
+                'meta_query'     => array(
+                    array(
+                        'key'     => 'tournament_uuid',
+                        'value'   => $metadata['uuid'],
+                        'compare' => '=',
+                    ),
+                ),
+                'posts_per_page' => 1,
+                'fields'         => 'ids',
+            ));
+
+            if (!empty($existing)) {
+                $existing_id = (int) $existing[0];
+                $post_data['ID'] = $existing_id;
+
+                $existing_status = get_post_status($existing_id);
+                if ('trash' === $existing_status) {
+                    wp_untrash_post($existing_id);
+                } else {
+                    // Never let a bulk re-import unpublish a live tournament.
+                    $post_data['post_status'] = $existing_status;
+                }
+            }
+        }
+
+        // Create or update the tournament post
         $post_id = wp_insert_post($post_data);
 
         if (is_wp_error($post_id)) {
@@ -689,6 +732,7 @@ class Poker_Tournament_Batch_Processor {
         if (!empty($series_uuid)) {
             $args = array(
                 'post_type' => 'tournament_series',
+            'post_status' => array('publish', 'draft', 'pending', 'private', 'future'),
                 'meta_query' => array(
                     array(
                         'key' => 'series_uuid',
@@ -708,6 +752,7 @@ class Poker_Tournament_Batch_Processor {
         // Try to find by name if no UUID match
         $args = array(
             'post_type' => 'tournament_series',
+            'post_status' => array('publish', 'draft', 'pending', 'private', 'future'),
             'title' => $series_name,
             'posts_per_page' => 1
         );
@@ -750,6 +795,7 @@ class Poker_Tournament_Batch_Processor {
         if (!empty($season_uuid)) {
             $args = array(
                 'post_type' => 'tournament_season',
+            'post_status' => array('publish', 'draft', 'pending', 'private', 'future'),
                 'meta_query' => array(
                     array(
                         'key' => 'season_uuid',
@@ -769,6 +815,7 @@ class Poker_Tournament_Batch_Processor {
         // Try to find by name if no UUID match
         $args = array(
             'post_type' => 'tournament_season',
+            'post_status' => array('publish', 'draft', 'pending', 'private', 'future'),
             'title' => $season_name,
             'posts_per_page' => 1
         );
@@ -810,6 +857,7 @@ class Poker_Tournament_Batch_Processor {
         // First, try to find existing player by UUID
         $args = array(
             'post_type' => 'player',
+            'post_status' => array('publish', 'draft', 'pending', 'private', 'future'),
             'meta_query' => array(
                 array(
                     'key' => 'player_uuid',
@@ -828,6 +876,7 @@ class Poker_Tournament_Batch_Processor {
         // Try to find by name if no UUID match
         $args = array(
             'post_type' => 'player',
+            'post_status' => array('publish', 'draft', 'pending', 'private', 'future'),
             'title' => $player_name,
             'posts_per_page' => 1
         );
